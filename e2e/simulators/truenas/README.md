@@ -62,7 +62,8 @@ Standaard-API-keys (alleen simulator; opvraagbaar via `GET /_sim/keys`):
 | `zfs.snapshot.query/create/clone/rollback` | ✓ | — | in 25.10 privé; simulator: **afwezig** (`-32601`) |
 | `pool.snapshot.query/create/clone/rollback` | — | ✓ | nieuw publiek in 25.10 |
 | `pool.snapshottask.query`, `cloudsync.query`, `replication.query`, `alert.list` | ✓ | ✓ | taken standaard leeg/minimaal (D04 onbekend) |
-| `disk.query`, `disk.temperatures`, `smart.test.results` | ✓ | ✓ | SMART-methodenaam per versie **onzeker** |
+| `disk.query`, `disk.temperatures` | ✓ | ✓ | |
+| `smart.test.results` | ✓ | — | 25.10: geen publieke SMART-resultatenmethode (MW-25.10.8 zonder `plugins/smart.py`; niet in api.truenas.com/v25.10) → simulator: **afwezig** (`-32601`); SMART-alerts via `alert.list` |
 | `app.query`, `app.config`, `app.used_ports`, `app.gpu_choices`, `app.image.query`, `app.rollback_versions`, `app.upgrade_summary` | ✓ | ✓ | |
 | `app.create`, `app.update`, `app.delete`, `app.start`, `app.stop`, `app.redeploy`, `app.rollback`, `app.upgrade` | ✓ | ✓ | jobs |
 | `app.available`, `catalog.get_app_details`, `catalog.config`, `catalog.trains`, `catalog.update`, `catalog.sync` | ✓ | ✓ | nep-catalogus |

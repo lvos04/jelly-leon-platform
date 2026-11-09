@@ -68,6 +68,12 @@ def test_25_04_profile() -> None:
             assert rpc.call("system.version_short") == "25.04.2.6"
             snap = rpc.call("zfs.snapshot.create", {"dataset": "simpool/apps", "name": "voor-update"})
             assert snap["id"] == "simpool/apps@voor-update"
+            assert "smart.test.results" in rpc.call("core.get_methods")  # alleen in 25.04 publiek
+            sda = rpc.call("smart.test.results", [["disk", "=", "sda"]], {"get": True})
+            assert sda["tests"][0]["status"] == "SUCCESS"
+            c.post("/_sim/faults/smart_fail", json={"disk": "sdb"})
+            sdb = rpc.call("smart.test.results", [["disk", "=", "sdb"]], {"get": True})
+            assert sdb["tests"][0]["status"] == "FAILED"
 
 
 def test_readonly_key_cannot_write(ro: Rpc) -> None:

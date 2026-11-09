@@ -282,9 +282,12 @@ async def disk_query(ctx: Ctx, filters: list[Any] | None = None, options: dict[s
     return filter_list(copy.deepcopy(ctx.state.disks), filters, options)
 
 
-@register("smart.test.results", roles=("REPORTING_READ",), filterable=True)
+# 25.04: smart.test.* publiek (MW-25.04 plugins/smart.py). 25.10: plugin verwijderd (MW-25.10.8 heeft geen
+# plugins/smart.py, alleen privé disk.smart_test) en api.truenas.com/v25.10 documenteert geen smart.*-methode →
+# hier afwezig (-32601); afnemers melden capability_unavailable. SMART-alerts blijven via alert.list (beide versies).
+@register("smart.test.results", roles=("REPORTING_READ",), families=("25.04",), filterable=True)
 async def smart_test_results(ctx: Ctx, filters: list[Any] | None = None, options: dict[str, Any] | None = None) -> Any:
-    """SMART-testresultaten per schijf (methodenaam/schema per versie onzeker; zie README)."""
+    """SMART-testresultaten per schijf (alleen 25.04; schema vereenvoudigd, zie README)."""
     rows = [{"disk": disk, "tests": copy.deepcopy(tests)} for disk, tests in ctx.state.smart_results.items()]
     return filter_list(rows, filters, options)
 

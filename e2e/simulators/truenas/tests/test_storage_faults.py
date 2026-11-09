@@ -36,10 +36,13 @@ def test_pool_degraded_and_alerts(client: TestClient, ro: Rpc) -> None:
 def test_disks_smart_gpu_tasks(client: TestClient, ro: Rpc) -> None:
     disks = ro.call("disk.query")
     assert len(disks) == 3 and all(d["serial"].startswith("SIM-") for d in disks)
-    assert ro.call("smart.test.results", [["disk", "=", "sda"]], {"get": True})["tests"][0]["status"] == "SUCCESS"
+    # 25.10 heeft geen publieke SMART-resultatenmethode (officiële docs + broncode): eerlijk 'bestaat niet'
+    with pytest.raises(RpcFailed) as exc:
+        ro.call("smart.test.results")
+    assert exc.value.code == -32601
+    assert "smart.test.results" not in ro.call("core.get_methods")
     client.post("/_sim/faults/smart_fail", json={"disk": "sdb"})
-    assert ro.call("smart.test.results", [["disk", "=", "sdb"]], {"get": True})["tests"][0]["status"] == "FAILED"
-    assert any(a["klass"] == "SMART" for a in ro.call("alert.list"))
+    assert any(a["klass"] == "SMART" for a in ro.call("alert.list"))  # alerts blijven wel beschikbaar
     gpus = ro.call("app.gpu_choices")
     assert all(g["vendor"] == "INTEL" and "SIM" in g["description"] for g in gpus.values())
     assert ro.call("pool.snapshottask.query")[0]["dataset"] == "simpool/apps"

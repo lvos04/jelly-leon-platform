@@ -5,9 +5,9 @@ het platform via de TrueNAS-API een **standaard Custom App** (het gewone formuli
 bijwerkt, terugzet en verwijdert — **nooit** via `custom_compose_config`/*Install via YAML*.
 
 > **Status: onderzoek op broncode, NIET GEVALIDEERD op een echte TrueNAS.** Alles hieronder is gelezen in de
-> publieke broncode (tabel "Bronnen"). De officiële API-documentatie (`api.truenas.com`, `www.truenas.com/docs`,
-> `apps.truenas.com`) was vanuit de bouwomgeving **niet bereikbaar** (proxy weigert, HTTP 403) en is dus niet
-> geraadpleegd; controleer daar vóór P2. Op de echte NAS moeten methodenamen en schema's altijd worden ontdekt met
+> publieke broncode (tabel "Bronnen"). De officiële API-documentatie (`api.truenas.com`) was in de oude bouwomgeving
+> niet bereikbaar; op 2026-11-09 (nieuwe machine) wél, en een steekproef is ertegen gecontroleerd — zie
+> "Controle tegen de officiële API-documentatie" hieronder. Op de echte NAS moeten methodenamen en schema's altijd worden ontdekt met
 > `core.get_methods` en `system.version` (contract §8). Het testbaar model hiervan is de TrueNAS-simulator
 > (`e2e/simulators/truenas`, Sim-getest).
 
@@ -119,7 +119,7 @@ scope en mogen pas na een eigen broncheck worden ondersteund.
 | **25.04:** `zfs.snapshot.query/create/clone/rollback` zijn publiek; er is geen `pool.snapshot.create`. | MW-25.04 `plugins/zfs_/snapshot.py`, `snapshot_actions.py` (geen `private`), `api/v25_04_2/` (geen `pool_snapshot.py`) | zeker |
 | **25.10:** `pool.snapshot.query/create/update/delete/clone/rollback/hold/release/rename` zijn publiek (`clone`: rollen `SNAPSHOT_WRITE`+`DATASET_WRITE`; `rollback`: `SNAPSHOT_WRITE`+`POOL_WRITE`); `zfs.snapshot.*` is **privé**. `pool.snapshot.clone({snapshot, dataset_dst, dataset_properties})`. | MW-25.10 `plugins/pool_/snapshot.py`, `plugins/zfs_/snapshot.py` (`private = True`), `api/v25_10_0/pool_snapshot.py` | zeker |
 | Privé methoden via WebSocket worden (nog) uitgevoerd met alleen een waarschuwing ("FIXME: Eventually, prohibit this"). Het platform gebruikt ze **niet**. | MW-25.10 `rpc.py` `process_message` | zeker |
-| Verder beschikbaar (beide versies, lezen): `pool.query`, `pool.dataset.query`, `pool.snapshottask.query`, `disk.query`, `alert.list`, `cloudsync.query`, `replication.query`. SMART: 25.04 heeft `smart.test.*`; de 25.10-naam is niet in de onderzochte bestanden gevonden → per versie ontdekken. | MW-25.04 `plugins/smart.py` (`namespace = 'smart.test'`); listings `api/v25_*` | SMART-naam 25.10 **onzeker** |
+| Verder beschikbaar (beide versies, lezen): `pool.query`, `pool.dataset.query`, `pool.snapshottask.query`, `disk.query`, `alert.list`, `cloudsync.query`, `replication.query`. SMART: 25.04 heeft `smart.test.*`; **25.10 heeft geen publieke SMART-resultatenmethode** (plugin verwijderd, alleen privé `disk.smart_test`; SMART-meldingen blijven via `alert.list`) → in 25.10 `capability_unavailable`. | MW-25.04 `plugins/smart.py` (`namespace = 'smart.test'`); MW-25.10 zonder `plugins/smart.py`, met `plugins/disk_/smart.py` (`@private smart_test`) en migratie `alembic/versions/25.10/2025-03-20_11-52_drop_smart.py`; api.truenas.com/v25.10 zonder `smart.*` | zeker (broncode + officiële docs) |
 | Private registry (GHCR privé): `app.registry.create({name, description, username, password, uri})`; in de UI *Apps → Configuration → Sign-in to a Docker registry*. | MW-25.10 `api/v25_10_0/app_registry.py`; WEBUI `app-settings-button.component.html` r. 45–49 | zeker (bestaan); gedrag met GHCR-tokens **niet getest** |
 
 ## Onafhankelijke controle (review P0, 2026-11-09)
@@ -133,6 +133,29 @@ niet in STOPPED (`rollback.py` r. 35–38); `ix-app` 1.4.8 met `min_scale_versio
 `remove_security_opt("no-new-privileges")` + `clear_caps()` (APPS r. 82–83); `community/immich` heeft één versie
 (`1.14.62`). De overige beweringen zijn niet opnieuw gecontroleerd en houden hun eigen zekerheidsniveau. Niets
 hiervan is op een echte TrueNAS uitgevoerd (**NIET GEVALIDEERD**).
+
+## Controle tegen de officiële API-documentatie (2026-11-09)
+
+Op de nieuwe machine (geen proxy) waren `https://api.truenas.com/v25.10/`, `https://api.truenas.com/v25.04/`,
+`https://www.truenas.com/docs/scale/25.10/` en `https://apps.truenas.com/resources/` bereikbaar (HTTP 200). Alleen
+gelezen; gecontroleerd (methode-index en methodepagina's, geen echte TrueNAS):
+
+- **Methodenamen van de simulator vs. index v25.10** (863 methodepagina's): van de 47 vaste simulatormethoden staan
+  er 46 in, plus de vier 25.10-snapshotmethoden `pool.snapshot.query/create/clone/rollback`; `zfs.snapshot.*` staat er
+  niet in (privé, klopt met §6). De enige afwijking was `smart.test.results`: die ontbreekt in de docs en de
+  broncode MW-25.10 heeft geen `plugins/smart.py` meer (zie §6) → de simulator biedt `smart.test.*` sinds deze
+  controle alleen nog in het 25.04-profiel aan.
+- **v25.04** documenteert maar een deel van de API (439 pagina's; o.a. `pool.query`, `system.info`, `core.get_methods`,
+  `zfs.snapshot.query` ontbreken, `app.*` grotendeels aanwezig): voor 25.04 blijft de broncode de referentie.
+- **Parameters (v25.10-pagina's):** `app.delete` heeft `remove_ix_volumes` met standaard `false` (en
+  `force_remove_ix_volumes: false`, `remove_images: true`); `app.image.query` levert `repo_digests`; `app.rollback`
+  heeft `app_version` en `rollback_snapshot`; `app.create`/`app.update` kennen `custom_compose_config`, `custom_app`,
+  `catalog_app` en `values` (wij gebruiken alleen `catalog_app="ix-app"` + `values`, nooit compose); `app.used_ports`
+  levert gehele getallen. Dit bevestigt §3/§4.
+- **Niet in de docs gevonden** (blijft broncode-zekerheid): het intrekken van een API-key bij onversleuteld transport
+  (staat niet op de pagina van `auth.login_with_api_key`).
+
+Ook dit is documentatie- en broncodeonderzoek: **NIET GEVALIDEERD** op een echte TrueNAS (D01/D07).
 
 ## 7. Gevolgen voor het platform (vastgelegd in ADR-0006)
 
