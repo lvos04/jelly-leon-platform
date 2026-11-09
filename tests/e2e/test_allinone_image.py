@@ -184,7 +184,11 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
     # contract 1.2 §2.2/R11: elk proces, ook PID 1 (de procesbewaker), als 568 zonder capabilities met no_new_privs
     assert_no_root_anywhere(started)
     code, page = get(f"http://127.0.0.1:{started.port}/")
-    assert code == 200 and "nooit gekoppeld" in page.lower() and 'name="vingerafdruk"' in page
+    assert code == 200 and "niet gekoppeld" in page.lower() and 'name="hub_vingerafdruk"' in page
+    # JP11: het Peil-sjabloon zit in de image (pakketdata) en de pagina heeft geen JavaScript, CSP default-src 'none'
+    assert "/*! Peil statuspagina.css 1.1.0" in page and "<script" not in page and "HERKOMST" not in page
+    with urllib.request.urlopen(f"http://127.0.0.1:{started.port}/", timeout=5) as resp:
+        assert resp.headers["Content-Security-Policy"].startswith("default-src 'none'; style-src 'unsafe-inline'")
     # de healthcheck (elke 30 s) vult de log niet met migratiemeldingen: extra /readyz-aanroepen voegen niets toe
     before = started.logs().count("Context impl PostgresqlImpl")
     for _ in range(3):
@@ -280,7 +284,8 @@ def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, An
         uid, _gid, mode = host_stat(data_dir, "secrets/hub-link.json")
         assert (uid, mode) == ("568", "600")
         code, page = get(f"http://127.0.0.1:{port}/")
-        assert "Gekoppeld met de Hub" in page and secret not in page and 'name="csrf"' not in page
+        assert '<use href="#i-gekoppeld"/></svg>Gekoppeld</span>' in page and 'class="pil pil-neutraal"' in page
+        assert secret not in page and 'name="csrf"' not in page
         assert secret not in c.logs()
         token = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
         code, health = get(f"http://127.0.0.1:{port}/connector/v1/health", {"Authorization": f"Bearer {token}"})

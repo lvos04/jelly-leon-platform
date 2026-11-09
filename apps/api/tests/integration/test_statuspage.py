@@ -29,7 +29,7 @@ def csrf(page: str) -> str:
 
 
 def form(code: str, fingerprint: str, token: str, hub_url: str = "http://hub.test") -> dict[str, str]:
-    return {"hub_url": hub_url, "koppelcode": code, "vingerafdruk": fingerprint, "csrf": token}
+    return {"hub_adres": hub_url, "koppelcode": code, "hub_vingerafdruk": fingerprint, "csrf": token}
 
 
 def unlinked_client(make_app: Any, ip: str = "192.0.2.10") -> TestClient:
@@ -45,14 +45,15 @@ def test_pairing_with_code_and_fingerprint(make_app: Any, hub: Any, data_dir: Pa
     code = sim.add_grant("koppelcode", APP)
     with unlinked_client(make_app) as c:
         page = c.get("/")
-        assert page.status_code == 200 and 'lang="nl"' in page.text and "Laatst bijgewerkt" in page.text
-        assert 'name="vingerafdruk"' in page.text and page.headers["Referrer-Policy"] == "same-origin"
+        assert page.status_code == 200 and 'lang="nl"' in page.text and "Bijgewerkt" in page.text
+        assert 'name="hub_vingerafdruk"' in page.text and page.headers["Referrer-Policy"] == "same-origin"
         token = csrf(page.text)
         r = c.post("/koppelen", data=form(code.lower(), sim.keyset_fingerprint().replace("-", " "), token),
                    follow_redirects=False)
         assert r.status_code == 303, r.text
         page = c.get("/?gekoppeld=1").text
-        assert "Koppelen gelukt" in page and "Gekoppeld met de Hub" in page and sim.keyset_fingerprint() in page
+        assert "De Hub heeft de koppeling bevestigd" in page and "Gekoppeld met de Hub" in page
+        assert sim.keyset_fingerprint() in page
         assert code not in page and 'name="csrf"' not in page  # na de eerste koppeling nooit meer een formulier
         doc = file_doc(data_dir)
         assert doc["via"] == "koppelcode" and doc["confirmed_at"] and doc["service_token"] not in page

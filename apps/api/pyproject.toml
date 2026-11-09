@@ -40,7 +40,7 @@ lifecycle = "lifecycle.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed"]
+lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed", "peil/statuspagina.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
