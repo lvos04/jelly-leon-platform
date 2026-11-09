@@ -120,18 +120,18 @@ def test_catalog_app_rollback_and_version_unavailable(nas: tuple[Rpc, TestClient
     rpc, client = nas
     rpc.call("catalog.update", {"preferred_trains": ["stable", "community"]})
     details = rpc.call("catalog.get_app_details", "immich", {"train": "community"})
-    pinned = "1.14.62"
+    pinned = "1.14.63"
     assert catalog_version_blocker(catalog_app="immich", train="community", pinned_version=pinned,
                                    available_versions=details["versions"]) is None
     rpc.job("app.create", {"app_name": "immich", "catalog_app": "immich", "train": "community", "version": pinned,
                            "values": {}})
-    client.post("/_sim/catalog/publish", json={"train": "community", "app": "immich", "version": "1.14.63"})
+    client.post("/_sim/catalog/publish", json={"train": "community", "app": "immich", "version": "1.14.64"})
     details = rpc.call("catalog.get_app_details", "immich", {"train": "community"})
     blocker = catalog_version_blocker(catalog_app="immich", train="community", pinned_version=pinned,
                                       available_versions=details["versions"])
     assert blocker is not None and blocker.code == "version_unavailable" and "nooit stil" in blocker.proposal_nl
-    assert blocker.details["available"] == ["1.14.63"]
-    rpc.job("app.upgrade", "immich", {"app_version": "1.14.63"})
+    assert blocker.details["available"] == ["1.14.64"]
+    rpc.job("app.upgrade", "immich", {"app_version": "1.14.64"})
     recipe = rollback_recipe(app_name="immich", catalog_app="immich", previous_version=pinned,
                              rollback_versions=rpc.call("app.rollback_versions", "immich"))
     assert isinstance(recipe, dict) and recipe["method"] == "app.rollback"

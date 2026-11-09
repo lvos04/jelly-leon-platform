@@ -69,7 +69,8 @@ class ApiKey:
         return f"{self.id}-{self.key}"
 
 
-# Nep-catalogus. Versies en app_version overgenomen uit truenas/apps (commit f142a16, 2026-11-06). Zoals in die
+# Nep-catalogus. Versies en app_version overgenomen uit truenas/apps (commit f7a38eb, 2026-11-09; f142a16 van
+# 2026-11-06 had nog authentik 1.3.63 en immich 1.14.62 — die zijn intussen verdwenen). Zoals in die
 # commit houdt elke trein per app **alleen de nieuwste versie** (contract 1.2 §2.2): een vastgezette oudere versie
 # kan dus uit de catalogus verdwijnen (``app.create`` → "Version … not found"). Al geïnstalleerde versies blijven
 # lokaal bekend (``SimState.installed_versions``), zodat ``app.rollback`` naar een eerder geïnstalleerde versie werkt.
@@ -80,8 +81,8 @@ CATALOG: dict[str, dict[str, dict[str, Any]]] = {
                    "min_scale_version": "24.10.2.2"},
     },
     "community": {
-        "authentik": {"versions": {"1.3.63": "2026.8.5"}, "title": "Authentik", "categories": ["security"]},
-        "immich": {"versions": {"1.14.62": "v3.3.6"}, "title": "Immich", "categories": ["media"]},
+        "authentik": {"versions": {"1.3.64": "2026.8.5"}, "title": "Authentik", "categories": ["security"]},
+        "immich": {"versions": {"1.14.63": "v3.3.6"}, "title": "Immich", "categories": ["media"]},
         "uptime-kuma": {"versions": {"1.2.25": "2.5.9"}, "title": "Uptime Kuma", "categories": ["monitoring"]},
         "gotify": {"versions": {"1.1.17": "3.1.1"}, "title": "Gotify", "categories": ["notifications"]},
         "node-red": {"versions": {"1.4.35": "5.0.9-24"}, "title": "Node-RED", "categories": ["productivity"]},

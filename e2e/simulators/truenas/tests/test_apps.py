@@ -91,27 +91,27 @@ def test_catalog_app_trains_pinned_upgrade_rollback(client: TestClient, rw: Rpc)
     available = {a["name"] for a in rw.call("app.available")}
     assert {"authentik", "immich", "uptime-kuma", "gotify", "node-red", "adguard-home"} <= available
     details = rw.call("catalog.get_app_details", "immich", {"train": "community"})
-    assert details["latest_version"] == "1.14.62" and list(details["versions"]) == ["1.14.62"]
+    assert details["latest_version"] == "1.14.63" and list(details["versions"]) == ["1.14.63"]
     with pytest.raises(RpcFailed):
         rw.call("catalog.get_app_details", "bestaat-niet", {"train": "community"})
     app = rw.job("app.create", {"app_name": "immich", "catalog_app": "immich", "train": "community",
-                                "version": "1.14.62", "values": {}})
-    assert app["version"] == "1.14.62" and app["upgrade_available"] is False
+                                "version": "1.14.63", "values": {}})
+    assert app["version"] == "1.14.63" and app["upgrade_available"] is False
     # nieuwe versie in de trein: de vorige verdwijnt uit de catalogus
-    client.post("/_sim/catalog/publish", json={"train": "community", "app": "immich", "version": "1.14.63",
+    client.post("/_sim/catalog/publish", json={"train": "community", "app": "immich", "version": "1.14.64",
                                                "app_version": "v3.3.7"})
-    assert list(rw.call("catalog.get_app_details", "immich", {"train": "community"})["versions"]) == ["1.14.63"]
+    assert list(rw.call("catalog.get_app_details", "immich", {"train": "community"})["versions"]) == ["1.14.64"]
     with pytest.raises(RpcFailed) as exc:  # vastgezette, verdwenen versie: installeren faalt
         rw.job("app.create", {"app_name": "immich2", "catalog_app": "immich", "train": "community",
-                              "version": "1.14.62", "values": {}})
-    assert "Version 1.14.62 not found" in str(exc.value.error)
-    summary = rw.call("app.upgrade_summary", "immich", {"app_version": "1.14.63"})
-    assert summary["upgrade_version"] == "1.14.63"
-    up = rw.job("app.upgrade", "immich", {"app_version": "1.14.63", "snapshot_hostpaths": True})
-    assert up["version"] == "1.14.63"
-    assert rw.call("app.rollback_versions", "immich") == ["1.14.62"]  # lokaal geïnstalleerd, niet in de catalogus
-    back = rw.job("app.rollback", "immich", {"app_version": "1.14.62", "rollback_snapshot": True})
-    assert back["version"] == "1.14.62" and back["metadata"]["app_version"] == "v3.3.6"
+                              "version": "1.14.63", "values": {}})
+    assert "Version 1.14.63 not found" in str(exc.value.error)
+    summary = rw.call("app.upgrade_summary", "immich", {"app_version": "1.14.64"})
+    assert summary["upgrade_version"] == "1.14.64"
+    up = rw.job("app.upgrade", "immich", {"app_version": "1.14.64", "snapshot_hostpaths": True})
+    assert up["version"] == "1.14.64"
+    assert rw.call("app.rollback_versions", "immich") == ["1.14.63"]  # lokaal geïnstalleerd, niet in de catalogus
+    back = rw.job("app.rollback", "immich", {"app_version": "1.14.63", "rollback_snapshot": True})
+    assert back["version"] == "1.14.63" and back["metadata"]["app_version"] == "v3.3.6"
 
 
 def test_ix_app_version_itself_can_disappear(client: TestClient, rw: Rpc) -> None:

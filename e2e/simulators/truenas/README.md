@@ -6,7 +6,7 @@
 > slaagt heet **Sim-getest**, nooit "geslaagd op de NAS" (contract §11).
 >
 > Bronnen waarop het gedrag is gebaseerd (alleen gelezen): `truenas/middleware` op tags **TS-25.04.2.6**
-> (`244b717`) en **TS-25.10.8** (`29ed02b`), `truenas/apps` commit `f142a16` (2026-11-06), `truenas/webui`
+> (`244b717`) en **TS-25.10.8** (`29ed02b`), `truenas/apps` commit `f7a38eb` (2026-11-09; daarvoor `f142a16`), `truenas/webui`
 > TS-25.10.8, `truenas/api_client` TS-25.10.8. Details per bewering: `docs/platform-v2/TRUENAS_APP_API.md`.
 
 ## Starten
@@ -70,10 +70,11 @@ Standaard-API-keys (alleen simulator; opvraagbaar via `GET /_sim/keys`):
 
 **Standaard Custom App** = `app.create({"app_name", "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
 "values": {image, ports, storage, envs, resources, …}})` — exact het formulier van de TrueNAS-web-UI.
-Nep-catalogus: `stable/ix-app` (1.4.7*, 1.4.8) en `community/` `authentik`, `immich`, `uptime-kuma`, `gotify`,
-`node-red`, `adguard-home`, `beszel-hub` — telkens de echte laatste versie uit `truenas/apps` plus één **fictieve
-vorige versie** (`*`, app_version met "(sim-vorige)") om upgrade en rollback te kunnen testen. Community-apps zijn pas
-zichtbaar in `app.available` na `catalog.update({"preferred_trains": ["stable","community"]})`.
+Nep-catalogus: `stable/ix-app` (1.4.8) en `community/` `authentik` (1.3.64), `immich` (1.14.63), `uptime-kuma`,
+`gotify`, `node-red`, `adguard-home`, `beszel-hub` — zoals in `truenas/apps` (`f7a38eb`) telkens **alleen** de nieuwste
+versie (contract 1.2 §2.2). Upgrade, rollback en verdwijnende versies test je met `POST /_sim/catalog/publish` (nieuwe
+versie in de trein, de vorige verdwijnt). Community-apps zijn pas zichtbaar in `app.available` na
+`catalog.update({"preferred_trains": ["stable","community"]})`.
 
 ## Gedrag dat het echte systeem volgt (bewust)
 
