@@ -333,3 +333,21 @@ def test_niet_gereed_without_secrets(tmp_path: Path, clean_db: str) -> None:
         token = csrf(r.text)
         r = c.post("/koppelen", data=form("ABCD-EFGH-JKMN", "MEGG-8GFG-2E4Y-K2RQ", token))
         assert r.status_code == 503 and "Code <code>geheimen_ontbreken</code>" in r.text
+
+
+def test_unreadable_link_status_is_unknown_and_shows_no_form(make_app: Any) -> None:
+    """Een onverwachte leesfout (bijv. rechten) is fail-closed: geen formulier, totaal Onbekend, nooit groen."""
+    app = make_app()
+    with TestClient(app, base_url=BASE) as c:
+        heartbeat(app)
+
+        def kapot() -> Any:
+            raise PermissionError("geen toegang")
+
+        app.state.hub_link.read = kapot
+        r = c.get("/")
+        check_page(r.text, r.headers)
+        assert koppeltoestanden(r.text) == set() and 'name="csrf"' not in r.text
+        assert totaal(r.text) == ("onbekend", "Niet gereed | Deels onbekend — de koppelstatus is niet bruikbaar; "
+                                              "opnieuw koppelen gaat via de Hub.")
+        assert "Koppelstatus niet leesbaar (PermissionError)." in r.text

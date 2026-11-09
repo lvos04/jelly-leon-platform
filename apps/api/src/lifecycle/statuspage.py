@@ -248,13 +248,13 @@ def _totaal(worst: str, ready: bool, link: Link, koppeling: Koppeling) -> tuple[
         return (toon, "Niet gereed", f"{woord} — de eigen database, het schema of de geheimen zijn niet in orde.",
                 "Nee — eigen afhankelijkheden niet in orde (/readyz: not_ready)")
     if not link.linked:
+        # de koppelrij staat dan altijd in de controles, dus 'worst' telt haar al mee (minstens Onbekend)
         toon = worst if RANG[worst] >= RANG["onbekend"] else "onbekend"
+        woord = {"storing": "Storing", "beperkt": "Beperkt"}.get(toon, "Deels onbekend")
         if koppeling.blok == "ingetrokken" or koppeling.blok is None:
             reden = ("de Hub heeft de koppeling ingetrokken" if koppeling.blok == "ingetrokken"
                      else "de koppelstatus is niet bruikbaar")
-            return ("storing" if koppeling.rij and koppeling.rij["toon"] == "storing" else toon, "Niet gereed",
-                    f"Storing — {reden}; opnieuw koppelen gaat via de Hub.", f"Nee — {reden}")
-        woord = {"storing": "Storing", "beperkt": "Beperkt"}.get(toon, "Deels onbekend")
+            return toon, "Niet gereed", f"{woord} — {reden}; opnieuw koppelen gaat via de Hub.", f"Nee — {reden}"
         wacht = "wacht op koppeling met de Hub" if koppeling.blok == "koppelformulier" else (
             "ontkoppeld door de Hub; opnieuw koppelen gaat via de Hub")
         return (toon, "Niet gereed", f"{woord} — {wacht}.",
