@@ -1,6 +1,12 @@
 # ADR-0005 — Authenticatie: Hub-JWT via JWKS en service-token, fail-closed
 
-- Status: aanvaard · Datum: 2026-11-09 · Contract: §4
+- Status: aanvaard, **vervangen voor 1.2 door ADR-0011** · Datum: 2026-11-09 · Contract: §4
+
+> **Stand contract 1.2 (ADR-0011):** JWT's alleen met de bij de koppeling **gepinde** sleutels (geen JWKS-cache via
+> HTTP meer), `token_use` `user`/`hub_service`, `nbf` + `jti` verplicht, klokspeling 30 s, persistente
+> replaycache, vaste `reason`-tabel. Een inkomend `Bearer <service-token>` wordt **niet** meer geaccepteerd
+> (`service_token_not_accepted`); de Hub meldt zich met een dienst-JWT. Rol `kind` wint. De tekst hieronder beschrijft
+> de stand van P0.
 
 ## Besluit
 - `Authorization: Bearer <JWT>`: alleen `alg=EdDSA`, `iss=hub`, `aud=jelly-leon-platform`, verplicht `exp`, `iat`,

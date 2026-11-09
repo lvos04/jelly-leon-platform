@@ -1,6 +1,12 @@
 # ADR-0009 — Review P0: alleen een geslaagde koppeling is vertrouwensanker voor JWT's
 
-- Status: aanvaard · Datum: 2026-11-09 · Contract: §3, §4 · Vervangt deels: ADR-0005 (JWKS-bron)
+- Status: aanvaard, **aangevuld voor 1.2 door ADR-0011** · Datum: 2026-11-09 · Contract: §3, §4 · Vervangt deels:
+  ADR-0005 (JWKS-bron)
+
+> **Stand contract 1.2 (ADR-0011):** het principe blijft (alleen een geslaagde koppeling is vertrouwensanker), nu
+> strenger: sleutels worden bij de koppeling gepind en met de sleutelset-vingerafdruk gecontroleerd; een via HTTP
+> opgehaalde JWKS voegt nooit vertrouwen toe. Punt 3 (leeftijd van een opgeslagen JWKS) vervalt. Het voorstel onder
+> "Restrisico" (vingerafdruk tonen en vergelijken) is in contract 1.2 §4.5 overgenomen.
 
 ## Aanleiding (bevinding van de onafhankelijke review van P0)
 De JWKS-cache haalde sleutels op bij `hub_url` uit de tabel `hub_link` **ongeacht de koppelstatus**, met als

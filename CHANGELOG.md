@@ -47,3 +47,29 @@
 - Koppelpagina: snelheidsbegrenzing per app-instantie, koppelcode max. 32 tekens; extra negatieve tests (429, 409,
   token van een andere app, bestaande data in `/appdata` blijft onaangeroerd).
 - GitHub Actions: checkout/setup-python/setup-buildx op Node 24-versies.
+
+### Contract 1.2 toegepast (ADR-0011)
+
+- **Koppeling** in `/appdata/secrets/hub-link.json` (0600, atomair, vergrendeld, fail-closed bij beschadiging) in
+  plaats van de tabel `hub_link`; migratie 0002 zet een P0-koppeling eenmalig over.
+- **Enrollment** exact volgens §3.3: volledige antwoordcontrole, sleutelset-vingerafdruk (`HUB_KEY_FINGERPRINT` of
+  ingevoerd op de statuspagina), toegestane herhaling na een herstart, bevestigen met `services/self`, backoff 5 s →
+  15 min, `Retry-After`, stoppen na 60 min, nooit redirects of proxy's. Intrekking pas na 401 op `services/self`;
+  rotatie van het service-token bij `Hub-Token-Rotation: required`.
+- **Inkomend** alleen Hub-JWT's met gepinde sleutels (`token_use` user/hub_service, `jti` verplicht met
+  replaycache, vaste `reason`-tabel); het eigen service-token wordt niet meer geaccepteerd. Ondertekende
+  sleutelrotatie (poll ≤ 15 min, onbekende `kid` → achtergrondpoll).
+- **Statuspagina:** koppelformulier alleen zolang nooit gekoppeld, verplichte vingerafdruk, CSRF + `Origin`,
+  5/15 min per bron-IP en 20/15 min dienstbreed.
+- **Connector:** `/connector/v1/hub-link` en `/connector/v1/hub-link/unlink` (dienst-JWT of admin) vervangen de
+  `/lifecycle/v1/hub-link`-routes.
+- **Image:** geen `dumb-init` meer; de procesbewaker is PID 1 en elk proces draait als 568 zonder capabilities met
+  *no_new_privs* (gecontroleerd per proces in de image-E2E, zonder `--security-opt`/`--cap-drop`).
+- **Manifest** volgens §9 (geen `joins_platform_network`/`custom_app.ports`, geen `HUB_*` in het manifest).
+- **Lifecycle-regels** (P2-bouwstenen): tag met digest + readback, terugzetten via `app.update` met vorige waarden,
+  `version_unavailable`; TrueNAS-simulator met één catalogusversie per trein.
+- **Conformiteitstests** Hub ↔ dienst (simulator in CI; lokaal tegen de echte Hub `ai-server-manager` `e17fdef`:
+  16 geslaagd). Documentatie: `CUSTOM_APP.md` en `INSTALLATIE.md` (publieke image standaard, registry-login alleen
+  terugval, tag met digest, executor koppelen met vingerafdruk).
+- Op een echte TrueNAS: **NIET GEVALIDEERD**. Niet gedaan: statuspagina-CSS uit de ontwerptaal (JP11), die bestaat
+  nog niet.

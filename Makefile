@@ -3,7 +3,8 @@ PY ?= .venv/bin/python
 NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
-.PHONY: venv lint typecheck test test-sim test-repo test-e2e openapi image sim-image audit
+.PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
+	sim-image audit
 
 venv:
 	python3.12 -m venv .venv
@@ -24,6 +25,13 @@ test-sim:
 
 test-repo:
 	$(PY) -m pytest -q tests/repo
+
+# Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager
+test-conformance:
+	$(PY) -m pytest -q tests/conformance
+
+test-conformance-hub:
+	$(NICE) $(PY) e2e/conformance/echte_hub.py
 
 # Achter een TLS-proxy: LIFECYCLE_BUILD_CA=<ca.crt> LIFECYCLE_BUILD_NETWORK=host make test-e2e
 test-e2e: image

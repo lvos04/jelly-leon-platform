@@ -6,18 +6,29 @@
 
 | Wat | Waarde |
 |---|---|
-| Image | `ghcr.io/lvos04/jelly-leon-platform` |
-| Tag | de exacte versie uit de release (bijv. `0.1.0`) — **nooit `latest`** (het formulier vult `latest` voor; overschrijven!) |
+| Image | `ghcr.io/lvos04/jelly-leon-platform` (publiek pakket, geen registry-login nodig; zie "Image ophalen") |
+| Tag | `<versie>@sha256:<digest>` uit `release/digests.json` (bijv. `0.1.0@sha256:…`) — **nooit `latest`** (het formulier vult `latest` voor; overschrijven!) |
 | Poort | container `30440` → host `30440` (voorstel; wijzigbaar als die hostpoort bezet is) |
 | Opslag | één map → `/appdata` |
 | Geheimen / wachtwoorden | **geen**: de app maakt ze zelf bij de eerste start in `/appdata/secrets` |
-| Omgevingsvariabelen | geen verplichte (zie "Optioneel") |
+| Omgevingsvariabelen | geen verplichte; voor koppelen zonder wedloop `HUB_URL` + `HUB_ENROLLMENT_TOKEN` + `HUB_KEY_FINGERPRINT` (zie "Koppelen") |
 
 > **Verificatiestatus: NIET GEVALIDEERD (echte NAS).** De image is in Docker getest zoals TrueNAS hem start
 > (één map op `/appdata`, één poort, als root én als 568, herstart, harde kill, enrollment bij een Hub-simulator; zie
-> `tests/e2e/test_allinone_image.py`). De veldnamen hieronder komen uit de broncode van het TrueNAS-formulier
+> `tests/e2e/test_allinone_image.py`; daar ook: **elk** proces, ook PID 1, draait als 568 zonder capabilities en met
+> *no_new_privs*, zonder dat het formulier daar iets voor hoeft te zetten). De veldnamen hieronder komen uit de broncode van het TrueNAS-formulier
 > (`ix-app` 1.4.8 in `truenas/apps`, web-UI `truenas/webui` TS-25.10.x); het formulier is **niet** op een echte
 > TrueNAS doorlopen en kan per versie iets afwijken. Bron en onzekerheden: `docs/platform-v2/TRUENAS_APP_API.md`.
+
+## 0. Image ophalen (publiek; registry-login alleen als terugvaloptie)
+
+- **Standaard (route A):** het GHCR-pakket is publiek (besluit 3, na een scan van de volledige historie). TrueNAS
+  haalt de image dan zonder registry-login op. **Let op:** zolang de pakketten nog niet publiek zijn gemaakt, lukt
+  dit niet (`denied`); dat is op de peildatum nog zo — installeren op een echte NAS is daarom **Geblokkeerd /
+  NIET GEVALIDEERD**.
+- **Terugvaloptie (route B):** *Apps → Configuration → Sign-in to a Docker registry* → *Other Registry*, URI
+  `https://ghcr.io`, een GitHub-token met **alleen** `read:packages`. Dat token is een geheim van jou in TrueNAS —
+  nooit in een app-formulier, manifest, repo of log. Gedrag met GHCR-tokens: **NIET GEVALIDEERD (echte NAS)**.
 
 ## 1. Opslag kiezen
 
@@ -36,18 +47,18 @@ Kies één van beide (de Hub-wizard stelt dit voor via de datasetkiezer; nooit e
 |---|---|---|
 | — | Application Name | `jelly-leon-platform` |
 | Image Configuration | Repository | `ghcr.io/lvos04/jelly-leon-platform` |
-| | Tag | exacte versie, bijv. `0.1.0` |
+| | Tag | `<versie>@sha256:<digest>`, bijv. `0.1.0@sha256:` + 64 hex uit `release/digests.json` (trekt op digest). Weigert het formulier het `@`-teken, vul dan alleen de exacte versie in; de Hub leest de digest na installatie terug (`app.image.query`) en stopt bij een afwijking. **Of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert: NIET GEVALIDEERD (echte NAS).** |
 | | Pull Policy | *Pull the image if it is not already present on the host* (`missing`) |
 | Container Configuration | Hostname, Entrypoint, Command | leeg laten |
 | | Timezone | jouw tijdzone (de app rekent intern in UTC) |
-| | Environment Variables | leeg laten |
+| | Environment Variables | leeg laten, of voor koppelen zonder wedloop: `HUB_URL`, `HUB_ENROLLMENT_TOKEN`, `HUB_KEY_FINGERPRINT` (zie stap 3) |
 | | Restart Policy | **Unless Stopped** (standaard staat er *No*!) |
 | | Disable Builtin Healthcheck | **uit** (de image heeft een eigen healthcheck op `/readyz`) |
 | | TTY / Stdin | uit |
 | | Devices | geen |
 | Security Context Configuration | Privileged | **uit** |
 | | Capabilities → Add | niets toevoegen |
-| | Custom User | **uit** (de app start als root alléén om `/appdata` aan 568 te geven en draait daarna als 568 met *no_new_privs*) |
+| | Custom User | **uit** (de app start als root alléén om `/appdata` aan 568 te geven; daarna draait elk proces, ook PID 1, als 568 zonder capabilities en met *no_new_privs* — de image zet dat zelf, omdat het formulier `no-new-privileges` en `cap_drop` niet zet). Aan met 568 werkt ook (dan geen eigenaarschapsstap; is `/appdata` niet schrijfbaar, dan een Nederlandse melding in de log en healthcheck rood). |
 | Network Configuration | Host Network | **uit** |
 | | Ports → Add | Port Bind Mode `published` · Host Port `30440` · Container Port `30440` · Protocol `TCP` · Host IPs leeg |
 | | Networks / Custom DNS Setup | leeg laten |
@@ -65,27 +76,38 @@ Kies één van beide (de Hub-wizard stelt dit voor via de datasetkiezer; nooit e
 Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statuspagina toont status per onderdeel en
 "Laatst bijgewerkt". Zonder koppeling met de Hub accepteert de API niets (fail-closed).
 
-- **Geïnstalleerd door de Hub:** de Hub gaf `HUB_URL` en een eenmalig `HUB_ENROLLMENT_TOKEN` mee; de app koppelt
-  zichzelf bij de eerste start. Het token is daarna waardeloos.
-- **Handmatig geïnstalleerd:** maak in de Hub-UI een koppelcode voor `jelly-leon-platform` en vul op de statuspagina
-  het Hub-adres (`http://<NAS-adres>:30400`) en de koppelcode in → **Koppelen**.
+- **Geïnstalleerd door de Hub (normaal):** de Hub geeft `HUB_URL`, `HUB_KEY_FINGERPRINT` en een eenmalig
+  `HUB_ENROLLMENT_TOKEN` mee; de app koppelt zichzelf bij de eerste start, controleert de vingerafdruk van de
+  Hub-sleutels en pint die. Het token is daarna waardeloos.
+- **Handmatig geïnstalleerd, aanbevolen:** maak in de Hub-UI een enrollment-token voor `jelly-leon-platform` en vul
+  in het formulier (Environment Variables) `HUB_URL`, `HUB_ENROLLMENT_TOKEN` en `HUB_KEY_FINGERPRINT` in (de Hub-UI toont
+  ze samen). Geen wedloop: alleen wie het TrueNAS-formulier kan wijzigen, kan zo koppelen.
+- **Handmatig, met koppelcode:** maak in de Hub-UI een koppelcode en vul op de statuspagina het Hub-adres
+  (`http://<NAS-adres>:30400`), de koppelcode (`XXXX-XXXX-XXXX`) **en** de vingerafdruk (`XXXX-XXXX-XXXX-XXXX`) in →
+  **Koppelen**. Dit formulier bestaat alleen zolang de app **nog nooit** gekoppeld is; daarna gaan ontkoppelen en
+  opnieuw koppelen alleen via de Hub (of een nieuw `HUB_ENROLLMENT_TOKEN` in dit formulier). Max. 5 pogingen per
+  15 minuten per apparaat. Restrisico: vóór de eerste koppeling kan iemand op je netwerk de app aan een eigen "Hub"
+  koppelen; vergelijk daarom na het koppelen de vingerafdruk op de statuspagina met die in de Hub-UI, en gebruik bij
+  voorkeur de route met het token.
 
-## Optioneel (Environment Variables)
+## Environment Variables (alle optioneel)
 
 | Naam | Waarde | Waarom |
 |---|---|---|
-| `HUB_URL` | `http://<NAS-adres>:30400` | alleen als de Hub de app installeert (zet de Hub zelf) |
-| `HUB_ENROLLMENT_TOKEN` | eenmalig token | alleen door de Hub; vervalt na 60 min of na gebruik |
-| `LIFECYCLE_PUBLIC_URL` | `http://<NAS-adres>:<hostpoort>` | als de Hub de app op een ander adres moet bereiken |
+| `HUB_URL` | `http://<NAS-adres>:30400` | adres van de Hub (zonder pad; geen `127.0.0.1`/`localhost`) |
+| `HUB_ENROLLMENT_TOKEN` | eenmalig token `enr_…` uit de Hub-UI | vervalt na 60 min of na gebruik; daarna waardeloos |
+| `HUB_KEY_FINGERPRINT` | `XXXX-XXXX-XXXX-XXXX` uit de Hub-UI | niet geheim; de app weigert een Hub met andere sleutels |
+| `LIFECYCLE_PUBLIC_URL` | `http://<NAS-adres>:<hostpoort>` | alleen informatief voor de Hub (die gebruikt zijn eigen register) |
 
 ## Bijwerken, terugzetten, verwijderen
 
-- **Bijwerken:** app → **Edit** → Tag naar de nieuwe versie → **Update**. Bij openstaande databasemigraties maakt de
+- **Bijwerken:** app → **Edit** → Tag naar de nieuwe `<versie>@sha256:<digest>` → **Update**. Noteer vooraf de oude
+  Tag (de Hub bewaart vanaf P2 de volledige vorige waarden als terugzetrecept). Bij openstaande databasemigraties maakt de
   app eerst een `pg_dump` in `/appdata/backups` (nieuwste 3 blijven; overgeslagen bij te weinig ruimte, dat staat in
   de log) en migreert daarna in één transactie. Mislukt de migratie, dan blijft de database op de vorige versie en
   start de app niet: zet de vorige Tag terug. Maak vooraf een ZFS-snapshot van de dataset.
 - **Terugzetten:** TrueNAS **Roll Back** werkt bij een Custom App alleen tussen *ix-app*-versies, niet tussen
-  image-tags. Terugzetten = **Edit** → vorige Tag. Is het schema al gemigreerd, dan eerst de snapshot of de
+  image-tags. Terugzetten = **Edit** → vorige Tag (met digest) = `app.update` met de vorige waarden. Is het schema al gemigreerd, dan eerst de snapshot of de
   `voor-upgrade-*.dump` terugzetten (de Hub doet dit in P2 via de executor met goedkeuring).
 - **Verwijderen:** app → **Delete**; laat **Remove ixVolumes uit**. De dataset (Host Path) blijft altijd staan.
 
@@ -97,5 +119,7 @@ Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statu
 | `FOUT: geen schrijfrechten op /appdata/...` | *Custom User* staat aan met een andere gebruiker: zet uit, of geef 568 schrijfrechten. |
 | `oude postmaster.pid ... verwijderd` | Geen fout: vorige stop was onverwacht (stroom/kill). |
 | `databasemigratie mislukt` | Vorige Tag terugzetten; de database is ongewijzigd. Log bewaren voor de Hub/incident. |
-| Image niet op te halen (`denied`/`unauthorized`) | GHCR-pakket nog privé: zie `install/truenas/INSTALLATIE.md` stap 1. |
+| Image niet op te halen (`denied`/`unauthorized`) | GHCR-pakket nog privé: zie stap 0 (route B als terugvaloptie) en `install/truenas/INSTALLATIE.md` stap 1. |
+| Statuspagina: "vingerafdruk klopt niet" | Ander Hub-adres of andere Hub dan bedoeld; er is niets opgeslagen. Controleer adres en vingerafdruk in de Hub-UI. |
+| Statuspagina: "Ingetrokken door de Hub" | De Hub heeft de koppeling ingetrokken. Opnieuw koppelen via de Hub (nieuw token). |
 | Poort bezet | Andere Host Port kiezen (Container Port blijft `30440`); de Hub controleert dit vooraf via `app.used_ports`. |

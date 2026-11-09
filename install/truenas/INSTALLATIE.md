@@ -18,7 +18,7 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 |---|---|---|
 | Application Name | `ai-server-manager` | `ai-server-manager-executor` |
 | Image (Repository) | `ghcr.io/lvos04/ai-server-manager` | `ghcr.io/lvos04/ai-server-manager-executor` |
-| Tag | exacte versie uit de release (nooit `latest`) | dezelfde releaseversie als de Hub |
+| Tag | `<versie>@sha256:<digest>` uit de release (nooit `latest`; zie stap 3) | dezelfde releaseversie als de Hub, met de eigen digest |
 | Poort (container → host) | `30400` → `30400` | `30410` → `30410` |
 | Opslag | eigen map → `/appdata` | **eigen, aparte** map → `/appdata` |
 | Geheimen in het formulier | geen | geen (de schrijfkey voer je alleen op de executorpagina in) |
@@ -33,21 +33,19 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 3. **Back-up-gate (I01-01-02):** zorg vóór nieuwe installaties voor een recente snapshot/back-up van bestaande
    appdata. De Hub controleert dit later zelf; nu alleen bewust nagaan.
 
-## Stap 1 — Images ophalen mogelijk maken (GHCR)
+## Stap 1 — Images ophalen (GHCR)
 
-Een nieuw GHCR-pakket is standaard **privé**. Kies één van beide:
-
-- **A. Pakketten openbaar maken (aanbevolen, eenmalig per pakket).** Op GitHub: profiel → *Packages* →
-  `ai-server-manager` → *Package settings* → *Change visibility* → *Public*. Herhaal voor
-  `ai-server-manager-executor` en later voor `appstore-en-fork`, `home-control-hub`, `jelly-leon-platform`,
-  `zoeken-en-persoonlijke-ai` en `jelly-leon`. Controle in de browser:
+- **A. Standaard: publieke pakketten, geen login.** Besluit 3 van de gebruiker: alle repos en GHCR-images worden
+  publiek, pas na een scan van de volledige historie op geheimen en privégegevens. Dan haalt TrueNAS de images zonder
+  registry-login op en hoef je in deze stap niets te doen. Controle in de browser:
   `https://ghcr.io/token?scope=repository:lvos04/ai-server-manager:pull` moet `{"token":"…"}` tonen. Zie je
   `DENIED` ("requested access to the resource is denied", HTTP 403), dan is het pakket nog privé of bestaat het
   (nog) niet. (Gedrag van GHCR gecontroleerd op 2026-11-09 met een openbaar en een niet-bestaand pakket.)
-- **B. Privé houden met registry-login in TrueNAS.** *Apps → Configuration → Sign-in to a Docker registry* →
-  *Other Registry* → URI `https://ghcr.io`, gebruikersnaam = je GitHub-gebruikersnaam, wachtwoord = een GitHub-token
-  met alleen `read:packages`. Dit geheim staat dan in TrueNAS, niet in een app-formulier.
-  (API: `app.registry.create`; **gedrag met GHCR-tokens NIET GEVALIDEERD**.)
+  **Op de peildatum zijn de pakketten nog niet publiek: installeren is tot dan Geblokkeerd.**
+- **B. Alleen als terugvaloptie: registry-login in TrueNAS.** *Apps → Configuration → Sign-in to a Docker registry*
+  → *Other Registry* → URI `https://ghcr.io`, gebruikersnaam = je GitHub-gebruikersnaam, wachtwoord = een
+  GitHub-token met alleen `read:packages`. Dit geheim staat dan in TrueNAS, nooit in een app-formulier, manifest,
+  repo of log. (API: `app.registry.create`; **gedrag met GHCR-tokens NIET GEVALIDEERD**.)
 
 ## Stap 2 — Opslag maken (dataset of ixVolume)
 
@@ -68,7 +66,7 @@ Per app één eigen map. Twee mogelijkheden:
 |---|---|---|
 | — | Application Name | `ai-server-manager` |
 | Image Configuration | Repository | `ghcr.io/lvos04/ai-server-manager` |
-| | Tag | exacte releaseversie (het formulier vult `latest` voor — **overschrijven**) |
+| | Tag | `<versie>@sha256:<digest>` uit de release-notes (het formulier vult `latest` voor — **overschrijven**). Weigert het formulier het `@`-teken, vul dan alleen de exacte versie in; de Hub controleert de digest na installatie (`app.image.query`). **NIET GEVALIDEERD (echte NAS):** of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert. |
 | | Pull Policy | *Pull the image if it is not already present on the host* |
 | Container Configuration | Timezone | jouw tijdzone |
 | | Environment Variables | leeg laten |
@@ -109,7 +107,7 @@ Host Port en onthoud die.
    |---|---|
    | Application Name | `ai-server-manager-executor` |
    | Repository | `ghcr.io/lvos04/ai-server-manager-executor` |
-   | Tag | dezelfde releaseversie als de Hub |
+   | Tag | dezelfde releaseversie als de Hub, met de digest van de executor-image (`<versie>@sha256:<digest>`) |
    | Ports → Add | Host Port `30410` · Container Port `30410` · TCP |
    | Storage | Host Path = dataset `ai-server-manager-executor` → Mount Path `/appdata` |
 
@@ -120,10 +118,15 @@ Host Port en onthoud die.
      daarna een gebruiker in die groep. Anders: rol *Full Admin* (ruimer dan nodig — afgeraden).
    - *Credentials → Users → User API Keys → Add* voor die gebruiker → key kopiëren.
    - **NIET GEVALIDEERD (echte NAS):** de minimale rollenset en de exacte privilege-schermen.
-4. **Koppelen via de web-UI:** in de Hub-wizard verschijnt een eenmalige **koppelcode** (30 minuten geldig). Open
-   `http://<NAS-adres>:30410` (statuspagina van de executor), vul de koppelcode **en** de TrueNAS-schrijfkey in.
-   De executor versleutelt de key in zijn eigen vault en toont daarna alleen de laatste 4 tekens; de Hub ziet de
-   key nooit. Ontkoppelen of roteren gaat via dezelfde pagina.
+4. **Koppelen via de web-UI (contract 1.2 §3.9):** in de Hub-wizard verschijnen een eenmalige **koppelcode**
+   (`XXXX-XXXX-XXXX`, 30 minuten geldig) en de **vingerafdruk** van de Hub-sleutels (`XXXX-XXXX-XXXX-XXXX`), met een
+   kopieerknop. Open `http://<NAS-adres>:30410` (statuspagina van de executor) en vul het Hub-adres, de koppelcode
+   **en** de vingerafdruk in; de executor weigert een Hub met andere sleutels en pint vooral de policy-sleutel.
+   Daarna vul je op dezelfde pagina de TrueNAS-schrijfkey in. De executor test die live (`auth.login_with_api_key` +
+   rolcontrole) tegen het NAS-adres en TLS-certificaat die je bij deze eerste koppeling vastlegt, versleutelt de key in
+   zijn eigen vault en toont daarna alleen de laatste 4 tekens; de Hub ziet de key nooit. Ontkoppelen, opnieuw
+   koppelen of de key roteren kan op deze pagina **alleen** na het opnieuw invoeren van een schrijfkey die de executor
+   live verifieert tegen dat vastgelegde adres en certificaat (een ander adres opgeven telt niet).
 5. **Belangrijk:** de executor moet TrueNAS via **`wss://` (HTTPS)** aanspreken. TrueNAS trekt een API-key die over
    een onversleutelde verbinding wordt gebruikt automatisch in (bron: middleware `auth.py`, TS-25.04/25.10). Volg de
    aanwijzingen op de executorpagina voor het TrueNAS-certificaat.
@@ -134,8 +137,11 @@ Vanaf nu installeer je niets meer met de hand. In de Hub kies je *Apps → Toevo
 plan (image + exacte tag/digest, poorten met conflictcontrole, datasets via de datasetkiezer, rechten, back-up-eisen,
 risico) en vraagt goedkeuring. Daarna voert de executor `app.create` uit met de standaard Custom App-waarden
 (`ix-app`) of — voor apps met meerdere containers zoals Authentik en Immich — de **officiële TrueNAS-catalogusapp**
-met vaste versie. Eigen apps (`appstore-en-fork`, `jelly-leon-platform`, `home-control-hub`, …) krijgen daarbij een
-eenmalig enrollment-token en melden zich zelf aan.
+met vaste versie. Eigen apps (`appstore-en-fork`, `jelly-leon-platform`, `home-control-hub`, …) krijgen daarbij alleen
+`HUB_URL`, `HUB_KEY_FINGERPRINT` (niet geheim) en een eenmalig `HUB_ENROLLMENT_TOKEN` (60 minuten) mee en melden zich
+zelf aan: ze controleren de vingerafdruk, pinnen de Hub-sleutels en bevestigen de koppeling. Installeer je zo'n app
+toch met de hand, vul dan diezelfde drie waarden uit de Hub-UI in het formulier in (geen wedloop); de koppelcode op de
+statuspagina van de app werkt alleen zolang die app nog nooit gekoppeld is.
 
 > In fase P0 bestaat dit installatieplan nog niet: `jelly-leon-platform` antwoordt `capability_unavailable` en voert
 > niets uit (B08-003/B08-004/B08-006 volgen in P2).
@@ -153,7 +159,7 @@ eenmalig enrollment-token en melden zich zelf aan.
 
 ## Terugdraaien en verwijderen (handmatig, alleen als de Hub dat niet kan)
 
-- **Terug naar de vorige versie:** app → *Edit* → vorige Tag → *Update*. (*Roll Back* van TrueNAS werkt bij een
+- **Terug naar de vorige versie:** app → *Edit* → vorige Tag (met digest) → *Update*. (*Roll Back* van TrueNAS werkt bij een
   Custom App alleen tussen *ix-app*-versies, niet tussen image-tags.)
 - **Verwijderen zonder dataverlies:** app → *Delete*, **Remove iXVolumes uit**. De dataset blijft staan; opnieuw
   installeren met dezelfde map herstelt de app met zijn data.

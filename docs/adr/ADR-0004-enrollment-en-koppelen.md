@@ -1,6 +1,13 @@
 # ADR-0004 — Enrollment-client en koppelen via de statuspagina
 
-- Status: aanvaard, herzien 2026-11-09 (review P0-afronding) · Datum: 2026-11-09 · Contract: §3 (1.1), §3.3 (1.2)
+- Status: aanvaard, herzien 2026-11-09 (review P0-afronding) en **vervangen voor 1.2 door ADR-0011** · Datum:
+  2026-11-09 · Contract: §3 (1.1), §3.3 (1.2)
+
+> **Stand contract 1.2 (ADR-0011):** het antwoord wordt volledig gecontroleerd (geen aliassen `token`/`id` meer),
+> de vingerafdruk is verplicht (statuspagina) of via `HUB_KEY_FINGERPRINT`, de koppeling staat in
+> `/appdata/secrets/hub-link.json` (niet meer in de database), bevestiging met `GET /api/v1/services/self`,
+> koppelformulier alleen zolang nooit gekoppeld, 5/15 min per bron-IP + 20 dienstbreed, ontkoppelen via
+> `POST /connector/v1/hub-link/unlink`. De tekst hieronder beschrijft de stand van P0.
 
 ## Context
 Contract §3 beschrijft het mechanisme (`POST {HUB_URL}/api/v1/services/enroll`, eenmalig token of koppelcode) maar
