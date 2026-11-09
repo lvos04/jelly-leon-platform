@@ -1,0 +1,228 @@
+# I09 Authentik — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Meerdere containers (server, worker, PostgreSQL) → officiële TrueNAS-catalogusapp met vaste versie (contract §1).
+# Catalogus gecontroleerd op 2026-11-09 in truenas/apps master f7a38eb009fce1239653a2913a05bc3658fbd6ef:
+# trains/community/authentik/app_versions.json heeft alleen 1.3.64 (app_version 2026.8.5; vorige commit f142a16 had
+# 1.3.63 — versies verdwijnen, contract 1.2 §2.2). De catalogusversie pint de images (ix_values.yaml):
+#   ghcr.io/goauthentik/server            2026.8.5@sha256:602227a86455d6772e3d16b7d852713c4f864f40df5df894abd1285bb53979a5
+#   postgres (postgres_18_image)          18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+#   ghcr.io/truenas/containers/container-utils 1.1.2@sha256:6ddfdc314af9d18cfacb836ad266ef0ed91fecaa3686b20be72e464972860c08
+# (server-digest ook gecontroleerd met docker buildx imagetools inspect). De executor leest na installatie de digests
+# terug (app.image.query) en stopt bij afwijking. Staat 1.3.64 niet meer in de catalogus → blokkade version_unavailable
+# met voorstel (nieuwe vaste versie + test), nooit stil een nieuwere. Community-trein inschakelen is een eenmalige
+# R2-actie (catalog.update preferred_trains). Op een echte NAS: NIET GEVALIDEERD.
+# Geheimen: db_password en secret_key maakt de Hub zelf (vault) en geeft ze alleen mee in app.create; TrueNAS markeert
+# ze als privé-waarden. Ze staan nooit in Git, logs of evidence (validatie-uitzondering secret_in_form, ADR-0014).
+manifest_version: "1"
+app_id: authentik
+name: Authentik
+owner_repo: lvos04/jelly-leon-platform
+category: security
+description_nl: >-
+  Centrale OIDC-aanmelding (I09) voor de Hub en apps die OIDC echt ondersteunen. TrueNAS-catalogusapp (server, worker
+  en PostgreSQL 18) op vaste versie; alle containers als 568:568 behalve PostgreSQL (999). Geen Docker-socket. Het
+  noodaccount van de Hub blijft werken als Authentik uitvalt. Beheer (providers, applicaties) via home-control-hub (B13).
+version: "2026.8.5"
+install:
+  method: catalog_app
+catalog:
+  train: community
+  app: authentik
+  version: "1.3.64"
+values:
+  TZ: {param: timezone}
+  authentik:
+    postgres_image_selector: postgres_18_image
+    db_password: {param: db_password}
+    secret_key: {param: secret_key}
+    mount_docker_socket: false
+    setup_email: false
+    additional_envs: []
+  run_as:
+    user: 568
+    group: 568
+  network:
+    http_port:
+      bind_mode: published
+      port_number: {param: http_port}
+      host_ips: []
+    https_port:
+      bind_mode: published
+      port_number: {param: https_port}
+      host_ips: []
+    networks: []
+  storage:
+    data:
+      type: host_path
+      host_path_config: {acl_enable: false, path: {param: data_path}}
+    templates:
+      type: host_path
+      host_path_config: {acl_enable: false, path: {param: templates_path}}
+    certs:
+      type: host_path
+      host_path_config: {acl_enable: false, path: {param: certs_path}}
+    postgres_data:
+      type: host_path
+      host_path_config: {acl_enable: false, auto_permissions: false, path: {param: postgres_path}}
+    additional_storage: []
+  labels: []
+  resources:
+    limits:
+      cpus: 2
+      memory: 4096
+parameters:
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: db_password
+    type: secret_ref
+    source: generated
+    required: true
+    description_nl: Wachtwoord van de interne PostgreSQL-database; de Hub maakt het (vault) en geeft het alleen mee in app.create.
+  - name: secret_key
+    type: secret_ref
+    source: generated
+    required: true
+    description_nl: AUTHENTIK_SECRET_KEY (ondertekent sessies en tokens); de Hub maakt hem (vault), nooit een voorbeeldsleutel.
+  - name: http_port
+    type: port
+    source: default
+    default: 30140
+    required: true
+    description_nl: HTTP-poort (voorstel = standaard van de catalogusapp; de container luistert op hetzelfde nummer).
+  - name: https_port
+    type: port
+    source: default
+    default: 30141
+    required: true
+    description_nl: HTTPS-poort (zelfondertekend tot D17 een certificaat/domein vastlegt; de container luistert op hetzelfde nummer).
+  - name: data_path
+    type: path
+    source: dataset_picker
+    dataset_role: authentik_data
+    decision: D02
+    required: true
+    description_nl: Dataset voor /data (media en rapporten), eigenaar 568:568.
+  - name: templates_path
+    type: path
+    source: dataset_picker
+    dataset_role: authentik_templates
+    decision: D02
+    required: true
+    description_nl: Dataset voor /templates (eigen e-mail- en flowsjablonen), eigenaar 568:568.
+  - name: certs_path
+    type: path
+    source: dataset_picker
+    dataset_role: authentik_certs
+    decision: D02
+    required: true
+    description_nl: Dataset voor /certs (certificaten die Authentik ontdekt), eigenaar 568:568.
+  - name: postgres_path
+    type: path
+    source: dataset_picker
+    dataset_role: authentik_postgres
+    decision: D02
+    required: true
+    description_nl: Lege dataset voor de PostgreSQL-gegevens, eigenaar 999:999 (geen automatische recursieve chown).
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbaar verlies aan gebruikers, providers en sessies (RPO), gekozen in de wizard.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbare hersteltijd (RTO); het noodaccount van de Hub overbrugt een storing.
+storage:
+  - name: data
+    mount: /data
+    kind: data
+    required_dataset_role: authentik_data
+    description_nl: Media en rapporten van Authentik.
+  - name: templates
+    mount: /templates
+    kind: config
+    required_dataset_role: authentik_templates
+    description_nl: Eigen sjablonen.
+  - name: certs
+    mount: /certs
+    kind: config
+    required_dataset_role: authentik_certs
+    description_nl: Certificaten met privésleutels (geheim); een kopie buiten de NAS alleen versleuteld.
+  - name: postgres_data
+    mount: /var/lib/postgresql
+    kind: data
+    required_dataset_role: authentik_postgres
+    description_nl: PostgreSQL 18 van Authentik (gebruikers, groepen, providers, sessies).
+network:
+  ports:
+    - name: http
+      container_port: 30140
+      host_port: {param: http_port}
+      protocol: tcp
+      purpose_nl: Webinterface, OIDC-endpoints (/application/o/…) en API (/api/v3) over HTTP (alleen LAN/VPN)
+    - name: https
+      container_port: 30141
+      host_port: {param: https_port}
+      protocol: tcp
+      purpose_nl: Idem over HTTPS (zelfondertekend tot D17)
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: http
+  path: /-/health/ready/
+  port: http
+  interval_s: 30
+  timeout_s: 10
+  retries: 5
+  start_period_s: 120
+backup:
+  db_export:
+    method: app_native
+    description_nl: >-
+      Configuratie-export via de Authentik-API/blueprints (home-control-hub B13-005) plus ZFS-snapshot van alle vier
+      datasets met de app gestopt. Een pg_dump in de PostgreSQL-container kan het platform niet uitvoeren (geen shell,
+      geen Docker-socket). secret_key en db_password staan in de vault van de Hub; zonder secret_key zijn sessies en
+      tokens na herstel ongeldig.
+  snapshot_datasets: [data, templates, certs, postgres_data]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: ai-server-manager
+    kind: required
+    reason_nl: De Hub maakt en bewaart de geheimen (vault) en is de eerste OIDC-client; zijn noodaccount voorkomt een totale lockout.
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Bijwerken via app.upgrade naar een nieuwe vaste catalogusversie met snapshot_hostpaths=true (snapshots van de
+    datasets vooraf). app.rollback zet alleen ixVolumes terug; met datasets uit de datasetkiezer = snapshot-restore van
+    alle vier datasets (R3) plus app.rollback naar de vorige catalogusversie. Upgrade eerst testen tegen een kloon
+    (I09 stap 2).
+decisions_required: [D01, D02, D03, D16, D17]
+docs: [I09_AUTHENTIK]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10"
+  truenas_max_version: null
+  ix_app_min_version: null
+provenance:
+  source_repo: https://github.com/truenas/apps
+  source_commit: "f7a38eb009fce1239653a2913a05bc3658fbd6ef"
+  upstream_repo: https://github.com/goauthentik/authentik
+  license: MIT (kern; enterprise-map en website apart)

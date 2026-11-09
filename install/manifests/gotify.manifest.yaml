@@ -1,0 +1,134 @@
+# I13 Gotify — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
+# Versie en digest gecontroleerd op 2026-11-09: git ls-remote --tags gotify/server (nieuwste stabiele v3.1.1) en
+# docker buildx imagetools inspect ghcr.io/gotify/server:3.1.1 (index-digest hieronder; gelijk aan docker.io/gotify/server
+# en aan de catalogusapp community/gotify 1.1.17 in truenas/apps f7a38eb). Op een echte NAS: NIET GEVALIDEERD.
+# Na de installatie (verplicht, zie install/manifests/README.md): het standaardaccount admin/admin van Gotify direct een
+# eigen wachtwoord geven; de Hub controleert dat admin/admin daarna 401 geeft (anders incident, geen groen).
+manifest_version: "1"
+app_id: gotify
+name: Gotify
+owner_repo: lvos04/jelly-leon-platform
+category: infrastructure
+description_nl: >-
+  Pushmeldingen buiten de Hub om (I13): de Hub en Uptime Kuma sturen elk met een eigen applicatietoken; de telefoon
+  ontvangt via de Gotify-app of de webinterface. Eén container, SQLite in de datamap, draait als 568:568. Bij volledige
+  uitval van de NAS kan Gotify niet melden (geen out-of-band; zie I13 §5).
+version: "3.1.1"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/gotify/server
+  tag: "3.1.1"
+  digest: "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86"
+custom_app:
+  storage:
+    - name: data
+      type: host_path
+      host_path: {param: data_path}
+      read_only: false
+  env:
+    - {name: GOTIFY_SERVER_PORT, value: "8080"}
+    - {name: GOTIFY_REGISTRATION, value: "false"}
+  resources:
+    cpus: 1
+    memory_mib: 256
+  gpu: none
+  run_as: {mode: custom, user: 568, group: 568}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal: {port: web, scheme: http, path: /, name: Gotify}
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30215
+    required: true
+    description_nl: Hostpoort (voorstel = standaard van de TrueNAS-catalogusapp); de Hub controleert vooraf app.used_ports.
+  - name: data_path
+    type: path
+    source: dataset_picker
+    dataset_role: gotify_data
+    decision: D02
+    required: true
+    description_nl: Dataset voor /app/data (SQLite-database, afbeeldingen, plugins), eigenaar 568:568.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbaar verlies aan meldingen/instellingen (RPO), gekozen in de wizard.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbare hersteltijd (RTO), gekozen in de wizard.
+storage:
+  - name: data
+    mount: /app/data
+    kind: data
+    required_dataset_role: gotify_data
+    description_nl: SQLite-database met gebruikers, applicaties en tokens (alleen als hash bij Gotify), plus afbeeldingen.
+network:
+  ports:
+    - name: web
+      container_port: 8080
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Webinterface, REST-API (POST /message) en WebSocket-stream voor de telefoon
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: http
+  path: /health
+  port: web
+  interval_s: 30
+  timeout_s: 5
+  retries: 3
+  start_period_s: 30
+backup:
+  db_export:
+    method: none
+    description_nl: >-
+      Gotify heeft geen export en het platform heeft geen shell in de container. Consistente back-up = de app stoppen,
+      ZFS-snapshot van de datamap, app starten (lifecycle doet dat vóór elke update). Tokens staan als hash bij
+      Gotify; de tokens zelf bewaart alleen de vault van de Hub.
+  snapshot_datasets: [data]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies: []
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Gotify past het databaseschema bij de start aan (gorm). Terug naar een oudere tag alleen samen met de snapshot van
+    vóór de update (R3 bij een database-terugzetting).
+decisions_required: [D01, D02, D03, D16]
+docs: [I13_GOTIFY]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/gotify/server
+  source_commit: "e6361caa512547052b1013dbf4544e6d7ff32604"
+  upstream_repo: https://github.com/gotify/server
+  license: MIT

@@ -186,7 +186,7 @@ def test_install_docs_never_yaml_method() -> None:
 
 def test_no_model_identifiers_in_own_files() -> None:
     pattern = re.compile(r"(claude-(opus|sonnet|haiku)|opus-\d|sonnet-\d|haiku-\d|gpt-\d)", re.I)
-    skip = {".git", ".venv", "platform-v2", "__pycache__", "node_modules", ".peil-bron"}
+    skip = {".git", ".venv", ".venv-validator", "platform-v2", "__pycache__", "node_modules", ".peil-bron"}
     for path in ROOT.rglob("*"):
         if path.is_dir() or any(part in skip for part in path.parts) or path.suffix in {".pyc", ".lock"}:
             continue

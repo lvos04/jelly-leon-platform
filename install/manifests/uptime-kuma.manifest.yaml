@@ -1,0 +1,137 @@
+# I08 Uptime Kuma — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
+# Versie en digest gecontroleerd op 2026-11-09: git ls-remote --tags louislam/uptime-kuma (nieuwste stabiele 2.5.9) en
+# docker buildx imagetools inspect ghcr.io/louislam/uptime-kuma:2.5.9 (gelijk aan docker.io/louislam/uptime-kuma en aan
+# de catalogusapp community/uptime-kuma 1.2.25 in truenas/apps f7a38eb). De catalogusapp draait als root met NET_RAW;
+# deze Custom App draait als 568:568. Op een echte NAS: NIET GEVALIDEERD (ook niet of ICMP-monitors als 568 werken).
+# Na de installatie (verplicht): direct het eerste beheerdersaccount aanmaken (tot dan is de setup open op het LAN) en
+# een API-sleutel met alleen /metrics-gebruik voor de Hub maken; de sleutel gaat alleen in de vault van de Hub.
+manifest_version: "1"
+app_id: uptime-kuma
+name: Uptime Kuma
+owner_repo: lvos04/jelly-leon-platform
+category: infrastructure
+description_nl: >-
+  Bereikbaarheidsbewaking (I08): HTTP(S)/TCP-controles op de Hub, de TrueNAS-webinterface en de apps, met meldingen
+  via Gotify, ook als de Hub zelf uitvalt (EX22). Eén container met SQLite in de datamap, draait als 568:568. Draait
+  op dezelfde NAS en kan dus geen volledige NAS-uitval melden (I08 §5).
+version: "2.5.9"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/louislam/uptime-kuma
+  tag: "2.5.9"
+  digest: "sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd"
+custom_app:
+  storage:
+    - name: data
+      type: host_path
+      host_path: {param: data_path}
+      read_only: false
+  env:
+    - {name: UPTIME_KUMA_PORT, value: "3001"}
+    - {name: UPTIME_KUMA_DB_TYPE, value: sqlite}
+  resources:
+    cpus: 1
+    memory_mib: 512
+  gpu: none
+  run_as: {mode: custom, user: 568, group: 568}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal: {port: web, scheme: http, path: /, name: Uptime Kuma}
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 31050
+    required: true
+    description_nl: Hostpoort (voorstel = standaard van de TrueNAS-catalogusapp); de Hub controleert vooraf app.used_ports.
+  - name: data_path
+    type: path
+    source: dataset_picker
+    dataset_role: uptime_kuma_data
+    decision: D02
+    required: true
+    description_nl: Dataset voor /app/data (SQLite-database met monitors, meldingen en historie), eigenaar 568:568.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbaar verlies aan monitorconfiguratie en historie (RPO), gekozen in de wizard.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbare hersteltijd (RTO), gekozen in de wizard.
+storage:
+  - name: data
+    mount: /app/data
+    kind: data
+    required_dataset_role: uptime_kuma_data
+    description_nl: kuma.db (SQLite) met monitors, meldingskanalen, API-sleutels (als hash) en historie.
+network:
+  ports:
+    - name: web
+      container_port: 3001
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Webinterface, statuspagina-API en /metrics (Prometheus, met API-sleutel)
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: http
+  path: /api/entry-page
+  port: web
+  interval_s: 60
+  timeout_s: 10
+  retries: 5
+  start_period_s: 180
+backup:
+  db_export:
+    method: none
+    description_nl: >-
+      Uptime Kuma 2.x heeft geen ingebouwde export meer en het platform heeft geen shell in de container. Consistente
+      back-up = de app stoppen, ZFS-snapshot van de datamap, app starten (lifecycle doet dat vóór elke update).
+  snapshot_datasets: [data]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: gotify
+    kind: optional
+    reason_nl: Meldingen buiten de Hub om (I08 stap 4, EX22); zonder Gotify alleen meldingen in Uptime Kuma zelf.
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Uptime Kuma migreert de database bij de start (knex). Terug naar een oudere tag alleen samen met de snapshot van
+    vóór de update. Een sprong 1.x → 2.x is in dit manifest niet voorzien (nieuwe installatie, I08: breaking changes).
+decisions_required: [D01, D02, D03, D16]
+docs: [I08_UPTIME_KUMA]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/louislam/uptime-kuma
+  source_commit: "df601c58d9205562f34cfe5ef35264b341019d19"
+  upstream_repo: https://github.com/louislam/uptime-kuma
+  license: MIT

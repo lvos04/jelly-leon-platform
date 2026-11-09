@@ -4,7 +4,7 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit peil-kopie test-ui statuspagina-shots
+	sim-image audit peil-kopie test-ui statuspagina-shots validator-venv manifesten
 
 venv:
 	python3.12 -m venv .venv
@@ -25,6 +25,22 @@ test-sim:
 
 test-repo:
 	$(PY) -m pytest -q tests/repo
+
+# Installeerbare manifesten (install/manifests, ADR-0014): validator van appstore-en-fork in een eigen venv
+# (gecommitte inhoud via git archive, alleen lezen; APPSTORE=<checkout> om een andere bron te kiezen).
+APPSTORE ?= ../appstore-en-fork
+VALIDATOR_SRC ?= /tmp/jlp-appstore-validator
+validator-venv:
+	rm -rf $(VALIDATOR_SRC) && mkdir -p $(VALIDATOR_SRC)
+	git -C $(APPSTORE) archive HEAD apps/api | tar -x -C $(VALIDATOR_SRC)
+	python3.12 -m venv .venv-validator
+	.venv-validator/bin/pip install -q --require-hashes -r $(VALIDATOR_SRC)/apps/api/requirements.lock
+	.venv-validator/bin/pip install -q --no-deps $(VALIDATOR_SRC)/apps/api
+	@echo "validator: appstore-en-fork@$$(git -C $(APPSTORE) rev-parse HEAD)"
+
+manifesten:
+	$(PY) tools/manifesten.py
+	$(PY) tools/manifest_kopie.py controleer
 
 # Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager
 test-conformance:

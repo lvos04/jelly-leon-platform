@@ -1,0 +1,126 @@
+# I07 Beszel (agent) — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Er is geen TrueNAS-catalogusapp voor de agent (truenas/apps f7a38eb heeft alleen community/beszel-hub): standaard
+# Custom App met één gepinde upstream-image (ADR-0014). Versie en digest gecontroleerd op 2026-11-09 met
+# git ls-remote --tags henrygd/beszel (v0.21.1) en docker buildx imagetools inspect ghcr.io/henrygd/beszel/beszel-agent:0.21.1.
+# Bewust ZONDER host network, ZONDER Docker-socket en ZONDER GPU (contract §1, §9): netwerkverkeer van de NAS,
+# containerstatistieken en GPU-gebruik levert de agent daardoor niet (capability_unavailable; zie BESZEL_MEETDEKKING.md).
+# Koppelen gaat in SSH-modus: de hub maakt de verbinding en de agent kent alleen de PUBLIEKE sleutel van de hub (KEY);
+# er staat geen geheim (TOKEN) in het formulier. Op een echte NAS: NIET GEVALIDEERD.
+manifest_version: "1"
+app_id: beszel-agent
+name: Beszel (agent)
+owner_repo: lvos04/jelly-leon-platform
+category: infrastructure
+description_nl: >-
+  Meetagent van Beszel op de NAS (I07 stap 3): levert CPU, geheugen, belasting en temperaturen aan de Beszel-hub. Draait
+  als 568:568 zonder extra rechten; meet in een container niet alles (zie BESZEL_MEETDEKKING.md). De hub legt de
+  verbinding; de agent accepteert alleen de vastgezette publieke sleutel van de hub.
+version: "0.21.1"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/henrygd/beszel/beszel-agent
+  tag: "0.21.1"
+  digest: "sha256:cb6868012964d7a68debaa2c84bb72285e5f08531e81f506bd4c493bf052e41c"
+custom_app:
+  storage:
+    - name: state
+      type: host_path
+      host_path: {param: state_path}
+      read_only: false
+  env:
+    - {name: LISTEN, value: "45876"}
+    - {name: KEY, value_from: {param: hub_public_key}}
+    - {name: SKIP_GPU, value: "true"}
+    - {name: SKIP_SYSTEMD, value: "true"}
+  resources:
+    cpus: 1
+    memory_mib: 128
+  gpu: none
+  run_as: {mode: custom, user: 568, group: 568}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 45876
+    required: true
+    description_nl: Hostpoort waarop de Beszel-hub de agent bereikt (standaard van Beszel); de Hub controleert vooraf app.used_ports.
+  - name: state_path
+    type: path
+    source: dataset_picker
+    dataset_role: beszel_agent_state
+    decision: D02
+    required: true
+    description_nl: Kleine dataset voor /var/lib/beszel-agent (vingerafdruk van de agent, zodat er na een herstart geen dubbele host ontstaat).
+  - name: hub_public_key
+    type: string
+    source: wizard
+    required: true
+    description_nl: Publieke SSH-sleutel van de Beszel-hub (geen geheim); de Hub leest hem uit de hub-API (/api/beszel/info) en laat hem bevestigen.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+storage:
+  - name: state
+    mount: /var/lib/beszel-agent
+    kind: config
+    required_dataset_role: beszel_agent_state
+    description_nl: Vingerafdruk (identiteit) van de agent; geen meetgegevens (die staan in de hub).
+network:
+  ports:
+    - name: agent
+      container_port: 45876
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: SSH-verbinding van de Beszel-hub naar de agent (alleen met de vastgezette hubsleutel)
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: tcp
+  port: agent
+  interval_s: 60
+  timeout_s: 5
+  retries: 3
+  start_period_s: 10
+backup:
+  db_export:
+    method: none
+    description_nl: Geen database; alleen de vingerafdruk in de statusmap (ZFS-snapshot volstaat).
+  snapshot_datasets: [state]
+  rpo: P7D
+  rto: PT1H
+dependencies:
+  - app_id: beszel-hub
+    kind: required
+    reason_nl: De agent heeft de publieke sleutel van de hub nodig en wordt alleen door die hub uitgelezen.
+sso: none
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: false
+  tag_only_rollback_safe: true
+  notes_nl: Geen database; alleen de image-tag wisselt. Hub en agent bij voorkeur op dezelfde versie houden.
+decisions_required: [D01, D02, D03]
+docs: [I07_BESZEL]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/henrygd/beszel
+  source_commit: "e2ed147a5aa6472e6462521632ccc7101668132c"
+  upstream_repo: https://github.com/henrygd/beszel
+  license: MIT

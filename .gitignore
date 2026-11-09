@@ -16,3 +16,4 @@ node_modules/
 bin/
 obj/
 .peil-bron/
+.venv-validator/

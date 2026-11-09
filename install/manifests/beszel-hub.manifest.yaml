@@ -1,0 +1,135 @@
+# I07 Beszel (hub) — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
+# Versie en digest gecontroleerd op 2026-11-09: git ls-remote --tags henrygd/beszel (nieuwste stabiele v0.21.1) en
+# docker buildx imagetools inspect ghcr.io/henrygd/beszel/beszel:0.21.1 (gelijk aan de catalogusapp
+# community/beszel-hub 1.1.22 in truenas/apps f7a38eb). Op een echte NAS: NIET GEVALIDEERD.
+# Na de installatie (verplicht): direct het eerste account aanmaken (tot dan staat /api/beszel/create-user open op het
+# LAN); de Hub controleert GET /api/beszel/first-run → firstRun:false. Daarna de agent (beszel-agent.manifest.yaml)
+# toevoegen met de publieke sleutel van deze hub.
+manifest_version: "1"
+app_id: beszel-hub
+name: Beszel (hub)
+owner_repo: lvos04/jelly-leon-platform
+category: infrastructure
+description_nl: >-
+  Lichtgewicht servermonitoring (I07): de hub verzamelt CPU, geheugen (inclusief ZFS-ARC als de agent die ziet),
+  temperaturen en historie van de agent en biedt een alleen-lezen-API (PocketBase) voor de Hub. Eén container, draait
+  als 568:568. Wat Beszel op TrueNAS wel en niet kan meten staat in install/manifests/BESZEL_MEETDEKKING.md.
+version: "0.21.1"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/henrygd/beszel/beszel
+  tag: "0.21.1"
+  digest: "sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770"
+custom_app:
+  storage:
+    - name: data
+      type: host_path
+      host_path: {param: data_path}
+      read_only: false
+  env: []
+  resources:
+    cpus: 1
+    memory_mib: 512
+  gpu: none
+  run_as: {mode: custom, user: 568, group: 568}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal: {port: web, scheme: http, path: /, name: Beszel}
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30333
+    required: true
+    description_nl: Hostpoort (voorstel = standaard van de TrueNAS-catalogusapp); de Hub controleert vooraf app.used_ports.
+  - name: data_path
+    type: path
+    source: dataset_picker
+    dataset_role: beszel_data
+    decision: D02
+    required: true
+    description_nl: Dataset voor /beszel_data (PocketBase-database, sleutelpaar van de hub, back-ups), eigenaar 568:568.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbaar verlies aan meethistorie en instellingen (RPO), gekozen in de wizard.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbare hersteltijd (RTO), gekozen in de wizard.
+storage:
+  - name: data
+    mount: /beszel_data
+    kind: data
+    required_dataset_role: beszel_data
+    description_nl: PocketBase-gegevens (systemen, metingen, waarschuwingen) en het SSH-sleutelpaar van de hub (geheim).
+network:
+  ports:
+    - name: web
+      container_port: 8090
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Webinterface en API (PocketBase, /api/…); de hub legt zelf de SSH-verbinding naar de agent
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: http
+  path: /api/health
+  port: web
+  interval_s: 30
+  timeout_s: 5
+  retries: 3
+  start_period_s: 20
+backup:
+  db_export:
+    method: app_native
+    description_nl: >-
+      PocketBase-back-up (zip van /beszel_data, inclusief het sleutelpaar) via de beheerpagina /_/ of de PocketBase-API
+      (superuser); daarnaast ZFS-snapshot van de datamap. Een kopie buiten de NAS alleen versleuteld (sleutelpaar).
+  snapshot_datasets: [data]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: beszel-agent
+    kind: optional
+    reason_nl: Zonder agent heeft de hub niets te meten; de agent wordt na de hub geïnstalleerd met diens publieke sleutel.
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    PocketBase voert migraties uit bij de start. Terug naar een oudere tag alleen samen met de snapshot of
+    PocketBase-back-up van vóór de update. Hub en agent bij voorkeur op dezelfde versie houden.
+decisions_required: [D01, D02, D03, D16]
+docs: [I07_BESZEL]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/henrygd/beszel
+  source_commit: "e2ed147a5aa6472e6462521632ccc7101668132c"
+  upstream_repo: https://github.com/henrygd/beszel
+  license: MIT
