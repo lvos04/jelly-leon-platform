@@ -53,7 +53,10 @@ parameters:
     dataset_role: beszel_agent_state
     decision: D02
     required: true
-    description_nl: Kleine dataset voor /var/lib/beszel-agent (vingerafdruk van de agent, zodat er na een herstart geen dubbele host ontstaat).
+    description_nl: >-
+      Kleine dataset voor /var/lib/beszel-agent (gegevensmap van de agent). In SSH-modus schrijft de agent hier geen
+      vingerafdruk (dat doet alleen de WebSocket-modus met TOKEN); de identiteit is het systeemrecord in de hub (adres +
+      poort). Gemeten op 2026-11-09 in Docker, niet op een NAS: map leeg na start en herstart, één systeem na herstart.
   - name: hub_public_key
     type: string
     source: wizard
@@ -69,7 +72,9 @@ storage:
     mount: /var/lib/beszel-agent
     kind: config
     required_dataset_role: beszel_agent_state
-    description_nl: Vingerafdruk (identiteit) van de agent; geen meetgegevens (die staan in de hub).
+    description_nl: >-
+      Gegevensmap van de agent; geen meetgegevens (die staan in de hub). In SSH-modus leeg; de WebSocket-modus zou
+      hier de vingerafdruk bewaren.
 network:
   ports:
     - name: agent
@@ -95,7 +100,7 @@ healthcheck:
 backup:
   db_export:
     method: none
-    description_nl: Geen database; alleen de vingerafdruk in de statusmap (ZFS-snapshot volstaat).
+    description_nl: Geen database; de gegevensmap is in SSH-modus leeg (ZFS-snapshot volstaat).
   snapshot_datasets: [state]
   rpo: P7D
   rto: PT1H

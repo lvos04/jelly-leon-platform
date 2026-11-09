@@ -9,6 +9,13 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 > appstore-en-fork (met de beredeneerde uitzonderingen in `validatie-uitzonderingen.yaml`), vertaald naar
 > `app.create`-waarden en tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Op een echte TrueNAS is niets
 > geïnstalleerd: **NIET GEVALIDEERD (echte NAS)** — installeren gebeurt via de Hub en de executor (P2).
+>
+> De vier upstream-images (Beszel hub en agent, Gotify, Uptime Kuma) zijn bovendien echt gestart, maar in Docker en
+> niet op TrueNAS: op digest, als 568:568 met een lege eigen map, met de omgevingsvariabelen uit het manifest
+> (`tools/upstream_rooktest.py`, `make upstream-rooktest`, CI-job `rooktest`). Gecontroleerd: digest-readback, alle
+> processen als 568, de healthcheck-route, de kernroutes in dezelfde vorm als de simulators in `e2e/simulators/`,
+> herstart zonder dataverlies, en Beszel-agent ↔ hub in SSH-modus met alleen de publieke sleutel. Ook dat is
+> **Sim-getest**, geen NAS-validatie.
 
 ## Wat er nu is (P1)
 
@@ -30,6 +37,7 @@ Keuze Custom App of catalogusapp, digests en uitzonderingen: `docs/adr/ADR-0014-
 ```bash
 make validator-venv     # validator van appstore-en-fork in .venv-validator (gecommitte inhoud, alleen lezen)
 make manifesten         # jl-manifest validate --strict + uitzonderingen exact, I23-kopie, controlelijsten
+make upstream-rooktest  # upstream-images op digest als 568:568 met lege map: health, API-vorm, herstart (Docker)
 ```
 
 ### Na de installatie (verplicht; de Hub controleert het, anders incident en nooit groen)

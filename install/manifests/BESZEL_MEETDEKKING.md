@@ -30,5 +30,27 @@ Gevolgen:
   vraagt een externe host (EX23, NIET GEVALIDEERD).
 - **Koppelen (I07-07-03):** SSH-modus. De agent kent alleen de **publieke** sleutel van de hub (`KEY`, parameter uit
   de wizard; de Hub haalt hem op via `GET /api/beszel/info` en laat hem bevestigen). Geen `TOKEN` in het formulier.
-- **Geen dubbele host na herstart (I07-07-06):** de agent bewaart zijn vingerafdruk in `/var/lib/beszel-agent`
-  (eigen kleine dataset). Zonder die dataset krijgt de agent na elke herinstallatie een nieuwe identiteit.
+- **Geen dubbele host na herstart (I07-07-06):** in SSH-modus is de identiteit van de agent het systeemrecord in de hub
+  (adres + poort); de agent schrijft dan **geen** vingerafdruk (`agent/fingerprint.go` wordt alleen door de
+  WebSocket-client in `agent/client.go` gebruikt, dus alleen met `TOKEN` + `HUB_URL`). De eigen kleine dataset op
+  `/var/lib/beszel-agent` blijft staan als gegevensmap van de agent, maar is in SSH-modus leeg. Gemeten (zie hieronder):
+  na een herstart van de agent belt de hub hem zelf weer op en blijft er precies één systeem.
+
+## Gemeten met de echte images (Docker, geen TrueNAS — 2026-11-09)
+
+`tools/upstream_rooktest.py` (`make upstream-rooktest`, CI-job `rooktest`) start de hub en de agent op digest als
+568:568 met een lege eigen map, zonder host network, Docker-socket of GPU, en koppelt ze in SSH-modus met alleen de
+publieke hubsleutel. Uitkomst op de bouwmachine (Ubuntu-host met ext4, **geen** ZFS en **geen** TrueNAS):
+
+- Hub en agent draaien volledig als 568; de agent toont de SSH-banner `SSH-2.0-beszel_0.21.1`; de hub haalt
+  binnen een minuut metingen op (`system_stats` type `1m` met o.a. `cpu`, `m`, `mu`, `mb`, `mem`, `la`, `t`, `ni`).
+- Temperaturen (`t`: hwmon/coretemp en NVMe) waren in de container zichtbaar. Of dat op de NAS ook zo is: onzeker.
+- Schijf: de agent meet het rootbestandssysteem van de container (`mount=/etc/resolv.conf`), niet de pools — zoals
+  hierboven. Netwerk (`ni`): alleen de eigen container-interface `eth0` — zoals hierboven.
+- ARC (`mz`) ontbrak; de bouwmachine heeft geen ZFS, dus dit zegt niets over de NAS (blijft **onzeker**).
+- Als 568 kan de agent niet in `/tmp` van de image schrijven; hij meldt `SKIP_GPU sensor shadow unavailable` en valt
+  terug op filteren na het lezen. Onschadelijk, maar wel een waarschuwing in de app-log.
+- Na een herstart van de agent: precies één systeem, weer `up` (gemeten na ca. 60 s; de hub belt op zijn eigen
+  minuutritme). De gegevensmap van de agent bleef leeg.
+
+Dit is **Sim-getest** (Docker), geen meting op TrueNAS: **NIET GEVALIDEERD (echte NAS)** blijft staan.
