@@ -69,28 +69,25 @@ class ApiKey:
         return f"{self.id}-{self.key}"
 
 
-# Nep-catalogus. Laatste versies en app_version overgenomen uit truenas/apps (commit f142a16, 2026-11-06); de
-# "vorige" versies zijn fictief (alleen om upgrade/rollback te kunnen testen) en dragen de markering sim-vorige.
+# Nep-catalogus. Versies en app_version overgenomen uit truenas/apps (commit f142a16, 2026-11-06). Zoals in die
+# commit houdt elke trein per app **alleen de nieuwste versie** (contract 1.2 §2.2): een vastgezette oudere versie
+# kan dus uit de catalogus verdwijnen (``app.create`` → "Version … not found"). Al geïnstalleerde versies blijven
+# lokaal bekend (``SimState.installed_versions``), zodat ``app.rollback`` naar een eerder geïnstalleerde versie werkt.
+# Testbediening ``POST /_sim/catalog/publish`` zet een nieuwe versie in de trein en laat de vorige verdwijnen.
 CATALOG: dict[str, dict[str, dict[str, Any]]] = {
     "stable": {
-        "ix-app": {"versions": {"1.4.7": "1.4.7 (sim-vorige)", "1.4.8": "1.4.8"}, "title": "iX App",
-                   "categories": ["custom"], "min_scale_version": "24.10.2.2"},
+        "ix-app": {"versions": {"1.4.8": "1.4.8"}, "title": "iX App", "categories": ["custom"],
+                   "min_scale_version": "24.10.2.2"},
     },
     "community": {
-        "authentik": {"versions": {"1.3.62": "2026.8.4 (sim-vorige)", "1.3.63": "2026.8.5"}, "title": "Authentik",
-                      "categories": ["security"]},
-        "immich": {"versions": {"1.14.61": "v3.3.5 (sim-vorige)", "1.14.62": "v3.3.6"}, "title": "Immich",
-                   "categories": ["media"]},
-        "uptime-kuma": {"versions": {"1.2.24": "2.5.8 (sim-vorige)", "1.2.25": "2.5.9"}, "title": "Uptime Kuma",
-                        "categories": ["monitoring"]},
-        "gotify": {"versions": {"1.1.16": "3.1.0 (sim-vorige)", "1.1.17": "3.1.1"}, "title": "Gotify",
-                   "categories": ["notifications"]},
-        "node-red": {"versions": {"1.4.34": "5.0.8 (sim-vorige)", "1.4.35": "5.0.9-24"}, "title": "Node-RED",
-                     "categories": ["productivity"]},
-        "adguard-home": {"versions": {"1.3.20": "v0.107.79 (sim-vorige)", "1.3.21": "v0.107.80"},
-                         "title": "AdGuard Home", "categories": ["networking"]},
-        "beszel-hub": {"versions": {"1.1.21": "0.21.0 (sim-vorige)", "1.1.22": "0.21.1"}, "title": "Beszel Hub",
-                       "categories": ["monitoring"]},
+        "authentik": {"versions": {"1.3.63": "2026.8.5"}, "title": "Authentik", "categories": ["security"]},
+        "immich": {"versions": {"1.14.62": "v3.3.6"}, "title": "Immich", "categories": ["media"]},
+        "uptime-kuma": {"versions": {"1.2.25": "2.5.9"}, "title": "Uptime Kuma", "categories": ["monitoring"]},
+        "gotify": {"versions": {"1.1.17": "3.1.1"}, "title": "Gotify", "categories": ["notifications"]},
+        "node-red": {"versions": {"1.4.35": "5.0.9-24"}, "title": "Node-RED", "categories": ["productivity"]},
+        "adguard-home": {"versions": {"1.3.21": "v0.107.80"}, "title": "AdGuard Home",
+                         "categories": ["networking"]},
+        "beszel-hub": {"versions": {"1.1.22": "0.21.1"}, "title": "Beszel Hub", "categories": ["monitoring"]},
     },
 }
 
@@ -131,6 +128,22 @@ class SimState:
     faults: dict[str, Any] = field(default_factory=dict)
     violations: list[dict[str, Any]] = field(default_factory=list)
     calls: list[dict[str, Any]] = field(default_factory=list)
+    catalog: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: copy.deepcopy(CATALOG))
+    # (trein, catalogusapp, versie) → app_version van ooit lokaal geïnstalleerde versies (blijven na catalogwissel)
+    installed_versions: dict[tuple[str, str, str], str] = field(default_factory=dict)
+
+    def app_version_of(self, train: str, catalog_app: str, version: str) -> str | None:
+        versions = self.catalog.get(train, {}).get(catalog_app, {}).get("versions", {})
+        return versions.get(version) or self.installed_versions.get((train, catalog_app, version))
+
+    def publish(self, train: str, catalog_app: str, version: str, app_version: str) -> None:
+        """Nieuwe versie in de trein; de vorige verdwijnt uit de catalogus (lokaal geïnstalleerde blijven bekend)."""
+        meta = self.catalog[train][catalog_app]
+        meta["versions"] = {version: app_version}
+        for app in self.apps.values():  # geïnstalleerde apps zien de nieuwe versie (zoals na catalog.sync)
+            if app["metadata"]["name"] == catalog_app and app["metadata"]["train"] == train:
+                app["latest_version"] = version
+                app["upgrade_available"] = catalog_app != "ix-app" and vkey(version) > vkey(app["version"])
 
     @property
     def profile(self) -> dict[str, Any]:

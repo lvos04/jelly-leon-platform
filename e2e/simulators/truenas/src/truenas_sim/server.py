@@ -412,7 +412,7 @@ def create_app(server: SimServer | None = None) -> FastAPI:
         return {"boot_id": sim.state.boot_id}
 
     fault_names = {"pool_degraded", "api_unreachable", "key_revoked", "slow", "job_fail", "reboot_during_apply",
-                   "smart_fail", "insecure_transport"}
+                   "smart_fail", "insecure_transport", "digest_mismatch"}
 
     @app.post("/_sim/faults/{name}")
     async def set_fault(name: str, request: Request) -> dict[str, Any]:
@@ -462,6 +462,17 @@ def create_app(server: SimServer | None = None) -> FastAPI:
                 pool["topology"]["data"][0]["status"] = "ONLINE"
         return {"faults": s.faults}
 
+    @app.post("/_sim/catalog/publish")
+    async def catalog_publish(request: Request) -> dict[str, Any]:
+        """Nieuwe catalogusversie publiceren; de vorige verdwijnt uit de trein (contract 1.2 §2.2)."""
+        body = await _json(request)
+        try:
+            sim.state.publish(str(body["train"]), str(body["app"]), str(body["version"]),
+                              str(body.get("app_version", body["version"])))
+        except KeyError as exc:
+            raise HTTPException(404, f"onbekende trein/app: {exc}") from exc
+        return {"catalog": sim.state.catalog}
+
     @app.post("/_sim/fixtures")
     async def fixtures(request: Request) -> dict[str, Any]:
         body = await _json(request)
@@ -474,7 +485,7 @@ def create_app(server: SimServer | None = None) -> FastAPI:
         for preinstalled in body.get("apps", []):
             from truenas_sim.methods import _app_entry
 
-            entry = _app_entry(preinstalled["app_name"], preinstalled.get("train", "stable"),
+            entry = _app_entry(s, preinstalled["app_name"], preinstalled.get("train", "stable"),
                                preinstalled.get("catalog_app", "ix-app"), preinstalled["version"],
                                preinstalled.get("values", {}), state=preinstalled.get("state", "RUNNING"))
             entry["_history"] = list(preinstalled.get("history", [preinstalled["version"]]))

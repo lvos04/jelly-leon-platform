@@ -22,7 +22,7 @@ from truenas_sim.rpc import (
     register,
     validation_error,
 )
-from truenas_sim.state import CATALOG, date, latest, vkey
+from truenas_sim.state import SimState, date, latest, vkey
 
 if TYPE_CHECKING:
     from truenas_sim.server import Ctx, JobHandle
@@ -299,8 +299,8 @@ async def disk_temperatures(ctx: Ctx, names: list[str] | None = None, include_th
 
 
 # ====================================================================== catalogus
-def _catalog_item(train: str, name: str) -> dict[str, Any]:
-    meta = CATALOG[train][name]
+def _catalog_item(catalog: dict[str, Any], train: str, name: str) -> dict[str, Any]:
+    meta = catalog[train][name]
     versions = meta["versions"]
     top = latest(versions)
     return {"name": name, "title": meta["title"], "train": train, "categories": meta["categories"],
@@ -316,9 +316,9 @@ async def app_available(ctx: Ctx, filters: list[Any] | None = None, options: dic
     """Beschikbare catalogusapps in de voorkeurstreinen."""
     installed = {(a["metadata"]["name"], a["metadata"]["train"]) for a in ctx.state.apps.values()}
     rows = [
-        {"catalog": "TRUENAS", "installed": (name, train) in installed, **_catalog_item(train, name)}
-        for train in ctx.state.preferred_trains if train in CATALOG
-        for name in CATALOG[train] if name != IX_APP
+        {"catalog": "TRUENAS", "installed": (name, train) in installed, **_catalog_item(ctx.state.catalog, train, name)}
+        for train in ctx.state.preferred_trains if train in ctx.state.catalog
+        for name in ctx.state.catalog[train] if name != IX_APP
     ]
     return filter_list(rows, filters, options)
 
@@ -327,15 +327,16 @@ async def app_available(ctx: Ctx, filters: list[Any] | None = None, options: dic
 async def catalog_get_app_details(ctx: Ctx, app_name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
     """Details en versies van één catalogusapp (``{"train": …}``)."""
     train = str((options or {}).get("train", "stable"))
-    if train not in CATALOG:
+    catalog = ctx.state.catalog
+    if train not in catalog:
         raise call_error(ENOENT, f"Unable to locate {train!r} train")
-    if app_name not in CATALOG[train]:
+    if app_name not in catalog[train]:
         raise call_error(ENOENT, f"Unable to locate {app_name!r} app in {train!r} train")
-    item = _catalog_item(train, app_name)
+    item = _catalog_item(catalog, train, app_name)
     item["versions"] = {
         v: {"version": v, "human_version": f"{av}_{v}", "healthy": True, "supported": True,
             "app_metadata": {"name": app_name, "train": train, "version": v, "app_version": av}}
-        for v, av in CATALOG[train][app_name]["versions"].items()
+        for v, av in catalog[train][app_name]["versions"].items()
     }
     return item
 
@@ -350,14 +351,14 @@ async def catalog_config(ctx: Ctx) -> dict[str, Any]:
 @register("catalog.trains", roles=("CATALOG_READ",))
 async def catalog_trains(ctx: Ctx) -> list[str]:
     """Beschikbare treinen."""
-    return sorted(CATALOG)
+    return sorted(ctx.state.catalog)
 
 
 @register("catalog.update", roles=("CATALOG_WRITE",))
 async def catalog_update(ctx: Ctx, data: dict[str, Any]) -> dict[str, Any]:
     """Voorkeurstreinen instellen (bijv. community toevoegen)."""
     trains = list((data or {}).get("preferred_trains", []))
-    if not trains or any(t not in CATALOG for t in trains):
+    if not trains or any(t not in ctx.state.catalog for t in trains):
         raise validation_error([("catalog_update.preferred_trains", "Onbekende of lege treinenlijst")])
     ctx.state.preferred_trains = trains
     return await catalog_config(ctx)
@@ -409,18 +410,21 @@ def _image_of(catalog_app: str, values: dict[str, Any], app_version: str) -> str
     return f"sim/{catalog_app}:{app_version}"
 
 
-def _app_entry(name: str, train: str, catalog_app: str, version: str, values: dict[str, Any],
+def _app_entry(sim: SimState, name: str, train: str, catalog_app: str, version: str, values: dict[str, Any],
                state: str = "RUNNING") -> dict[str, Any]:
-    app_version = CATALOG[train][catalog_app]["versions"][version]
+    app_version = sim.app_version_of(train, catalog_app, version)
+    if app_version is None:
+        raise call_error(ENOENT, f"Version {version} not found in {catalog_app} app")
+    sim.installed_versions[(train, catalog_app, version)] = app_version
     image = _image_of(catalog_app, values, app_version)
     ports = _ports_from_values(values)
-    top = latest(CATALOG[train][catalog_app]["versions"])
+    top = latest(sim.catalog[train][catalog_app]["versions"])
     return {
         "name": name, "id": name, "state": state, "upgrade_available": vkey(top) > vkey(version) and
         catalog_app != IX_APP, "latest_version": top, "image_updates_available": False, "custom_app": False,
         "migrated": False, "human_version": f"{app_version}_{version}", "version": version,
         "metadata": {"name": catalog_app, "train": train, "version": version, "app_version": app_version,
-                     "title": CATALOG[train][catalog_app]["title"]},
+                     "title": sim.catalog[train][catalog_app]["title"]},
         "active_workloads": {"containers": 1 if state == "RUNNING" else 0, "used_ports": ports,
                              "used_host_ips": [], "container_details": [
                                  {"id": uuid.uuid4().hex[:12], "service_name": name, "image": image,
@@ -492,9 +496,9 @@ async def _create_runner(ctx: Ctx, job: JobHandle, data: dict[str, Any]) -> dict
     train, version = data.get("train", "stable"), str(data.get("version", "latest"))
     if name in ctx.state.apps:
         raise call_error(EEXIST, f"Application with name {name} already exists")
-    if train not in CATALOG or catalog_app not in CATALOG[train]:
+    if train not in ctx.state.catalog or catalog_app not in ctx.state.catalog[train]:
         raise call_error(ENOENT, f"Unable to locate {catalog_app!r} app in {train!r} train")
-    versions = CATALOG[train][catalog_app]["versions"]
+    versions = ctx.state.catalog[train][catalog_app]["versions"]
     if version == "latest":
         ctx.state.violation("version_latest", f"{name}: catalogusversie 'latest'")
         version = latest(versions)
@@ -503,7 +507,7 @@ async def _create_runner(ctx: Ctx, job: JobHandle, data: dict[str, Any]) -> dict
     values = copy.deepcopy(data.get("values") or {})
     _validate_values(ctx, name, catalog_app, values, "app_create.values")
     await job.progress(25, "Initial Validation completed")
-    app = _app_entry(name, train, catalog_app, version, values, state="DEPLOYING")
+    app = _app_entry(ctx.state, name, train, catalog_app, version, values, state="DEPLOYING")
     created_datasets: list[str] = []
     for st in values.get("storage", []) or []:
         if st.get("type") == "ix_volume":
@@ -585,7 +589,7 @@ async def app_upgrade_summary(ctx: Ctx, app_name: str, options: dict[str, Any] |
     """Samenvatting van een upgrade naar een catalogusversie."""
     app = _get_app(ctx, app_name)
     meta = app["metadata"]
-    versions = CATALOG[meta["train"]][meta["name"]]["versions"]
+    versions = ctx.state.catalog[meta["train"]][meta["name"]]["versions"]
     if not app["upgrade_available"]:
         raise call_error(ENOENT, f"No upgrade available for {app_name!r}")
     target = str((options or {}).get("app_version", "latest"))
@@ -612,7 +616,7 @@ async def _update_runner(ctx: Ctx, job: JobHandle, app_name: str, data: dict[str
     before = copy.deepcopy(app)
     app["config"] = new_values
     await job.progress(60, "Configuration updated", checkpoint=True)
-    fresh = _app_entry(app_name, meta["train"], meta["name"], app["version"], new_values,
+    fresh = _app_entry(ctx.state, app_name, meta["train"], meta["name"], app["version"], new_values,
                        state="RUNNING" if before["state"] != "STOPPED" else "STOPPED")
     fresh["_history"] = before["_history"]
     ctx.state.apps[app_name] = fresh
@@ -692,7 +696,7 @@ async def _rollback_runner(ctx: Ctx, job: JobHandle, app_name: str, options: dic
     await job.progress(20, f"Completed validation for {app_name!r} app rollback to {target!r} version",
                        checkpoint=True)
     meta = app["metadata"]
-    fresh = _app_entry(app_name, meta["train"], meta["name"], target, app["config"])
+    fresh = _app_entry(ctx.state, app_name, meta["train"], meta["name"], target, app["config"])
     fresh["_history"] = [v for v in app["_history"] if vkey(v) <= vkey(target)]
     ctx.state.apps[app_name] = fresh
     await ctx.server.emit("app.query", "changed", app_name, _public(fresh, False))
@@ -721,7 +725,7 @@ async def _upgrade_runner(ctx: Ctx, job: JobHandle, app_name: str, options: dict
         return _public(app, False)
     if not app["upgrade_available"]:
         raise call_error(ENOENT, f"No upgrade available for {app_name!r}")
-    versions = CATALOG[meta["train"]][meta["name"]]["versions"]
+    versions = ctx.state.catalog[meta["train"]][meta["name"]]["versions"]
     target = str(options.get("app_version", "latest"))
     if target == "latest":
         ctx.state.violation("version_latest", f"{app_name}: upgrade naar 'latest'")
@@ -731,7 +735,7 @@ async def _upgrade_runner(ctx: Ctx, job: JobHandle, app_name: str, options: dict
     await job.progress(40, f"Configuration updated for {app_name!r}, upgrading app", checkpoint=True)
     values = copy.deepcopy(app["config"])
     values.update(copy.deepcopy(options.get("values") or {}))
-    fresh = _app_entry(app_name, meta["train"], meta["name"], target, values)
+    fresh = _app_entry(ctx.state, app_name, meta["train"], meta["name"], target, values)
     fresh["_history"] = [*app["_history"], target]
     ctx.state.apps[app_name] = fresh
     await ctx.server.emit("app.query", "changed", app_name, _public(fresh, False))
@@ -751,8 +755,13 @@ async def app_image_query(ctx: Ctx, filters: list[Any] | None = None, options: d
     rows = []
     for app in ctx.state.apps.values():
         for image in app["active_workloads"]["images"]:
-            digest = "sha256:" + uuid.uuid5(uuid.NAMESPACE_URL, image).hex * 2
-            rows.append({"id": digest, "repo_tags": [image], "repo_digests": [f"{image.split(':')[0]}@{digest}"],
+            name_tag, _, pinned = image.partition("@")
+            repo = name_tag.rsplit(":", 1)[0] if ":" in name_tag.rsplit("/", 1)[-1] else name_tag
+            # zoals Docker: een tag met @sha256:… trekt precies die digest; anders een (gesimuleerde) digest van de tag
+            digest = pinned or "sha256:" + uuid.uuid5(uuid.NAMESPACE_URL, image).hex * 2
+            if ctx.state.faults.get("digest_mismatch"):
+                digest = "sha256:" + uuid.uuid5(uuid.NAMESPACE_URL, "anders:" + image).hex * 2
+            rows.append({"id": digest, "repo_tags": [name_tag], "repo_digests": [f"{repo}@{digest}"],
                          "size": 100_000_000, "dangling": False, "update_available": False, "created": "",
                          "author": "", "comment": ""})
     return filter_list(rows, filters, options)
