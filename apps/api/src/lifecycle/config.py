@@ -156,14 +156,22 @@ class Settings:
         return self.data_dir / "secrets"
 
 
+def _data_dir(env: Mapping[str, str]) -> Path:
+    """Leeg = standaard ``/appdata``; alleen een absoluut pad (een leeg of relatief pad zou naar de werkmap wijzen)."""
+    raw = _opt(env, "LIFECYCLE_DATA_DIR") or DEFAULT_DATA_DIR
+    if not raw.startswith("/"):
+        raise ConfigError(f"LIFECYCLE_DATA_DIR moet een absoluut pad zijn (gekregen: {raw!r})")
+    return Path(raw)
+
+
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     env = os.environ if env is None else env
     alembic_dir = _opt(env, "LIFECYCLE_ALEMBIC_DIR")
     allow_loopback = _flag(env, DEV_LOOPBACK_FLAG)
     return Settings(
-        data_dir=Path(env.get("LIFECYCLE_DATA_DIR", DEFAULT_DATA_DIR)),
-        database_url=env.get("LIFECYCLE_DATABASE_URL", DEFAULT_DB_URL),
-        host=env.get("LIFECYCLE_HOST", "0.0.0.0"),  # noqa: S104
+        data_dir=_data_dir(env),
+        database_url=_opt(env, "LIFECYCLE_DATABASE_URL") or DEFAULT_DB_URL,
+        host=_opt(env, "LIFECYCLE_HOST") or "0.0.0.0",  # noqa: S104
         port=_int(env, "LIFECYCLE_PORT", DEFAULT_PORT, 1, 65535),
         hub_url=normalize_hub_url(_opt(env, "HUB_URL"), allow_loopback=allow_loopback),
         enrollment_token=_opt(env, "HUB_ENROLLMENT_TOKEN"),

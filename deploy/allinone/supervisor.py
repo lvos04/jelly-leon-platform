@@ -37,7 +37,7 @@ from pathlib import Path
 
 UID = int(os.environ.get("LIFECYCLE_UID", "568"))
 GID = int(os.environ.get("LIFECYCLE_GID", "568"))
-DATA = Path(os.environ.get("LIFECYCLE_DATA_DIR", "/appdata"))
+DATA = Path(os.environ.get("LIFECYCLE_DATA_DIR") or "/appdata")  # leeg in het formulier = standaard
 PGDATA = DATA / "postgres"
 BACKUPS = DATA / "backups"
 SOCKET_DIR = Path("/tmp/lifecycle-pg")
@@ -114,6 +114,8 @@ def reap_orphans(known: set[int]) -> None:
 
 
 def prepare_dirs() -> None:
+    if not DATA.is_absolute():
+        fail(f"LIFECYCLE_DATA_DIR moet een absoluut pad zijn (gekregen: {str(DATA)!r}); laat dit veld leeg.")
     if not DATA.is_dir():
         fail(f"{DATA} bestaat niet. Voeg in de app-instellingen opslag toe met Mount Path {DATA}.")
     root = os.getuid() == 0

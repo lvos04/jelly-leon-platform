@@ -61,7 +61,7 @@ def cmd_pending() -> int:
     return 0 if current == head else 10
 
 
-def cmd_api(forwarded_allow_ips: str | None) -> int:
+def cmd_api() -> int:
     import uvicorn
 
     from lifecycle.app import create_app
@@ -73,8 +73,9 @@ def cmd_api(forwarded_allow_ips: str | None) -> int:
         create_app(settings),
         host=settings.host,
         port=settings.port,
-        proxy_headers=forwarded_allow_ips is not None,
-        forwarded_allow_ips=forwarded_allow_ips,
+        # Nooit X-Forwarded-For/-Proto vertrouwen: het bron-IP van de TCP-verbinding bepaalt de rate-limit van de
+        # statuspagina (contract 1.2 §3.7). Bewust geen optie om dit aan te zetten.
+        proxy_headers=False,
         server_header=False,
         log_level="info",
     )
@@ -108,8 +109,7 @@ def main(argv: list[str] | None = None) -> None:
     migrate = sub.add_parser("migrate")
     migrate.add_argument("--down", default=None, help="terug naar deze revisie")
     sub.add_parser("pending")
-    api = sub.add_parser("api")
-    api.add_argument("--forwarded-allow-ips", default=None)
+    sub.add_parser("api")
     sub.add_parser("worker")
     export = sub.add_parser("export-openapi")
     export.add_argument("path")
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> None:
         elif args.cmd == "pending":
             code = cmd_pending()
         elif args.cmd == "api":
-            code = cmd_api(args.forwarded_allow_ips)
+            code = cmd_api()
         elif args.cmd == "worker":
             code = cmd_worker()
         else:

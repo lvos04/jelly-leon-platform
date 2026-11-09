@@ -14,6 +14,33 @@ def test_defaults_need_no_env() -> None:
     assert "host=/tmp/lifecycle-pg" in s.database_url
 
 
+def test_empty_values_fall_back_to_defaults_and_data_dir_must_be_absolute() -> None:
+    """Review: een leeg veld (bijv. uit .env.example of het formulier) gaf een lege database-URL en de werkmap als
+    datamap; nu de standaard, en een relatief pad wordt geweigerd."""
+    s = load_settings({"LIFECYCLE_DATA_DIR": "", "LIFECYCLE_DATABASE_URL": " ", "LIFECYCLE_HOST": ""})
+    assert str(s.data_dir) == "/appdata" and "host=/tmp/lifecycle-pg" in s.database_url and s.host == "0.0.0.0"  # noqa: S104
+    for bad in ("appdata", "./appdata", "."):
+        with pytest.raises(ConfigError):
+            load_settings({"LIFECYCLE_DATA_DIR": bad})
+
+
+def test_api_never_trusts_forwarded_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """§3.7: de rate-limit telt per bron-IP van de TCP-verbinding; uvicorn mag X-Forwarded-For nooit gebruiken (ook
+    niet via FORWARDED_ALLOW_IPS), en de opdrachtregel heeft daar geen optie meer voor."""
+    import uvicorn
+
+    from lifecycle import cli
+
+    seen: dict[str, object] = {}
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", "*")
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: seen.update(kw))
+    monkeypatch.setattr("lifecycle.app.create_app", lambda settings: object())
+    assert cli.cmd_api() == 0
+    assert seen["proxy_headers"] is False and "forwarded_allow_ips" not in seen
+    with pytest.raises(SystemExit):
+        cli.main(["api", "--forwarded-allow-ips", "*"])
+
+
 def test_hub_url_rules_section_3_2() -> None:
     assert normalize_hub_url(" http://nas.local:30400/ ") == "http://nas.local:30400"
     assert normalize_hub_url("HTTPS://NAS.example:30400") == "https://nas.example:30400"
