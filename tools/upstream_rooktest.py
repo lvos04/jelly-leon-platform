@@ -137,9 +137,12 @@ def wacht(beschrijving: str, check: Callable[[], bool], timeout: float = 120.0, 
     raise Mislukt(f"time-out: {beschrijving}")
 
 
-def luistert(poort: int) -> bool:
-    with socket.create_connection(("127.0.0.1", poort), 2):
-        return True
+def ssh_banner(poort: int) -> str:
+    """Eerste regel die de agent stuurt. Een geslaagde TCP-verbinding alleen zegt niets: docker-proxy neemt de
+    verbinding op de hostpoort al aan voordat de container luistert (en sluit hem dan leeg)."""
+    with socket.create_connection(("127.0.0.1", poort), 3) as sock:
+        sock.settimeout(3)
+        return sock.recv(64).decode(errors="replace").strip()
 
 
 def eis(voorwaarde: bool, melding: str) -> None:
@@ -266,10 +269,8 @@ class UpstreamRooktest:
             s.details.update(self.digest_readback(agent))
             pa = vrije_poort()
             cname = self.start(agent, self.lege_map("beszel-agent"), pa)
-            wacht("agent luistert", lambda: luistert(pa), 60)
-            with socket.create_connection(("127.0.0.1", pa), 5) as sock:
-                banner = sock.recv(64).decode(errors="replace").strip()
-            eis(banner.startswith("SSH-2.0-beszel_"), f"geen SSH-banner van de agent: {banner!r}")
+            wacht("SSH-banner van de agent", lambda: ssh_banner(pa).startswith("SSH-2.0-beszel_"), 60)
+            banner = ssh_banner(pa)
             s.details["ssh_banner"] = banner
             s.details["processen_uid"] = self.alleen_568(cname)
             ip = sh("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
@@ -301,7 +302,7 @@ class UpstreamRooktest:
             agentmap = self.helper_sh("ls -A /w/beszel-agent").split()
             s.details["agentmap_na_start"] = agentmap  # SSH-modus: geen vingerafdrukbestand (alleen WebSocket-modus)
             voor, t0 = stats(), time.monotonic()
-            self.herstart(cname, lambda: luistert(pa), 60)
+            self.herstart(cname, lambda: ssh_banner(pa).startswith("SSH-2.0-beszel_"), 60)
             try:  # de hub belt de agent zelf weer op (SSH-modus); gemeten: binnen één tot enkele minuten
                 wacht("nieuwe meting na herstart agent", lambda: stats() > voor and systemen()[0]["status"] == "up",
                       300, 5)
