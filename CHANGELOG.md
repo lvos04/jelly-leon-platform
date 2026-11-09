@@ -21,3 +21,14 @@
 - CI: `ci.yml` was ongeldige YAML (zou niet starten); gerepareerd, actionlint + shellcheck toegevoegd.
 - Image-E2E: Docker-healthcheck moet `healthy` worden; herstart en harde kill zonder verlies van runs/koppeling.
 - `INSTALLATIE.md`: controle op een openbaar GHCR-pakket gecorrigeerd (privé/onbekend = `DENIED`, HTTP 403).
+
+### P0 afgemaakt (CI op GitHub Actions)
+
+- Ruff: importvolgorde hing af van de werkmap (`alembic` soms als first-party gezien); nu vast in
+  `[tool.ruff.lint.isort]` (`known-first-party` = `lifecycle`, `truenas_sim`; `known-third-party` = `alembic`).
+- Image-E2E zonder `sudo`: eigenaarschap, sleutelcontrole, `chown` en opruimen van 568-bestanden via een
+  wegwerpcontainer; `ci.yml` en `release.yml` draaien de image-E2E niet meer als root.
+- TrueNAS-simulator: `smart.test.results` alleen nog in het 25.04-profiel (25.10 heeft geen publieke
+  SMART-resultatenmethode volgens api.truenas.com/v25.10 en de broncode TS-25.10.8).
+- `TRUENAS_APP_API.md`: controle tegen de officiële API-documentatie (nu bereikbaar) toegevoegd.
+- GitHub Actions: eerste groene run (42619820171, jobs `test` en `image`). Release/GHCR-push nog niet uitgevoerd.
