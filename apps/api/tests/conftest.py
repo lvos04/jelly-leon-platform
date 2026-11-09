@@ -57,7 +57,7 @@ def clean_db(pg_url: str) -> Iterator[str]:
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE lifecycle_transitions, lifecycle_runs, idempotency_records, hub_link, outbox_events, "
+                "TRUNCATE lifecycle_transitions, lifecycle_runs, idempotency_records, jwt_replay, outbox_events, "
                 "audit_log, worker_heartbeats RESTART IDENTITY CASCADE"
             )
         )
@@ -81,39 +81,33 @@ def hub() -> Any:
 
 
 HUB_TEST_URL = "http://hub.test"
-TEST_SERVICE_TOKEN = "svc_test_service_token_0123456789"
 
 
-def link_with_hub(db_url: str, data_dir: Path, hub_url: str = HUB_TEST_URL) -> None:
-    """Gekoppelde toestand zoals na een geslaagde enrollment (zonder meegegeven JWKS: de app haalt ze bij de Hub).
+def link_with_hub(data_dir: Path, sim: Any, hub_url: str = HUB_TEST_URL, *, confirmed: bool = True) -> str:
+    """Gekoppelde toestand zoals na een geslaagde enrollment bij de Hub-simulator: ``hub-link.json`` met de
+    gepinde sleutels van de simulator en een geregistreerde dienst. Geeft het service-token terug."""
+    from lifecycle import APP_ID
+    from lifecycle.hublink import HubLinkStore, now_iso
+    from lifecycle.keys import hub_jwk_to_pin, keyset_fingerprint_of_thumbprints
 
-    Een bestaande koppeling (bijv. door de worker) blijft ongemoeid.
-    """
-    from sqlalchemy.orm import sessionmaker
+    service_id, token = sim.register_service(APP_ID)
+    jwt_pins = [hub_jwk_to_pin(k) for k in sim.jwks()["keys"]]
+    policy = hub_jwk_to_pin(sim.policy_jwk())
+    at = now_iso()
 
-    from lifecycle.auth import sha256_hex
-    from lifecycle.hublink import get_or_create, store_link
-    from lifecycle.secrets_store import Vault
+    def change(doc: dict[str, Any]) -> None:
+        doc.update(
+            state="gekoppeld", hub_url=hub_url, service_id=service_id, via="koppelcode", first_linked_at=at,
+            linked_at=at, confirmed_at=at if confirmed else None, service_token=token, service_token_last4=token[-4:],
+            pins={"jwt": [p.as_entry(at, "enroll") for p in jwt_pins], "policy": [policy.as_entry(at, "enroll")],
+                  "keyset_fingerprint": keyset_fingerprint_of_thumbprints([p.thumbprint for p in jwt_pins],
+                                                                          policy.thumbprint),
+                  "rotation_sequence": 0},
+            pending=None, last_error=None,
+        )
 
-    engine = create_engine(db_url)
-    try:
-        with sessionmaker(bind=engine).begin() as session:
-            if get_or_create(session).state == "gekoppeld":
-                return
-            store_link(
-                session,
-                Vault.load(data_dir / "secrets"),
-                hub_url=hub_url,
-                service_id="test-service",
-                service_token=TEST_SERVICE_TOKEN,
-                service_token_sha256=sha256_hex(TEST_SERVICE_TOKEN),
-                jwks=None,
-                policy_public_key=None,
-                linked_via="koppelcode",
-                used_enrollment_token_sha256=None,
-            )
-    finally:
-        engine.dispose()
+    HubLinkStore(data_dir / "secrets").update(change)
+    return str(token)
 
 
 @pytest.fixture
@@ -126,17 +120,19 @@ def make_app(clean_db: str, data_dir: Path, hub: Any) -> Any:
     from lifecycle.config import Settings
 
     def factory(**overrides: Any) -> Any:
-        if overrides.pop("linked", True):
-            link_with_hub(clean_db, data_dir)
+        from lifecycle.hublink import HubLinkStore
+
+        if overrides.pop("linked", True) and not HubLinkStore(data_dir / "secrets").read().linked:
+            link_with_hub(data_dir, hub.state.sim)
         settings = Settings(
             data_dir=data_dir,
             database_url=clean_db,
             hub_url=overrides.pop("hub_url", HUB_TEST_URL),
             enrollment_token=overrides.pop("enrollment_token", None),
-            jwks_min_refresh_seconds=overrides.pop("jwks_min_refresh_seconds", 0),
             **overrides,
         )
-        return create_app(settings, http_client_factory=lambda: TestClient(hub, base_url=HUB_TEST_URL))
+        return create_app(settings, http_client_factory=lambda: TestClient(hub, base_url=HUB_TEST_URL,
+                                                                           follow_redirects=False))
 
     return factory
 

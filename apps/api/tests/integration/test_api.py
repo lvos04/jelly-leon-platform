@@ -34,8 +34,8 @@ def test_error_format_and_auth_required(client: Any) -> None:
     body = r.json()
     assert set(body) == {"code", "message", "details", "trace_id"} and body["code"] == "unauthorized"
     uuid.UUID(body["trace_id"])
-    r = client.get("/lifecycle/v1/runs", headers={"Authorization": "Bearer verkeerd-service-token-1234"})
-    assert r.status_code == 401 and r.json()["details"]["reason"] == "service_token_invalid"
+    r = client.get("/lifecycle/v1/runs", headers={"Authorization": "Bearer verkeerd-token-1234"})
+    assert r.status_code == 401 and r.json()["details"]["reason"] == "invalid_token"
 
 
 def test_not_linked_refuses_every_credential(make_app: Any, token: Any) -> None:
@@ -57,17 +57,28 @@ def test_roles(client: Any, auth: Any) -> None:
     body = {"app_id": "uptime-kuma", "kind": "install", "target_version": "1.2.25"}
     r = client.post("/lifecycle/v1/runs", json=body, headers=auth("viewer", idem=True))
     assert r.status_code == 403  # viewer mag niets wijzigen (I23-23-04)
-    r = client.post("/lifecycle/v1/hub-link/unlink", headers=auth("operator", idem=True))
+    r = client.post("/connector/v1/hub-link/unlink", headers=auth("operator", idem=True))
     assert r.status_code == 403
 
 
-def test_jwks_down_fails_closed(make_app: Any, hub: Any, token: Any) -> None:
+def test_pinned_keys_only_jwks_over_http_adds_no_trust(make_app: Any, hub: Any, token: Any) -> None:
+    """§4.5: gepinde sleutels werken ook als de JWKS-route van de Hub weg is; een nieuwe sleutel die alleen via HTTP
+    (JWKS) zichtbaar is, wordt nooit vertrouwd (401 unknown_key + achtergrondpoll van de ondertekende rotaties)."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from starlette.testclient import TestClient
 
-    hub.state.sim.faults.add("jwks_down")
+    sim = hub.state.sim
+    sim.faults.add("jwks_down")
     with TestClient(make_app()) as c:
+        assert c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {token('admin')}"}).status_code == 200
+        sim.faults.discard("jwks_down")
+        sim.jwt_keys.append(("alleen-in-jwks", Ed25519PrivateKey.generate()))  # niet ondertekend geroteerd
+        c.app.state.key_poller.run_inline = True
         r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {token('admin')}"})
-        assert r.status_code == 401 and r.json()["details"]["reason"] == "jwks_unavailable"
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "unknown_key"
+        assert c.app.state.key_poller.triggered == 1 and c.app.state.key_poller.last_result == "geen"
+        c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {token('admin')}"})
+        assert c.app.state.key_poller.triggered == 1  # max. 1× per 30 s
 
 
 def test_create_run_idempotent(client: Any, auth: Any) -> None:
@@ -292,3 +303,111 @@ def test_request_body_over_1_mib_is_refused_before_auth(client: Any, auth: Any) 
     ok = b'{"reason":"' + b"a" * (MAX_BODY_BYTES - 100) + b'"}'
     r = client.post("/lifecycle/v1/runs", content=ok, headers={"Content-Type": "application/json"})
     assert r.status_code == 401
+
+
+def test_hub_link_on_connector_with_service_jwt_and_viewer(client: Any, hub: Any, auth: Any) -> None:
+    sim = hub.state.sim
+    service = {"Authorization": "Bearer " + sim.mint_service("jelly-leon-platform")}
+    for headers in (service, auth("viewer")):
+        r = client.get("/connector/v1/hub-link", headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["state"] == "gekoppeld" and body["pinned_kids"]["jwt"] == [sim.kid]
+        assert body["rotation_sequence"] == 0 and body["keyset_fingerprint"] == sim.keyset_fingerprint()
+        assert "service_token" not in body and "pending" not in body
+    # de oude routes uit 1.1 bestaan niet meer
+    assert client.get("/lifecycle/v1/hub-link", headers=auth("viewer")).status_code == 404
+    assert client.post("/lifecycle/v1/hub-link/unlink", headers=auth("admin", idem=True)).status_code == 404
+
+
+def test_incoming_service_token_is_refused(client: Any, data_dir: Any) -> None:
+    from lifecycle.hublink import HubLinkStore
+
+    own = HubLinkStore(data_dir / "secrets").read().service_token
+    r = client.get("/connector/v1/discover", headers={"Authorization": f"Bearer {own}"})
+    assert r.status_code == 401 and r.json()["details"]["reason"] == "service_token_not_accepted"
+
+
+@pytest.mark.parametrize("who", ["service", "admin"])
+def test_unlink_by_hub_or_admin_then_everything_refused(make_app: Any, hub: Any, auth: Any, who: str) -> None:
+    from starlette.testclient import TestClient
+
+    sim = hub.state.sim
+
+    def creds(idem: str | None = None) -> dict[str, str]:
+        if who == "service":
+            h = {"Authorization": "Bearer " + sim.mint_service("jelly-leon-platform")}
+            return {**h, **({"Idempotency-Key": idem} if idem else {})}
+        return auth("admin", **({"Idempotency-Key": idem} if idem else {}))
+
+    with TestClient(make_app()) as c:
+        r = c.post("/connector/v1/hub-link/unlink", headers=creds())
+        assert r.status_code == 400 and r.json()["code"] == "idempotency_key_required"
+        key = str(uuid.uuid4())
+        r = c.post("/connector/v1/hub-link/unlink", headers=creds(key))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["state"] == "ontkoppeld" and body["service_token_last4"] is None and body["pinned_kids"] == {
+            "jwt": [], "policy": []}
+        # herhaalde unlink (antwoord kwijt bij de Hub) → 401 not_linked: telt voor de Hub als geslaagd
+        r = c.post("/connector/v1/hub-link/unlink", headers=creds(key))
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        r = c.get("/lifecycle/v1/runs", headers=auth("admin"))
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        page = c.get("/").text
+        assert 'name="csrf"' not in page and "via de Hub" in page  # ooit gekoppeld: geen koppelformulier
+
+
+def test_jti_replay_cache_for_mutations(client: Any, hub: Any) -> None:
+    """§4.6: een mutatie met een al gebruikte jti → 401 token_replayed, behalve een exacte herhaling (zelfde jti,
+    methode, pad en Idempotency-Key), die de idempotency-laag met het opgeslagen resultaat beantwoordt."""
+    sim = hub.state.sim
+    jti = str(uuid.uuid4())
+    tok = sim.mint("operator-1", ["operator"], "jelly-leon-platform", jti=jti)
+    body = {"app_id": "uptime-kuma", "kind": "install", "target_version": "1.2.25"}
+    key = str(uuid.uuid4())
+    h = {"Authorization": f"Bearer {tok}", "Idempotency-Key": key}
+    r1 = client.post("/lifecycle/v1/runs", json=body, headers=h)
+    assert r1.status_code == 201, r1.text
+    r2 = client.post("/lifecycle/v1/runs", json=body, headers=h)  # exacte herhaling
+    assert r2.status_code == 201 and r2.json()["id"] == r1.json()["id"] and r2.headers["Idempotent-Replayed"] == "true"
+    r3 = client.post("/lifecycle/v1/runs", json=body, headers={**h, "Idempotency-Key": str(uuid.uuid4())})
+    assert r3.status_code == 401 and r3.json()["details"]["reason"] == "token_replayed"
+    r4 = client.post(f"/lifecycle/v1/runs/{r1.json()['id']}/transitions",
+                     json={"to_state": "aborted", "reason": "ander pad"}, headers={**h, "If-Match": r1.json()["etag"]})
+    assert r4.status_code == 401 and r4.json()["details"]["reason"] == "token_replayed"
+    # lezen mag binnen de levensduur vaker, ook met dezelfde jti
+    for _ in range(3):
+        assert client.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {tok}"}).status_code == 200
+    listing = client.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {tok}"}).json()
+    assert len(listing["items"]) == 1  # geen tweede uitvoering
+
+
+def test_replay_check_unavailable_is_fail_closed(client: Any, hub: Any) -> None:
+    import sqlalchemy as sa
+
+    with client.app.state.engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE jwt_replay RENAME TO jwt_replay_weg"))
+    try:
+        tok = hub.state.sim.mint("operator-1", ["operator"], "jelly-leon-platform")
+        r = client.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "install", "target_version": "1.1.17"},
+                        headers={"Authorization": f"Bearer {tok}", "Idempotency-Key": str(uuid.uuid4())})
+        assert r.status_code == 503 and r.json()["code"] == "replay_check_unavailable"
+        assert client.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {tok}"}).status_code == 200
+    finally:
+        with client.app.state.engine.begin() as conn:
+            conn.execute(sa.text("ALTER TABLE jwt_replay_weg RENAME TO jwt_replay"))
+
+
+def test_service_jwt_rights(client: Any, hub: Any) -> None:
+    """De Hub (principal ``service:hub``) mag lezen en runs vastleggen, maar is nooit admin."""
+    sim = hub.state.sim
+
+    def h(idem: bool = False) -> dict[str, str]:
+        base = {"Authorization": "Bearer " + sim.mint_service("jelly-leon-platform")}
+        return {**base, "Idempotency-Key": str(uuid.uuid4())} if idem else base
+
+    assert client.get("/connector/v1/items", headers=h()).status_code == 200
+    r = client.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "install", "target_version": "1.1.17"},
+                    headers=h(idem=True))
+    assert r.status_code == 201 and r.json()["requested_by"] == {"type": "system", "id": "hub"}

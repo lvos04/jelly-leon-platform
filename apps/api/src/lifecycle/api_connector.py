@@ -1,21 +1,30 @@
 """Connectorcontract (contract §6). Alleen wat echt gebouwd is staat in ``capabilities``; de rest geeft
-``501 capability_unavailable`` — nooit gesimuleerd succes."""
+``501 capability_unavailable`` — nooit gesimuleerd succes.
+
+Nieuw in 1.2 (alleen eigen diensten): ``GET /connector/v1/hub-link`` (witte lijst van §3.5 + ``pinned_kids`` +
+``rotation_sequence``; dienst-JWT of gebruikers-JWT viewer+) en ``POST /connector/v1/hub-link/unlink`` (dienst-JWT of
+gebruikers-JWT admin, ``Idempotency-Key``): ``state: ontkoppeld``, token gewist, pins naar ``previous_pins``; daarna
+weigert de dienst elke Hub-JWT (401 ``not_linked``). Een herhaalde ``unlink`` krijgt dus 401 ``not_linked``; dat telt
+voor de Hub als geslaagd (§3.8)."""
 
 from __future__ import annotations
 
 import uuid
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from lifecycle import APP_ID, SCHEMA_VERSION, __version__
 from lifecycle.api_lifecycle import list_runs
-from lifecycle.audit import audit_view
-from lifecycle.auth import Principal, require_read, require_write
-from lifecycle.errors import ApiError, capability_unavailable
+from lifecycle.audit import audit, audit_view
+from lifecycle.auth import Principal, require_read, require_unlink, require_write
+from lifecycle.errors import ApiError, capability_unavailable, trace_id_of
 from lifecycle.health import collect_health
+from lifecycle.hublink import clear_link
 from lifecycle.models import AuditEntry, OutboxEvent
 from lifecycle.outbox import envelope
 from lifecycle.pagination import clamp_limit, decode_cursor, encode_cursor
@@ -50,6 +59,34 @@ class Health(BaseModel):
     observed_at: str
     reason_code: str | None
     checks: list[HealthCheck]
+
+
+class LinkError(BaseModel):
+    code: str
+    message_nl: str
+    at: str
+
+
+class PinnedKids(BaseModel):
+    jwt: list[str]
+    policy: list[str]
+
+
+class HubLinkOut(BaseModel):
+    state: Literal["nooit_gekoppeld", "gekoppeld", "ontkoppeld", "ingetrokken"]
+    state_label_nl: str
+    koppelen_bezig: bool
+    hub_url: str | None
+    service_id: str | None
+    via: str | None
+    linked_at: str | None
+    first_linked_at: str | None
+    keyset_fingerprint: str | None
+    service_token_last4: str | None
+    last_error: LinkError | None
+    beschadigd: bool
+    pinned_kids: PinnedKids
+    rotation_sequence: int
 
 
 class EventPage(BaseModel):
@@ -142,3 +179,49 @@ def events(
         items = [envelope(r) for r in rows]
     last = rows[-1].id if rows else after
     return {"items": items, "next_cursor": encode_cursor({"after": last})}
+
+
+@router.get("/hub-link", response_model=HubLinkOut, summary="Koppelstatus met de Hub (witte lijst, zonder geheimen)")
+def get_hub_link(request: Request, _: Annotated[Principal, Depends(require_read)]) -> dict[str, Any]:
+    view: dict[str, Any] = request.app.state.hub_link.read().connector_view()
+    return view
+
+
+@router.post(
+    "/hub-link/unlink",
+    response_model=HubLinkOut,
+    summary="Ontkoppelen (dienst-JWT of admin, Idempotency-Key)",
+    responses={401: {"description": "niet (meer) gekoppeld: voor de Hub telt een herhaalde unlink als geslaagd"}},
+)
+def unlink_hub(
+    request: Request,
+    principal: Annotated[Principal, Depends(require_unlink)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> JSONResponse:
+    trace = trace_id_of(request)
+    store = request.app.state.hub_link
+
+    def handler(session: Session) -> tuple[int, dict[str, Any], dict[str, str]]:
+        link = store.update(lambda doc: clear_link(doc, "ontkoppeld") if doc.get("state") == "gekoppeld" else None)
+        audit(
+            session,
+            actor=principal.actor,
+            action="hub_link.unlink",
+            target_type="hub_link",
+            target_id=link.service_id or "onbekend",
+            outcome="ok",
+            trace_id=uuid.UUID(trace),
+        )
+        view: dict[str, Any] = link.connector_view()
+        return 200, view, {}
+
+    result: JSONResponse = request.app.state.idempotency.execute(
+        principal=principal.key,
+        raw_key=idempotency_key,
+        method="POST",
+        path="/connector/v1/hub-link/unlink",
+        body={},
+        handler=handler,
+        trace_id=trace,
+    )
+    return result

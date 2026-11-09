@@ -1,7 +1,7 @@
 """Datamodel (SQLAlchemy 2). Eén schema in de eigen, ingebouwde PostgreSQL 16 — nooit in de database van een
-andere app. Geheimen staan nooit leesbaar in tabellen: het service-token van de Hub-koppeling staat AES-256-GCM-
-versleuteld (sleutel ``/appdata/secrets/vault.key``) plus een SHA-256 voor verificatie; alleen de laatste 4 tekens zijn
-leesbaar.
+andere app. De koppeling met de Hub (service-token, gepinde sleutels) staat bewust **niet** in de database maar in
+``/appdata/secrets/hub-link.json`` (contract 1.2 §3.5, ``lifecycle.hublink``): een database-herstel brengt zo nooit
+een oude koppeling of een ingetrokken token terug en DB-exports bevatten geen credentials.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    LargeBinary,
     MetaData,
     String,
     Text,
@@ -125,32 +124,23 @@ class IdempotencyRecord(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
-class HubLink(Base):
-    """Koppeling met de Hub (precies één rij, id=1). Bevat géén leesbare geheimen."""
+class JwtReplay(Base):
+    """Replaycache voor Hub-JWT's (contract 1.2 §4.6): ``(iss, jti)`` van elke **mutatie** tot ``exp`` + 30 s.
 
-    __tablename__ = "hub_link"
-    __table_args__ = (
-        CheckConstraint("id = 1", name="single_row"),
-        CheckConstraint("state IN ('niet_gekoppeld', 'gekoppeld', 'fout')", name="state_valid"),
-    )
+    Gedeeld door alle processen (tabel, niet in het geheugen). Een exacte herhaling (zelfde ``jti``, methode, pad en
+    ``Idempotency-Key``) mag door naar de idempotency-laag; elke andere mutatie met dezelfde ``jti`` → 401
+    ``token_replayed``.
+    """
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    state: Mapped[str] = mapped_column(String(16), default="niet_gekoppeld")
-    hub_url: Mapped[str | None] = mapped_column(String(512))
-    service_id: Mapped[str | None] = mapped_column(String(128))
-    service_token_enc: Mapped[bytes | None] = mapped_column(LargeBinary)
-    service_token_last4: Mapped[str | None] = mapped_column(String(4))
-    service_token_sha256: Mapped[str | None] = mapped_column(String(64))
-    policy_public_key: Mapped[str | None] = mapped_column(Text)
-    jwks: Mapped[dict[str, Any] | None] = mapped_column()
-    jwks_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    linked_via: Mapped[str | None] = mapped_column(String(16))
-    enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_error: Mapped[str | None] = mapped_column(Text)
-    attempts: Mapped[int] = mapped_column(Integer, default=0)
-    used_enrollment_token_sha256: Mapped[str | None] = mapped_column(String(64))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    __tablename__ = "jwt_replay"
+
+    iss: Mapped[str] = mapped_column(String(32), primary_key=True)
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    method: Mapped[str] = mapped_column(String(8))
+    path: Mapped[str] = mapped_column(String(512))
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class OutboxEvent(Base):

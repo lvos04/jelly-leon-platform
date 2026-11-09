@@ -4,7 +4,9 @@
 #
 #   docker compose -f deploy/dev/compose.yaml up --build
 #
-# Diensten: de alles-in-één image (lokaal gebouwd), de Hub-simulator en de TrueNAS-simulator.
+# Diensten: de alles-in-één image (lokaal gebouwd), de Hub-simulator en de TrueNAS-simulator. Het token hieronder is
+# een vaste ontwikkelwaarde (geen geheim, werkt alleen met de simulator); zonder HUB_KEY_FINGERPRINT is de koppeling
+# trust on first use — de simulator drukt zijn vingerafdruk af in de log.
 name: jlp-dev
 services:
   lifecycle:
@@ -16,7 +18,7 @@ services:
       - "127.0.0.1:30440:30440"
     environment:
       HUB_URL: http://hub-sim:30499
-      HUB_ENROLLMENT_TOKEN: dev-enrollment-token-0001
+      HUB_ENROLLMENT_TOKEN: enr_ontwikkeling-alleen-compose-geen-geheim-000
     volumes:
       - lifecycle-appdata:/appdata
     depends_on:
@@ -25,7 +27,7 @@ services:
   hub-sim:
     image: jelly-leon-platform:dev
     entrypoint: ["python", "/sim/hub_sim.py", "--host", "0.0.0.0", "--port", "30499",
-                 "--grant", "token:jelly-leon-platform:dev-enrollment-token-0001"]
+                 "--grant", "token:jelly-leon-platform:enr_ontwikkeling-alleen-compose-geen-geheim-000"]
     volumes:
       - ../../e2e/simulators/hub:/sim:ro
     ports:

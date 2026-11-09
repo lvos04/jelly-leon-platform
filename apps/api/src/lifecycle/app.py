@@ -15,18 +15,20 @@ from sqlalchemy import Engine
 from lifecycle import APP_ID, __version__
 from lifecycle.api_connector import router as connector_router
 from lifecycle.api_lifecycle import router as lifecycle_router
-from lifecycle.auth import Authenticator, JwksCache
+from lifecycle.auth import Authenticator
 from lifecycle.config import Settings, load_settings
 from lifecycle.db import make_engine, make_session_factory
+from lifecycle.enrollment import clear_interrupted_pairing
 from lifecycle.errors import TraceIdMiddleware, install_error_handlers
 from lifecycle.health import readiness
-from lifecycle.hublink import HubLinkService
+from lifecycle.hublink import HubLinkStore
 from lifecycle.idempotency import Idempotency
+from lifecycle.keyrotation import UnknownKidPoller
 from lifecycle.limits import BodySizeLimitMiddleware
+from lifecycle.replay import ReplayCache
 from lifecycle.secrets_store import SecretsError, Vault, load_identity
-from lifecycle.statuspage import AttemptLimiter
+from lifecycle.statuspage import PairingLimiter
 from lifecycle.statuspage import router as status_router
-from lifecycle.timeutil import utcnow
 
 log = logging.getLogger("lifecycle")
 
@@ -35,15 +37,20 @@ HttpClientFactory = Callable[[], httpx.Client]
 DESCRIPTION = (
     "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). "
     "Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. "
-    "Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`."
+    "Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een "
+    "door de Hub ondertekende JWT (gepinde sleutels, `token_use` user of hub_service, `jti` verplicht; "
+    "contract 1.2 §4)."
 )
 
 
 def default_http_client_factory(settings: Settings) -> HttpClientFactory:
+    """Uitgaande Hub-aanroepen: 5 s connect / 15 s read, **nooit** een redirect volgen en proxy-omgevingsvariabelen
+    negeren (contract 1.2 §3.2, §5)."""
     timeout = httpx.Timeout(settings.http_read_timeout, connect=settings.http_connect_timeout)
 
     def factory() -> httpx.Client:
-        return httpx.Client(timeout=timeout, follow_redirects=False, headers={"User-Agent": f"{APP_ID}/{__version__}"})
+        return httpx.Client(timeout=timeout, follow_redirects=False, trust_env=False,
+                            headers={"User-Agent": f"{APP_ID}/{__version__}"})
 
     return factory
 
@@ -58,23 +65,8 @@ def create_app(
     engine = engine or make_engine(settings.database_url)
     factory = make_session_factory(engine)
     client_factory = http_client_factory or default_http_client_factory(settings)
-    hub_link = HubLinkService(factory)
-
-    def fetch_jwks(url: str) -> Any:
-        with client_factory() as client:
-            response = client.get(url)
-            response.raise_for_status()
-            return response.json()
-
-    # Sleutels alleen van de Hub waarmee de koppeling geslaagd is; HUB_URL uit de omgeving dient alleen de enrollment
-    # (zonder geslaagde koppeling wordt elk JWT geweigerd — ADR-0005/ADR-0009).
-    jwks_cache = JwksCache(
-        url_provider=hub_link.jwks_url,
-        fetch=fetch_jwks,
-        ttl_s=settings.jwks_ttl_seconds,
-        min_refresh_s=settings.jwks_min_refresh_seconds,
-        max_stale_s=settings.jwks_max_stale_seconds,
-    )
+    hub_link = HubLinkStore(settings.secrets_dir)
+    key_poller = UnknownKidPoller(hub_link, client_factory)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -84,13 +76,9 @@ def create_app(
         except SecretsError as exc:
             log.error("geheimen niet beschikbaar: %s", exc)
         try:
-            snap = hub_link.current()
-            if snap.jwks and snap.jwks_url:
-                age = (utcnow() - snap.jwks_fetched_at).total_seconds() if snap.jwks_fetched_at else float("inf")
-                if age <= settings.jwks_max_stale_seconds:
-                    jwks_cache.seed(snap.jwks, snap.jwks_url, age_s=age)
-        except Exception:
-            log.warning("koppelstatus bij start niet leesbaar (database nog niet klaar?)")
+            clear_interrupted_pairing(hub_link)  # §3.6: koppelcode-poging van vóór de herstart is onderbroken
+        except OSError as exc:
+            log.warning("koppelstatus bij start niet bij te werken (%s)", type(exc).__name__)
         yield
         engine.dispose()
 
@@ -108,10 +96,12 @@ def create_app(
     app.state.session_factory = factory
     app.state.http_client_factory = client_factory
     app.state.hub_link = hub_link
-    app.state.jwks_cache = jwks_cache
-    app.state.authenticator = Authenticator(jwks_cache, hub_link.service_token_hash, issuer=settings.jwt_issuer)
+    app.state.key_poller = key_poller
+    app.state.authenticator = Authenticator(
+        hub_link, ReplayCache(factory), on_unknown_kid=key_poller.trigger, issuer=settings.jwt_issuer
+    )
     app.state.idempotency = Idempotency(factory, settings.idempotency_ttl_hours)
-    app.state.pairing_limiter = AttemptLimiter()  # per app-instantie, niet per proces-module
+    app.state.pairing_limiter = PairingLimiter()  # per app-instantie (één API-proces)
     app.state.vault = None
     app.state.identity = None
 

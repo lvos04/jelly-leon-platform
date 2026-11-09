@@ -1,242 +1,306 @@
-"""Integratie: enrollment (token uit env en koppelcode via statuspagina), service-token-auth, outbox naar de Hub."""
+"""Integratie (echte PostgreSQL + Hub-simulator volgens 1.2): koppelen met het env-token in de worker, herhaling na
+een herstart halverwege, definitieve en tijdelijke fouten, bevestigen met ``services/self``, intrekking, rotatie van
+het service-token, opnieuw koppelen en de outbox."""
 
 from __future__ import annotations
 
-import re
+import json
+import time
+from collections.abc import Callable
+from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
+import sqlalchemy as sa
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from starlette.testclient import TestClient
 
 from lifecycle.config import Settings
+from lifecycle.enrollment import enroll_once, sha256_hex
+from lifecycle.hublink import HubLinkCorrupt, HubLinkStore
+from lifecycle.keys import public_jwk
+from lifecycle.models import OutboxEvent
+from lifecycle.secrets_store import load_identity
+from lifecycle.timeutil import iso_z, utcnow
 from lifecycle.worker import Worker
 
-
-def _worker(clean_db: str, data_dir: Any, hub: Any, token: str | None) -> Worker:
-    settings = Settings(data_dir=data_dir, database_url=clean_db, hub_url="http://hub.test", enrollment_token=token)
-    return Worker(settings, http_client_factory=lambda: TestClient(hub, base_url="http://hub.test"))
+APP = "jelly-leon-platform"
 
 
-def test_env_token_enrollment_then_service_token_auth_and_outbox(
-    clean_db: str, data_dir: Any, hub: Any, make_app: Any, auth: Any
+def make_worker(clean_db: str, data_dir: Path, hub: Any, token: str | None, **kw: Any) -> Worker:
+    settings = Settings(data_dir=data_dir, database_url=clean_db, hub_url="http://hub.test", enrollment_token=token,
+                        **kw)
+    return Worker(settings, http_client_factory=lambda: TestClient(hub, base_url="http://hub.test",
+                                                                   follow_redirects=False))
+
+
+def file_doc(data_dir: Path) -> dict[str, Any]:
+    return dict(json.loads((data_dir / "secrets" / "hub-link.json").read_text()))
+
+
+def test_env_token_enrollment_pins_confirms_and_never_reuses_the_token(
+    clean_db: str, data_dir: Path, hub: Any, make_app: Any, auth: Any
 ) -> None:
     sim = hub.state.sim
-    secret = sim.add_grant("token", "jelly-leon-platform")
-    worker = _worker(clean_db, data_dir, hub, secret)
-    detail = worker.tick()
-    assert detail["enrollment"] == "gekoppeld"
+    secret = sim.add_grant("token", APP)
+    worker = make_worker(clean_db, data_dir, hub, secret, hub_key_fingerprint=sim.keyset_fingerprint())
+    assert worker.tick()["enrollment"] == "gekoppeld"
     req = sim.enroll_requests[-1]
-    assert req["app_id"] == "jelly-leon-platform" and req["public_key_jwk"]["crv"] == "Ed25519"
-    assert "enrollment_token" not in req  # de sim bewaart het geheim niet
-    # alleen velden die de echte Hub accepteert (de sim weigert, net als de Hub, onbekende velden met 422)
-    assert set(req) == {"app_id", "version", "base_url", "public_key_jwk"}
+    assert set(req) == {"app_id", "version", "base_url", "public_key_jwk"}  # + het geheim (niet bewaard door de sim)
+    doc = file_doc(data_dir)
+    assert doc["state"] == "gekoppeld" and doc["via"] == "token" and doc["confirmed_at"]  # services/self gedaan
+    assert doc["pins"]["keyset_fingerprint"] == sim.keyset_fingerprint() and doc["pending"] is None
+    assert doc["used_enrollment_token_sha256"] == [sha256_hex(secret)] and doc["first_linked_at"]
+    assert sim.calls["self"] >= 1
+    stat = (data_dir / "secrets" / "hub-link.json").stat()
+    assert oct(stat.st_mode & 0o777) == "0o600"
+    # eenmalig token: een tweede ronde probeert niets meer
+    assert worker.tick()["enrollment"] == "niet_nodig" and sim.calls["enroll"] == 1
+    # de database bevat geen koppeling (database-herstel brengt nooit een token terug)
+    with worker.engine.connect() as conn:
+        assert "hub_link" not in sa.inspect(conn).get_table_names()
 
-    # het eenmalige token is nu waardeloos; een tweede ronde probeert niets meer
-    assert worker.tick()["enrollment"] == "niet_nodig"
-
-    with TestClient(make_app(enrollment_token=secret)) as c:
-        link = c.get("/lifecycle/v1/hub-link", headers=auth("viewer")).json()
-        assert link["state"] == "gekoppeld" and link["linked_via"] == "token"
-        assert link["service_token_last4"] and len(link["service_token_last4"]) == 4
-        service_token = worker.hub_link.service_token(__import__("lifecycle.secrets_store").secrets_store.Vault.load(
-            data_dir / "secrets"))
-        assert service_token and service_token not in str(link)
-        r = c.get("/connector/v1/discover", headers={"Authorization": f"Bearer {service_token}"})
-        assert r.status_code == 200
-        r = c.get("/connector/v1/discover", headers={"Authorization": "Bearer svc_verkeerd_token_0000000000"})
-        assert r.status_code == 401
+    with TestClient(make_app()) as c:
+        link = c.get("/connector/v1/hub-link", headers=auth("viewer")).json()
+        assert link["state"] == "gekoppeld" and link["via"] == "token" and doc["service_token"] not in str(link)
+        assert link["pinned_kids"]["jwt"] == [sim.kid]
         c.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "install", "target_version": "1.1.17"},
                headers=auth("operator", idem=True))
-
-    # outbox: events gaan met het service-token naar de Hub-inbox (dedupe op event_id)
+    # outbox: events met het service-token naar de Hub-inbox (dedupe op event_id)
     worker.tick()
     types = [e["event_type"] for e in sim.events]
     assert "service.enrollment.completed" in types and "lifecycle.run.created" in types
-    assert all(e["source_app"] == "jelly-leon-platform" for e in sim.events)
+    assert all(len(t.split(".")) == 3 for t in types)  # §7: precies drie segmenten
     n = len(sim.events)
     worker.tick()
     assert len(sim.events) == n
 
-    # health: worker heeft hartslag, Hub gekoppeld → healthy
-    with TestClient(make_app()) as c:
-        h = c.get("/connector/v1/health", headers=auth("viewer")).json()
-        assert h["status"] == "healthy", h
 
-
-def test_invalid_env_token_is_final_and_not_retried(clean_db: str, data_dir: Any, hub: Any) -> None:
-    worker = _worker(clean_db, data_dir, hub, "verlopen-of-onbekend-token")
-    assert worker.tick()["enrollment"] == "mislukt:invalid_enrollment"
-    assert worker.tick()["enrollment"] == "niet_nodig"
-    snap = worker.hub_link.current()
-    assert snap.state == "fout" and "koppelcode" in (snap.last_error or "")
-
-
-def test_grant_for_other_app_is_refused(clean_db: str, data_dir: Any, hub: Any) -> None:
-    """Negatief: een token dat de Hub voor een andere app maakte, koppelt deze dienst niet (geen orakel: 401)."""
-    secret = hub.state.sim.add_grant("token", "home-control-hub")
-    worker = _worker(clean_db, data_dir, hub, secret)
-    assert worker.tick()["enrollment"] == "mislukt:invalid_enrollment"
-    assert worker.hub_link.current().state == "fout"
-    assert worker.tick()["enrollment"] == "niet_nodig"  # eenmalig token: nooit opnieuw
-
-
-def test_hub_sim_refuses_unknown_enroll_fields_like_the_real_hub(hub: Any) -> None:
-    """De simulator is net zo streng als de echte Hub; zo vangt de suite elk extra veld in de client."""
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-    from lifecycle.enrollment import build_request
-
+def test_restart_halfway_replays_with_same_token(clean_db: str, data_dir: Path, hub: Any) -> None:
+    """§3.6: de dienst crasht na het antwoord maar vóór het opslaan; dezelfde poging na de herstart is een
+    toegestane herhaling (zelfde grant, zelfde identiteitssleutel, uitgegeven token nooit gebruikt)."""
     sim = hub.state.sim
-    secret = sim.add_grant("token", "jelly-leon-platform")
-    body = build_request("token", secret, Ed25519PrivateKey.generate(), Settings())
-    with TestClient(hub, base_url="http://hub.test") as h:
-        for extra in ({"kind": "token"}, {"capabilities": ["read"]}, {"schema_version": "1.0"},
-                      {"pairing_code": "ABCD-EFGH-JKMN"},
-                      {"public_key_jwk": {**body["public_key_jwk"], "use": "sig"}}):
-            r = h.post("/api/v1/services/enroll", json={**body, **extra})
-            assert r.status_code == 422 and r.json()["code"] == "validation_error", (extra, r.text)
-        r = h.post("/api/v1/services/enroll", json=body)
-        assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
-        assert r.json()["service_token"].startswith("svc_")
-
-
-def test_hub_down_is_retryable(clean_db: str, data_dir: Any, hub: Any) -> None:
-    sim = hub.state.sim
-    secret = sim.add_grant("token", "jelly-leon-platform")
-    sim.faults.add("enroll_down")
-    worker = _worker(clean_db, data_dir, hub, secret)
-    assert worker.tick()["enrollment"] == "mislukt:hub_error"
-    assert worker.hub_link.current().state == "niet_gekoppeld"
-    sim.faults.discard("enroll_down")
-    worker.next_enroll_at = 0
+    secret = sim.add_grant("token", APP)
+    store = HubLinkStore(data_dir / "secrets")
+    body = {"app_id": APP, "enrollment_token": secret, "version": "0.1.0", "base_url": None,
+            "public_key_jwk": public_jwk(load_identity(data_dir / "secrets"))}
+    with TestClient(hub, base_url="http://hub.test") as client:
+        r = client.post("/api/v1/services/enroll", json=body)
+        assert r.status_code == 200 and r.json()["enrollment_replayed"] is False
+    # 'crash': het antwoord is nooit opgeslagen; wel stond de poging als pending vast
+    store.update(lambda d: d.update(pending={"kind": "token", "secret_sha256": sha256_hex(secret),
+                                             "hub_url": "http://hub.test", "started_at": iso_z(utcnow()),
+                                             "attempts": 1}))
+    worker = make_worker(clean_db, data_dir, hub, secret)
     assert worker.tick()["enrollment"] == "gekoppeld"
+    assert file_doc(data_dir)["state"] == "gekoppeld"
+    # nu het token gebruikt is (services/self), is de herhaling dicht; een andere identiteitssleutel mag nooit
+    with TestClient(hub, base_url="http://hub.test") as client:
+        r = client.post("/api/v1/services/enroll", json=body)
+        assert r.status_code == 401 and r.json()["code"] == "invalid_enrollment"
 
 
-def test_outbox_retry_then_dead_letter(clean_db: str, data_dir: Any, hub: Any, make_app: Any, auth: Any) -> None:
-    import sqlalchemy as sa
-
-    from lifecycle.models import OutboxEvent
-
-    sim = hub.state.sim
-    worker = _worker(clean_db, data_dir, hub, sim.add_grant("token", "jelly-leon-platform"))
+def test_restart_with_other_token_marks_interrupted(clean_db: str, data_dir: Path, hub: Any) -> None:
+    store = HubLinkStore(data_dir / "secrets")
+    store.update(lambda d: d.update(pending={"kind": "token", "secret_sha256": "b" * 64, "hub_url": "http://hub.test",
+                                             "started_at": iso_z(utcnow()), "attempts": 2}))
+    worker = make_worker(clean_db, data_dir, hub, None)
     worker.tick()
-    sim.faults.add("inbox_500")
-    with TestClient(make_app()) as c:
-        c.post("/lifecycle/v1/runs", json={"app_id": "beszel-hub", "kind": "install", "target_version": "1.1.22"},
-               headers=auth("operator", idem=True))
-    for _ in range(12):
-        with worker.factory.begin() as s:
-            s.execute(sa.update(OutboxEvent).values(next_attempt_at=sa.func.now()))
-        worker.tick()
-    with worker.factory() as s:
-        ev = s.execute(sa.select(OutboxEvent).where(OutboxEvent.event_type == "lifecycle.run.created")).scalar_one()
-        assert ev.dead_letter is True and ev.attempts == 10 and ev.delivered_at is None
+    doc = file_doc(data_dir)
+    assert doc["pending"] is None and doc["last_error"]["code"] == "koppelen_onderbroken"
+    assert doc["state"] == "nooit_gekoppeld"
 
 
-def _csrf(html: str) -> str:
-    m = re.search(r'name="csrf" value="([^"]+)"', html)
-    assert m
-    return m.group(1)
-
-
-def test_status_page_pairing_with_koppelcode(make_app: Any, hub: Any) -> None:
-    sim = hub.state.sim
-    code = sim.add_grant("koppelcode", "jelly-leon-platform", "KOPPEL-123456")
-    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
-        page = c.get("/")
-        assert page.status_code == 200 and "niet gekoppeld" in page.text.lower() and 'lang="nl"' in page.text
-        assert "Laatst bijgewerkt" in page.text
-        token = _csrf(page.text)
-        # CSRF ontbreekt/onjuist → geweigerd
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": "fout"})
-        assert r.status_code == 403
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": "ONJUIST-999", "csrf": token})
-        assert r.status_code == 400 and "ongeldig" in r.text
-        r = c.post("/koppelen", data={"hub_url": "ftp://hub", "koppelcode": code, "csrf": token})
-        assert r.status_code == 400
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token},
-                   follow_redirects=False)
-        assert r.status_code == 303
-        page = c.get("/?gekoppeld=1")
-        assert "Koppelen gelukt" in page.text and "Gekoppeld met" in page.text
-        assert code not in page.text
-        assert 'name="csrf"' not in page.text  # gekoppeld: geen formulier meer
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token})
-        assert r.status_code == 409 and "Al gekoppeld" in r.text  # nooit stil overschrijven met een andere Hub
-
-
-def test_status_page_pairing_is_rate_limited(make_app: Any, hub: Any) -> None:
-    """Negatief: max. 5 koppelpogingen per 15 min (ook geldige codes daarna), te lange koppelcode geweigerd."""
-    code = hub.state.sim.add_grant("koppelcode", "jelly-leon-platform", "GELDIG-123456")
-    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
-        token = _csrf(c.get("/").text)
-        for _ in range(5):
-            r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": "RADEN-000000", "csrf": token})
-            assert r.status_code == 400
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token})
-        assert r.status_code == 429 and "Te veel pogingen" in r.text
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": "X" * 33, "csrf": token})
-        assert r.status_code == 422
-        assert c.get("/lifecycle/v1/hub-link").status_code == 401  # nog steeds niet gekoppeld, API dicht
-    # een nieuwe app-instantie (herstart) begint met een eigen teller
-    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
-        token = _csrf(c.get("/").text)
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token},
-                   follow_redirects=False)
-        assert r.status_code == 303
-
-
-@pytest.mark.parametrize("roles", [("admin",)])
-def test_unlink_requires_admin_and_clears_token(
-    clean_db: str, data_dir: Any, hub: Any, make_app: Any, auth: Any, roles: tuple[str, ...]
+@pytest.mark.parametrize(
+    ("setup", "code"),
+    [
+        (lambda sim: "enr_" + "x" * 43, "hub_weigerde"),  # onbekend: 401 invalid_enrollment
+        (lambda sim: sim.add_grant("token", "home-control-hub"), "hub_weigerde"),  # token van een andere app
+        (lambda sim: sim.add_grant("token", APP, ttl_s=-1), "hub_weigerde"),  # verlopen
+        (lambda sim: (sim.faults.add("enroll_404"), sim.add_grant("token", APP))[1], "enroll_endpoint_ontbreekt"),
+        (lambda sim: (sim.faults.add("bad_fingerprint"), sim.add_grant("token", APP))[1], "hub_vingerafdruk_onjuist"),
+        (lambda sim: (sim.faults.add("bad_response"), sim.add_grant("token", APP))[1], "hub_antwoord_ongeldig"),
+        (lambda sim: (sim.faults.add("alias_only"), sim.add_grant("token", APP))[1], "hub_antwoord_ongeldig"),
+        (lambda sim: "verkeerd-formaat", "token_formaat_ongeldig"),
+    ],
+)
+def test_final_failures_store_nothing_and_are_never_retried(
+    clean_db: str, data_dir: Path, hub: Any, setup: Callable[[Any], str], code: str
 ) -> None:
-    worker = _worker(clean_db, data_dir, hub, hub.state.sim.add_grant("token", "jelly-leon-platform"))
+    sim = hub.state.sim
+    secret = setup(sim)
+    worker = make_worker(clean_db, data_dir, hub, secret)
+    assert worker.tick()["enrollment"] == f"mislukt:{code}"
+    doc = file_doc(data_dir)
+    assert doc["state"] == "nooit_gekoppeld" and doc["service_token"] is None and doc["pins"] is None
+    assert doc["pending"] is None and doc["last_error"]["code"] == code  # ook het Hub-adres is weg
+    assert sha256_hex(secret) in doc["used_enrollment_token_sha256"]
+    calls = sim.calls["enroll"]
+    assert worker.tick()["enrollment"] == "niet_nodig" and sim.calls["enroll"] == calls  # eenmalig: nooit opnieuw
+
+
+def test_env_fingerprint_mismatch_stores_nothing(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP),
+                         hub_key_fingerprint="MEGG-8GFG-2E4Y-K2RQ")
+    assert worker.tick()["enrollment"] == "mislukt:hub_vingerafdruk_onjuist"
+    assert file_doc(data_dir)["state"] == "nooit_gekoppeld"
+
+
+def test_hub_down_or_redirect_is_retried_with_backoff(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    secret = sim.add_grant("token", APP)
+    sim.faults.add("enroll_redirect")
+    worker = make_worker(clean_db, data_dir, hub, secret)
+    assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"  # 3xx nooit gevolgd = storing
+    doc = file_doc(data_dir)
+    assert doc["pending"]["attempts"] == 1 and doc["last_error"]["code"] == "hub_onbereikbaar"
+    assert worker.tick()["enrollment"] == "wachten"  # backoff: start 5 s (+ jitter)
+    assert 4.0 <= worker.env.next_at - time.monotonic() <= 6.25
+    sim.faults.discard("enroll_redirect")
+    sim.faults.add("enroll_down")
+    worker.env.next_at = 0
+    assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"
+    assert worker.env.backoff == 20.0  # 5 → 10 → 20 (max. 15 min)
+    sim.faults.discard("enroll_down")
+    worker.env.next_at = 0
+    assert worker.tick()["enrollment"] == "gekoppeld"
+    assert file_doc(data_dir)["pending"] is None and file_doc(data_dir)["last_error"] is None
+
+
+def test_rate_limit_respects_retry_after(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    with TestClient(hub, base_url="http://hub.test") as client:
+        body = {"app_id": APP, "version": "0.1.0", "base_url": None,
+                "public_key_jwk": public_jwk(Ed25519PrivateKey.generate())}
+        for _ in range(10):
+            assert client.post("/api/v1/services/enroll",
+                               json={**body, "enrollment_token": "enr_" + "y" * 43}).status_code == 401
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert worker.tick()["enrollment"] == "opnieuw:rate_limited"
+    wait = worker.env.next_at - time.monotonic()
+    assert 800 < wait <= 900  # Retry-After van de Hub (≈ 15 min), niet eerder
+    assert file_doc(data_dir)["last_error"]["code"] == "rate_limited"
+
+
+def test_stops_60_minutes_after_first_attempt(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    secret = sim.add_grant("token", APP)
+    HubLinkStore(data_dir / "secrets").update(lambda d: d.update(pending={
+        "kind": "token", "secret_sha256": sha256_hex(secret), "hub_url": "http://hub.test",
+        "started_at": iso_z(utcnow() - timedelta(minutes=61)), "attempts": 9}))
+    worker = make_worker(clean_db, data_dir, hub, secret)
+    assert worker.tick()["enrollment"] == "mislukt:token_verlopen_na_60_min"
+    assert file_doc(data_dir)["last_error"]["code"] == "token_verlopen_na_60_min"
+    assert sim.calls["enroll"] == 0
+
+
+def test_relink_with_new_env_token_replaces_and_failed_relink_keeps_link(
+    clean_db: str, data_dir: Path, hub: Any
+) -> None:
+    sim = hub.state.sim
+    first = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    first.tick()
+    before = file_doc(data_dir)
+    # mislukte nieuwe poging (verlopen token): bestaande koppeling blijft ongewijzigd
+    bad = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP, ttl_s=-1))
+    assert bad.tick()["enrollment"] == "mislukt:hub_weigerde"
+    after_bad = file_doc(data_dir)
+    assert after_bad["state"] == "gekoppeld" and after_bad["service_token"] == before["service_token"]
+    assert after_bad["pins"] == before["pins"]
+    # geslaagde nieuwe poging (Hub roteerde zijn sleutels tussendoor): token en pins vervangen, oude naar previous_pins
+    sim.jwt_keys.append(("hub-sim-2", Ed25519PrivateKey.generate()))
+    again = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert again.tick()["enrollment"] == "gekoppeld"
+    doc = file_doc(data_dir)
+    assert doc["service_token"] != before["service_token"] and doc["previous_pins"] == before["pins"]
+    assert doc["service_id"] == before["service_id"]  # zelfde registratie bij de Hub
+    assert doc["first_linked_at"] == before["first_linked_at"] and doc["linked_at"] != before["linked_at"]
+    assert len(doc["used_enrollment_token_sha256"]) == 3
+
+
+def test_revocation_only_after_services_self_401(clean_db: str, data_dir: Path, hub: Any, make_app: Any,
+                                                 auth: Any) -> None:
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
     worker.tick()
     with TestClient(make_app()) as c:
-        assert c.get("/lifecycle/v1/runs", headers=auth("admin")).status_code == 200
-        r = c.post("/lifecycle/v1/hub-link/unlink", headers=auth(*roles, idem=True))
-        assert r.status_code == 200 and r.json()["state"] == "niet_gekoppeld"
-        assert r.json()["service_token_last4"] is None
-        # na ontkoppelen wordt ook een geldig Hub-JWT geweigerd (geen "open access" met oude sleutels)
+        c.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "install", "target_version": "1.1.17"},
+               headers=auth("operator", idem=True))
+        # 5xx/netwerk is nooit een intrekking
+        sim.faults.add("inbox_500")
+        worker.tick()
+        assert file_doc(data_dir)["state"] == "gekoppeld"
+        sim.faults.discard("inbox_500")
+        sim.revoke(APP)
+        c.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "update", "target_version": "1.1.18"},
+               headers=auth("operator", idem=True))  # nieuw event, direct aan de beurt
+        worker.tick()  # inbox 401 → services/self 401 → ingetrokken
+        doc = file_doc(data_dir)
+        assert doc["state"] == "ingetrokken" and doc["last_error"]["code"] == "ingetrokken_door_hub"
+        assert doc["service_token"] is None and doc["pins"] is None and doc["previous_pins"]
         r = c.get("/lifecycle/v1/runs", headers=auth("admin"))
-        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "revoked"
+    with worker.factory() as session:
+        types = set(session.execute(sa.select(OutboxEvent.event_type)).scalars())
+    assert "service.hub_link.revoked" in types  # lokaal vastgelegd (aflevering kan pas na opnieuw koppelen)
 
 
-def test_failed_pairing_with_foreign_hub_grants_no_access(clean_db: str, data_dir: Any, hub: Any) -> None:
-    """Regressie (review P0): een mislukte koppelpoging met het adres van een vreemde 'Hub' mag diens JWKS nooit
-    vertrouwen. Vóór de reparatie gaf een JWT van zo'n server admin-toegang."""
-    import httpx
-    from hub_sim import HubState, create_hub_app
+def test_unauthorized_from_outbox_but_self_ok_is_not_revocation(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    worker.tick()
+    sim.faults.add("self_down")  # services/self 503: niet intrekken
+    sim.revoke(APP)
+    worker.tick()
+    assert file_doc(data_dir)["state"] == "gekoppeld"
 
-    from lifecycle.app import create_app
 
-    evil = create_hub_app(HubState())
-    targets = {"hub.test": hub, "evil.test": evil}
+def test_rotation_requested_by_hub(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    worker.tick()
+    old = file_doc(data_dir)["service_token"]
+    sim.request_rotation(APP)
+    worker.tick()  # outbox/self ziet Hub-Token-Rotation: required
+    worker.tick()  # roteert, bevestigt met services/self
+    doc = file_doc(data_dir)
+    assert doc["service_token"] != old and doc["service_token_last4"] == doc["service_token"][-4:]
+    assert sim.calls["rotate"] == 1 and doc["state"] == "gekoppeld"
+    # het oude token blijft nog 10 min geldig na het eerste gebruik van het nieuwe (geen buitensluiting)
+    with TestClient(hub, base_url="http://hub.test") as client:
+        assert client.get("/api/v1/services/self", headers={"Authorization": f"Bearer {old}"}).status_code == 200
+        sim.clock = lambda: __import__("time").time() + 601
+        assert client.get("/api/v1/services/self", headers={"Authorization": f"Bearer {old}"}).status_code == 401
 
-    def factory() -> httpx.Client:
-        def handler(request: httpx.Request) -> httpx.Response:
-            with TestClient(targets[request.url.host], base_url=f"http://{request.url.host}") as tc:
-                r = tc.request(request.method, str(request.url), content=request.content,
-                               headers=dict(request.headers))
-                return httpx.Response(r.status_code, content=r.content, headers=r.headers)
 
-        return httpx.Client(transport=httpx.MockTransport(handler))
+def test_interrupted_rotation_is_asked_again(clean_db: str, data_dir: Path, hub: Any) -> None:
+    """Crash tijdens de rotatie: het nieuwe token is nooit opgeslagen. Het oude token werkt nog, maar de Hub zet
+    ``Hub-Token-Rotation: required`` zolang het nieuwste nooit gebruikt is; de dienst roteert opnieuw."""
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    worker.tick()
+    old = file_doc(data_dir)["service_token"]
+    with TestClient(hub, base_url="http://hub.test") as client:
+        assert client.post("/api/v1/services/self/rotate", headers={"Authorization": f"Bearer {old}"}).status_code \
+            == 200  # antwoord 'verloren'
+    worker.next_confirm_at = 0
+    HubLinkStore(data_dir / "secrets").update(lambda d: d.update(confirmed_at=None))
+    worker.tick()  # bevestigen met het oude token → header required
+    worker.tick()
+    assert file_doc(data_dir)["service_token"] != old and sim.calls["rotate"] == 2
 
-    settings = Settings(data_dir=data_dir, database_url=clean_db, hub_url=None, jwks_min_refresh_seconds=0)
-    with TestClient(create_app(settings, http_client_factory=factory), base_url="http://lifecycle.test") as c:
-        token = _csrf(c.get("/").text)
-        r = c.post("/koppelen", data={"hub_url": "http://evil.test", "koppelcode": "WILLEKEURIG-1", "csrf": token})
-        assert r.status_code == 400
-        evil_jwt = evil.state.sim.mint("aanvaller", ["admin"], "jelly-leon-platform")
-        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
-        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
-        assert "evil.test" not in c.get("/").text  # mislukt adres wordt niet als standaard voorgesteld
-        # daarna koppelen met de echte Hub: alleen diens sleutels gelden
-        code = hub.state.sim.add_grant("koppelcode", "jelly-leon-platform")
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token},
-                   follow_redirects=False)
-        assert r.status_code == 303
-        good = hub.state.sim.mint("beheerder", ["admin"], "jelly-leon-platform")
-        assert c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {good}"}).status_code == 200
-        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
-        assert r.status_code == 401
+
+def test_only_env_token_may_replace_a_corrupt_file(clean_db: str, data_dir: Path, hub: Any) -> None:
+    sim = hub.state.sim
+    store = HubLinkStore(data_dir / "secrets")
+    store.path.write_text("kapot")
+    with TestClient(hub, base_url="http://hub.test") as client, pytest.raises(HubLinkCorrupt):
+        enroll_once(store, client, load_identity(data_dir / "secrets"), Settings(data_dir=data_dir),
+                    kind="koppelcode", secret=sim.add_grant("koppelcode", APP), hub_url="http://hub.test",
+                    expected_fingerprint=None)
+    assert store.read().corrupt
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert worker.tick()["enrollment"] == "gekoppeld" and store.read().linked
+    assert [p for p in (data_dir / "secrets").iterdir() if p.name.startswith("hub-link.json.beschadigd-")]

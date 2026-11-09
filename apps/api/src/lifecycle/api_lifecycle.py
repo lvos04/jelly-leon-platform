@@ -1,4 +1,6 @@
-"""``/lifecycle/v1``: levenscyclus-runs (datamodel van de statusmachine), Hub-koppeling en P2-plaatshouders.
+"""``/lifecycle/v1``: levenscyclus-runs (datamodel van de statusmachine) en P2-plaatshouders.
+
+De koppelstatus met de Hub staat sinds contract 1.2 onder ``/connector/v1/hub-link`` (``api_connector``).
 
 Fase P0 levert het datamodel en de regels. Een run aanmaken (toestand ``discovered``) en afbreken mag; alle andere
 overgangen vereisen bewijs dat pas de uitvoeringsengine (P2) kan leveren en geven nu eerlijk ``capability_unavailable``.
@@ -11,7 +13,7 @@ import json
 import re
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
@@ -20,9 +22,8 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from lifecycle.audit import audit
-from lifecycle.auth import Principal, require_admin, require_read, require_write
+from lifecycle.auth import Principal, require_read, require_write
 from lifecycle.errors import ApiError, capability_unavailable, trace_id_of
-from lifecycle.hublink import unlink
 from lifecycle.models import LifecycleRun, LifecycleTransition
 from lifecycle.outbox import emit
 from lifecycle.pagination import clamp_limit, decode_cursor, encode_cursor
@@ -119,19 +120,6 @@ class TransitionIn(BaseModel):
         if len(json.dumps(value, ensure_ascii=False, default=str).encode()) > MAX_EVIDENCE_BYTES:
             raise ValueError(f"evidence is groter dan {MAX_EVIDENCE_BYTES} bytes")
         return value
-
-
-class HubLinkOut(BaseModel):
-    state: Literal["niet_gekoppeld", "gekoppeld", "fout"]
-    state_label_nl: str
-    hub_url: str | None
-    service_id: str | None
-    service_token_last4: str | None
-    linked_via: str | None
-    enrolled_at: str | None
-    last_attempt_at: str | None
-    last_error: str | None
-    attempts: int
 
 
 def etag_of(run: LifecycleRun) -> str:
@@ -406,48 +394,6 @@ def transition_run(
         trace_id=trace,
     )
     return result
-
-
-@router.get("/hub-link", response_model=HubLinkOut, summary="Koppelstatus met de Hub (zonder geheimen)")
-def get_hub_link(request: Request, _: Annotated[Principal, Depends(require_read)]) -> dict[str, Any]:
-    request.app.state.hub_link.invalidate()
-    public: dict[str, Any] = request.app.state.hub_link.current().public()
-    return public
-
-
-@router.post("/hub-link/unlink", response_model=HubLinkOut, summary="Ontkoppelen (alleen admin)")
-def unlink_hub(
-    request: Request,
-    principal: Annotated[Principal, Depends(require_admin)],
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> JSONResponse:
-    trace = trace_id_of(request)
-
-    def handler(session: Session) -> tuple[int, dict[str, Any], dict[str, str]]:
-        unlink(session)
-        audit(
-            session,
-            actor=principal.actor,
-            action="hub_link.unlink",
-            target_type="hub_link",
-            target_id="1",
-            outcome="ok",
-            trace_id=uuid.UUID(trace),
-        )
-        return 200, {}, {}
-
-    request.app.state.idempotency.execute(
-        principal=principal.key,
-        raw_key=idempotency_key,
-        method="POST",
-        path="/lifecycle/v1/hub-link/unlink",
-        body={},
-        handler=handler,
-        trace_id=trace,
-    )
-    request.app.state.hub_link.invalidate()
-    request.app.state.jwks_cache.clear()  # vanaf nu wordt elk JWT geweigerd tot er opnieuw gekoppeld is
-    return JSONResponse(request.app.state.hub_link.current().public())
 
 
 _P2 = {

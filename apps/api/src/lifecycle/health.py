@@ -64,14 +64,34 @@ def check_worker(app: FastAPI) -> dict[str, str]:
 
 def check_hub_link(app: FastAPI) -> dict[str, str]:
     try:
-        snap = app.state.hub_link.current()
+        link = app.state.hub_link.read()
     except Exception as exc:
         return _check("hub_link", "unknown", f"koppelstatus niet leesbaar ({type(exc).__name__})")
-    if snap.state == "gekoppeld":
-        return _check("hub_link", "healthy", "gekoppeld met de Hub")
-    if snap.state == "fout":
-        return _check("hub_link", "degraded", "koppelen mislukt; zie statuspagina")
+    if link.corrupt:
+        return _check("hub_link", "down", "koppelbestand onleesbaar; opnieuw koppelen via de Hub (nieuw token)")
+    if link.state == "gekoppeld":
+        if link.doc.get("confirmed_at"):
+            return _check("hub_link", "healthy", "gekoppeld met de Hub en bevestigd")
+        return _check("hub_link", "degraded", "gekoppeld; bevestiging bij de Hub (services/self) volgt")
+    if link.state == "ingetrokken":
+        return _check("hub_link", "down", "ingetrokken door de Hub; opnieuw koppelen via de Hub")
+    if link.pending is not None:
+        return _check("hub_link", "unknown", "koppelen met de Hub is bezig")
     return _check("hub_link", "unknown", "niet gekoppeld met de Hub")
+
+
+def _hub_reason(app: FastAPI) -> str:
+    try:
+        link = app.state.hub_link.read()
+    except Exception:
+        return "hub_unknown"
+    if link.corrupt:
+        return "hub_link_corrupt"
+    if link.state == "ingetrokken":
+        return "hub_revoked"
+    if link.state == "gekoppeld":
+        return "hub_unconfirmed"
+    return "hub_not_linked"
 
 
 def collect_health(app: FastAPI) -> dict[str, Any]:
@@ -85,7 +105,7 @@ def collect_health(app: FastAPI) -> dict[str, Any]:
     elif by_name["worker"] != "healthy":
         status, reason = "degraded", "worker_" + by_name["worker"]
     elif by_name["hub_link"] != "healthy":
-        status, reason = "degraded", "hub_not_linked"
+        status, reason = "degraded", _hub_reason(app)
     else:
         status, reason = "healthy", None
     return {"status": status, "observed_at": iso_z(utcnow()), "reason_code": reason, "checks": checks}

@@ -1,44 +1,61 @@
-"""Authenticatie (contract §4): Hub-JWT's via JWKS en het eigen service-token. Altijd fail-closed.
+"""Authenticatie (contract 1.2 §4): alleen Hub-JWT's, alleen met **gepinde** sleutels, altijd fail-closed.
 
-- **Gebruikerscontext**: ``Authorization: Bearer <JWT>`` van de Hub (EdDSA, ``iss=hub``, ``aud=jelly-leon-platform``,
-  ``exp`` ≤ 120 s, rollen in ``roles``). De publieke sleutels komen uitsluitend van de Hub waarmee deze dienst
-  **geslaagd gekoppeld** is (``GET <gekoppelde hub_url>/api/v1/auth/jwks``), nooit van een adres uit de omgeving of uit
-  een mislukte koppelpoging. Ze worden gecachet (TTL, minimale verversingsafstand, maximale veroudering) en horen bij
-  precies dat adres: wisselt of verdwijnt de koppeling, dan worden ze weggegooid. Niet gekoppeld, JWKS onbereikbaar
-  en cache te oud of leeg → **elk** JWT geweigerd (401) — nooit "open access" (ADR-0005, ADR-0009).
-- **Dienst-naar-dienst**: ``Authorization: Bearer <service-token>``: het per-app token uit de enrollment (gedeeld
-  geheim Hub ↔ deze app). Alleen de SHA-256 staat in de database; vergelijking in constante tijd.
+- Vertrouwensset = de bij een geslaagde koppeling gepinde sleutels in ``hub-link.json`` (``pins.jwt``). Een via HTTP
+  opgehaalde JWKS voegt nooit vertrouwen toe; nieuwe sleutels komen alleen via opnieuw koppelen of een ondertekende
+  sleutelrotatie (``lifecycle.keyrotation``). Een onbekende ``kid`` → 401 ``unknown_key`` en een extra poll op de
+  achtergrond (het verzoek wacht daar niet op).
+- Twee soorten JWT (``token_use``): ``user`` (gebruikerscontext, rollen admin/operator/viewer/kind; ``kind`` wint
+  altijd) en ``hub_service`` (de Hub zelf: ``sub: "hub"``, ``roles: ["service"]``, eigen ``service_id``).
+- Een inkomend ``Bearer svc_…`` (het eigen service-token) wordt **niet** geaccepteerd: dat token gaat bij elke
+  dienst → Hub-aanroep over het LAN en mag niemand als de Hub laten optreden.
+- ``jti`` verplicht; mutaties met een al gebruikte ``jti`` → 401 ``token_replayed`` (``lifecycle.replay``).
+- 401 ``{code: "unauthorized", details: {reason}}`` met de vaste ``reason`` uit §4.7 en de controlevolgorde
+  ``state → tokensoort → handtekening/kid → claims → token_use → jti``.
 """
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import logging
-import threading
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import jwt
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import Request
 
 from lifecycle import APP_ID
 from lifecycle.errors import ApiError
+from lifecycle.hublink import HubLinkStore, Link
+from lifecycle.keys import KeyFormatError
+from lifecycle.replay import ReplayCache, TokenReplayed
 
 log = logging.getLogger("lifecycle.auth")
 
 USER_ROLES = frozenset({"admin", "operator", "viewer", "kind"})
 SERVICE_ROLE = "service"
 MAX_JWT_LIFETIME_S = 120
-CLOCK_SKEW_S = 5
+CLOCK_SKEW_S = 30
+MAX_TOKEN_CHARS = 8192
 
 READ_ROLES = frozenset({"admin", "operator", "viewer", SERVICE_ROLE})
 WRITE_ROLES = frozenset({"admin", "operator", SERVICE_ROLE})
 ADMIN_ROLES = frozenset({"admin"})
+UNLINK_ROLES = frozenset({"admin", SERVICE_ROLE})  # §3.8/§6: dienst-JWT of gebruikers-JWT admin
+
+REASON_MESSAGES_NL = {
+    "not_linked": "Deze dienst is niet met de Hub gekoppeld; aanmelding geweigerd.",
+    "revoked": "De Hub heeft deze koppeling ingetrokken; aanmelding geweigerd. Opnieuw koppelen gaat via de Hub.",
+    "service_token_not_accepted": "Een service-token wordt hier niet geaccepteerd; de Hub meldt zich met een "
+    "dienst-JWT.",
+    "unknown_key": "Het token is ondertekend met een sleutel die deze dienst niet vertrouwt.",
+    "token_expired": "Het token is verlopen.",
+    "invalid_token": "Het token is ongeldig.",
+    "token_use_invalid": "Soort token (token_use), onderwerp of rollen kloppen niet.",
+    "jti_missing": "Het token mist een jti.",
+    "token_replayed": "Dit token is al gebruikt voor een andere wijziging; vraag een nieuw token aan.",
+}
 
 
 @dataclass(frozen=True)
@@ -57,215 +74,155 @@ class Principal:
 
 
 class AuthError(Exception):
-    def __init__(self, reason: str, message: str) -> None:
-        super().__init__(message)
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
         self.reason = reason
-        self.message = message
+        self.message = REASON_MESSAGES_NL[reason]
 
 
-def unauthorized(reason: str, message: str = "Niet aangemeld of ongeldige aanmelding.") -> ApiError:
-    return ApiError(401, "unauthorized", message, {"reason": reason}, {"WWW-Authenticate": "Bearer"})
+def unauthorized(reason: str) -> ApiError:
+    return ApiError(401, "unauthorized", REASON_MESSAGES_NL[reason], {"reason": reason}, {"WWW-Authenticate": "Bearer"})
 
 
-def sha256_hex(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
+def _int_claim(claims: dict[str, Any], name: str) -> int:
+    value = claims.get(name)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise AuthError("invalid_token")
+    return value
 
 
-def _b64url_decode(value: str) -> bytes:
-    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
-
-
-def parse_jwks(document: Any) -> dict[str, Ed25519PublicKey]:
-    """Alleen OKP/Ed25519-sleutels met een ``kid`` worden geaccepteerd; al het andere wordt genegeerd."""
-    if not isinstance(document, dict) or not isinstance(document.get("keys"), list):
-        raise ValueError("JWKS heeft geen 'keys'-lijst")
-    keys: dict[str, Ed25519PublicKey] = {}
-    for jwk in document["keys"]:
-        if not isinstance(jwk, dict):
-            continue
-        if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519" or not jwk.get("kid") or not jwk.get("x"):
-            continue
-        if jwk.get("use") not in (None, "sig") or jwk.get("alg") not in (None, "EdDSA", "Ed25519"):
-            continue
-        raw = _b64url_decode(str(jwk["x"]))
-        if len(raw) != 32:
-            continue
-        keys[str(jwk["kid"])] = Ed25519PublicKey.from_public_bytes(raw)
-    return keys
-
-
-class JwksCache:
-    """Thread-veilige JWKS-cache. ``fetch`` haalt het JWKS-document op (gooit bij een fout)."""
-
-    def __init__(
-        self,
-        url_provider: Callable[[], str | None],
-        fetch: Callable[[str], Any],
-        ttl_s: int = 300,
-        min_refresh_s: int = 30,
-        max_stale_s: int = 900,
-        clock: Callable[[], float] = time.monotonic,
-    ) -> None:
-        self._url_provider = url_provider
-        self._fetch = fetch
-        self.ttl_s = ttl_s
-        self.min_refresh_s = min_refresh_s
-        self.max_stale_s = max_stale_s
-        self._clock = clock
-        self._lock = threading.Lock()
-        self._keys: dict[str, Ed25519PublicKey] = {}
-        self._source: str | None = None
-        self._fetched_at: float | None = None
-        self._last_attempt: float | None = None
-        self.last_error: str | None = None
-
-    def seed(self, document: Any, source_url: str, age_s: float = 0.0) -> None:
-        """JWKS uit de enrollment-respons of de database, horend bij ``source_url``.
-
-        ``age_s`` is hoe oud de sleutels al zijn (bijv. sinds de enrollment); zo telt een opgeslagen JWKS na een
-        herstart niet opnieuw als vers.
-        """
-        keys = parse_jwks(document)
-        with self._lock:
-            self._keys = keys
-            self._source = source_url
-            self._fetched_at = self._clock() - max(0.0, age_s)
-
-    def clear(self) -> None:
-        """Alle sleutels vergeten (bij ontkoppelen of een andere Hub)."""
-        with self._lock:
-            self._clear_locked()
-
-    def _clear_locked(self) -> None:
-        self._keys = {}
-        self._source = None
-        self._fetched_at = None
-        self._last_attempt = None
-
-    def status(self) -> dict[str, Any]:
-        with self._lock:
-            age = None if self._fetched_at is None else round(self._clock() - self._fetched_at, 1)
-            return {"keys": len(self._keys), "age_s": age, "last_error": self.last_error}
-
-    def _refresh_locked(self, url: str) -> None:
-        self._last_attempt = self._clock()
-        try:
-            keys = parse_jwks(self._fetch(url))
-        except Exception as exc:  # netwerk, JSON, formaat
-            self.last_error = f"JWKS ophalen mislukt: {type(exc).__name__}"
-            log.warning("JWKS ophalen mislukt (%s)", type(exc).__name__)
-            return
-        if not keys:
-            self.last_error = "JWKS bevat geen bruikbare Ed25519-sleutels"
-            return
-        self._keys = keys
-        self._fetched_at = self._clock()
-        self.last_error = None
-
-    def key_for(self, kid: str | None) -> Ed25519PublicKey:
-        url = self._url_provider()
-        with self._lock:
-            if not url:
-                self._clear_locked()
-                self.last_error = "niet gekoppeld met de Hub"
-                raise AuthError("not_linked", "Deze dienst is niet met de Hub gekoppeld; aanmelding geweigerd.")
-            if url != self._source:
-                # andere (of nieuwe) Hub: sleutels van een vorig adres gelden nooit
-                self._clear_locked()
-                self._source = url
-            now = self._clock()
-            age = None if self._fetched_at is None else now - self._fetched_at
-            unknown_kid = kid is not None and kid not in self._keys
-            needs_refresh = age is None or age >= self.ttl_s or unknown_kid
-            may_refresh = self._last_attempt is None or now - self._last_attempt >= self.min_refresh_s
-            if needs_refresh and may_refresh:
-                self._refresh_locked(url)
-                age = None if self._fetched_at is None else self._clock() - self._fetched_at
-            if age is None or age > self.max_stale_s:
-                raise AuthError("jwks_unavailable", "Sleutels van de Hub zijn niet beschikbaar; aanmelding geweigerd.")
-            if kid is None:
-                if len(self._keys) == 1:
-                    return next(iter(self._keys.values()))
-                raise AuthError("jwt_kid_missing", "Token mist een sleutel-ID (kid).")
-            key = self._keys.get(kid)
-            if key is None:
-                raise AuthError("jwt_kid_unknown", "Token is ondertekend met een onbekende sleutel.")
-            return key
-
-
-def verify_hub_jwt(token: str, cache: JwksCache, issuer: str = "hub", audience: str = APP_ID) -> Principal:
+def verify_hub_jwt(
+    token: str,
+    link: Link,
+    *,
+    audience: str = APP_ID,
+    issuer: str = "hub",
+    now: float | None = None,
+    on_unknown_kid: Callable[[], None] | None = None,
+) -> tuple[Principal, dict[str, Any]]:
+    """Tokensoort → handtekening/kid → claims → token_use (de ``state``-controle doet de aanroeper eerst)."""
+    if token.startswith("svc_"):
+        raise AuthError("service_token_not_accepted")
+    if len(token) > MAX_TOKEN_CHARS or token.count(".") != 2:
+        raise AuthError("invalid_token")
     try:
         header = jwt.get_unverified_header(token)
     except jwt.PyJWTError as exc:
-        raise AuthError("jwt_malformed", "Token is onleesbaar.") from exc
-    if header.get("alg") != "EdDSA":
-        raise AuthError("jwt_alg_rejected", "Alleen EdDSA-tokens van de Hub worden geaccepteerd.")
+        raise AuthError("invalid_token") from exc
+    if header.get("alg") != "EdDSA" or str(header.get("typ", "JWT")).upper() != "JWT":
+        raise AuthError("invalid_token")
     kid = header.get("kid")
-    key = cache.key_for(str(kid) if kid is not None else None)
+    pins = link.pin_map("jwt")
+    pin = pins.get(kid) if isinstance(kid, str) else None
+    if pin is None:
+        if on_unknown_kid is not None:
+            on_unknown_kid()
+        raise AuthError("unknown_key")
     try:
         claims = jwt.decode(
             token,
-            key,
+            pin.public_key(),  # vergelijking op de gepinde sleutel zelf (x), niet alleen op kid
             algorithms=["EdDSA"],
-            audience=audience,
-            issuer=issuer,
-            leeway=CLOCK_SKEW_S,
-            options={"require": ["exp", "iat", "sub", "iss", "aud"]},
+            options={"verify_exp": False, "verify_nbf": False, "verify_iat": False, "verify_aud": False,
+                     "verify_iss": False, "verify_sub": False, "verify_jti": False, "require": []},
         )
-    except jwt.ExpiredSignatureError as exc:
-        raise AuthError("jwt_expired", "Token is verlopen.") from exc
-    except jwt.InvalidAudienceError as exc:
-        raise AuthError("jwt_audience", "Token is niet voor deze dienst bedoeld.") from exc
-    except jwt.InvalidIssuerError as exc:
-        raise AuthError("jwt_issuer", "Token is niet door de Hub uitgegeven.") from exc
-    except jwt.PyJWTError as exc:
-        raise AuthError("jwt_invalid", "Token is ongeldig.") from exc
-    exp, iat = int(claims["exp"]), int(claims["iat"])
-    if exp - iat > MAX_JWT_LIFETIME_S or exp - time.time() > MAX_JWT_LIFETIME_S + CLOCK_SKEW_S:
-        raise AuthError("jwt_lifetime", "Token leeft langer dan 120 seconden; geweigerd.")
-    raw_roles = claims.get("roles", [])
+    except (jwt.PyJWTError, KeyFormatError, ValueError) as exc:
+        raise AuthError("invalid_token") from exc
+    now = time.time() if now is None else now
+    if claims.get("iss") != issuer:
+        raise AuthError("invalid_token")
+    aud = claims.get("aud")
+    if not (aud == audience or (isinstance(aud, list) and aud == [audience])):
+        raise AuthError("invalid_token")
+    exp, iat, nbf = _int_claim(claims, "exp"), _int_claim(claims, "iat"), _int_claim(claims, "nbf")
+    if exp - iat > MAX_JWT_LIFETIME_S or exp < iat or nbf > exp:
+        raise AuthError("invalid_token")
+    if iat > now + CLOCK_SKEW_S or nbf > now + CLOCK_SKEW_S:
+        raise AuthError("invalid_token")
+    if now > exp + CLOCK_SKEW_S:
+        raise AuthError("token_expired")
+    sub, raw_roles = claims.get("sub"), claims.get("roles")
+    if not isinstance(sub, str) or not sub or len(sub) > 128:
+        raise AuthError("invalid_token")
     if not isinstance(raw_roles, list) or not all(isinstance(r, str) for r in raw_roles):
-        raise AuthError("jwt_roles", "Rollen in het token zijn ongeldig.")
-    roles = frozenset(r for r in raw_roles if r in USER_ROLES)
-    return Principal("user", str(claims["sub"]), roles)
-
-
-def looks_like_jwt(token: str) -> bool:
-    return token.count(".") == 2 and token.startswith("eyJ")
+        raise AuthError("invalid_token")
+    token_use = claims.get("token_use")
+    if token_use == "user":  # noqa: S105 - tokensoort, geen wachtwoord
+        if SERVICE_ROLE in raw_roles:
+            raise AuthError("token_use_invalid")
+        roles = frozenset(r for r in raw_roles if r in USER_ROLES)  # onbekende rollen geven nooit rechten
+        if "kind" in roles:
+            roles = frozenset({"kind"})  # §4.2: rol 'kind' wint altijd
+        principal = Principal("user", sub, roles)
+    elif token_use == "hub_service":  # noqa: S105 - tokensoort, geen wachtwoord
+        if sub != "hub" or raw_roles != [SERVICE_ROLE] or claims.get("service_id") != link.service_id:
+            raise AuthError("token_use_invalid")
+        principal = Principal("service", "hub", frozenset({SERVICE_ROLE}))
+    else:
+        raise AuthError("token_use_invalid")
+    jti = claims.get("jti")
+    if jti is None or jti == "":
+        raise AuthError("jti_missing")
+    if not isinstance(jti, str) or len(jti) > 64:
+        raise AuthError("invalid_token")
+    try:
+        uuid.UUID(jti)
+    except ValueError as exc:
+        raise AuthError("invalid_token") from exc
+    return principal, claims
 
 
 class Authenticator:
-    """Koppelt JWT- en service-tokencontrole; ``service_token_hash`` levert de opgeslagen SHA-256 (of None)."""
+    """Volledige controle in de volgorde van §4.7, inclusief de replaycache voor mutaties."""
 
-    def __init__(self, cache: JwksCache, service_token_hash: Callable[[], str | None], issuer: str = "hub") -> None:
-        self.cache = cache
-        self._service_token_hash = service_token_hash
+    def __init__(
+        self,
+        store: HubLinkStore,
+        replay: ReplayCache | None,
+        *,
+        on_unknown_kid: Callable[[], None] | None = None,
+        issuer: str = "hub",
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self.store = store
+        self.replay = replay
+        self.on_unknown_kid = on_unknown_kid
         self.issuer = issuer
+        self.clock = clock
 
-    def authenticate(self, authorization: str | None) -> Principal:
-        if not authorization:
-            raise unauthorized("missing", "Aanmelding vereist (Authorization: Bearer …).")
-        scheme, _, token = authorization.partition(" ")
+    def authenticate(
+        self, authorization: str | None, *, method: str = "GET", path: str = "/", idempotency_key: str | None = None
+    ) -> Principal:
+        link = self.store.read()
+        if not link.linked:
+            raise unauthorized("revoked" if link.state == "ingetrokken" and not link.corrupt else "not_linked")
+        scheme, _, token = (authorization or "").partition(" ")
         token = token.strip()
         if scheme.lower() != "bearer" or not token:
-            raise unauthorized("scheme", "Alleen Bearer-aanmelding wordt ondersteund.")
-        if looks_like_jwt(token):
-            try:
-                return verify_hub_jwt(token, self.cache, issuer=self.issuer)
-            except AuthError as exc:
-                raise unauthorized(exc.reason, exc.message) from exc
-        expected = self._service_token_hash()
-        if not expected:
-            raise unauthorized("not_linked", "Deze dienst is nog niet met de Hub gekoppeld; service-token onbekend.")
-        if not hmac.compare_digest(sha256_hex(token), expected):
-            raise unauthorized("service_token_invalid")
-        return Principal("service", "hub", frozenset({SERVICE_ROLE}))
+            raise unauthorized("invalid_token")
+        try:
+            principal, claims = verify_hub_jwt(
+                token, link, issuer=self.issuer, now=self.clock(), on_unknown_kid=self.on_unknown_kid
+            )
+            if self.replay is not None:
+                self.replay.check(iss=self.issuer, jti=str(claims["jti"]), exp=int(claims["exp"]), method=method,
+                                  path=path, idempotency_key=idempotency_key)
+        except AuthError as exc:
+            raise unauthorized(exc.reason) from exc
+        except TokenReplayed as exc:
+            raise unauthorized("token_replayed") from exc
+        return principal
 
 
 def require_roles(allowed: frozenset[str]) -> Callable[[Request], Principal]:
     def dependency(request: Request) -> Principal:
         authenticator: Authenticator = request.app.state.authenticator
-        principal = authenticator.authenticate(request.headers.get("authorization"))
+        principal = authenticator.authenticate(
+            request.headers.get("authorization"),
+            method=request.method,
+            path=request.url.path,
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
         if not principal.roles & allowed:
             raise ApiError(
                 403,
@@ -282,3 +239,4 @@ def require_roles(allowed: frozenset[str]) -> Callable[[Request], Principal]:
 require_read = require_roles(READ_ROLES)
 require_write = require_roles(WRITE_ROLES)
 require_admin = require_roles(ADMIN_ROLES)
+require_unlink = require_roles(UNLINK_ROLES)

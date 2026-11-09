@@ -199,11 +199,11 @@
       },
       "HubLinkOut": {
         "properties": {
-          "attempts": {
-            "title": "Attempts",
-            "type": "integer"
+          "beschadigd": {
+            "title": "Beschadigd",
+            "type": "boolean"
           },
-          "enrolled_at": {
+          "first_linked_at": {
             "anyOf": [
               {
                 "type": "string"
@@ -212,7 +212,7 @@
                 "type": "null"
               }
             ],
-            "title": "Enrolled At"
+            "title": "First Linked At"
           },
           "hub_url": {
             "anyOf": [
@@ -225,7 +225,7 @@
             ],
             "title": "Hub Url"
           },
-          "last_attempt_at": {
+          "keyset_fingerprint": {
             "anyOf": [
               {
                 "type": "string"
@@ -234,20 +234,23 @@
                 "type": "null"
               }
             ],
-            "title": "Last Attempt At"
+            "title": "Keyset Fingerprint"
+          },
+          "koppelen_bezig": {
+            "title": "Koppelen Bezig",
+            "type": "boolean"
           },
           "last_error": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/LinkError"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Last Error"
+            ]
           },
-          "linked_via": {
+          "linked_at": {
             "anyOf": [
               {
                 "type": "string"
@@ -256,7 +259,14 @@
                 "type": "null"
               }
             ],
-            "title": "Linked Via"
+            "title": "Linked At"
+          },
+          "pinned_kids": {
+            "$ref": "#/components/schemas/PinnedKids"
+          },
+          "rotation_sequence": {
+            "title": "Rotation Sequence",
+            "type": "integer"
           },
           "service_id": {
             "anyOf": [
@@ -282,9 +292,10 @@
           },
           "state": {
             "enum": [
-              "niet_gekoppeld",
+              "nooit_gekoppeld",
               "gekoppeld",
-              "fout"
+              "ontkoppeld",
+              "ingetrokken"
             ],
             "title": "State",
             "type": "string"
@@ -292,19 +303,34 @@
           "state_label_nl": {
             "title": "State Label Nl",
             "type": "string"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
           }
         },
         "required": [
           "state",
           "state_label_nl",
+          "koppelen_bezig",
           "hub_url",
           "service_id",
+          "via",
+          "linked_at",
+          "first_linked_at",
+          "keyset_fingerprint",
           "service_token_last4",
-          "linked_via",
-          "enrolled_at",
-          "last_attempt_at",
           "last_error",
-          "attempts"
+          "beschadigd",
+          "pinned_kids",
+          "rotation_sequence"
         ],
         "title": "HubLinkOut",
         "type": "object"
@@ -326,6 +352,53 @@
         ],
         "title": "LifecycleState",
         "type": "string"
+      },
+      "LinkError": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message_nl": {
+            "title": "Message Nl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message_nl",
+          "at"
+        ],
+        "title": "LinkError",
+        "type": "object"
+      },
+      "PinnedKids": {
+        "properties": {
+          "jwt": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Jwt",
+            "type": "array"
+          },
+          "policy": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Policy",
+            "type": "array"
+          }
+        },
+        "required": [
+          "jwt",
+          "policy"
+        ],
+        "title": "PinnedKids",
+        "type": "object"
       },
       "RunCreate": {
         "properties": {
@@ -684,7 +757,7 @@
     }
   },
   "info": {
-    "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`.",
+    "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een door de Hub ondertekende JWT (gepinde sleutels, `token_use` user of hub_service, `jti` verplicht; contract 1.2 §4).",
     "title": "jelly-leon-platform (lifecycle)",
     "version": "0.1.0"
   },
@@ -860,6 +933,79 @@
         ]
       }
     },
+    "/connector/v1/hub-link": {
+      "get": {
+        "operationId": "get_hub_link_connector_v1_hub_link_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Koppelstatus met de Hub (witte lijst, zonder geheimen)",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/hub-link/unlink": {
+      "post": {
+        "operationId": "unlink_hub_connector_v1_hub_link_unlink_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "niet (meer) gekoppeld: voor de Hub telt een herhaalde unlink als geslaagd"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ontkoppelen (dienst-JWT of admin, Idempotency-Key)",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
     "/connector/v1/items": {
       "get": {
         "operationId": "items_connector_v1_items_get",
@@ -999,76 +1145,6 @@
         "summary": "Proces leeft (zonder auth, zonder geheimen)",
         "tags": [
           "health"
-        ]
-      }
-    },
-    "/lifecycle/v1/hub-link": {
-      "get": {
-        "operationId": "get_hub_link_lifecycle_v1_hub_link_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HubLinkOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Koppelstatus met de Hub (zonder geheimen)",
-        "tags": [
-          "lifecycle"
-        ]
-      }
-    },
-    "/lifecycle/v1/hub-link/unlink": {
-      "post": {
-        "operationId": "unlink_hub_lifecycle_v1_hub_link_unlink_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "Idempotency-Key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HubLinkOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Ontkoppelen (alleen admin)",
-        "tags": [
-          "lifecycle"
         ]
       }
     },

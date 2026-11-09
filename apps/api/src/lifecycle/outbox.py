@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lifecycle import APP_ID, SCHEMA_VERSION
+from lifecycle.enrollment import HubSignals, note_signals
 from lifecycle.models import OutboxEvent
 from lifecycle.redact import redact
 from lifecycle.timeutil import iso_z, utcnow
@@ -77,8 +78,20 @@ def backoff_seconds(attempts: int) -> float:
     return base + random.uniform(0, base / 4)  # noqa: S311 - jitter, geen cryptografie
 
 
-def push_pending(session: Session, client: httpx.Client, hub_url: str, service_token: str, limit: int = 50) -> int:
-    """Stuurt openstaande events naar de Hub-inbox. Geeft het aantal afgeleverde events terug."""
+def push_pending(
+    session: Session,
+    client: httpx.Client,
+    hub_url: str,
+    service_token: str,
+    limit: int = 50,
+    signals: HubSignals | None = None,
+) -> int:
+    """Stuurt openstaande events naar de Hub-inbox. Geeft het aantal afgeleverde events terug.
+
+    Een 401 stopt de ronde zonder de pogingen van het event op te hogen (het ligt aan het token, niet aan het event);
+    de worker controleert dan met ``GET /api/v1/services/self`` of de koppeling is ingetrokken (contract 1.2 §3.8).
+    ``Hub-Token-Rotation: required`` op een antwoord wordt via ``signals`` doorgegeven.
+    """
     now = utcnow()
     rows = (
         session.execute(
@@ -100,10 +113,15 @@ def push_pending(session: Session, client: httpx.Client, hub_url: str, service_t
                 json=envelope(event),
                 headers={"Authorization": f"Bearer {service_token}", "Idempotency-Key": str(event.event_id)},
             )
-            ok = 200 <= response.status_code < 300 or response.status_code == 409
-            error = None if ok else f"HTTP {response.status_code}"
         except httpx.HTTPError as exc:
             ok, error = False, type(exc).__name__
+        else:
+            if signals is not None:
+                note_signals(response, signals)
+            if response.status_code == 401:
+                break
+            ok = 200 <= response.status_code < 300 or response.status_code == 409
+            error = f"HTTP {response.status_code}"
         if ok:
             event.delivered_at = utcnow()
             event.last_error = None
