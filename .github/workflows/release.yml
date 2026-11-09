@@ -48,7 +48,7 @@ jobs:
           LIFECYCLE_IMAGE: jelly-leon-platform:release
         run: |
           pip install -e 'apps/api[test]'
-          sudo --preserve-env=LIFECYCLE_IMAGE,PATH "$(which python)" -m pytest -q tests/e2e
+          python -m pytest -q tests/e2e  # zonder sudo: bestanden van 568 via een hulpcontainer
       - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io

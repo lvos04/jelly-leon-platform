@@ -80,7 +80,11 @@ def build_variant(tmp: Path, tag: str, migration: str) -> str:
         extra += ["--secret", f"id=ca_bundle,src={ca}"]
     if network := os.environ.get("LIFECYCLE_BUILD_NETWORK"):
         extra += ["--network", network]
-    sh("docker", "build", "-q", *extra, "-f", "deploy/allinone/Dockerfile", "-t", image, str(ctx), timeout=900)
+    cmd = ["docker", "build", "-q", *extra, "-f", "deploy/allinone/Dockerfile", "-t", image, str(ctx)]
+    # gedeelde ontwikkelmachine: image-builds machinebreed serialiseren als LIFECYCLE_BUILD_LOCK een lockbestand noemt
+    if (lock := os.environ.get("LIFECYCLE_BUILD_LOCK")) and shutil.which("flock"):
+        cmd = ["flock", lock, *cmd]
+    sh(*cmd, timeout=1800)
     return image
 
 
@@ -166,7 +170,10 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
         names.append(c2)
         ready(port)
         assert psql(c2, "SELECT version_num FROM alembic_version") == "0002"
-        dumps = sorted(p.name for p in (appdata / "backups").iterdir())
+        # de host-map is van 568 (0700): lijst via een hulpcontainer, zodat de test geen root op de host nodig heeft
+        ls = sh("docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", f"{appdata}:/x",
+                "--entrypoint", "ls", IMAGE, "-1", "/x/backups")
+        dumps = sorted(line for line in ls.stdout.splitlines() if line.strip())
         assert dumps and all(d.startswith("voor-upgrade-0001-") for d in dumps) and len(dumps) <= 3
         # hersteltest: dump in een aparte database terugzetten en de data teruglezen
         psql(c2, "CREATE DATABASE herstel", db="postgres")

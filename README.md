@@ -37,4 +37,8 @@ make venv && make lint typecheck test test-sim test-repo   # PostgreSQL op 127.0
 make test-e2e                                              # bouwt de image en draait de Docker-E2E
 ```
 
+De Docker-E2E heeft geen root op de host nodig (bestanden van uid 568 worden via een wegwerpcontainer gelezen en
+opgeruimd). Op een gedeelde machine serialiseert `LIFECYCLE_BUILD_LOCK=<lockbestand>` de extra image-builds van de
+upgrade-E2E met `flock`.
+
 Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (versie 1.1). Geen licentie toegevoegd (keuze van de eigenaar).

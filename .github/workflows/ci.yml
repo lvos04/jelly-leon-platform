@@ -100,7 +100,7 @@ jobs:
           LIFECYCLE_IMAGE: jelly-leon-platform:ci
         run: |
           pip install -e 'apps/api[test]'
-          sudo --preserve-env=LIFECYCLE_IMAGE,PATH "$(which python)" -m pytest -q tests/e2e
+          python -m pytest -q tests/e2e  # zonder sudo: bestanden van 568 via een hulpcontainer
       - name: TrueNAS-simulator-image bouwen en starten
         run: |
           docker buildx build --load -t jlp-truenas-sim:ci e2e/simulators/truenas

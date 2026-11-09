@@ -106,13 +106,26 @@ class Container:
         sh("docker", "rm", "-f", self.name, check=False)
 
 
+def as_root_in_helper(mount: Path, entrypoint: str, *args: str) -> subprocess.CompletedProcess[str]:
+    """Bestandsbewerking op een host-map als root ín een wegwerpcontainer (geen sudo op de host nodig)."""
+    return sh("docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", f"{mount}:/x",
+              "--entrypoint", entrypoint, IMAGE, *args, check=False)
+
+
+def host_stat(data: Path, rel: str) -> tuple[str, str, str]:
+    r = as_root_in_helper(data, "stat", "-c", "%u %g %a", f"/x/{rel}")
+    assert r.returncode == 0, r.stderr
+    uid, gid, mode = r.stdout.split()
+    return uid, gid, mode
+
+
 @pytest.fixture
 def data_dir(tmp_path: Path) -> Iterator[Path]:
     d = tmp_path / "appdata"
     d.mkdir()
     yield d
     # bestanden zijn van 568: opruimen via een container (geen sudo op de host nodig)
-    sh("docker", "run", "--rm", "-v", f"{tmp_path}:/x", "--entrypoint", "rm", IMAGE, "-rf", "/x/appdata", check=False)
+    as_root_in_helper(tmp_path, "rm", "-rf", "/x/appdata")
 
 
 @pytest.fixture
@@ -130,11 +143,12 @@ def started(data_dir: Path) -> Iterator[Container]:
 def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Path) -> None:
     assert started.exec("python", "/usr/local/lib/lifecycle-allinone/healthcheck.py").returncode == 0
     assert wait_healthy(started.name) == "healthy", started.logs()
-    st = (data_dir / "secrets").stat()
-    assert (st.st_uid, st.st_gid) == (568, 568) and oct(st.st_mode & 0o777) == "0o700"
+    # eigenaarschap op de host-map zelf (bind-mount: dezelfde numerieke uid/gid), gelezen via een hulpcontainer zodat
+    # de test geen root op de host nodig heeft (secrets/ is 0700 van 568)
+    assert host_stat(data_dir, "secrets") == ("568", "568", "700")
     for name in ("vault.key", "identity.ed25519"):
-        s = (data_dir / "secrets" / name).stat()
-        assert (s.st_uid, s.st_mode & 0o777) == (568, 0o600)
+        uid, _gid, mode = host_stat(data_dir, f"secrets/{name}")
+        assert (uid, mode) == ("568", "600"), (name, uid, mode)
     # alle processen behalve dumb-init (PID 1) draaien als 568, met NoNewPrivs
     ps = started.exec("sh", "-c", "for p in /proc/[0-9]*; do [ -r $p/status ] && "
                       "awk '/^(Name|Uid|NoNewPrivs):/{printf \"%s \", $2} END{print \"\"}' $p/status; done")
@@ -153,7 +167,9 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
 
 
 def test_restart_keeps_secrets_and_kill_recovers(started: Container, data_dir: Path) -> None:
-    before = (data_dir / "secrets" / "vault.key").read_bytes() if os.access(data_dir / "secrets", os.R_OK) else None
+    # sleutel zoals hij op de host-map staat (via hulpcontainer, geen root op de host nodig)
+    before = as_root_in_helper(data_dir, "sha256sum", "/x/secrets/vault.key").stdout.split()[:1]
+    assert before, "vault.key ontbreekt op de host-map"
     vault_sum = started.exec("sha256sum", "/appdata/secrets/vault.key", user="568").stdout
     sh("docker", "restart", started.name)
     wait_ready(started.port)
@@ -162,13 +178,13 @@ def test_restart_keeps_secrets_and_kill_recovers(started: Container, data_dir: P
     sh("docker", "start", started.name)
     wait_ready(started.port)
     assert "postmaster.pid" in started.logs()
-    assert before is None or (data_dir / "secrets" / "vault.key").read_bytes() == before
+    assert as_root_in_helper(data_dir, "sha256sum", "/x/secrets/vault.key").stdout.split()[:1] == before
 
 
 def test_start_as_568_and_unwritable_dir(tmp_path: Path) -> None:
     ok_dir = tmp_path / "ok"
     ok_dir.mkdir()
-    os.chown(ok_dir, 568, 568)
+    assert as_root_in_helper(tmp_path, "chown", "568:568", "/x/ok").returncode == 0  # zoals TrueNAS-ACL 568
     c = Container(ok_dir, free_port(), "--user", "568:568")
     c.run()
     try:
@@ -186,7 +202,7 @@ def test_start_as_568_and_unwritable_dir(tmp_path: Path) -> None:
         assert "geen schrijfrechten" in b.logs() or "kan niet schrijven" in b.logs()
     finally:
         b.remove()
-    sh("docker", "run", "--rm", "-v", f"{tmp_path}:/x", "--entrypoint", "rm", IMAGE, "-rf", "/x/ok", check=False)
+    as_root_in_helper(tmp_path, "rm", "-rf", "/x/ok")
 
 
 def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, Any]) -> None:
