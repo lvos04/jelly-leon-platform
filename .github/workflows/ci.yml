@@ -1,5 +1,6 @@
 # CI voor jelly-leon-platform: lint, types, tests (met PostgreSQL 16), migraties, OpenAPI-drift, pip-audit,
-# TrueNAS-simulator, en de alles-in-één image bouwen + starten met healthcheck + image-E2E.
+# TrueNAS-simulator, Hub-conformiteit (contract 1.2), en de alles-in-één image bouwen + starten met healthcheck +
+# image-E2E (elk proces, ook PID 1, als 568 zonder capabilities met no_new_privs).
 # Geen geheimen nodig. Base-images en actions op vaste versie/digest.
 name: ci
 
@@ -54,6 +55,8 @@ jobs:
       - name: Tests TrueNAS-simulator
         working-directory: e2e/simulators/truenas
         run: python -m pytest -q
+      - name: Conformiteit met contract 1.2 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
+        run: python -m pytest -q tests/conformance
       - name: Manifest- en documentatiecontroles
         run: python -m pytest -q tests/repo
       - name: OpenAPI-drift

@@ -13,9 +13,24 @@ is hier toegestaan (contract §1: alleen ontwikkeling, CI en deze E2E-omgeving) 
 | Onderdeel | Pad | Status |
 |---|---|---|
 | TrueNAS-simulator (JSON-RPC 2.0/WebSocket, 25.04/25.10, apps/catalogus/snapshots/jobs, storingsinjectie) | `simulators/truenas/` | gebouwd + eigen tests (Sim-getest) |
-| Hub-simulator (enroll, JWKS, events-inbox) — alleen voor geïsoleerde dienst-tests | `simulators/hub/hub_sim.py` | gebouwd, gebruikt in `tests/e2e` en `apps/api/tests` |
+| Hub-simulator volgens contract 1.2 (enroll exact §3.3, `services/self`, rotatie, dienst-JWT, `key-rotations`, inbox) — alleen voor geïsoleerde dienst-tests | `simulators/hub/hub_sim.py` | gebouwd, gebruikt in `tests/e2e`, `tests/conformance` en `apps/api/tests` |
+| Conformiteitstests Hub ↔ dienst (contract 1.2, JP10): dezelfde tests tegen de simulator (CI) en tegen de echte Hub | `../tests/conformance/`, `conformance/echte_hub.py` | gebouwd; tegen de echte Hub lokaal gedraaid (zie hieronder) |
 | Dienst-E2E jelly-leon-platform (alles-in-één image + Hub-simulator) | `../tests/e2e/` | gebouwd (Sim-getest) |
 | Integrale compose + scenariorunner | `integral/` (P6) | **nog niet gebouwd** |
+
+## Conformiteit met contract 1.2 (JP10)
+
+`tests/conformance` controleert, met de eigen clientcode van deze dienst, of een Hub zich volgens §3.3–§3.8 en §4.5
+gedraagt (422 zonder het token te verbruiken, één 401-code, volledige antwoordcontrole + vingerafdruk, toegestane
+herhaling vóór het eerste gebruik, `services/self`, `self/rotate`, `jwks`, `key-rotations`), en koppelt daarna de eigen
+worker echt met die Hub en gebruikt een door die Hub gemaakte gebruikers-JWT op de eigen API (pinning, `token_use`,
+`jti`-replaycache, outbox naar de inbox).
+
+- Tegen de **simulator**: `python -m pytest -q tests/conformance` (ook in CI).
+- Tegen de **echte Hub** (naburige checkout `../ai-server-manager` met eigen `.venv`, lokale PostgreSQL):
+  `python e2e/conformance/echte_hub.py`. Het script start de Hub met een wegwerp-datamap en een eigen
+  `jlp_`-database, maakt het eerste beheerdersaccount met de setupcode uit de log, vraagt twee enrollment-tokens aan,
+  draait dezelfde tests en ruimt alles op. Dit is een lokale integratietest, **geen** NAS-test.
 
 ## Opbouw (P6)
 

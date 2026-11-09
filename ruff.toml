@@ -4,5 +4,6 @@ extend = "apps/api/pyproject.toml"
 [lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607", "S608"]
 "e2e/**/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607"]
-"e2e/simulators/hub/**" = ["S105", "S106", "S107"]  # testsimulator: tokensoorten zijn geen wachtwoorden
+"e2e/simulators/hub/**" = ["S105", "S106", "S107"]
+"e2e/conformance/**" = ["S603", "S607"]  # testhulp: start de naburige Hub met vaste argumenten  # testsimulator: tokensoorten zijn geen wachtwoorden
 "deploy/allinone/*.py" = ["S603", "S607", "S108"]
