@@ -1,9 +1,9 @@
 """Upgrade-E2E van de alles-in-één image (B08-004 / I02-02-05 / EX15 voor de eigen app):
 
-1. v1 (schema 0001) draait met data → v2 (extra migratie 0002) op dezelfde /appdata: eerst ``pg_dump`` in
-   /appdata/backups, dan migratie; de dump is terug te zetten in een aparte database en bevat de data.
-2. v3 (migratie 0002 faalt halverwege) → container start de API niet, meldt het in het Nederlands, database blijft
-   op 0001 met data intact; terug naar de v1-tag start gewoon weer (tag-rollback zonder schemawijziging).
+1. v1 (huidig schema, kop ``HEAD``) draait met data → v2 (extra testmigratie ``NEXT``) op dezelfde /appdata: eerst
+   ``pg_dump`` in /appdata/backups, dan migratie; de dump is terug te zetten in een aparte database en bevat de data.
+2. v3 (testmigratie ``NEXT`` faalt halverwege) → container start de API niet, meldt het in het Nederlands, database
+   blijft op ``HEAD`` met data intact; terug naar de v1-tag start gewoon weer (tag-rollback zonder schemawijziging).
 
 De varianten worden lokaal gebouwd uit dezelfde Dockerfile (alleen een extra migratiebestand). Vereist Docker.
 """
@@ -23,13 +23,15 @@ from conftest import ROOT, docker_ok, free_port
 
 IMAGE = os.environ.get("LIFECYCLE_IMAGE", "jelly-leon-platform:dev")
 pytestmark = pytest.mark.skipif(not docker_ok(), reason="Docker niet beschikbaar")
+HEAD = "0002"  # kop van de migraties in de image (contract 1.2: hub-link.json + jwt_replay)
+NEXT = "0003"
 
 MIGRATION_OK = '''"""test: kolom erbij"""
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0002"
-down_revision = "0001"
+revision = "0003"
+down_revision = "0002"
 branch_labels = None
 depends_on = None
 
@@ -45,8 +47,8 @@ def downgrade():
 MIGRATION_FAIL = '''"""test: faalt halverwege"""
 from alembic import op
 
-revision = "0002"
-down_revision = "0001"
+revision = "0003"
+down_revision = "0002"
 branch_labels = None
 depends_on = None
 
@@ -72,7 +74,7 @@ def build_variant(tmp: Path, tag: str, migration: str) -> str:
                                                                                                "*.egg-info"))
     shutil.copy(ROOT / "apps/api/requirements.lock", ctx / "apps/api/requirements.lock")
     shutil.copytree(ROOT / "deploy/allinone", ctx / "deploy/allinone")
-    (ctx / "apps/api/src/lifecycle/migrations/versions/0002_e2e.py").write_text(migration)
+    (ctx / "apps/api/src/lifecycle/migrations/versions/0003_e2e.py").write_text(migration)
     image = f"jelly-leon-platform:e2e-{tag}"
     extra: list[str] = []
     # alleen achter een TLS-proxy (bouwomgeving): CA als BuildKit-secret, nooit in de image
@@ -134,6 +136,9 @@ def run(image: str, appdata: Path, port: int) -> str:
 
 
 def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Path) -> None:
+    from lifecycle.migrations_util import head_revision
+
+    assert head_revision() == HEAD, "HEAD in deze test bijwerken na een nieuwe migratie"
     v2 = build_variant(tmp_path, "v2", MIGRATION_OK)
     v3 = build_variant(tmp_path, "v3", MIGRATION_FAIL)
     port = free_port()
@@ -149,11 +154,11 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
                  f"'user', 'e2e', '{uuid.uuid4()}', '{{}}', 1, now(), now())")
         sh("docker", "stop", c1)
 
-        # v3: migratie faalt → API start niet, data intact, schema 0001
+        # v3: migratie faalt → API start niet, data intact, schema HEAD
         c3 = run(v3, appdata, port)
         names.append(c3)
         logs = wait_log(c3, "databasemigratie mislukt")
-        assert "back-up vóór upgrade: voor-upgrade-0001-" in logs
+        assert f"back-up vóór upgrade: voor-upgrade-{HEAD}-" in logs
         assert sh("curl", "-fsS", f"http://127.0.0.1:{port}/readyz", check=False).returncode != 0
         sh("docker", "rm", "-f", c3)
         names.remove(c3)
@@ -161,7 +166,7 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
         # terug naar v1 (alleen tag): start gewoon, data en schema onveranderd
         sh("docker", "start", c1)
         ready(port)
-        assert psql(c1, "SELECT version_num FROM alembic_version") == "0001"
+        assert psql(c1, "SELECT version_num FROM alembic_version") == HEAD
         assert psql(c1, f"SELECT count(*) FROM lifecycle_runs WHERE id='{run_id}'") == "1"
         sh("docker", "stop", c1)
 
@@ -169,12 +174,12 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
         c2 = run(v2, appdata, port)
         names.append(c2)
         ready(port)
-        assert psql(c2, "SELECT version_num FROM alembic_version") == "0002"
+        assert psql(c2, "SELECT version_num FROM alembic_version") == NEXT
         # de host-map is van 568 (0700): lijst via een hulpcontainer, zodat de test geen root op de host nodig heeft
         ls = sh("docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", f"{appdata}:/x",
                 "--entrypoint", "ls", IMAGE, "-1", "/x/backups")
         dumps = sorted(line for line in ls.stdout.splitlines() if line.strip())
-        assert dumps and all(d.startswith("voor-upgrade-0001-") for d in dumps) and len(dumps) <= 3
+        assert dumps and all(d.startswith(f"voor-upgrade-{HEAD}-") for d in dumps) and len(dumps) <= 3
         # de dumps bevatten de hele database: map 0700, bestanden 0600, eigenaar 568
         modes = sh("docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", f"{appdata}:/x",
                    "--entrypoint", "stat", IMAGE, "-c", "%u %a %n", "/x/backups", *[f"/x/backups/{d}" for d in dumps])
@@ -187,7 +192,7 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
                "-d", "herstel", f"/appdata/backups/{dumps[-1]}", check=False)
         assert r.returncode == 0, r.stderr
         assert psql(c2, f"SELECT count(*) FROM lifecycle_runs WHERE id='{run_id}'", db="herstel") == "1"
-        assert psql(c2, "SELECT version_num FROM alembic_version", db="herstel") == "0001"
+        assert psql(c2, "SELECT version_num FROM alembic_version", db="herstel") == HEAD
     finally:
         for name in names:
             sh("docker", "rm", "-f", name, check=False)

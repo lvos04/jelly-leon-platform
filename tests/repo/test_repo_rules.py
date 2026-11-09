@@ -92,6 +92,18 @@ def test_dockerfiles_pinned_and_no_baked_ca(dockerfile: str) -> None:
     assert "--require-hashes" in text
 
 
+def test_supervisor_is_pid1_without_root_init() -> None:
+    """Contract 1.2 §2.2/R11 (A6, JP12): geen init die als root blijft draaien (dumb-init/tini); de procesbewaker is
+    zelf PID 1 en wisselt naar 568. De image-E2E controleert dat voor elk proces in een draaiende container."""
+    text = (ROOT / "deploy/allinone/Dockerfile").read_text()
+    entry = re.findall(r"^ENTRYPOINT (\[.*\])$", text, re.M)
+    assert len(entry) == 1 and json.loads(entry[0]) == ["python", "/usr/local/lib/lifecycle-allinone/supervisor.py"]
+    lock = (ROOT / "apps/api/requirements.lock").read_text()
+    assert "dumb-init" not in lock and not re.search(r"^tini", lock, re.M)
+    supervisor = (ROOT / "deploy/allinone/supervisor.py").read_text()
+    assert "def reap_orphans" in supervisor and "def verify_privileges" in supervisor
+
+
 @pytest.mark.parametrize("workflow", ["ci.yml", "release.yml"])
 def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> None:
     """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""

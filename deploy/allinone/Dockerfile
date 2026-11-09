@@ -6,8 +6,9 @@
 # Installeren als STANDAARD TrueNAS Custom App (formulier, geen YAML): image ghcr.io/lvos04/jelly-leon-platform:<versie>,
 # één opslag → /appdata, één poort 30440 → 30440. Geen wachtwoorden, geen verplichte omgevingsvariabelen.
 # PostgreSQL 16 draait binnenin, alleen op een unix-socket (geen netwerkpoort, geen wachtwoord).
-# Start als root alleen om de eigen submappen van /appdata aan 568:568 te geven; alles draait daarna als 568 met
-# no_new_privs. Base-images op exacte versie én @sha256-digest (contract §1). De optionele BuildKit-secret
+# Start als root alleen om de eigen submappen van /appdata aan 568:568 te geven; daarna draait ELK proces — ook de
+# procesbewaker zelf als PID 1 (geen root-init zoals dumb-init) — als 568 zonder capabilities en met no_new_privs,
+# omdat het standaard Custom App-formulier no-new-privileges en cap_drop weglaat (contract 1.2 §2.2). Base-images op exacte versie én @sha256-digest (contract §1). De optionele BuildKit-secret
 # 'ca_bundle' is alleen voor bouwomgevingen achter een TLS-proxy; in GitHub Actions blijft hij weg.
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12.16-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
@@ -64,5 +65,5 @@ VOLUME ["/appdata"]
 EXPOSE 30440
 HEALTHCHECK --interval=30s --timeout=8s --start-period=90s --retries=3 \
   CMD ["python", "/usr/local/lib/lifecycle-allinone/healthcheck.py"]
-ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
-CMD ["python", "/usr/local/lib/lifecycle-allinone/supervisor.py"]
+# De bewaker is PID 1: ruimt zombies op, vangt SIGTERM af en wisselt zelf naar 568 (geen root-init).
+ENTRYPOINT ["python", "/usr/local/lib/lifecycle-allinone/supervisor.py"]

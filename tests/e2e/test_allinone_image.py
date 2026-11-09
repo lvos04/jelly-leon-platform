@@ -1,9 +1,11 @@
 """E2E van de alles-in-één image (zoals TrueNAS hem als standaard Custom App start: één map → /appdata, één poort).
 
-Vereist Docker en een gebouwde image (``LIFECYCLE_IMAGE``, standaard ``jelly-leon-platform:dev``). Getest: eerste start
-als root met lege /appdata, eigenaarschap 568, no_new_privs, Docker-HEALTHCHECK wordt ``healthy``, herstart met behoud
-van geheimen, harde kill, start als 568, foutmelding bij onschrijfbare map, enrollment bij een Hub-simulator met een
-eenmalig token + JWT-toegang, en herstart/kill zonder verlies van runs of koppeling.
+Vereist Docker en een gebouwde image (``LIFECYCLE_IMAGE``, standaard ``jelly-leon-platform:dev``). De containers draaien
+**zonder** ``--security-opt no-new-privileges`` en **zonder** ``--cap-drop``, zoals het standaard Custom App-formulier
+(contract 1.2 §2.2). Getest: eerste start als root met lege /appdata, eigenaarschap 568, voor **elk** proces (ook PID 1)
+Uid 568, CapEff 0 en NoNewPrivs 1, Docker-HEALTHCHECK wordt ``healthy``, herstart met behoud van geheimen, harde kill,
+start als 568, foutmelding bij onschrijfbare map, enrollment bij een Hub-simulator met een eenmalig token +
+vingerafdruk + dienst-JWT, en herstart/kill zonder verlies van runs of koppeling (``/appdata/secrets/hub-link.json``).
 Niet getest (kan hier niet): het echte TrueNAS-formulier/ix-app — NIET GEVALIDEERD (echte NAS).
 """
 
@@ -112,6 +114,35 @@ def as_root_in_helper(mount: Path, entrypoint: str, *args: str) -> subprocess.Co
               "--entrypoint", entrypoint, IMAGE, *args, check=False)
 
 
+# Alle processen behalve de eigen 'docker exec'-shell, haar kinderen en andere exec-processen (PPid 0, bv. een
+# lopende Docker-healthcheck): naam, pid, alle vier Uid-waarden, CapEff, CapPrm, NoNewPrivs.
+PROC_SCRIPT = (
+    'me=$$; for p in /proc/[0-9]*; do pid=${p#/proc/}; [ "$pid" = "$me" ] && continue; '
+    '[ -r "$p/status" ] || continue; pp=$(awk \'/^PPid:/{print $2}\' "$p/status" 2>/dev/null); '
+    '[ "$pp" = "$me" ] && continue; [ "$pp" = 0 ] && [ "$pid" != 1 ] && continue; '
+    'awk -v pid="$pid" \'/^Name:/{n=$2} /^Uid:/{u=$2","$3","$4","$5} /^CapEff:/{e=$2} /^CapPrm:/{c=$2} '
+    '/^NoNewPrivs:/{nn=$2} END{print pid, n, u, e, c, nn}\' "$p/status" 2>/dev/null; done'
+)
+
+
+def process_privileges(container: Container) -> list[list[str]]:
+    r = container.exec("sh", "-c", PROC_SCRIPT, user="568")
+    assert r.returncode == 0, r.stderr
+    return [line.split() for line in r.stdout.splitlines() if line.strip()]
+
+
+def assert_no_root_anywhere(container: Container) -> None:
+    rows = process_privileges(container)
+    assert any(r[0] == "1" for r in rows), rows  # PID 1 telt mee
+    pid1 = next(r for r in rows if r[0] == "1")
+    assert pid1[1] == "python", f"PID 1 is {pid1[1]} (verwacht de procesbewaker)"
+    assert {r[1] for r in rows} >= {"python", "postgres"}, rows
+    for pid, name, uids, cap_eff, cap_prm, nnp in rows:
+        assert uids == "568,568,568,568", f"{name} (pid {pid}) draait als {uids}"
+        assert cap_eff == cap_prm == "0000000000000000", f"{name} (pid {pid}) heeft capabilities {cap_eff}"
+        assert nnp == "1", f"{name} (pid {pid}) zonder no_new_privs"
+
+
 def host_stat(data: Path, rel: str) -> tuple[str, str, str]:
     r = as_root_in_helper(data, "stat", "-c", "%u %g %a", f"/x/{rel}")
     assert r.returncode == 0, r.stderr
@@ -150,17 +181,10 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
     for name in ("vault.key", "identity.ed25519"):
         uid, _gid, mode = host_stat(data_dir, f"secrets/{name}")
         assert (uid, mode) == ("568", "600"), (name, uid, mode)
-    # alle processen behalve dumb-init (PID 1) draaien als 568, met NoNewPrivs
-    ps = started.exec("sh", "-c", "for p in /proc/[0-9]*; do [ -r $p/status ] && "
-                      "awk '/^(Name|Uid|NoNewPrivs):/{printf \"%s \", $2} END{print \"\"}' $p/status; done")
-    rows = [line.split() for line in ps.stdout.splitlines() if line.strip()]
-    workers = [r for r in rows if r and r[0] in {"python", "postgres", "uvicorn"}]
-    assert workers, ps.stdout
-    for name, uid, nnp in ((r[0], r[1], r[-1]) for r in workers):
-        assert uid == "568", f"{name} draait als {uid}"
-        assert nnp == "1", f"{name} zonder no_new_privs"
+    # contract 1.2 §2.2/R11: elk proces, ook PID 1 (de procesbewaker), als 568 zonder capabilities met no_new_privs
+    assert_no_root_anywhere(started)
     code, page = get(f"http://127.0.0.1:{started.port}/")
-    assert code == 200 and "niet gekoppeld" in page.lower()
+    assert code == 200 and "nooit gekoppeld" in page.lower() and 'name="vingerafdruk"' in page
     # de healthcheck (elke 30 s) vult de log niet met migratiemeldingen: extra /readyz-aanroepen voegen niets toe
     before = started.logs().count("Context impl PostgresqlImpl")
     for _ in range(3):
@@ -215,6 +239,7 @@ def test_start_as_568_and_unwritable_dir(tmp_path: Path) -> None:
     c.run()
     try:
         wait_ready(c.port)
+        assert_no_root_anywhere(c)  # ook met 'Custom User 568': niets als root, geen capabilities
     finally:
         c.remove()
     bad = tmp_path / "bad"
@@ -235,33 +260,41 @@ def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, An
     hub_url, sim = hub_server
     secret = sim.add_grant("token", "jelly-leon-platform")
     port = free_port()
-    c = Container(data_dir, port, network_host=True, env={"HUB_URL": hub_url, "HUB_ENROLLMENT_TOKEN": secret})
+    c = Container(data_dir, port, network_host=True,
+                  env={"HUB_URL": hub_url, "HUB_ENROLLMENT_TOKEN": secret,
+                       "HUB_KEY_FINGERPRINT": sim.keyset_fingerprint(),
+                       "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})  # alleen E2E: de simulator luistert op 127.0.0.1
     c.run()
     try:
         wait_ready(port)
+        service = {"Authorization": f"Bearer {sim.mint_service('jelly-leon-platform')}"}
         deadline = time.monotonic() + 60
-        while time.monotonic() < deadline and not any(
-            e["event_type"] == "service.enrollment.completed" for e in sim.events
-        ):
+        code, link = get(f"http://127.0.0.1:{port}/connector/v1/hub-link", service)
+        while (code != 200 or link.get("state") != "gekoppeld") and time.monotonic() < deadline:
             time.sleep(1)
-        assert any(e["event_type"] == "service.enrollment.completed" for e in sim.events), c.logs()
-        token = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
-        # de API ziet de koppeling van de worker via de database (korte cache, max. enkele seconden); tot dan
-        # weigert hij JWT's (fail-closed)
-        deadline = time.monotonic() + 15
-        code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", {"Authorization": f"Bearer {token}"})
-        while code == 401 and time.monotonic() < deadline:
-            time.sleep(0.5)
-            code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", {"Authorization": f"Bearer {token}"})
-        assert code == 200 and link["state"] == "gekoppeld" and link["linked_via"] == "token", link
+            service = {"Authorization": f"Bearer {sim.mint_service('jelly-leon-platform')}"}
+            code, link = get(f"http://127.0.0.1:{port}/connector/v1/hub-link", service)
+        assert code == 200 and link["state"] == "gekoppeld" and link["via"] == "token", (link, c.logs())
+        assert link["keyset_fingerprint"] == sim.keyset_fingerprint()
+        assert sim.calls["self"] >= 1  # bevestigd met GET /api/v1/services/self
+        uid, _gid, mode = host_stat(data_dir, "secrets/hub-link.json")
+        assert (uid, mode) == ("568", "600")
         code, page = get(f"http://127.0.0.1:{port}/")
-        assert "Gekoppeld met" in page and secret not in page
+        assert "Gekoppeld met de Hub" in page and secret not in page and 'name="csrf"' not in page
         assert secret not in c.logs()
+        token = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
         code, health = get(f"http://127.0.0.1:{port}/connector/v1/health", {"Authorization": f"Bearer {token}"})
         assert code == 200 and health["status"] == "healthy", health
+        assert_no_root_anywhere(c)
+        own = as_root_in_helper(data_dir, "python", "-c",
+                                "import json;print(json.load(open('/x/secrets/hub-link.json'))['service_token'])")
+        code, body = get(f"http://127.0.0.1:{port}/connector/v1/discover",
+                         {"Authorization": f"Bearer {own.stdout.strip()}"})
+        assert code == 401 and "service_token_not_accepted" in str(body)
 
         # data vastleggen en daarna herstarten en hard killen: niets mag verloren gaan
-        headers = {"Authorization": f"Bearer {token}", "Idempotency-Key": str(uuid.uuid4())}
+        headers = {"Authorization": f"Bearer {sim.mint('e2e-admin', ['admin'], 'jelly-leon-platform')}",
+                   "Idempotency-Key": str(uuid.uuid4())}
         code, run = post(f"http://127.0.0.1:{port}/lifecycle/v1/runs",
                          {"app_id": "uptime-kuma", "kind": "install", "target_version": "1.2.25",
                           "reason": "e2e herstarttest"}, headers)
@@ -271,13 +304,18 @@ def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, An
             if action[0] == "kill":
                 sh("docker", "start", c.name)
             wait_ready(port)
-            fresh = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
-            auth = {"Authorization": f"Bearer {fresh}"}
+            auth = {"Authorization": f"Bearer {sim.mint('e2e-admin', ['admin'], 'jelly-leon-platform')}"}
             code, again = get(f"http://127.0.0.1:{port}/lifecycle/v1/runs/{run['id']}", auth)
             assert code == 200 and again["etag"] == run["etag"] and again["reason"] == "e2e herstarttest", again
-            code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", auth)
+            code, link = get(f"http://127.0.0.1:{port}/connector/v1/hub-link", auth)
             assert code == 200 and link["state"] == "gekoppeld" and link["service_id"], link
-        assert len([e for e in sim.events if e["event_type"] == "service.enrollment.completed"]) == 1
+        assert sim.calls["enroll"] == 1  # het eenmalige token wordt na een herstart nooit opnieuw gebruikt
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not any(
+            e["event_type"] == "service.enrollment.completed" for e in sim.events
+        ):
+            time.sleep(1)
+        assert any(e["event_type"] == "service.enrollment.completed" for e in sim.events), c.logs()
     finally:
         print(c.logs())
         c.remove()

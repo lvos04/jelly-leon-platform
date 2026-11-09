@@ -1,4 +1,4 @@
-"""jelly-leon-platform — alles-in-één procesbewaker (kind van dumb-init, PID 1).
+"""jelly-leon-platform — alles-in-één procesbewaker (zelf PID 1 van de container, geen root-init).
 
 Eén container draait alles: PostgreSQL 16 (alleen unix-socket, geen netwerkpoort, geen wachtwoord), eerste-start-
 initialisatie (geheimen), databasemigraties, de API (poort 30440) en de worker. Eén datamap (``/appdata``) en één poort:
@@ -6,7 +6,11 @@ installeerbaar als **standaard TrueNAS Custom App** zonder YAML (zie ``deploy/tr
 
 Regels (naar het voorbeeld van MSO ``deploy/allinone``):
 - Start de container als root, dan wordt alléén eigenaarschap van de eigen submappen van ``/appdata`` naar 568:568
-  gezet; daarna draait elk proces als 568 met ``no_new_privs`` (prctl), ook als het TrueNAS-formulier dat niet zet.
+  gezet; daarna draait **elk** proces — ook deze bewaker als PID 1 — als 568 zonder capabilities en met
+  ``no_new_privs`` (prctl), ook als het TrueNAS-formulier dat niet zet (contract 1.2 §2.2, R11). De bewaker
+  controleert dat zelf in ``/proc/self/status`` en stopt met een Nederlandse melding als het niet klopt.
+- Als PID 1 ruimt de bewaker verweesde processen (zombies) op en vangt SIGTERM/SIGINT vanaf de eerste regel af
+  (PID 1 heeft geen standaard signaalafhandeling); er draait dus geen ``dumb-init`` als root meer.
 - Start hij als 568 (TrueNAS "Custom User"), dan wordt niets aangepast en alleen de schrijfbaarheid gecontroleerd.
 - Duidelijke Nederlandse fout en pauze (geen snelle crashlus) als ``/appdata`` ontbreekt of niet schrijfbaar is.
 - Openstaande migraties: eerst een ``pg_dump`` (als er ruimte is; de nieuwste 3 blijven), dan migreren in één
@@ -68,6 +72,45 @@ def demote() -> None:
         os.setuid(UID)
     os.umask(0o077)  # nieuwe bestanden (o.a. pg_dump-back-ups) alleen leesbaar voor 568
     set_no_new_privs()
+
+
+def own_status() -> dict[str, str]:
+    fields: dict[str, str] = {}
+    with open("/proc/self/status", encoding="ascii") as fh:
+        for line in fh:
+            key, _, value = line.partition(":")
+            fields[key] = value.strip()
+    return fields
+
+
+def verify_privileges() -> None:
+    """Na de wissel: Uid/Gid 568 (alle vier), geen effectieve/toegestane capabilities en no_new_privs (fail-closed)."""
+    st = own_status()
+    uids, gids = st.get("Uid", "").split(), st.get("Gid", "").split()
+    if set(uids) != {str(UID)} or set(gids) != {str(GID)}:
+        fail(f"procesbewaker draait niet volledig als {UID}:{GID} (Uid {uids}, Gid {gids}); gestopt")
+    if st.get("CapEff") != "0000000000000000" or st.get("CapPrm") != "0000000000000000" or \
+            st.get("CapAmb", "0000000000000000") != "0000000000000000":
+        fail("procesbewaker heeft na de wissel nog capabilities; gestopt")
+    if st.get("NoNewPrivs") != "1":
+        fail("no_new_privs (PR_SET_NO_NEW_PRIVS) kon niet worden gezet; gestopt")
+
+
+def reap_orphans(known: set[int]) -> None:
+    """PID 1: verweesde processen opruimen zonder de exitstatus van eigen kinderen weg te nemen."""
+    if os.getpid() != 1:
+        return
+    while True:
+        try:
+            info = os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        except ChildProcessError:
+            return
+        if info is None or info.si_pid in known:
+            return
+        try:
+            os.waitpid(info.si_pid, os.WNOHANG)
+        except ChildProcessError:
+            return
 
 
 def prepare_dirs() -> None:
@@ -206,6 +249,8 @@ def postgres_child() -> Child:
 def wait_for_db(pg: Child, timeout: float = 90) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
+        if STOP.is_set():
+            return
         if not pg.alive():
             fail("database stopte tijdens het opstarten (zie log hierboven)")
         if run_once("pg_isready", ["pg_isready", "-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "postgres", "-q"],
@@ -267,16 +312,28 @@ def backup_before_migrations() -> None:
     log(f"back-up vóór upgrade: {target.name}")
 
 
+def shutdown(signum: int, _frame: object) -> None:
+    log(f"signaal {signum}: netjes stoppen")
+    STOP.set()
+
+
 def main() -> None:
-    log(f"lifecycle-dienst (alles-in-één) · data {DATA} · poort {PORT}")
+    signal.signal(signal.SIGTERM, shutdown)  # PID 1: zonder eigen afhandeling negeert de kernel SIGTERM
+    signal.signal(signal.SIGINT, shutdown)
+    log(f"lifecycle-dienst (alles-in-één) · data {DATA} · poort {PORT} · pid {os.getpid()}")
     prepare_dirs()
-    demote()  # vanaf hier draait niets meer als root
+    demote()  # vanaf hier draait niets meer als root, ook deze bewaker (PID 1) niet
+    verify_privileges()
     if run_once("eerste-start-initialisatie", [sys.executable, "-m", "lifecycle", "init"]).returncode != 0:
         fail("geheimen aanmaken mislukt (zie log hierboven)")
     init_database()
     pg = postgres_child()
     pg.start()
     wait_for_db(pg)
+    if STOP.is_set():
+        pg.stop(60)
+        log("gestopt tijdens het opstarten")
+        return
     backup_before_migrations()
     if run_once("migraties", [sys.executable, "-m", "lifecycle", "migrate"]).returncode != 0:
         pg.stop(60)
@@ -291,15 +348,9 @@ def main() -> None:
     for c in children:
         c.start()
 
-    def shutdown(signum: int, _frame: object) -> None:
-        log(f"signaal {signum}: netjes stoppen")
-        STOP.set()
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-
     backoff: dict[str, float] = {}
     while not STOP.is_set():
+        reap_orphans({c.proc.pid for c in [pg, *children] if c.proc is not None})
         if not pg.alive():
             log("database gestopt; opnieuw starten")
             for c in children:
