@@ -49,4 +49,4 @@ met een door hem ondertekende dienst-JWT (ADR-0011). Elk proces in de image, ook
 capabilities en met *no_new_privs*.
 
 Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.2`; werklijst `CONTRACT_1.2_CONFORMITEIT.md`).
-Geen licentie toegevoegd (keuze van de eigenaar).
+Licentie: **GPL-3.0** (zie [`LICENSE`](LICENSE); besluit van de eigenaar, 2026-11-09).
