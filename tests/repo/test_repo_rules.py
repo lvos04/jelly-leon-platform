@@ -200,6 +200,9 @@ def test_no_model_identifiers_in_own_files() -> None:
 STATUS_WORK = {"Niet gestart", "Bezig", "Gereed", "Geblokkeerd", "N.v.t."}
 STATUS_TEST = {"Niet gestart", "Bezig", "Geslaagd", "Mislukt", "Geblokkeerd", "N.v.t."}
 STATUS_DECISION = {"Open", "Ingevuld", "Getest", "Geblokkeerd", "N.v.t."}
+# contract 1.2 §11 (A4): vaste lijst; meerdere waarden gescheiden door "; "; toelichting hoort in 'opmerking'
+VALIDATIE = {"Sim-getest", "Unit-getest", "NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)",
+             "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)", "Sim-geslaagd", "Sim-mislukt"}
 
 
 def test_evidence_json_follows_section_11() -> None:
@@ -221,5 +224,12 @@ def test_evidence_json_follows_section_11() -> None:
             assert row["id"] in tasks, f"onbekende Excel-ID {row['id']}"
             assert row["status"] in STATUS_WORK - {"Gereed"}
         assert row["status"] not in {"Gereed", "Geslaagd"}
+        values = row["validatie"].split("; ")
+        assert values and all(v in VALIDATIE for v in values), f"{row['id']}: vrije tekst in validatie"
+        assert len(set(values)) == len(values), f"{row['id']}: dubbele validatiewaarde"
+        if row["id"].startswith("EX"):
+            assert not set(values) & {"Sim-getest"}, f"{row['id']}: testmatrix gebruikt Sim-geslaagd/Sim-mislukt"
+        else:
+            assert not set(values) & {"Sim-geslaagd", "Sim-mislukt"}, f"{row['id']}: alleen voor de testmatrix"
         if row["status"] == "Geblokkeerd":
             assert row["blokkade"], f"{row['id']}: blokkade zonder reden"

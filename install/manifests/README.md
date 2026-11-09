@@ -7,6 +7,14 @@ gepinde versie die op de installatiedatum opnieuw wordt gecontroleerd (I-docs: "
 
 Installatieregel (contract §1/§2): standaard Custom App (`ix-app`) met één gepinde image, of de **officiële
 TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit YAML/compose.
+
+Regels voor elk later te maken manifest (contract 1.2 §9, JP9): poorten **alleen** in `network.ports` (geen
+`custom_app.ports`), geen `network.joins_platform_network` (apps delen nooit een Docker-netwerk); een app die een
+GPU kan gebruiken krijgt `privileges.gpu: intel_render` + `privilege_reason` + D08 in `decisions_required` en
+`custom_app.gpu: {param: gpu}` met een parameter van type `gpu` (`source: wizard`, `required: false`, standaard
+`none`); de tag gaat het formulier in als `<tag>@<digest>`. `HUB_*`-omgevingsvariabelen staan nooit in een
+manifest (de Hub geeft ze mee bij `app.install`). Een vastgezette catalogusversie die uit de trein verdwijnt, geeft
+in het plan de blokkade `version_unavailable` (`apps/api/src/lifecycle/custom_app.py`), nooit stil een nieuwere.
 Catalogusgegevens: `truenas/apps` commit `f142a16` (2026-11-06) — de catalogus houdt per app alleen de nieuwste
 versie bij (zie `docs/platform-v2/TRUENAS_APP_API.md` §5), dus dit is een momentopname, geen pin.
 
