@@ -155,3 +155,20 @@
   in `docs/ontwerp/shots/` (pngquant). Zeven sjabloonpunten (o.a. `novalidate`, icoon per controlerij) als voorstel
   voor Peil 1.1.1; de gepinde kopie blijft byte-gelijk.
 - Niet gevalideerd: echte telefoon/tablet, schermlezer, echte browserzoom; op een echte TrueNAS niets.
+
+## Review fase P1 (onafhankelijke QA, ADR-0018)
+
+- Alle CI-stappen lokaal opnieuw gedraaid, inclusief manifestvalidatie met de actuele appstore-en-fork, image bouwen en
+  starten met lege `/appdata` (healthy, alle processen 568 zonder capabilities, herstart zonder verlies van geheimen),
+  image-E2E, browsercontrole, live ontwerpreview en de installatie-rooktest: groen. Digests van zeven images met
+  `docker buildx imagetools inspect` gecontroleerd: gelijk.
+- **Uptime Kuma-simulator:** de push-token stond letterlijk in `/_sim/verzoeken`; nu geredigeerd
+  (`/api/push/<push-token>`, telt als aanmelding). Ping-validatie en `entryPage: null` zoals de echte 2.5.9.
+- **Beszel-agent:** de claim "vingerafdruk in `/var/lib/beszel-agent` tegen dubbele hosts" klopte niet voor de
+  SSH-modus (alleen de WebSocket-client bewaart een vingerafdruk); manifest, meetdekking en evidence gecorrigeerd.
+- **Nieuw: `tools/upstream_rooktest.py`** (`make upstream-rooktest`, CI-job `rooktest`): Beszel hub + agent, Gotify en
+  Uptime Kuma echt gestart op digest, als 568:568 met een lege eigen map zoals het manifest ze beschrijft: digest-
+  readback, alle processen 568, health, kernroutes in dezelfde vorm als de simulators, herstart zonder dataverlies,
+  Beszel-agent in SSH-modus met alleen de publieke hubsleutel. Docker, geen TrueNAS (**Sim-getest**).
+- Evidence: I08-08-03 terug naar `NIET GEVALIDEERD (echte NAS)` (er is nog geen monitorplan met verwachte status en
+  time-out per endpoint); bewijs van de upstream-rooktest bij I07, I08 en I13.
