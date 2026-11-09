@@ -2,7 +2,8 @@
 
 `GET /` van jelly-leon-platform in het Peil-sjabloon, gemaakt met `make statuspagina-shots`: de echte dienst (met
 PostgreSQL en de Hub-simulator) rendert elke toestand, daarna maakt Chromium (Playwright 1.65.0) volledige
-schermafdrukken op 360, 768 en 1440 px in licht en donker (`<toestand>-<thema>-<breedte>.png`).
+schermafdrukken op 320, 360, 390, 768 en 1440 px in licht en donker (`<toestand>-<thema>-<breedte>.png`). Bijgewerkt na
+de ontwerpreview ([`docs/ontwerp/PEIL_REVIEW.md`](../../../ontwerp/PEIL_REVIEW.md), ADR-0017).
 
 | Toestand | Wat je ziet |
 |---|---|
@@ -14,5 +15,10 @@ schermafdrukken op 360, 768 en 1440 px in licht en donker (`<toestand>-<thema>-<
 
 `rapport.json` is de uitkomst van dezelfde run van `tests/ui/controle.mjs` over alle toestanden (ook ontkoppeld,
 koppelen bezig, invoer ongeldig, onleesbaar en beperkt) op 320/360/390/768/1024/1440 px × licht/donker: axe-core,
-overloop, aanraakdoelen, tekstgrootte, focusring en CSP. Adressen en vingerafdrukken zijn testwaarden
-(`hub.test`, sleutels van de simulator), geen NAS-gegevens. Geen pixel-baselines (ONTWERPTAAL §12).
+gemeten contrast (tekst, UI-grenzen, focusring), statusregels, microcopy, overloop, aanraakdoelen, tekstgrootte,
+focusring, tekstafstand, forced colors en CSP. Adressen en vingerafdrukken zijn testwaarden (`hub.test`, sleutels van
+de simulator), geen NAS-gegevens. Geen pixel-baselines (ONTWERPTAAL §12). De PNG's zijn met pngquant (palet, kwaliteit
+90–100) verkleind; contrast is in de DOM gemeten, niet op de PNG's.
+
+Alle 14 toestanden van de **live** dienst (eigen processen, formulier ingevuld door Chromium) staan in
+[`docs/ontwerp/shots/`](../../../ontwerp/shots/) (`make ontwerpreview`).

@@ -1,0 +1,61 @@
+{
+ "toestanden": {
+  "niet-gekoppeld": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "koppelen-invoer-ongeldig": {
+   "http": 400,
+   "actie": "POST /koppelen"
+  },
+  "koppelen-code-geweigerd": {
+   "http": 400,
+   "actie": "POST /koppelen"
+  },
+  "koppelen-vingerafdruk-onjuist": {
+   "http": 400,
+   "actie": "POST /koppelen"
+  },
+  "laatste-poging-mislukt": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "gekoppeld-bevestigd": {
+   "http": 200,
+   "actie": "POST /koppelen → 303 → GET /?gekoppeld=1"
+  },
+  "gekoppeld": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "ontkoppeld": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "formulier-verlopen": {
+   "http": 403,
+   "actie": "POST /koppelen"
+  },
+  "te-veel-pogingen": {
+   "http": 429,
+   "actie": "POST /koppelen"
+  },
+  "koppelbestand-onleesbaar": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "koppelen-ingetrokken": {
+   "http": 400,
+   "actie": "POST /koppelen"
+  },
+  "ingetrokken": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "niet-gereed": {
+   "http": 200,
+   "actie": "GET /"
+  }
+ },
+ "hub_vingerafdruk": "W2EF-7TA7-3J2R-5SKF"
+}

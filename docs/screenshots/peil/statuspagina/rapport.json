@@ -25,6 +25,18 @@
   "beperkt": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.6
+   },
+   "min_ui_contrast": {
+    "licht": 5.89,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
    "fouten": [],
    "tab": {
     "licht-390": 4,
@@ -36,6 +48,18 @@
   "gekoppeld": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.6
+   },
+   "min_ui_contrast": {
+    "licht": 5.89,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
    "fouten": [],
    "tab": {
     "licht-390": 4,
@@ -47,6 +71,18 @@
   "ingetrokken": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 10.58
+   },
+   "min_ui_contrast": {
+    "licht": 6.36,
+    "donker": 7.78
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 9.51
+   },
    "fouten": [],
    "tab": {
     "licht-390": 3,
@@ -58,6 +94,18 @@
   "koppelen-bezig": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 5.89,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
    "fouten": [],
    "tab": {
     "licht-390": 7,
@@ -69,17 +117,41 @@
   "koppelen-invoer-ongeldig": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 4.86,
+    "donker": 5.69
+   },
+   "min_focusring": {
+    "licht": 7.79,
+    "donker": 8.04
+   },
    "fouten": [],
    "tab": {
-    "licht-390": 7,
-    "licht-1440": 7,
-    "donker-390": 7,
-    "donker-1440": 7
+    "licht-390": 8,
+    "licht-1440": 8,
+    "donker-390": 8,
+    "donker-1440": 8
    }
   },
   "koppelen-mislukt": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 4.86,
+    "donker": 5.69
+   },
+   "min_focusring": {
+    "licht": 7.79,
+    "donker": 8.04
+   },
    "fouten": [],
    "tab": {
     "licht-390": 8,
@@ -91,6 +163,18 @@
   "niet-gekoppeld": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 5.89,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
    "fouten": [],
    "tab": {
     "licht-390": 7,
@@ -102,6 +186,18 @@
   "niet-gereed": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 5.89,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
    "fouten": [],
    "tab": {
     "licht-390": 7,
@@ -113,6 +209,18 @@
   "onleesbaar": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 10.58
+   },
+   "min_ui_contrast": {
+    "licht": 5.71,
+    "donker": 7.78
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 9.51
+   },
    "fouten": [],
    "tab": {
     "licht-390": 3,
@@ -124,6 +232,18 @@
   "ontkoppeld": {
    "axe": 0,
    "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 10.58
+   },
+   "min_ui_contrast": {
+    "licht": 6.36,
+    "donker": 7.78
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 9.51
+   },
    "fouten": [],
    "tab": {
     "licht-390": 3,
