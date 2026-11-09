@@ -1,8 +1,9 @@
 """E2E van de alles-in-één image (zoals TrueNAS hem als standaard Custom App start: één map → /appdata, één poort).
 
 Vereist Docker en een gebouwde image (``LIFECYCLE_IMAGE``, standaard ``jelly-leon-platform:dev``). Getest: eerste start
-als root, eigenaarschap 568, no_new_privs, herstart met behoud van geheimen/database, harde kill, start als 568,
-foutmelding bij onschrijfbare map, en enrollment bij een Hub-simulator met een eenmalig token + JWT-toegang.
+als root met lege /appdata, eigenaarschap 568, no_new_privs, Docker-HEALTHCHECK wordt ``healthy``, herstart met behoud
+van geheimen, harde kill, start als 568, foutmelding bij onschrijfbare map, enrollment bij een Hub-simulator met een
+eenmalig token + JWT-toegang, en herstart/kill zonder verlies van runs of koppeling.
 Niet getest (kan hier niet): het echte TrueNAS-formulier/ix-app — NIET GEVALIDEERD (echte NAS).
 """
 
@@ -38,6 +39,29 @@ def get(url: str, headers: dict[str, str] | None = None) -> tuple[int, Any]:
             return resp.status, (json.loads(body) if "json" in resp.headers.get("Content-Type", "") else body)
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode()
+
+
+def post(url: str, body: dict[str, Any], headers: dict[str, str]) -> tuple[int, Any]:
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(url, data=data, method="POST",  # noqa: S310 - test tegen localhost
+                                 headers={"Content-Type": "application/json", **headers})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
+            return resp.status, json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode()
+
+
+def wait_healthy(name: str, timeout: float = 150) -> str:
+    """Wacht tot de ingebouwde Docker-HEALTHCHECK (die TrueNAS gebruikt) ``healthy`` meldt."""
+    deadline = time.monotonic() + timeout
+    status = ""
+    while time.monotonic() < deadline:
+        status = sh("docker", "inspect", "-f", "{{.State.Health.Status}}", name, check=False).stdout.strip()
+        if status in {"healthy", "unhealthy"}:
+            return status
+        time.sleep(2)
+    return status
 
 
 def wait_ready(port: int, timeout: float = 120) -> None:
@@ -105,6 +129,7 @@ def started(data_dir: Path) -> Iterator[Container]:
 
 def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Path) -> None:
     assert started.exec("python", "/usr/local/lib/lifecycle-allinone/healthcheck.py").returncode == 0
+    assert wait_healthy(started.name) == "healthy", started.logs()
     st = (data_dir / "secrets").stat()
     assert (st.st_uid, st.st_gid) == (568, 568) and oct(st.st_mode & 0o777) == "0o700"
     for name in ("vault.key", "identity.ed25519"):
@@ -179,13 +204,38 @@ def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, An
             time.sleep(1)
         assert any(e["event_type"] == "service.enrollment.completed" for e in sim.events), c.logs()
         token = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
+        # de API ziet de koppeling van de worker via de database (korte cache, max. enkele seconden); tot dan
+        # weigert hij JWT's (fail-closed)
+        deadline = time.monotonic() + 15
         code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", {"Authorization": f"Bearer {token}"})
-        assert code == 200 and link["state"] == "gekoppeld" and link["linked_via"] == "token"
+        while code == 401 and time.monotonic() < deadline:
+            time.sleep(0.5)
+            code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", {"Authorization": f"Bearer {token}"})
+        assert code == 200 and link["state"] == "gekoppeld" and link["linked_via"] == "token", link
         code, page = get(f"http://127.0.0.1:{port}/")
         assert "Gekoppeld met" in page and secret not in page
         assert secret not in c.logs()
         code, health = get(f"http://127.0.0.1:{port}/connector/v1/health", {"Authorization": f"Bearer {token}"})
         assert code == 200 and health["status"] == "healthy", health
+
+        # data vastleggen en daarna herstarten en hard killen: niets mag verloren gaan
+        headers = {"Authorization": f"Bearer {token}", "Idempotency-Key": str(uuid.uuid4())}
+        code, run = post(f"http://127.0.0.1:{port}/lifecycle/v1/runs",
+                         {"app_id": "uptime-kuma", "kind": "install", "target_version": "1.2.25",
+                          "reason": "e2e herstarttest"}, headers)
+        assert code == 201, run
+        for action in (("restart",), ("kill", "-s", "KILL")):
+            sh("docker", *action, c.name)
+            if action[0] == "kill":
+                sh("docker", "start", c.name)
+            wait_ready(port)
+            fresh = sim.mint("e2e-admin", ["admin"], "jelly-leon-platform")
+            auth = {"Authorization": f"Bearer {fresh}"}
+            code, again = get(f"http://127.0.0.1:{port}/lifecycle/v1/runs/{run['id']}", auth)
+            assert code == 200 and again["etag"] == run["etag"] and again["reason"] == "e2e herstarttest", again
+            code, link = get(f"http://127.0.0.1:{port}/lifecycle/v1/hub-link", auth)
+            assert code == 200 and link["state"] == "gekoppeld" and link["service_id"], link
+        assert len([e for e in sim.events if e["event_type"] == "service.enrollment.completed"]) == 1
     finally:
         print(c.logs())
         c.remove()

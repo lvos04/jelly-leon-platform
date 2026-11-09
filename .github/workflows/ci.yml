@@ -40,6 +40,10 @@ jobs:
           pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]'
       - name: Ruff
         run: ruff check .
+      - name: Workflows controleren (actionlint + shellcheck)
+        run: |
+          pip install actionlint-py==1.7.12.25 shellcheck-py==0.11.0.1
+          actionlint .github/workflows/ci.yml .github/workflows/release.yml
       - name: Mypy (strict)
         run: |
           (cd apps/api && mypy)
@@ -74,17 +78,17 @@ jobs:
           docker buildx build --load -f deploy/allinone/Dockerfile \
             --build-arg VERSION="$(tr -d '[:space:]' < VERSION)" --build-arg REVISION="$GITHUB_SHA" \
             -t jelly-leon-platform:ci .
-      - name: Starten en healthcheck (zoals een TrueNAS Custom App: één map → /appdata, één poort)
+      - name: "Starten en healthcheck (zoals een TrueNAS Custom App: één map → /appdata, één poort)"
         run: |
           mkdir -p "$RUNNER_TEMP/appdata"
           docker run -d --name jlp -v "$RUNNER_TEMP/appdata:/appdata" -p 127.0.0.1:30440:30440 jelly-leon-platform:ci
-          for i in $(seq 1 90); do
+          for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:30440/readyz >/dev/null; then break; fi
             sleep 1
           done
           curl -fsS http://127.0.0.1:30440/readyz
           docker exec jlp python /usr/local/lib/lifecycle-allinone/healthcheck.py
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             s="$(docker inspect -f '{{.State.Health.Status}}' jlp)"; echo "health: $s"
             [ "$s" = healthy ] && break; sleep 2
           done
@@ -101,5 +105,6 @@ jobs:
         run: |
           docker buildx build --load -t jlp-truenas-sim:ci e2e/simulators/truenas
           docker run -d --name tsim -p 127.0.0.1:30498:8080 jlp-truenas-sim:ci
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:30498/api/versions && break; sleep 1; done
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:30498/api/versions && break; sleep 1; done
+          curl -fsS http://127.0.0.1:30498/api/versions  # faalt de stap als de simulator nooit antwoordde
           docker rm -f tsim

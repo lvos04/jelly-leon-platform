@@ -92,6 +92,20 @@ def test_dockerfiles_pinned_and_no_baked_ca(dockerfile: str) -> None:
     assert "--require-hashes" in text
 
 
+@pytest.mark.parametrize("workflow", ["ci.yml", "release.yml"])
+def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> None:
+    """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""
+    text = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+    doc = yaml.safe_load(text)
+    assert isinstance(doc, dict) and isinstance(doc.get("jobs"), dict) and doc["jobs"]
+    for job in doc["jobs"].values():
+        for step in job.get("steps", []):
+            assert isinstance(step, dict) and ("run" in step or "uses" in step), step
+            uses = str(step.get("uses", ""))
+            assert not uses or re.search(r"@[0-9a-f]{40}$", uses), f"action niet op commit-SHA: {uses}"
+    assert ":latest" not in text and "ca-bundle" not in text
+
+
 def test_compose_only_for_development() -> None:
     text = (ROOT / "deploy/dev/compose.yaml").read_text()
     assert "ALLEEN VOOR ONTWIKKELING" in text and "GEEN installatiemethode" in text
