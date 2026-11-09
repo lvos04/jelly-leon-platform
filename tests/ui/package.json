@@ -1,0 +1,14 @@
+{
+  "name": "jelly-leon-platform-statuspagina-controle",
+  "private": true,
+  "description": "Browsercontrole van de Peil-statuspagina (axe-core, overloop 320 px, aanraakdoelen, focus, CSP) en schermafdrukken. Alleen voor ontwikkeling en CI.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "controle": "node controle.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "1.65.0"
+  }
+}

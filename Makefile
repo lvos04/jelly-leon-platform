@@ -4,7 +4,7 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit
+	sim-image audit peil-kopie test-ui statuspagina-shots
 
 venv:
 	python3.12 -m venv .venv
@@ -15,7 +15,7 @@ lint:
 
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
-	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim
+	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q
@@ -32,6 +32,27 @@ test-conformance:
 
 test-conformance-hub:
 	$(NICE) $(PY) e2e/conformance/echte_hub.py
+
+# Peil-statuspagina (JP11). peil-kopie: versie-gepinde kopie intact (drift met ai-server-manager: make test-repo).
+# test-ui: HTML per toestand uit de echte dienst → Chromium (axe-core, 320–1440 px, licht/donker, focus, CSP).
+# statuspagina-shots: idem + schermafdrukken naar docs/screenshots/peil/statuspagina/ (bij elke release).
+SNAP ?= /tmp/jlp-statuspagina
+SHOTS ?= docs/screenshots/peil/statuspagina
+
+peil-kopie:
+	$(PY) tools/peil_kopie.py controleer
+
+test-ui:
+	rm -rf $(SNAP)
+	cd apps/api && STATUSPAGINA_SNAPSHOTS=$(SNAP) ../../$(PY) -m pytest -q tests/integration/test_statuspage_peil.py
+	test -d tests/ui/node_modules || npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
+	$(NICE) node tests/ui/controle.mjs --map $(SNAP)
+
+statuspagina-shots:
+	rm -rf $(SNAP) $(SHOTS)
+	cd apps/api && STATUSPAGINA_SNAPSHOTS=$(SNAP) ../../$(PY) -m pytest -q tests/integration/test_statuspage_peil.py
+	test -d tests/ui/node_modules || npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
+	$(NICE) node tests/ui/controle.mjs --map $(SNAP) --shots $(SHOTS) --rapport $(SHOTS)/rapport.json
 
 # Achter een TLS-proxy: LIFECYCLE_BUILD_CA=<ca.crt> LIFECYCLE_BUILD_NETWORK=host make test-e2e
 test-e2e: image

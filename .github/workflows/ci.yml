@@ -1,6 +1,7 @@
 # CI voor jelly-leon-platform: lint, types, tests (met PostgreSQL 16), migraties, OpenAPI-drift, pip-audit,
-# TrueNAS-simulator, Hub-conformiteit (contract 1.2), en de alles-in-één image bouwen + starten met healthcheck +
-# image-E2E (elk proces, ook PID 1, als 568 zonder capabilities met no_new_privs).
+# TrueNAS-simulator, Hub-conformiteit (contract 1.2), Peil-kopie zonder drift met ai-server-manager, de statuspagina in
+# Chromium (axe-core, 320–1440 px), en de alles-in-één image bouwen + starten met healthcheck + image-E2E (elk proces,
+# ook PID 1, als 568 zonder capabilities met no_new_privs).
 # Geen geheimen nodig. Base-images en actions op vaste versie/digest.
 name: ci
 
@@ -48,7 +49,7 @@ jobs:
       - name: Mypy (strict)
         run: |
           (cd apps/api && mypy)
-          mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim
+          mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py
       - name: Tests lifecycle-dienst (unit + integratie, incl. migraties up/down/up en drift)
         working-directory: apps/api
         run: python -m pytest -q
@@ -57,7 +58,15 @@ jobs:
         run: python -m pytest -q
       - name: Conformiteit met contract 1.2 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
         run: python -m pytest -q tests/conformance
-      - name: Manifest- en documentatiecontroles
+      - name: Peil-bron ophalen (ai-server-manager, alleen lezen; voor de drift-controle O-14)
+        run: |
+          git clone --quiet --filter=blob:none --no-checkout --single-branch --branch ccr-c133d7a0-kuz1cv \
+            https://github.com/lvos04/ai-server-manager.git "$RUNNER_TEMP/peil-bron"
+          git -C "$RUNNER_TEMP/peil-bron" log -1 --format='Peil-bron: %H %s' -- design/ontwerptaal
+      - name: Manifest-, documentatie- en Peil-kopiecontroles (faalt bij drift met ai-server-manager)
+        env:
+          PEIL_BRON: ${{ runner.temp }}/peil-bron
+          PEIL_BRON_VERPLICHT: "1"
         run: python -m pytest -q tests/repo
       - name: OpenAPI-drift
         run: |
@@ -65,6 +74,54 @@ jobs:
           diff -u docs/openapi/jelly-leon-platform.openapi.json /tmp/openapi.json
       - name: pip-audit (runtime-lock)
         run: pip-audit --strict --require-hashes --disable-pip -r apps/api/requirements.lock
+
+  statuspagina:
+    # Peil-statuspagina (JP11): HTML per toestand uit de echte dienst (PostgreSQL + Hub-simulator), daarna in Chromium:
+    # axe-core (WCAG 2.2 AA-tags) = 0, geen overloop op 320 px, doelen ≥ 44 px, tekst ≥ 14 px, focusring, CSP zonder
+    # overtredingen; schermafdrukken als artefact (geen pixel-baselines, ONTWERPTAAL §12).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: docker.io/library/postgres:16.15-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      LIFECYCLE_TEST_PG: postgresql+psycopg://postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Installeren (dienst, Playwright 1.65.0 + axe-core 4.14.0 uit package-lock.json, Chromium)
+        run: |
+          python -m pip install --upgrade pip==26.3
+          pip install -e 'apps/api[test]'
+          npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
+          (cd tests/ui && npx playwright install --with-deps chromium)
+      - name: Statuspagina per toestand renderen (momentopnamen)
+        working-directory: apps/api
+        env:
+          STATUSPAGINA_SNAPSHOTS: ${{ runner.temp }}/statuspagina
+        run: python -m pytest -q tests/integration/test_statuspage_peil.py
+      - name: Browsercontrole (axe-core, 320–1440 px, licht/donker, focus, CSP) en schermafdrukken
+        run: |
+          node tests/ui/controle.mjs --map "$RUNNER_TEMP/statuspagina" --shots "$RUNNER_TEMP/schermafdrukken" \
+            --rapport "$RUNNER_TEMP/schermafdrukken/rapport.json"
+      - name: Schermafdrukken en rapport bewaren
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: statuspagina-peil
+          path: ${{ runner.temp }}/schermafdrukken
+          if-no-files-found: warn
+          retention-days: 14
 
   image:
     runs-on: ubuntu-24.04
