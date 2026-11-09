@@ -120,8 +120,8 @@ def _render(request: Request, message: str = "", status_code: int = 200) -> HTML
             error = f'<p class="err">Laatste poging: {html.escape(snap.last_error)}</p>'
         default_url = html.escape((snap.hub_url if snap is not None else None) or "")
         link = (
-            "<p>Nog <strong>niet gekoppeld</strong>. Zonder koppeling werkt deze dienst alleen-lezen en accepteert hij "
-            "geen aanvragen. Maak in de Hub (Instellingen → Diensten) een koppelcode voor "
+            "<p>Nog <strong>niet gekoppeld</strong>. Zonder koppeling weigert de API elke aanvraag (alleen deze "
+            "statuspagina, <code>/healthz</code> en <code>/readyz</code> werken). Maak in de Hub een koppelcode voor "
             f"<code>{APP_ID}</code> en vul die hieronder in.</p>{error}"
             '<form method="post" action="/koppelen" autocomplete="off">'
             f'<input type="hidden" name="csrf" value="{html.escape(token)}">'

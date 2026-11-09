@@ -3,6 +3,7 @@
 De standaard TrueNAS Custom App heeft géén verplichte variabelen: alles heeft een veilige standaardwaarde.
 ``HUB_URL`` en ``HUB_ENROLLMENT_TOKEN`` geeft alleen de Hub mee wanneer hij deze app via de TrueNAS-API installeert
 (contract §3). Beide zijn niet-geheim: het token is eenmalig en vervalt na 60 minuten of na eerste gebruik.
+``HUB_URL`` dient alleen de enrollment; JWT's worden pas geaccepteerd na een geslaagde koppeling (ADR-0009).
 Geheimen staan nooit in de omgeving; die maakt de app zelf aan in ``/appdata/secrets`` (zie ``secrets_store``).
 """
 
@@ -80,10 +81,6 @@ class Settings:
     @property
     def secrets_dir(self) -> Path:
         return self.data_dir / "secrets"
-
-    @property
-    def jwks_url(self) -> str | None:
-        return f"{self.hub_url}/api/v1/auth/jwks" if self.hub_url else None
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from lifecycle import APP_ID, __version__
 from lifecycle.auth import JwksCache, parse_jwks, sha256_hex
 from lifecycle.config import Settings
-from lifecycle.hublink import get_or_create, record_failure, store_link
+from lifecycle.hublink import JWKS_PATH, get_or_create, record_failure, store_link
 from lifecycle.outbox import emit
 from lifecycle.secrets_store import Vault, public_key_b64url
 
@@ -146,7 +146,8 @@ def enroll_and_store(
         with factory.begin() as session:
             record_failure(
                 session,
-                hub_url=hub_url,
+                # adres uit een mislukte koppelcode-poging niet bewaren (kan van iedereen op het netwerk komen)
+                hub_url=hub_url if kind == "token" else None,
                 message=exc.message,
                 final=not exc.retryable,
                 used_token_sha256=secret_hash if kind == "token" else None,
@@ -174,8 +175,10 @@ def enroll_and_store(
             {"linked_via": kind, "service_id": result.service_id},
             actor={"type": "system", "id": APP_ID},
         )
-    if jwks_cache is not None and result.jwks:
-        jwks_cache.seed(result.jwks)
+    if jwks_cache is not None:
+        jwks_cache.clear()
+        if result.jwks:
+            jwks_cache.seed(result.jwks, hub_url + JWKS_PATH)
     log.info("gekoppeld met de Hub (via %s)", kind)
     return result
 

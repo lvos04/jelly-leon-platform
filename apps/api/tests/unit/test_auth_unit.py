@@ -114,7 +114,40 @@ def test_no_hub_url_fails_closed() -> None:
     cache = JwksCache(lambda: None, lambda url: {})
     with pytest.raises(AuthError) as exc:
         cache.key_for("k")
+    assert exc.value.reason == "not_linked"
+
+
+def test_keys_belong_to_one_hub_url() -> None:
+    """Sleutels van een vorige/andere Hub gelden nooit; ontkoppelen (URL weg) wist ze."""
+    hub_a, hub_b = HubState(), HubState()
+    current = {"url": "http://a/api/v1/auth/jwks"}
+    docs = {"http://a/api/v1/auth/jwks": hub_a, "http://b/api/v1/auth/jwks": hub_b}
+    cache = JwksCache(lambda: current["url"], lambda url: docs[url].jwks(), clock=Clock(), min_refresh_s=30)
+    tok_a = hub_a.mint("u", ["admin"], "jelly-leon-platform")
+    tok_b = hub_b.mint("u", ["admin"], "jelly-leon-platform")
+    assert verify_hub_jwt(tok_a, cache).subject == "u"
+    current["url"] = "http://b/api/v1/auth/jwks"
+    with pytest.raises(AuthError) as exc:
+        verify_hub_jwt(tok_a, cache)  # zelfde kid, maar sleutel van Hub A geldt niet meer
+    assert exc.value.reason == "jwt_invalid"
+    assert verify_hub_jwt(tok_b, cache).subject == "u"
+    current["url"] = None  # type: ignore[assignment]
+    with pytest.raises(AuthError) as exc:
+        verify_hub_jwt(tok_b, cache)
+    assert exc.value.reason == "not_linked"
+
+
+def test_seed_counts_age_so_stored_jwks_is_not_fresh_forever() -> None:
+    hub = HubState()
+    clock = Clock()
+    cache = JwksCache(lambda: "http://hub/api/v1/auth/jwks", lambda url: (_ for _ in ()).throw(ConnectionError()),
+                      clock=clock, ttl_s=300, max_stale_s=900)
+    cache.seed(hub.jwks(), "http://hub/api/v1/auth/jwks", age_s=950)
+    with pytest.raises(AuthError) as exc:
+        verify_hub_jwt(hub.mint("u", ["viewer"], "jelly-leon-platform"), cache)
     assert exc.value.reason == "jwks_unavailable"
+    cache.seed(hub.jwks(), "http://hub/api/v1/auth/jwks", age_s=10)
+    assert verify_hub_jwt(hub.mint("u", ["viewer"], "jelly-leon-platform"), cache).roles == frozenset({"viewer"})
 
 
 def test_parse_jwks_ignores_non_ed25519() -> None:

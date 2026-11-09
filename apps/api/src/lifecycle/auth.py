@@ -1,9 +1,11 @@
 """Authenticatie (contract §4): Hub-JWT's via JWKS en het eigen service-token. Altijd fail-closed.
 
 - **Gebruikerscontext**: ``Authorization: Bearer <JWT>`` van de Hub (EdDSA, ``iss=hub``, ``aud=jelly-leon-platform``,
-  ``exp`` ≤ 120 s, rollen in ``roles``). De publieke sleutels komen uit ``GET {HUB_URL}/api/v1/auth/jwks`` en worden
-  gecachet (TTL, minimale verversingsafstand, maximale veroudering). Is de JWKS onbereikbaar en de cache te oud of leeg,
-  dan wordt **elk** JWT geweigerd (401) — nooit "open access".
+  ``exp`` ≤ 120 s, rollen in ``roles``). De publieke sleutels komen uitsluitend van de Hub waarmee deze dienst
+  **geslaagd gekoppeld** is (``GET <gekoppelde hub_url>/api/v1/auth/jwks``), nooit van een adres uit de omgeving of uit
+  een mislukte koppelpoging. Ze worden gecachet (TTL, minimale verversingsafstand, maximale veroudering) en horen bij
+  precies dat adres: wisselt of verdwijnt de koppeling, dan worden ze weggegooid. Niet gekoppeld, JWKS onbereikbaar
+  en cache te oud of leeg → **elk** JWT geweigerd (401) — nooit "open access" (ADR-0005, ADR-0009).
 - **Dienst-naar-dienst**: ``Authorization: Bearer <service-token>``: het per-app token uit de enrollment (gedeeld
   geheim Hub ↔ deze app). Alleen de SHA-256 staat in de database; vergelijking in constante tijd.
 """
@@ -112,27 +114,40 @@ class JwksCache:
         self._clock = clock
         self._lock = threading.Lock()
         self._keys: dict[str, Ed25519PublicKey] = {}
+        self._source: str | None = None
         self._fetched_at: float | None = None
         self._last_attempt: float | None = None
         self.last_error: str | None = None
 
-    def seed(self, document: Any) -> None:
-        """JWKS uit de enrollment-respons: telt als verse ophaling."""
+    def seed(self, document: Any, source_url: str, age_s: float = 0.0) -> None:
+        """JWKS uit de enrollment-respons of de database, horend bij ``source_url``.
+
+        ``age_s`` is hoe oud de sleutels al zijn (bijv. sinds de enrollment); zo telt een opgeslagen JWKS na een
+        herstart niet opnieuw als vers.
+        """
         keys = parse_jwks(document)
         with self._lock:
             self._keys = keys
-            self._fetched_at = self._clock()
+            self._source = source_url
+            self._fetched_at = self._clock() - max(0.0, age_s)
+
+    def clear(self) -> None:
+        """Alle sleutels vergeten (bij ontkoppelen of een andere Hub)."""
+        with self._lock:
+            self._clear_locked()
+
+    def _clear_locked(self) -> None:
+        self._keys = {}
+        self._source = None
+        self._fetched_at = None
+        self._last_attempt = None
 
     def status(self) -> dict[str, Any]:
         with self._lock:
             age = None if self._fetched_at is None else round(self._clock() - self._fetched_at, 1)
             return {"keys": len(self._keys), "age_s": age, "last_error": self.last_error}
 
-    def _refresh_locked(self) -> None:
-        url = self._url_provider()
-        if not url:
-            self.last_error = "geen Hub gekoppeld (HUB_URL onbekend)"
-            return
+    def _refresh_locked(self, url: str) -> None:
         self._last_attempt = self._clock()
         try:
             keys = parse_jwks(self._fetch(url))
@@ -148,14 +163,23 @@ class JwksCache:
         self.last_error = None
 
     def key_for(self, kid: str | None) -> Ed25519PublicKey:
+        url = self._url_provider()
         with self._lock:
+            if not url:
+                self._clear_locked()
+                self.last_error = "niet gekoppeld met de Hub"
+                raise AuthError("not_linked", "Deze dienst is niet met de Hub gekoppeld; aanmelding geweigerd.")
+            if url != self._source:
+                # andere (of nieuwe) Hub: sleutels van een vorig adres gelden nooit
+                self._clear_locked()
+                self._source = url
             now = self._clock()
             age = None if self._fetched_at is None else now - self._fetched_at
             unknown_kid = kid is not None and kid not in self._keys
             needs_refresh = age is None or age >= self.ttl_s or unknown_kid
             may_refresh = self._last_attempt is None or now - self._last_attempt >= self.min_refresh_s
             if needs_refresh and may_refresh:
-                self._refresh_locked()
+                self._refresh_locked(url)
                 age = None if self._fetched_at is None else self._clock() - self._fetched_at
             if age is None or age > self.max_stale_s:
                 raise AuthError("jwks_unavailable", "Sleutels van de Hub zijn niet beschikbaar; aanmelding geweigerd.")

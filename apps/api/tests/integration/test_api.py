@@ -22,7 +22,7 @@ def test_readyz_not_ready_without_secrets(make_app: Any, data_dir: Any) -> None:
 
     for p in (data_dir / "secrets").iterdir():
         p.unlink()
-    with TestClient(make_app()) as c:
+    with TestClient(make_app(linked=False)) as c:
         r = c.get("/readyz")
         assert r.status_code == 503
         assert any(x["name"] == "secrets" and x["status"] == "down" for x in r.json()["checks"])
@@ -34,8 +34,20 @@ def test_error_format_and_auth_required(client: Any) -> None:
     body = r.json()
     assert set(body) == {"code", "message", "details", "trace_id"} and body["code"] == "unauthorized"
     uuid.UUID(body["trace_id"])
-    r = client.get("/lifecycle/v1/runs", headers={"Authorization": "Bearer niet-gekoppeld-token-1234"})
-    assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+    r = client.get("/lifecycle/v1/runs", headers={"Authorization": "Bearer verkeerd-service-token-1234"})
+    assert r.status_code == 401 and r.json()["details"]["reason"] == "service_token_invalid"
+
+
+def test_not_linked_refuses_every_credential(make_app: Any, token: Any) -> None:
+    """ADR-0005/0009: niet gekoppeld = alles 401, ook een geldig Hub-JWT en ook als HUB_URL in de omgeving staat."""
+    from starlette.testclient import TestClient
+
+    with TestClient(make_app(linked=False)) as c:
+        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {token('admin')}"})
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        r = c.get("/lifecycle/v1/runs", headers={"Authorization": "Bearer niet-gekoppeld-token-1234"})
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        assert c.get("/readyz").status_code == 200  # gezondheid blijft zonder auth zichtbaar
 
 
 def test_roles(client: Any, auth: Any) -> None:
@@ -157,9 +169,10 @@ def test_connector_contract(client: Any, auth: Any) -> None:
     assert d["app_id"] == "jelly-leon-platform" and d["schema_version"] == "1.0" and d["capabilities"] == ["read"]
     assert d["timestamp_utc"].endswith("Z")
     h = client.get("/connector/v1/health", headers=auth("viewer")).json()
-    assert h["status"] == "degraded"  # worker draait niet in deze test, Hub niet gekoppeld: nooit "healthy"
+    assert h["status"] == "degraded"  # worker draait niet in deze test (geen hartslag): nooit "healthy"
     names = {c["name"]: c["status"] for c in h["checks"]}
-    assert names["database"] == "healthy" and names["worker"] == "unknown" and names["hub_link"] == "unknown"
+    assert names["database"] == "healthy" and names["worker"] == "unknown" and names["hub_link"] == "healthy"
+    assert h["reason_code"] == "worker_unknown"
     for path in ("propose", "apply", "rollback"):
         r = client.post(f"/connector/v1/{path}", json={}, headers=auth("admin", idem=True))
         assert r.status_code == 501 and r.json()["code"] == "capability_unavailable"
@@ -200,3 +213,43 @@ def test_openapi_has_no_docs_ui_and_security_headers(client: Any) -> None:
     assert client.get("/docs").status_code == 404
     r = client.get("/openapi.json")
     assert r.status_code == 200 and r.headers["X-Frame-Options"] == "DENY"
+
+
+def test_transition_evidence_is_redacted_and_bounded(client: Any, auth: Any) -> None:
+    """Contract §3: evidence nooit met geheimen; invoer begrensd (16 KiB)."""
+    run = _new_run(client, auth)
+    url = f"/lifecycle/v1/runs/{run['id']}/transitions"
+    huge = {"to_state": "aborted", "reason": "te groot", "evidence": {"log": "x" * 20000}}
+    r = client.post(url, json=huge, headers=auth("operator", idem=True, **{"If-Match": run["etag"]}))
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"
+    body = {
+        "to_state": "aborted",
+        "reason": "afgebroken; token in tekst Bearer abc.def.ghi",
+        "evidence": {"api_key": "zeer-geheim-1234", "ticket_ref": "inc-42", "note": "Bearer xyz.uvw.rst"},
+    }
+    r = client.post(url, json=body, headers=auth("operator", idem=True, **{"If-Match": run["etag"]}))
+    assert r.status_code == 200, r.json()
+    stored = client.get(f"/lifecycle/v1/runs/{run['id']}", headers=auth("viewer"))
+    for text in (r.text, stored.text):
+        assert "zeer-geheim-1234" not in text and "abc.def.ghi" not in text and "xyz.uvw.rst" not in text
+    last = stored.json()["transitions"][-1]
+    assert last["evidence"]["ticket_ref"] == "inc-42" and last["evidence"]["api_key"] == "***"
+
+
+PUBLIC_PATHS = {"/healthz", "/readyz", "/openapi.json", "/", "/koppelen"}
+
+
+def test_every_route_requires_auth_and_kind_role_is_refused(client: Any, auth: Any) -> None:
+    """Review P0: autorisatie op elke route — zonder credentials 401, met rol 'kind' 403, nooit open bij fout."""
+    checked = 0
+    for template, operations in client.app.openapi()["paths"].items():  # alle API-routes (statuspagina zit er niet in)
+        if template in PUBLIC_PATHS:
+            continue
+        path = template.replace("{run_id}", str(uuid.uuid4())).replace("{evidence_id}", str(uuid.uuid4()))
+        for method in sorted(m.upper() for m in operations):
+            r = client.request(method, path, json={})
+            assert r.status_code == 401 and r.json()["code"] == "unauthorized", (method, path, r.status_code)
+            r = client.request(method, path, json={}, headers=auth("kind", idem=True))
+            assert r.status_code == 403 and r.json()["code"] == "forbidden", (method, path, r.status_code)
+            checked += 1
+    assert checked >= 20

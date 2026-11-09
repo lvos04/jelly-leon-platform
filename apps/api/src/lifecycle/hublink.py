@@ -17,6 +17,7 @@ from lifecycle.secrets_store import Vault
 from lifecycle.timeutil import iso_z, utcnow
 
 SERVICE_TOKEN_AAD = "hub_link.service_token"  # noqa: S105 - AAD-label, geen geheim
+JWKS_PATH = "/api/v1/auth/jwks"
 
 STATE_LABELS_NL = {
     "niet_gekoppeld": "Niet gekoppeld met de Hub",
@@ -39,6 +40,14 @@ class LinkSnapshot:
     attempts: int
     used_enrollment_token_sha256: str | None
     jwks: dict[str, Any] | None
+    jwks_fetched_at: datetime | None = None
+
+    @property
+    def jwks_url(self) -> str | None:
+        """Alleen de Hub waarmee de koppeling geslaagd is levert sleutels (nooit een adres uit een mislukte poging)."""
+        if self.state != "gekoppeld" or not self.hub_url:
+            return None
+        return self.hub_url + JWKS_PATH
 
     def public(self) -> dict[str, Any]:
         return {
@@ -74,6 +83,7 @@ def _snapshot(row: HubLink | None) -> LinkSnapshot:
         attempts=row.attempts,
         used_enrollment_token_sha256=row.used_enrollment_token_sha256,
         jwks=row.jwks,
+        jwks_fetched_at=row.jwks_fetched_at,
     )
 
 
@@ -117,6 +127,9 @@ class HubLinkService:
     def hub_url(self, fallback: str | None = None) -> str | None:
         snap = self.current()
         return snap.hub_url or fallback
+
+    def jwks_url(self) -> str | None:
+        return self.current().jwks_url
 
     def service_token(self, vault: Vault) -> str | None:
         with self._factory() as session:

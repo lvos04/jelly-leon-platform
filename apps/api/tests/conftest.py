@@ -80,23 +80,63 @@ def hub() -> Any:
     return create_hub_app(state)
 
 
+HUB_TEST_URL = "http://hub.test"
+TEST_SERVICE_TOKEN = "svc_test_service_token_0123456789"
+
+
+def link_with_hub(db_url: str, data_dir: Path, hub_url: str = HUB_TEST_URL) -> None:
+    """Gekoppelde toestand zoals na een geslaagde enrollment (zonder meegegeven JWKS: de app haalt ze bij de Hub).
+
+    Een bestaande koppeling (bijv. door de worker) blijft ongemoeid.
+    """
+    from sqlalchemy.orm import sessionmaker
+
+    from lifecycle.auth import sha256_hex
+    from lifecycle.hublink import get_or_create, store_link
+    from lifecycle.secrets_store import Vault
+
+    engine = create_engine(db_url)
+    try:
+        with sessionmaker(bind=engine).begin() as session:
+            if get_or_create(session).state == "gekoppeld":
+                return
+            store_link(
+                session,
+                Vault.load(data_dir / "secrets"),
+                hub_url=hub_url,
+                service_id="test-service",
+                service_token=TEST_SERVICE_TOKEN,
+                service_token_sha256=sha256_hex(TEST_SERVICE_TOKEN),
+                jwks=None,
+                policy_public_key=None,
+                linked_via="koppelcode",
+                used_enrollment_token_sha256=None,
+            )
+    finally:
+        engine.dispose()
+
+
 @pytest.fixture
 def make_app(clean_db: str, data_dir: Path, hub: Any) -> Any:
+    """Fabriek voor de app. Standaard gekoppeld met de Hub-simulator (``linked=False`` voor de niet-gekoppelde toestand:
+    dan wordt elk JWT geweigerd)."""
     from starlette.testclient import TestClient
 
     from lifecycle.app import create_app
     from lifecycle.config import Settings
 
     def factory(**overrides: Any) -> Any:
+        if overrides.pop("linked", True):
+            link_with_hub(clean_db, data_dir)
         settings = Settings(
             data_dir=data_dir,
             database_url=clean_db,
-            hub_url=overrides.pop("hub_url", "http://hub.test"),
+            hub_url=overrides.pop("hub_url", HUB_TEST_URL),
             enrollment_token=overrides.pop("enrollment_token", None),
             jwks_min_refresh_seconds=overrides.pop("jwks_min_refresh_seconds", 0),
             **overrides,
         )
-        return create_app(settings, http_client_factory=lambda: TestClient(hub, base_url="http://hub.test"))
+        return create_app(settings, http_client_factory=lambda: TestClient(hub, base_url=HUB_TEST_URL))
 
     return factory
 

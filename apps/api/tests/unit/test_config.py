@@ -24,7 +24,7 @@ def test_hub_url_validation() -> None:
 def test_enrollment_token_not_in_repr() -> None:
     s = load_settings({"HUB_URL": "http://hub:30400", "HUB_ENROLLMENT_TOKEN": "geheim-token-123456"})
     assert "geheim-token" not in repr(s)
-    assert s.jwks_url == "http://hub:30400/api/v1/auth/jwks"
+    assert s.hub_url == "http://hub:30400"  # alleen voor de enrollment; JWKS pas na geslaagde koppeling
 
 
 @pytest.mark.parametrize("value", ["abc", "0", "70000"])

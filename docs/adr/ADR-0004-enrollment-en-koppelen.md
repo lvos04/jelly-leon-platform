@@ -18,7 +18,9 @@ Contract §3 beschrijft het mechanisme (`POST {HUB_URL}/api/v1/services/enroll`,
   verificatie; alleen laatste 4 tekens zichtbaar. Het enrollment-token zelf wordt nooit opgeslagen (alleen SHA-256).
 - Koppelcode via `POST /koppelen` op de statuspagina: alleen als niet gekoppeld; CSRF (dubbel ingediend token,
   cookie `SameSite=Strict`, HttpOnly); max. 5 pogingen per 15 min; Hub-URL gevalideerd (http/https, geen
-  gebruikersnaam/wachtwoord). Ontkoppelen alleen met admin-JWT (`POST /lifecycle/v1/hub-link/unlink`).
+  gebruikersnaam/wachtwoord). Ontkoppelen alleen met admin-JWT (`POST /lifecycle/v1/hub-link/unlink`); daarna
+  wordt elk JWT geweigerd tot er opnieuw gekoppeld is. Het adres uit een mislukte koppelcode-poging wordt niet
+  bewaard (ADR-0009).
 
 ## Gevolgen
 - Moet worden afgestemd met de Hub-implementatie (contract-issue gemeld). De Hub-simulator

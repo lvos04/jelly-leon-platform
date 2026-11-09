@@ -7,13 +7,14 @@ Er wordt in P0 niets op de NAS uitgevoerd.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,7 @@ from lifecycle.hublink import unlink
 from lifecycle.models import LifecycleRun, LifecycleTransition
 from lifecycle.outbox import emit
 from lifecycle.pagination import clamp_limit, decode_cursor, encode_cursor
+from lifecycle.redact import redact, redact_text
 from lifecycle.statemachine import (
     LABELS_NL,
     MANUAL_ALLOWED_P0,
@@ -90,10 +92,23 @@ class RunCreate(BaseModel):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+MAX_EVIDENCE_BYTES = 16 * 1024
+
+
 class TransitionIn(BaseModel):
     to_state: LifecycleState
     reason: str = Field(min_length=3, max_length=2000)
-    evidence: dict[str, Any] = Field(default_factory=dict)
+    evidence: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Verwijzingen naar bewijs (geen geheimen; wordt geredigeerd opgeslagen), max. 16 KiB als JSON.",
+    )
+
+    @field_validator("evidence")
+    @classmethod
+    def _evidence_bounded(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value, ensure_ascii=False, default=str).encode()) > MAX_EVIDENCE_BYTES:
+            raise ValueError(f"evidence is groter dan {MAX_EVIDENCE_BYTES} bytes")
+        return value
 
 
 class HubLinkOut(BaseModel):
@@ -237,7 +252,7 @@ def create_run(
             target_version=body.target_version,
             requested_by_type=principal.actor["type"],
             requested_by_id=principal.subject,
-            reason=body.reason,
+            reason=redact_text(body.reason) if body.reason else None,
             trace_id=uuid.UUID(trace),
             evidence={},
             created_at=now,
@@ -251,7 +266,7 @@ def create_run(
                 to_state=LifecycleState.DISCOVERED.value,
                 actor_type=principal.actor["type"],
                 actor_id=principal.subject,
-                reason=body.reason,
+                reason=redact_text(body.reason) if body.reason else None,
                 evidence={},
                 at=now,
             )
@@ -340,13 +355,13 @@ def transition_run(
                 to_state=body.to_state.value,
                 actor_type=principal.actor["type"],
                 actor_id=principal.subject,
-                reason=body.reason,
-                evidence=body.evidence,
+                reason=redact_text(body.reason),
+                evidence=redact(body.evidence),  # contract §3: evidence nooit met geheimen
                 at=now,
             )
         )
         run.state = body.to_state.value
-        run.state_reason = body.reason
+        run.state_reason = redact_text(body.reason)
         run.updated_at = now
         session.flush()
         emit(
@@ -421,6 +436,7 @@ def unlink_hub(
         trace_id=trace,
     )
     request.app.state.hub_link.invalidate()
+    request.app.state.jwks_cache.clear()  # vanaf nu wordt elk JWT geweigerd tot er opnieuw gekoppeld is
     return JSONResponse(request.app.state.hub_link.current().public())
 
 

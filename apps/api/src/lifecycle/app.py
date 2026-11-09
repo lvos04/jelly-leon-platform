@@ -24,6 +24,7 @@ from lifecycle.hublink import HubLinkService
 from lifecycle.idempotency import Idempotency
 from lifecycle.secrets_store import SecretsError, Vault, load_identity
 from lifecycle.statuspage import router as status_router
+from lifecycle.timeutil import utcnow
 
 log = logging.getLogger("lifecycle")
 
@@ -63,10 +64,10 @@ def create_app(
             response.raise_for_status()
             return response.json()
 
+    # Sleutels alleen van de Hub waarmee de koppeling geslaagd is; HUB_URL uit de omgeving dient alleen de enrollment
+    # (zonder geslaagde koppeling wordt elk JWT geweigerd — ADR-0005/ADR-0009).
     jwks_cache = JwksCache(
-        url_provider=lambda: (
-            f"{base}/api/v1/auth/jwks" if (base := hub_link.hub_url(settings.hub_url)) else None
-        ),
+        url_provider=hub_link.jwks_url,
         fetch=fetch_jwks,
         ttl_s=settings.jwks_ttl_seconds,
         min_refresh_s=settings.jwks_min_refresh_seconds,
@@ -82,8 +83,10 @@ def create_app(
             log.error("geheimen niet beschikbaar: %s", exc)
         try:
             snap = hub_link.current()
-            if snap.jwks:
-                jwks_cache.seed(snap.jwks)
+            if snap.jwks and snap.jwks_url:
+                age = (utcnow() - snap.jwks_fetched_at).total_seconds() if snap.jwks_fetched_at else float("inf")
+                if age <= settings.jwks_max_stale_seconds:
+                    jwks_cache.seed(snap.jwks, snap.jwks_url, age_s=age)
         except Exception:
             log.warning("koppelstatus bij start niet leesbaar (database nog niet klaar?)")
         yield

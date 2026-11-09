@@ -111,7 +111,7 @@ def _csrf(html: str) -> str:
 def test_status_page_pairing_with_koppelcode(make_app: Any, hub: Any) -> None:
     sim = hub.state.sim
     code = sim.add_grant("koppelcode", "jelly-leon-platform", "KOPPEL-123456")
-    with TestClient(make_app(hub_url=None), base_url="http://lifecycle.test") as c:
+    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
         page = c.get("/")
         assert page.status_code == 200 and "niet gekoppeld" in page.text.lower() and 'lang="nl"' in page.text
         assert "Laatst bijgewerkt" in page.text
@@ -141,6 +141,50 @@ def test_unlink_requires_admin_and_clears_token(
     worker = _worker(clean_db, data_dir, hub, hub.state.sim.add_grant("token", "jelly-leon-platform"))
     worker.tick()
     with TestClient(make_app()) as c:
+        assert c.get("/lifecycle/v1/runs", headers=auth("admin")).status_code == 200
         r = c.post("/lifecycle/v1/hub-link/unlink", headers=auth(*roles, idem=True))
         assert r.status_code == 200 and r.json()["state"] == "niet_gekoppeld"
         assert r.json()["service_token_last4"] is None
+        # na ontkoppelen wordt ook een geldig Hub-JWT geweigerd (geen "open access" met oude sleutels)
+        r = c.get("/lifecycle/v1/runs", headers=auth("admin"))
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+
+
+def test_failed_pairing_with_foreign_hub_grants_no_access(clean_db: str, data_dir: Any, hub: Any) -> None:
+    """Regressie (review P0): een mislukte koppelpoging met het adres van een vreemde 'Hub' mag diens JWKS nooit
+    vertrouwen. Vóór de reparatie gaf een JWT van zo'n server admin-toegang."""
+    import httpx
+    from hub_sim import HubState, create_hub_app
+
+    from lifecycle.app import create_app
+
+    evil = create_hub_app(HubState())
+    targets = {"hub.test": hub, "evil.test": evil}
+
+    def factory() -> httpx.Client:
+        def handler(request: httpx.Request) -> httpx.Response:
+            with TestClient(targets[request.url.host], base_url=f"http://{request.url.host}") as tc:
+                r = tc.request(request.method, str(request.url), content=request.content,
+                               headers=dict(request.headers))
+                return httpx.Response(r.status_code, content=r.content, headers=r.headers)
+
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    settings = Settings(data_dir=data_dir, database_url=clean_db, hub_url=None, jwks_min_refresh_seconds=0)
+    with TestClient(create_app(settings, http_client_factory=factory), base_url="http://lifecycle.test") as c:
+        token = _csrf(c.get("/").text)
+        r = c.post("/koppelen", data={"hub_url": "http://evil.test", "koppelcode": "WILLEKEURIG-1", "csrf": token})
+        assert r.status_code == 400
+        evil_jwt = evil.state.sim.mint("aanvaller", ["admin"], "jelly-leon-platform")
+        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
+        assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
+        assert "evil.test" not in c.get("/").text  # mislukt adres wordt niet als standaard voorgesteld
+        # daarna koppelen met de echte Hub: alleen diens sleutels gelden
+        code = hub.state.sim.add_grant("koppelcode", "jelly-leon-platform")
+        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token},
+                   follow_redirects=False)
+        assert r.status_code == 303
+        good = hub.state.sim.mint("beheerder", ["admin"], "jelly-leon-platform")
+        assert c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {good}"}).status_code == 200
+        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
+        assert r.status_code == 401
