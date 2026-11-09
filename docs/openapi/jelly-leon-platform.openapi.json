@@ -341,12 +341,14 @@
             "anyOf": [
               {
                 "maxLength": 128,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:@/-]*$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Huidige versie (gemeten; mag 'latest' zijn)",
             "title": "From Version"
           },
           "kind": {
@@ -368,12 +370,14 @@
             "anyOf": [
               {
                 "maxLength": 128,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:@/-]*$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Exacte doelversie/digest; nooit 'latest'",
             "title": "Target Version"
           }
         },

@@ -8,6 +8,7 @@ Er wordt in P0 niets op de NAS uitgevoerd.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
@@ -42,6 +43,11 @@ from lifecycle.timeutil import iso_z, utcnow
 router = APIRouter(prefix="/lifecycle/v1", tags=["lifecycle"])
 
 APP_ID_PATTERN = r"^[a-z]([-a-z0-9]*[a-z0-9])?$"
+# Versie, tag of digest (bijv. 1.2.25, v1.4.35, sha256:…, ghcr.io/owner/app:1.0.0@sha256:…): geen spaties of
+# opmaaktekens.
+VERSION_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._+:@/-]*$"
+# 'latest' als versie of als tag (ook ``repo:latest`` en ``repo:latest@sha256:…``) is verboden (contract §1).
+LATEST_TAG = re.compile(r"(^|[:/])latest($|@)", re.IGNORECASE)
 
 
 class Actor(BaseModel):
@@ -87,8 +93,12 @@ class RunPage(BaseModel):
 class RunCreate(BaseModel):
     app_id: str = Field(pattern=APP_ID_PATTERN, min_length=1, max_length=40, description="TrueNAS-appnaam")
     kind: RunKind
-    from_version: str | None = Field(default=None, max_length=128)
-    target_version: str | None = Field(default=None, max_length=128)
+    from_version: str | None = Field(
+        default=None, max_length=128, pattern=VERSION_PATTERN, description="Huidige versie (gemeten; mag 'latest' zijn)"
+    )
+    target_version: str | None = Field(
+        default=None, max_length=128, pattern=VERSION_PATTERN, description="Exacte doelversie/digest; nooit 'latest'"
+    )
     reason: str | None = Field(default=None, max_length=2000)
 
 
@@ -235,7 +245,7 @@ def create_run(
     principal: Annotated[Principal, Depends(require_write)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> JSONResponse:
-    if body.target_version and body.target_version.strip().lower() == "latest":
+    if body.target_version and LATEST_TAG.search(body.target_version):
         raise ApiError(
             422, "latest_forbidden", "Een versie 'latest' is verboden; geef een exacte versie of digest op."
         )

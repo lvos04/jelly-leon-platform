@@ -96,6 +96,16 @@ def test_idempotency_key_required_and_latest_forbidden(client: Any, auth: Any) -
     assert r.status_code == 422 and r.json()["code"] == "latest_forbidden"
     r = client.post("/lifecycle/v1/runs", json={**body, "app_id": "Geen_Geldige"}, headers=auth("admin", idem=True))
     assert r.status_code == 422 and r.json()["code"] == "validation_error"
+    # review P0-afronding: ook 'latest' als tag in een image-verwijzing, in elke schrijfwijze
+    for bad in ("LATEST", "ghcr.io/lvos04/gotify:latest", "gotify:latest@sha256:" + "a" * 64):
+        r = client.post("/lifecycle/v1/runs", json={**body, "target_version": bad}, headers=auth("admin", idem=True))
+        assert r.status_code == 422 and r.json()["code"] == "latest_forbidden", bad
+    for junk in ("1.0 beta", "<script>", "", " 1.0"):
+        r = client.post("/lifecycle/v1/runs", json={**body, "target_version": junk}, headers=auth("admin", idem=True))
+        assert r.status_code == 422 and r.json()["code"] == "validation_error", junk
+    for good in ("v1.1.17", "sha256:" + "b" * 64, "ghcr.io/lvos04/gotify:1.1.17@sha256:" + "c" * 64, "latest-ish"):
+        r = client.post("/lifecycle/v1/runs", json={**body, "target_version": good}, headers=auth("admin", idem=True))
+        assert r.status_code == 201, (good, r.text)
 
 
 def _new_run(client: Any, auth: Any, **body: Any) -> dict[str, Any]:
