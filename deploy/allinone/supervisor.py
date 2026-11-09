@@ -66,6 +66,7 @@ def demote() -> None:
         os.setgroups([])
         os.setgid(GID)
         os.setuid(UID)
+    os.umask(0o077)  # nieuwe bestanden (o.a. pg_dump-back-ups) alleen leesbaar voor 568
     set_no_new_privs()
 
 
@@ -99,11 +100,15 @@ def prepare_dirs() -> None:
                 f"geen schrijfrechten op {sub}. Zet 'Custom User' uit (de app regelt de rechten zelf) of geef "
                 f"gebruiker {UID} (apps) schrijfrechten op de dataset."
             )
-    try:
-        os.chmod(PGDATA, 0o700)
-        os.chmod(DATA / "secrets", 0o700)
-    except PermissionError:
-        fail(f"{PGDATA} is niet van gebruiker {UID}; start de app zonder 'Custom User' of maak {UID} eigenaar.")
+    # database, geheimen en back-ups (de dumps bevatten de hele database) alleen voor 568
+    for private in (PGDATA, DATA / "secrets", BACKUPS):
+        try:
+            os.chmod(private, 0o700)
+        except PermissionError:
+            fail(f"{private} is niet van gebruiker {UID}; start de app zonder 'Custom User' of maak {UID} eigenaar.")
+    for dump in BACKUPS.glob("*.dump"):  # dumps van oudere versies (toen 0644) dichtzetten
+        with contextlib.suppress(OSError):
+            os.chmod(dump, 0o600)
     SOCKET_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(SOCKET_DIR, 0o700)
     if root:

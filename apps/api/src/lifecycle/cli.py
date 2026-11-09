@@ -67,6 +67,8 @@ def cmd_api(forwarded_allow_ips: str | None) -> int:
     from lifecycle.app import create_app
 
     settings = load_settings()
+    # /readyz (Docker-healthcheck elke 30 s) leest de schemaversie; zonder dit twee INFO-regels per controle in de log
+    logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
     uvicorn.run(
         create_app(settings),
         host=settings.host,

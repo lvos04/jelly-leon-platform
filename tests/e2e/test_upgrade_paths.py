@@ -175,6 +175,12 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
                 "--entrypoint", "ls", IMAGE, "-1", "/x/backups")
         dumps = sorted(line for line in ls.stdout.splitlines() if line.strip())
         assert dumps and all(d.startswith("voor-upgrade-0001-") for d in dumps) and len(dumps) <= 3
+        # de dumps bevatten de hele database: map 0700, bestanden 0600, eigenaar 568
+        modes = sh("docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", f"{appdata}:/x",
+                   "--entrypoint", "stat", IMAGE, "-c", "%u %a %n", "/x/backups", *[f"/x/backups/{d}" for d in dumps])
+        rows = [line.split() for line in modes.stdout.splitlines()]
+        assert rows[0][:2] == ["568", "700"], rows
+        assert all(r[:2] == ["568", "600"] for r in rows[1:]), rows
         # hersteltest: dump in een aparte database terugzetten en de data teruglezen
         psql(c2, "CREATE DATABASE herstel", db="postgres")
         r = sh("docker", "exec", "-u", "568", c2, "pg_restore", "-h", "/tmp/lifecycle-pg", "-U", "lifecycle",

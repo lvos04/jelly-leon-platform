@@ -146,6 +146,7 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
     # eigenaarschap op de host-map zelf (bind-mount: dezelfde numerieke uid/gid), gelezen via een hulpcontainer zodat
     # de test geen root op de host nodig heeft (secrets/ is 0700 van 568)
     assert host_stat(data_dir, "secrets") == ("568", "568", "700")
+    assert host_stat(data_dir, "backups") == ("568", "568", "700")  # dumps bevatten de hele database
     for name in ("vault.key", "identity.ed25519"):
         uid, _gid, mode = host_stat(data_dir, f"secrets/{name}")
         assert (uid, mode) == ("568", "600"), (name, uid, mode)
@@ -160,6 +161,11 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
         assert nnp == "1", f"{name} zonder no_new_privs"
     code, page = get(f"http://127.0.0.1:{started.port}/")
     assert code == 200 and "niet gekoppeld" in page.lower()
+    # de healthcheck (elke 30 s) vult de log niet met migratiemeldingen: extra /readyz-aanroepen voegen niets toe
+    before = started.logs().count("Context impl PostgresqlImpl")
+    for _ in range(3):
+        assert get(f"http://127.0.0.1:{started.port}/readyz")[0] == 200
+    assert started.logs().count("Context impl PostgresqlImpl") == before
     code, _body = get(f"http://127.0.0.1:{started.port}/lifecycle/v1/runs")
     assert code == 401  # fail-closed zonder Hub
     # de database luistert niet op het netwerk
