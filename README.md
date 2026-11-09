@@ -26,7 +26,7 @@ apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-mig
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
 deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
-docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0011
+docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0012
 docs/platform-v2/         contract 1.2 + conformiteitslijst, pakketdocs, TRUENAS_APP_API.md, EVIDENCE.json
 e2e/                      integrale E2E-opzet (README), simulators (truenas, hub), conformance/echte_hub.py
 tests/e2e/                image-E2E (Docker)               tests/repo/       repo-regels (manifest, docs, evidence)

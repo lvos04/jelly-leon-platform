@@ -73,3 +73,19 @@
   terugval, tag met digest, executor koppelen met vingerafdruk).
 - Op een echte TrueNAS: **NIET GEVALIDEERD**. Niet gedaan: statuspagina-CSS uit de ontwerptaal (JP11), die bestaat
   nog niet.
+
+### Review contract 1.2 (onafhankelijke QA, ADR-0012)
+
+- **1 MiB-grens echt vóór routering en aanmelding:** een chunked verzoek > 1 MiB gaf 401/404/405, en op
+  `POST /connector/v1/hub-link/unlink` met een geldige admin- of dienst-JWT werd de ontkoppeling uitgevoerd. De
+  ASGI-laag leest de body nu vóór alles tellend in (max. 1 MiB) en geeft altijd 413; ongeldige `Content-Length` → 400.
+- **Koppelcode overschrijft nooit een bestaande koppeling:** de controle "nog nooit gekoppeld" gebeurt nu onder de
+  vergrendeling van `hub-link.json`, ook bij het opslaan. Eerder kon een koppelcode-poging naar een eigen "Hub" die
+  pas na de echte koppeling (env-token) antwoordde, token en pins overschrijven.
+- 60-minutengrens van het env-token ook met een onleesbaar `hub-link.json`; een mislukte koppelcode-poging wist niet
+  meer de `pending` van een lopende env-token-poging.
+- Geen optie meer om `X-Forwarded-For` te vertrouwen (`--forwarded-allow-ips` weg); lege instellingen vallen terug op
+  de standaard, `LIFECYCLE_DATA_DIR` moet absoluut zijn.
+- Regressietest "vreemde Hub zonder vingerafdruk" bereikte de vreemde server nooit (ongeldige koppelcode); gerepareerd.
+- Conformiteit opnieuw lokaal tegen de echte Hub (`ai-server-manager` `be7d593`): 16 geslaagd. Op een echte TrueNAS:
+  **NIET GEVALIDEERD**.

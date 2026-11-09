@@ -86,7 +86,10 @@ Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statu
   (`http://<NAS-adres>:30400`), de koppelcode (`XXXX-XXXX-XXXX`) **en** de vingerafdruk (`XXXX-XXXX-XXXX-XXXX`) in →
   **Koppelen**. Dit formulier bestaat alleen zolang de app **nog nooit** gekoppeld is; daarna gaan ontkoppelen en
   opnieuw koppelen alleen via de Hub (of een nieuw `HUB_ENROLLMENT_TOKEN` in dit formulier). Max. 5 pogingen per
-  15 minuten per apparaat. Restrisico: vóór de eerste koppeling kan iemand op je netwerk de app aan een eigen "Hub"
+  15 minuten per bron-IP en 20 voor de hele app. Welk adres de app achter de poortpublicatie van TrueNAS als bron-IP
+  ziet (jouw apparaat of het gateway-adres van Docker, dan gelden de 5 voor alle apparaten samen) is
+  **NIET GEVALIDEERD (echte NAS)**. Een koppelcode-poging die klaar is nadat de app intussen al gekoppeld is (bijv.
+  via het token), wordt geweigerd en overschrijft nooit de bestaande koppeling. Restrisico: vóór de eerste koppeling kan iemand op je netwerk de app aan een eigen "Hub"
   koppelen; vergelijk daarom na het koppelen de vingerafdruk op de statuspagina met die in de Hub-UI, en gebruik bij
   voorkeur de route met het token.
 
