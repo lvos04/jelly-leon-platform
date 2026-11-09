@@ -11,8 +11,9 @@ from collections.abc import Iterator
 
 import pytest
 import uvicorn
-from truenas_sim.server import SimServer, create_app
 from websockets.asyncio.client import connect
+
+from truenas_sim.server import SimServer, create_app
 
 
 @pytest.fixture

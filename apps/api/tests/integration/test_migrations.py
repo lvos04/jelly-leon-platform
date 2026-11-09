@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
 
-from alembic import command
 from lifecycle.migrations_util import MIGRATIONS_DIR, alembic_config, downgrade, head_revision, upgrade
 from lifecycle.models import Base
 

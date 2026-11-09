@@ -3,9 +3,9 @@ transactionele DDL): mislukt er één, dan blijft het schema exact op de vorige 
 
 from __future__ import annotations
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
 from lifecycle.db import normalize_url
 from lifecycle.models import Base
 

@@ -55,6 +55,11 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
 ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 
+# Expliciet vastleggen: anders kan ruff "alembic" afhankelijk van de werkmap als first-party zien (CI-verschil).
+[tool.ruff.lint.isort]
+known-first-party = ["lifecycle", "truenas_sim"]
+known-third-party = ["alembic"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S108", "S311"]
 "src/lifecycle/migrations/**" = ["E501"]
