@@ -40,7 +40,9 @@ Standaard-API-keys (alleen simulator; opvraagbaar via `GET /_sim/keys`):
 - **Aanmelden:** `auth.login_with_api_key("<id>-<key>")` → `true|false`, of
   `auth.login_ex({"mechanism":"API_KEY_PLAIN","username":…,"api_key":…})` → `{"response_type":"SUCCESS"|"AUTH_ERR"}`.
 - **Jobs:** job-methoden (o.a. `app.create/update/delete/start/stop/redeploy/rollback/upgrade`, `catalog.sync`)
-  geven direct een **job-ID** (int). Status via `core.get_jobs([["id","=",<id>]])`
+  geven direct een **job-ID** (int). Een key zonder `FULL_ADMIN` ziet, volgt en breekt alleen **eigen** jobs af
+  (anders `errno 1 EPERM` "Job is not owned by current session"; ook jobevents worden niet doorgegeven), zoals
+  middlewared `job.py` `credential_access_error` (TS-25.10.8). Status via `core.get_jobs([["id","=",<id>]])`
   (`state` WAITING → RUNNING → SUCCESS | FAILED | ABORTED, `progress`, `result`, `error`, `exc_info`), resultaat via
   `core.job_wait(<id>)` (fout als de job faalde), afbreken via `core.job_abort`. Argumenten met waarden worden
   getoond als `"********"`. Tijden als `{"$date": <epoch-ms>}` (aanname uit middlewared-JSON).
@@ -81,6 +83,10 @@ zichtbaar in `app.available` na `catalog.update({"preferred_trains": ["stable","
   versie maar haalt alleen images opnieuw op.
 - Poortconflicten en een niet-bestaand hostpad laten de **job** mislukken met een validatiefout (zoals de echte
   `normalize_and_validate_values` binnen de job).
+- Mislukt `app.create` ná de validatie (bijv. storing `job_fail`), dan ruimt de job op: de app verdwijnt
+  (`collection_update` removed) en tijdens die installatie aangemaakte ixVolume-datasets ook (zoals
+  `crud.py` `create_internal`/`remove_failed_resources`). Alleen een herstart midden in de job laat de app half
+  toegepast (`CRASHED`) achter.
 - `app.delete` verwijdert ixVolumes alleen met `remove_ix_volumes=true`; hostpaden nooit.
 - API-key over een onversleutelde verbinding → key **ingetrokken** (storing `insecure_transport`, naar de NEP-regel
   in `auth.py`).
@@ -93,6 +99,7 @@ zichtbaar in `app.available` na `catalog.update({"preferred_trains": ["stable","
 | Tag leeg/`latest`, catalogusversie `latest`, `privileged`, `host_network`, `remove_ix_volumes=true`, snapshot-rollback | worden uitgevoerd zoals echt, maar **geregistreerd** in `GET /_sim/violations` zodat tests ze kunnen afkeuren |
 | `zfs.snapshot.*` in 25.10 afwezig | echt is het privé (aanroepbaar met waarschuwing); afwezig dwingt het publieke `pool.snapshot.*` af |
 | Geen echte schema-validatie (pydantic) per methode | alleen de velden die het platform gebruikt worden gecontroleerd |
+| Job-zichtbaarheid zonder `read_roles` per job | echt mag een rol uit de `read_roles` van een job die job ook lezen; de simulator toont alleen eigen jobs (strenger) |
 | `core.get_methods` levert geen `accepts`/`returns`-schema's | lijst + `job`/`roles` volstaat voor capability-detectie |
 
 ## Test-beheer-API (`/_sim`, zonder auth — alleen in test/CI, bind op 127.0.0.1)

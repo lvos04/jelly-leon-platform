@@ -82,6 +82,12 @@ class Ctx:
     def state(self) -> SimState:
         return self.server.state
 
+    def job_access_error(self, job: dict[str, Any]) -> str | None:
+        """Zoals middlewared ``Job.credential_access_error`` (TS-25.10.8 ``job.py``, ``utils/privilege.py``): een sessie
+        zonder FULL_ADMIN ziet en beheert alleen haar eigen jobs. (De echte ``read_roles`` per job zijn niet
+        nagebootst: de simulator is hier dus even streng of strenger.)"""
+        return job_access_error(self.session, job)
+
     def login_with_key(self, raw: str, username: str | None = None) -> bool:
         try:
             key_id = int(raw.split("-", 1)[0])
@@ -98,6 +104,17 @@ class Ctx:
         self.session.authenticated, self.session.username = True, key.username
         self.session.roles, self.session.key_id = set(key.roles), key.id
         return True
+
+
+def job_access_error(session: Session, job: dict[str, Any]) -> str | None:
+    if "FULL_ADMIN" in expand_roles(session.roles):
+        return None
+    owner = ((job.get("credentials") or {}).get("data") or {}).get("username")
+    if owner is None:
+        return "Only users with full administrative privileges can access internally ran jobs"
+    if owner == session.username:
+        return None
+    return "Job is not owned by current session"
 
 
 class JobHandle:
@@ -145,8 +162,11 @@ class SimServer:
         if fields is not None and msg in ("added", "changed"):
             params["fields"] = fields
         for session in list(self.sessions):
-            if any(s in (collection, "*") for s in session.subscriptions.values()):
-                await session.send({"jsonrpc": "2.0", "method": "collection_update", "params": params})
+            if not any(s in (collection, "*") for s in session.subscriptions.values()):
+                continue
+            if collection == "core.get_jobs" and fields is not None and job_access_error(session, fields):
+                continue  # jobs van een andere gebruiker zijn niet zichtbaar (ook niet als event)
+            await session.send({"jsonrpc": "2.0", "method": "collection_update", "params": params})
 
     def new_job(self, method: str, params: tuple[Any, ...], runner: Callable[[JobHandle], Awaitable[Any]],
                 session: Session) -> int:

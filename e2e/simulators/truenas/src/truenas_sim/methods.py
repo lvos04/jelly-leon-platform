@@ -15,6 +15,8 @@ from truenas_sim.rpc import (
     EEXIST,
     EINVAL,
     ENOENT,
+    EPERM,
+    RpcError,
     call_error,
     filter_list,
     register,
@@ -91,19 +93,28 @@ def _job_view(job: dict[str, Any]) -> dict[str, Any]:
 
 @register("core.get_jobs", filterable=True)
 async def core_get_jobs(ctx: Ctx, filters: list[Any] | None = None, options: dict[str, Any] | None = None) -> Any:
-    """Jobs (ook van andere sessies) — na een gesimuleerde herstart is de lijst leeg."""
-    return filter_list([_job_view(j) for j in ctx.state.jobs.values()], filters, options)
+    """Jobs van de eigen gebruiker (FULL_ADMIN: alle) — na een gesimuleerde herstart is de lijst leeg."""
+    visible = [_job_view(j) for j in ctx.state.jobs.values() if ctx.job_access_error(j) is None]
+    return filter_list(visible, filters, options)
+
+
+def _owned_job(ctx: Ctx, job_id: int) -> None:
+    job = ctx.state.jobs.get(int(job_id))
+    if job is not None and (error := ctx.job_access_error(job)) is not None:
+        raise call_error(EPERM, error)
 
 
 @register("core.job_wait")
 async def core_job_wait(ctx: Ctx, job_id: int) -> Any:
-    """Wacht tot een job klaar is en geef het resultaat (fout als de job faalde)."""
+    """Wacht tot een eigen job klaar is en geef het resultaat (fout als de job faalde)."""
+    _owned_job(ctx, job_id)
     return await ctx.server.wait_job(int(job_id))
 
 
 @register("core.job_abort")
 async def core_job_abort(ctx: Ctx, job_id: int) -> None:
-    """Job afbreken (alleen als hij nog niet klaar is)."""
+    """Eigen job afbreken (alleen als hij nog niet klaar is); een read-only key kan geen schrijfjob stoppen."""
+    _owned_job(ctx, job_id)
     ctx.server.abort_job(int(job_id))
 
 
@@ -490,15 +501,28 @@ async def _create_runner(ctx: Ctx, job: JobHandle, data: dict[str, Any]) -> dict
     _validate_values(ctx, name, catalog_app, values, "app_create.values")
     await job.progress(25, "Initial Validation completed")
     app = _app_entry(name, train, catalog_app, version, values, state="DEPLOYING")
+    created_datasets: list[str] = []
     for st in values.get("storage", []) or []:
         if st.get("type") == "ix_volume":
             ds = f"simpool/ix-apps/app_mounts/{name}/{(st.get('ix_volume_config') or {}).get('dataset_name')}"
-            if ds.rsplit("/", 1)[0] not in ctx.state.datasets:
-                ctx.state.add_dataset(ds.rsplit("/", 1)[0])
-            ctx.state.add_dataset(ds)
+            for candidate in (ds.rsplit("/", 1)[0], ds):
+                if candidate not in ctx.state.datasets:
+                    ctx.state.add_dataset(candidate)
+                    created_datasets.append(candidate)
     ctx.state.apps[name] = app
     await ctx.server.emit("app.query", "added", name, _public(app, False))
-    await job.progress(60, "App installation in progress, pulling images", checkpoint=True)
+    try:
+        await job.progress(60, "App installation in progress, pulling images", checkpoint=True)
+    except RpcError:
+        # zoals middlewared crud.py create_internal/remove_failed_resources: mislukte installatie wordt opgeruimd
+        # (app weg, tijdens deze installatie aangemaakte ixVolume-datasets weg). Een herstart (Reboot) valt hier
+        # bewust buiten: dan blijft de app half toegepast staan (CRASHED).
+        await job.progress(80, f"Failure occurred while installing {name!r}, cleaning up")
+        ctx.state.apps.pop(name, None)
+        for ds in reversed(created_datasets):
+            ctx.state.datasets.pop(ds, None)
+        await ctx.server.emit("app.query", "removed", name, None)
+        raise
     app["state"] = "RUNNING"
     await ctx.server.emit("app.query", "changed", name, _public(app, False))
     await job.progress(100, f"{name!r} installed successfully")

@@ -100,3 +100,39 @@ def test_calls_log_shows_no_writes_by_readonly(client: TestClient, ro: Rpc) -> N
     calls: list[dict[str, Any]] = client.get("/_sim/calls").json()
     assert calls and not any(c["write"] for c in calls if c["user"] == "hub-readonly")
     _ = json
+
+
+def test_readonly_key_is_refused_every_write_method(client: TestClient, ro: Rpc) -> None:
+    """Alle methoden met een schrijfrol (niet uitsluitend *_READ) weigeren de read-only key vóór uitvoering."""
+    methods = ro.call("core.get_methods")
+    writers = sorted(n for n, m in methods.items() if m["roles"] and not all(r.endswith("_READ") for r in m["roles"]))
+    assert {"app.create", "app.update", "app.delete", "app.rollback", "pool.snapshot.rollback",
+            "pool.dataset.create", "catalog.update"} <= set(writers)
+    for name in writers:
+        with pytest.raises(RpcFailed) as exc:
+            ro.call(name)
+        assert exc.value.errno == 13 and exc.value.reason == "Not authorized", name
+    state = client.get("/_sim/state").json()
+    assert state["apps"] == {} and state["snapshots"] == []
+    assert client.get("/_sim/violations").json() == []
+
+
+def test_readonly_key_cannot_see_or_abort_executor_jobs(client: TestClient, keys: dict[str, str]) -> None:
+    """Zoals middlewared (job.py credential_access_error): zonder FULL_ADMIN alleen eigen jobs zien/afbreken."""
+    from conftest import ix_values
+
+    client.post("/_sim/faults/slow", json={"delay_ms": 300})
+    with client.websocket_connect("/api/current") as ws_w, client.websocket_connect("/api/current") as ws_r:
+        rw, ro = Rpc(ws_w), Rpc(ws_r)
+        assert rw.login(keys["write"]) and ro.login(keys["readonly"])
+        ro.call("core.subscribe", "core.get_jobs")
+        job_id = rw.call("app.create", {"app_name": "lang-bezig", "catalog_app": "ix-app", "train": "stable",
+                                        "version": "1.4.8", "values": ix_values()})
+        assert ro.call("core.get_jobs") == []
+        for method in ("core.job_abort", "core.job_wait"):
+            with pytest.raises(RpcFailed) as exc:
+                ro.call(method, job_id)
+            assert exc.value.errno == 1 and "not owned" in exc.value.reason, method
+        assert rw.call("core.job_wait", job_id)["state"] == "RUNNING"
+        assert not [n for n in ro.notifications if n["params"]["collection"] == "core.get_jobs"]
+    client.delete("/_sim/faults/slow")

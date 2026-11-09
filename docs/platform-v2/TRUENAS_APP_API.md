@@ -49,6 +49,13 @@ scope en mogen pas na een eigen broncheck worden ondersteund.
   *Zeker.*
 - Na een herstart van de NAS zijn lopende jobs weg: na een verbroken verbinding altijd **readback** (`app.query`,
   `app.config`) en nooit aannemen dat een job slaagde. *Afgeleid (jobs leven in het middlewared-proces); niet getest.*
+- **Jobs zijn per gebruiker afgeschermd:** een sessie zonder `FULL_ADMIN` ziet in `core.get_jobs` alleen eigen jobs
+  (of jobs waarvan zij een `read_roles`-rol heeft) en kan alleen eigen jobs afbreken/volgen; anders
+  `CallError EPERM` "Job is not owned by current session". Gevolg: de **read-only key van de Hub ziet de jobs van de
+  executor niet**; de executor volgt zijn eigen jobs en meldt de uitkomst (met readback) aan de Hub. — Bron: MW-25.10
+  `service/core_service.py` r. 98–141 en 202–205 (`get_jobs`, `job_abort`), `job.py` r. 350–367
+  (`credential_access_error`), `utils/privilege.py` r. 90–94 (`credential_is_limited_to_own_jobs`). *Zeker (code);
+  welke jobs `read_roles` hebben is niet onderzocht.* (Toegevoegd bij de review van P0; de simulator volgt dit.)
 
 ## 3. Standaard Custom App = catalogusapp `ix-app`
 
@@ -115,6 +122,18 @@ scope en mogen pas na een eigen broncheck worden ondersteund.
 | Verder beschikbaar (beide versies, lezen): `pool.query`, `pool.dataset.query`, `pool.snapshottask.query`, `disk.query`, `alert.list`, `cloudsync.query`, `replication.query`. SMART: 25.04 heeft `smart.test.*`; de 25.10-naam is niet in de onderzochte bestanden gevonden → per versie ontdekken. | MW-25.04 `plugins/smart.py` (`namespace = 'smart.test'`); listings `api/v25_*` | SMART-naam 25.10 **onzeker** |
 | Private registry (GHCR privé): `app.registry.create({name, description, username, password, uri})`; in de UI *Apps → Configuration → Sign-in to a Docker registry*. | MW-25.10 `api/v25_10_0/app_registry.py`; WEBUI `app-settings-button.component.html` r. 45–49 | zeker (bestaan); gedrag met GHCR-tokens **niet getest** |
 
+## Onafhankelijke controle (review P0, 2026-11-09)
+
+Een reviewer heeft een steekproef opnieuw in de broncode nagelezen (sparse checkout, alleen lezen) en **bevestigd**:
+tags/commits in de tabel "Bronnen" (`git ls-remote`); intrekken van een API-key bij onversleuteld transport
+(MW-25.10 `plugins/auth.py` r. 936–950); `version == 'latest'` → nieuwste catalogusversie (`crud.py` r. 142–143);
+ondiepe merge bij `app.update` (`config.update(data['values'])`, `crud.py` r. 243); opruimen na mislukte installatie
+(`crud.py` r. 186–192); `remove_ix_volumes` (`crud.py` r. 327); `app.rollback` alleen naar `get_rollback_versions` en
+niet in STOPPED (`rollback.py` r. 35–38); `ix-app` 1.4.8 met `min_scale_version 24.10.2.2` en
+`remove_security_opt("no-new-privileges")` + `clear_caps()` (APPS r. 82–83); `community/immich` heeft één versie
+(`1.14.62`). De overige beweringen zijn niet opnieuw gecontroleerd en houden hun eigen zekerheidsniveau. Niets
+hiervan is op een echte TrueNAS uitgevoerd (**NIET GEVALIDEERD**).
+
 ## 7. Gevolgen voor het platform (vastgelegd in ADR-0006)
 
 1. Eigen apps: `app.create` met `catalog_app="ix-app"`, `train="stable"`, **exacte** `version` (ix-app) en **exacte**
@@ -127,3 +146,5 @@ scope en mogen pas na een eigen broncheck worden ondersteund.
 5. Verwijderen: altijd `remove_ix_volumes=false`; data-verwijdering (`app.uninstall_data`) wordt niet aangeboden.
 6. Methodenamen per versie via `core.get_methods`; snapshot-methoden verschillen tussen 25.04 en 25.10.
 7. Alleen `wss://` met certificaatcontrole voor de schrijfkey (anders trekt TrueNAS de key in).
+8. De Hub (read-only key) kan jobs van de executor niet zien: de executor volgt zijn eigen jobs, leest daarna terug
+   en rapporteert; de Hub vertrouwt nooit op `core.get_jobs` voor uitvoeringen van een ander (zie §2).

@@ -95,6 +95,20 @@ def test_job_fail_leaves_no_app(client: TestClient, rw: Rpc) -> None:
     assert "pull mislukt" in str(exc.value.error)
     job = rw.call("core.get_jobs", [["method", "=", "app.create"]], {"get": True})
     assert job["state"] == "FAILED" and "pull mislukt" in job["error"]
+    # zoals middlewared create_internal: een mislukte installatie wordt opgeruimd (geen spookapp, geen ixVolume)
+    assert rw.call("app.query", [["id", "=", "x1"]]) == []
+    values = ix_values(host_path=None)
+    values["storage"] = [{"type": "ix_volume", "mount_path": "/appdata", "read_only": False,
+                          "ix_volume_config": {"acl_enable": False, "dataset_name": "appdata"}}]
+    client.post("/_sim/faults/job_fail", json={"method": "app.create", "error": "pull mislukt (sim)"})
+    with pytest.raises(RpcFailed):
+        rw.job("app.create", {"app_name": "x1", "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
+                              "values": values})
+    datasets = client.get("/_sim/state").json()["datasets"]
+    assert not [d for d in datasets if "/app_mounts/x1" in d] and rw.call("app.query") == []
+    rw.job("app.create", {"app_name": "x1", "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
+                          "values": values})  # daarna lukt dezelfde installatie gewoon
+    assert rw.call("app.query", [["id", "=", "x1"]], {"get": True})["state"] == "RUNNING"
 
 
 def test_reboot_during_apply(client: TestClient, keys: dict[str, str]) -> None:
@@ -113,7 +127,7 @@ def test_reboot_during_apply(client: TestClient, keys: dict[str, str]) -> None:
     assert client.get("/api/boot_id").json() != boot
     with client.websocket_connect("/api/current") as ws:
         rpc = Rpc(ws)
-        rpc.login(keys["readonly"])
+        rpc.login(keys["write"])  # eigen jobs van de executor: ook die zijn na de herstart weg
         assert rpc.call("core.get_jobs") == []  # job is weg: readback is verplicht
         app = rpc.call("app.query", [["id", "=", "x2"]], {"get": True})
         assert app["state"] == "CRASHED"  # half toegepast
