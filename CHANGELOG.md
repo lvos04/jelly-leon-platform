@@ -135,3 +135,23 @@
 - Bevindingen: de D07-meting van de Hub geeft op een NAS zonder apps `protocol_error`; de vertaling controleert niet of
   een hostpad een bestaande dataset is (`app.create` weigert dat pas in de job).
 - Op een echte TrueNAS: **NIET GEVALIDEERD**; OneDrive-stappen: **NIET GEVALIDEERD (account)**.
+
+## Ontwerpreview statuspagina (design-agent, ADR-0017)
+
+- Onafhankelijke review van `GET /` in alle toestanden tegen Peil 1.1.0 en WCAG 2.2 AA:
+  [`docs/ontwerp/PEIL_REVIEW.md`](docs/ontwerp/PEIL_REVIEW.md). Gerepareerd (alleen uiterlijk, tekst en
+  toegankelijkheid): controlerijen alleen met de vaste statuswoorden (één woord = één uiterlijk; "Niet gekoppeld" en
+  "Ingetrokken" alleen nog in het koppelblok), geen "in orde" meer, kortere dienstomschrijving (status 48 px hoger op
+  320 px), foutsamenvatting met link naar het eerste foute veld, korte skiplinktekst (stak op 320/360 px uit),
+  duidelijkere meldingen (te veel pogingen, koppelbestand onleesbaar, vingerafdruk onjuist, fase P2).
+- **Live review** (`tests/ui/live/`, `make test-ui-live`, `make ontwerpreview`, CI-job `statuspagina`): de dienst als
+  echte processen (api + worker + Hub-simulator), Chromium vult het formulier zelf in; 14 toestanden, waaronder
+  formulier verlopen (CSRF), te veel pogingen (429) en direct ingetrokken.
+- **Browsercontrole** (`tests/ui/controle.mjs`) meet nu ook contrast in de gerenderde pagina (tekst ≥ 4,5:1, UI-grenzen
+  en iconen ≥ 3:1, focusring ≥ 3:1), statusregels (groen alleen bij Gezond, totaal nooit groen bij niet gereed, icoon +
+  woord, één woord = één uiterlijk), microcopy (§11.1), skiplink, tekstafstand (WCAG 1.4.12) en forced colors.
+  Uitkomst live: axe 0, tekst ≥ 8,34:1, UI ≥ 4,86:1, focusring ≥ 7,79:1, geen overloop op 320 px.
+- Schermafdrukken: release-set 5 toestanden × 320/360/390/768/1440 × licht/donker; live set 14 toestanden × 320/1440
+  in `docs/ontwerp/shots/` (pngquant). Zeven sjabloonpunten (o.a. `novalidate`, icoon per controlerij) als voorstel
+  voor Peil 1.1.1; de gepinde kopie blijft byte-gelijk.
+- Niet gevalideerd: echte telefoon/tablet, schermlezer, echte browserzoom; op een echte TrueNAS niets.

@@ -3,6 +3,7 @@
 - Status: aanvaard · Datum: 2026-11-09 · Contract: 1.2 §3.5, §3.7, §13 · Ontwerptaal: Peil 1.1.0 (ONTWERPTAAL §4, §11,
   §12, §13.2, §14; ADR-0015 van de Hub)
 - Herziet: ADR-0004 en ADR-0011 punt 7 (alleen de weergave en de formuliervelden van de statuspagina)
+- Aangevuld door: ADR-0017 (ontwerpreview: vaste statuswoorden in de controles, teksten, live review)
 
 ## Aanleiding
 
@@ -67,7 +68,8 @@ waren al gebouwd (JP5) en blijven.
 - Niet gedaan / niet gevalideerd: echte schermlezer (NVDA/TalkBack), echte telefoon of tablet, forced colors en 200 %
   zoom (Peil §12 noemt die voor de acceptatie, 08_UI); de bron-IP achter de TrueNAS-poortpublicatie blijft
   **NIET GEVALIDEERD (echte NAS)**.
-- Ontwerpreview door de design-agent (contract §13, werkwijze) is nog niet gedaan; de schermafdrukken liggen klaar.
+- Ontwerpreview door de design-agent (contract §13, werkwijze): gedaan op 2026-11-09, zie ADR-0017 en
+  `docs/ontwerp/PEIL_REVIEW.md`.
 
 ## Contractpunten (gemeld)
 
