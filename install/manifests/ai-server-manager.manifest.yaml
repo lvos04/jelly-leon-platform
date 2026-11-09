@@ -1,0 +1,132 @@
+# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@55ed1519bbcb2cf6dc13ef40b80b53486c07bf93:deploy/manifest/ai-server-manager.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 7e47e25fc9cfb0977113075f5a15e23f00504dd278e0f8365d7c2997727cba6d
+# Versie-gepinde kopie (I23, installatie via install/truenas/INSTALLATIE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+# Manifest (manifeststandaard v1, platformcontract 1.2 §9) van de Hub: ai-server-manager (alles-in-één).
+# Installatie uitsluitend als standaard TrueNAS Custom App (één image + formulierwaarden); nooit compose/YAML.
+# Eerste installatie gebeurt handmatig met het formulier in deploy/truenas/CUSTOM_APP.md. De digest van de eigen
+# GHCR-image vult de release-CI in (release/digests.json); tot dan is dit manifest niet installeerbaar via de API.
+manifest_version: "1"
+app_id: ai-server-manager
+name: AI Server Manager (Hub)
+owner_repo: lvos04/ai-server-manager
+category: platform
+description_nl: >-
+  Centrale Hub van het platform: onboarding-wizard (D01–D18) en gates, alleen-lezen TrueNAS-inventaris,
+  dienstenregister, aanmelden en rollen, enrollment van eigen diensten, events-inbox, back-updekking en een
+  geverifieerde back-up van de eigen database, met de Nederlandstalige web-UI (PWA) op dezelfde poort. AI staat
+  standaard uit.
+version: "0.1.0"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/ai-server-manager
+  tag: "0.1.0"
+  digest: null
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+  env: []
+  resources:
+    cpus: 2
+    memory_mib: 1024
+  gpu: none
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: web
+    scheme: http
+    path: /
+    name: Hub
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30400
+    required: true
+    description_nl: Hostpoort; voorstel uit het platformcontract. Bij de eerste installatie kiest de gebruiker zelf een vrije poort.
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: hub_appdata
+    decision: D02
+    required: true
+    description_nl: Dataset voor /appdata (ingebouwde PostgreSQL, secrets en back-ups).
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestaan dataverlies (RPO) voor de Hub, vastgelegd in de wizard (D16).
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestane hersteltijd (RTO) voor de Hub, vastgelegd in de wizard (D16).
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: data
+    required_dataset_role: hub_appdata
+    description_nl: Database (PostgreSQL 16, alleen unix-socket), /appdata/secrets (0600) en /appdata/backups.
+network:
+  ports:
+    - name: web
+      container_port: 30400
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Hub-web-UI; /api, /connector, /healthz en /readyz gaan intern door naar de API (127.0.0.1)
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: builtin
+backup:
+  db_export:
+    method: pg_dump
+    description_nl: >-
+      Dagelijkse en pre-upgrade pg_dump naar /appdata/backups met SHA-256 en pg_restore --list-verificatie
+      (nieuwste 7 blijven); status 'geslaagd' alleen na verificatie.
+  snapshot_datasets: [appdata]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: ai-server-manager-executor
+    kind: optional
+    reason_nl: Schrijfacties op TrueNAS lopen uitsluitend via de executor (koppelen met koppelcode; uitvoeren volgt in fase P2).
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Alembic-migraties bij de start, met een geverifieerde pg_dump vooraf. Terug naar een oudere tag kan pas nadat
+    de back-up of snapshot van vóór de update is teruggezet.
+decisions_required: [D01, D02, D03, D16]
+docs: [B01_HOME_CONTROL_HUB, B02_AI_SERVER_MANAGER, B09_MONITORING_INCIDENTEN, B12_BACKUP_HERSTEL, I23_HOME_CONTROL_HUB]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.0"
+  truenas_max_version: null
+  ix_app_min_version: null
+provenance:
+  source_repo: https://github.com/lvos04/ai-server-manager
+  source_commit: null
+  upstream_repo: null
+  license: null

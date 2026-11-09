@@ -1,0 +1,113 @@
+# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@55ed1519bbcb2cf6dc13ef40b80b53486c07bf93:deploy/manifest/ai-server-manager-executor.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 2d2ee42c0c7c8bad81fad607af71f896f21db035d7d0920e292d669dba568dd7
+# Versie-gepinde kopie (I23, installatie via install/truenas/INSTALLATIE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+# Manifest (manifeststandaard v1, platformcontract 1.2 §9) van de executor: ai-server-manager-executor.
+# Eigen image en eigen standaard TrueNAS Custom App; de enige component die later een TrueNAS-key met
+# schrijfrechten krijgt (alleen op zijn eigen koppelpagina in te voeren). Koppelen met koppelcode; allowlist leeg tot P2.
+manifest_version: "1"
+app_id: ai-server-manager-executor
+name: AI Server Manager (executor)
+owner_repo: lvos04/ai-server-manager
+category: platform
+description_nl: >-
+  Executor van het platform: voert later alleen door de Hub ondertekende, op de allowlist staande acties uit via de
+  TrueNAS-API. Koppelen met de Hub gaat met een koppelcode en de Hub-vingerafdruk op de statuspagina; de allowlist is leeg tot fase P2 en elke actie wordt geweigerd.
+version: "0.1.0"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/ai-server-manager-executor
+  tag: "0.1.0"
+  digest: null
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+  env: []
+  resources:
+    cpus: 1
+    memory_mib: 256
+  gpu: none
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: api
+    scheme: http
+    path: /
+    name: Executor
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30410
+    required: true
+    description_nl: Hostpoort; voorstel uit het platformcontract. Bij de eerste installatie kiest de gebruiker zelf een vrije poort.
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: executor_appdata
+    decision: D02
+    required: true
+    description_nl: Eigen dataset voor /appdata (identiteit en vault van de executor), gescheiden van de Hub.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: config
+    required_dataset_role: executor_appdata
+    description_nl: Eigen Ed25519-identiteit en vault.key in /appdata/secrets (0600); later de nonce-opslag.
+network:
+  ports:
+    - name: api
+      container_port: 30410
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Statuspagina met koppelformulier van de executor
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: builtin
+backup:
+  db_export:
+    method: none
+    description_nl: Geen database; alleen de eigen geheimen en hub-link.json in /appdata/secrets (dataset-snapshot, extern alleen versleuteld).
+  snapshot_datasets: [appdata]
+  rpo: P1D
+  rto: PT4H
+dependencies:
+  - app_id: ai-server-manager
+    kind: required
+    reason_nl: De executor koppelt met de Hub en voert alleen door de Hub ondertekende verzoeken uit (uitvoeren volgt in fase P2).
+sso: none
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: false
+  tag_only_rollback_safe: true
+  notes_nl: Geen database; hub-link.json (schema 1.2) blijft bij een oudere tag staan maar wordt dan niet gelezen.
+decisions_required: [D01, D02, D03]
+docs: [B02_AI_SERVER_MANAGER, I23_HOME_CONTROL_HUB]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.0"
+  truenas_max_version: null
+  ix_app_min_version: null
+provenance:
+  source_repo: https://github.com/lvos04/ai-server-manager
+  source_commit: null
+  upstream_repo: null
+  license: null
