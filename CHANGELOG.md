@@ -32,3 +32,18 @@
   SMART-resultatenmethode volgens api.truenas.com/v25.10 en de broncode TS-25.10.8).
 - `TRUENAS_APP_API.md`: controle tegen de officiële API-documentatie (nu bereikbaar) toegevoegd.
 - GitHub Actions: eerste groene run (42619820171, jobs `test` en `image`). Release/GHCR-push nog niet uitgevoerd.
+
+### Review P0-afronding (onafhankelijke QA)
+
+- **Enrollment tegen de echte Hub:** het verzoek bevatte velden (`kind`, `capabilities`, `schema_version`, JWK
+  `use`/`alg`) die de Hub (`EnrollIn`, `extra="forbid"`) en contract 1.2 §3.3 met 422 weigeren; de client zag dat
+  als definitief en verbrandde het eenmalige token. Nu alleen de toegestane velden (`kid` = RFC 7638-thumbprint);
+  de Hub-simulator is even streng als de Hub (ADR-0004 herzien, ADR-0010).
+- **Verzoekgrootte:** bodies > 1 MiB → `413 payload_too_large` (ook chunked, vóór de authenticatie).
+- **Release:** publiceren alleen bij een tag; een bestaande versie-tag in GHCR wordt nooit overschreven
+  (`workflow_dispatch` op een branch pushte eerder de versie-tag).
+- `target_version`: ook `repo:latest` geweigerd; versievelden met vast patroon.
+- Image: `/appdata/backups` 0700 en dumps 0600 (umask 077); geen Alembic-regels meer per healthcheck in de log.
+- Koppelpagina: snelheidsbegrenzing per app-instantie, koppelcode max. 32 tekens; extra negatieve tests (429, 409,
+  token van een andere app, bestaande data in `/appdata` blijft onaangeroerd).
+- GitHub Actions: checkout/setup-python/setup-buildx op Node 24-versies.

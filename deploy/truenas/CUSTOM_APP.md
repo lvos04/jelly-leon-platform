@@ -55,7 +55,7 @@ Kies één van beide (de Hub-wizard stelt dit voor via de datasetkiezer; nooit e
 | Storage Configuration | Storage → Add | Type `Host Path` · Mount Path `/appdata` · Host Path: jouw dataset uit stap 1 · Read Only uit · Enable ACL uit |
 | | *(of)* | Type `ixVolume` · Mount Path `/appdata` · Dataset Name `appdata` |
 | Labels Configuration | — | leeg laten |
-| Resources Configuration | Enable Resource Limits | aan · CPUs `1` · Memory (in MB) `512` (gemeten in rust ± 180 MiB) |
+| Resources Configuration | Enable Resource Limits | aan · CPUs `1` · Memory (in MB) `512` (in Docker gemeten in rust ca. 215 MiB; op TrueNAS niet gemeten) |
 | | GPU Configuration | geen GPU |
 
 **Install**. De eerste start duurt 10–30 seconden (database aanmaken). Daarna *Running* en na de healthcheck *Healthy*.
