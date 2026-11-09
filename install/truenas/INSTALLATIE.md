@@ -35,13 +35,15 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 
 ## Stap 1 — Images ophalen mogelijk maken (GHCR)
 
-GitHub maakt een nieuw pakket altijd eerst **privé**. Kies één van beide:
+Een nieuw GHCR-pakket is standaard **privé**. Kies één van beide:
 
 - **A. Pakketten openbaar maken (aanbevolen, eenmalig per pakket).** Op GitHub: profiel → *Packages* →
   `ai-server-manager` → *Package settings* → *Change visibility* → *Public*. Herhaal voor
   `ai-server-manager-executor` en later voor `appstore-en-fork`, `home-control-hub`, `jelly-leon-platform`,
   `zoeken-en-persoonlijke-ai` en `jelly-leon`. Controle in de browser:
-  `https://ghcr.io/token?scope=repository:lvos04/ai-server-manager:pull` moet een token tonen (geen 401).
+  `https://ghcr.io/token?scope=repository:lvos04/ai-server-manager:pull` moet `{"token":"…"}` tonen. Zie je
+  `DENIED` ("requested access to the resource is denied", HTTP 403), dan is het pakket nog privé of bestaat het
+  (nog) niet. (Gedrag van GHCR gecontroleerd op 2026-11-09 met een openbaar en een niet-bestaand pakket.)
 - **B. Privé houden met registry-login in TrueNAS.** *Apps → Configuration → Sign-in to a Docker registry* →
   *Other Registry* → URI `https://ghcr.io`, gebruikersnaam = je GitHub-gebruikersnaam, wachtwoord = een GitHub-token
   met alleen `read:packages`. Dit geheim staat dan in TrueNAS, niet in een app-formulier.
@@ -92,8 +94,8 @@ Host Port en onthoud die.
 3. Open `http://<NAS-adres>:30400` in de browser. De wizard vraagt eerst de setupcode, daarna maak je het eerste
    beheerdersaccount aan en vul je (of meet de wizard) de NAS-gegevens in (D01–D03 …).
 4. In de Hub voer je de **TrueNAS-key met alleen-lezen-rechten** in (Hub-UI, versleuteld opgeslagen). Zo maak je die:
-   - *Credentials → Users* → *Add*: een aparte gebruiker (bijv. naam naar keuze voor "platform-lezen"), **TrueNAS
-     Access** aan met rol **Read-Only Admin**, SMB/SSH/Shell uit → *Save*.
+   - *Credentials → Users* → *Add*: een aparte gebruiker (naam naar keuze), **TrueNAS Access** aan met rol
+     **Read-Only Admin**, SMB/SSH/Shell uit → *Save*.
    - *Credentials → Users → User API Keys* → *Add*: Name naar keuze, Username = die gebruiker, verloopdatum naar
      keuze → *Save* → **"This is the only time the key is shown."** → kopieer en plak direct in de Hub.
    - **NIET GEVALIDEERD (echte NAS):** of *Read-Only Admin* alle benodigde leesmethoden toestaat.
