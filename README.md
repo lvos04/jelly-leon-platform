@@ -16,8 +16,9 @@ B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integr
 | Deze dienst als standaard Custom App (formuliervelden) | [`deploy/truenas/CUSTOM_APP.md`](deploy/truenas/CUSTOM_APP.md) |
 | Overzicht installatiemethode per I-document (I01–I26) | [`install/manifests/README.md`](install/manifests/README.md) |
 
-De dienst heeft alleen een kleine Nederlandse statuspagina op `http://<NAS-adres>:30440/`; alle schermen staan in
-de Hub (`ai-server-manager`).
+De dienst heeft alleen een kleine Nederlandse statuspagina op `http://<NAS-adres>:30440/` in de ontwerptaal **Peil**
+(framework-vrij sjabloon uit `ai-server-manager`, geen JavaScript); alle schermen staan in de Hub (`ai-server-manager`).
+Schermafdrukken: [`docs/screenshots/peil/statuspagina/`](docs/screenshots/peil/statuspagina/).
 
 ## Voor ontwikkelaars
 
@@ -26,7 +27,9 @@ apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-mig
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
 deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
-docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0012
+docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0013
+design/ontwerptaal/       versie-gepinde kopie Peil-statuspagina (HERKOMST.md)   tools/peil_kopie.py  kopie maken/controleren
+tests/ui/                 browsercontrole statuspagina (Playwright + axe-core)   docs/screenshots/peil/  schermafdrukken
 docs/platform-v2/         contract 1.2 + conformiteitslijst, pakketdocs, TRUENAS_APP_API.md, EVIDENCE.json
 e2e/                      integrale E2E-opzet (README), simulators (truenas, hub), conformance/echte_hub.py
 tests/e2e/                image-E2E (Docker)               tests/repo/       repo-regels (manifest, docs, evidence)
@@ -36,6 +39,8 @@ tests/conformance/        Hub ↔ dienst volgens contract 1.2 (simulator in CI; 
 ```bash
 make venv && make lint typecheck test test-sim test-repo test-conformance   # PostgreSQL op 127.0.0.1:5432
 make test-e2e                                              # bouwt de image en draait de Docker-E2E
+make test-ui                                               # statuspagina per toestand in Chromium (axe, 320–1440 px)
+make statuspagina-shots                                    # idem + schermafdrukken naar docs/screenshots/peil/
 .venv/bin/python e2e/conformance/echte_hub.py              # zelfde conformiteitstests tegen de echte Hub (naburige repo)
 ```
 

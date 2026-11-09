@@ -89,3 +89,24 @@
 - Regressietest "vreemde Hub zonder vingerafdruk" bereikte de vreemde server nooit (ongeldige koppelcode); gerepareerd.
 - Conformiteit opnieuw lokaal tegen de echte Hub (`ai-server-manager` `be7d593`): 16 geslaagd. Op een echte TrueNAS:
   **NIET GEVALIDEERD**.
+
+### Statuspagina in Peil (JP11, ADR-0013)
+
+- `GET /` gebruikt nu het framework-vrije **Peil-sjabloon 1.1.0** uit `ai-server-manager/design/ontwerptaal`, als
+  versie-gepinde kopie met herkomstkop in `design/ontwerptaal/` (O-14). CI faalt bij schade aan de kopie en bij drift
+  met de bron (gepinde commit én kop van de branch); `tools/peil_kopie.py` maakt en controleert de kopie.
+- Precies één koppeltoestand (formulier alleen zolang nooit gekoppeld, gekoppeld = neutrale pil, ontkoppeld,
+  ingetrokken; onleesbaar koppelbestand = geen formulier + foutmelding). Geen ontkoppelen, geen ontkoppelcode.
+- Eerste signaal = slechtste van gezondheid en gereedheid (gereed = `/readyz` in orde én gekoppeld); nooit groen als de
+  dienst niet gereed is. "In orde" heet nu "Gezond"; "Gekoppeld met de Hub" alleen als de Hub het bevestigd heeft.
+- Fouten met vaste titel en tekst, code en een selecteerbare trace-ID (zonder JS; dezelfde trace-ID in de app-log);
+  veldfouten per veld met `aria-invalid`. Formuliervelden volgens het sjabloon: `hub_adres`, `koppelcode`,
+  `hub_vingerafdruk`; te lange of ontbrekende velden geven een HTML-fout in plaats van JSON-422.
+- CSP van de pagina: `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none';
+  base-uri 'none'`.
+- Tests: rendering per toestand (11 toestanden) met de echte dienst, PostgreSQL en de Hub-simulator; browsercontrole in
+  Chromium (Playwright 1.65.0, axe-core 4.14.0): axe 0 overtredingen, geen overloop van 320 tot 1440 px, doelen
+  ≥ 44 px, tekst ≥ 14 px, focusring, geen CSP-overtreding — licht en donker. Schermafdrukken 360/768/1440 ×
+  licht/donker in `docs/screenshots/peil/statuspagina/`.
+- Niet gedaan: echte schermlezer, echte telefoon/tablet, ontwerpreview door de design-agent. Op een echte TrueNAS:
+  **NIET GEVALIDEERD**.

@@ -73,8 +73,11 @@ Kies één van beide (de Hub-wizard stelt dit voor via de datasetkiezer; nooit e
 
 ## 3. Openen en koppelen
 
-Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statuspagina toont status per onderdeel en
-"Laatst bijgewerkt". Zonder koppeling met de Hub accepteert de API niets (fail-closed).
+Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statuspagina (ontwerptaal Peil, zonder
+JavaScript) toont bovenaan het totaal — "Niet gereed" zolang de app niet gekoppeld is, nooit groen als hij niet gereed
+is —, daaronder de controles per onderdeel, "Gereed", de versie en "Bijgewerkt" (UTC), en de koppeling met de Hub.
+Zonder koppeling met de Hub accepteert de API niets (fail-closed). Gaat koppelen mis, dan toont de pagina een melding
+met een code en een trace-ID (selecteer en kopieer); dezelfde trace-ID staat in de app-log.
 
 - **Geïnstalleerd door de Hub (normaal):** de Hub geeft `HUB_URL`, `HUB_KEY_FINGERPRINT` en een eenmalig
   `HUB_ENROLLMENT_TOKEN` mee; de app koppelt zichzelf bij de eerste start, controleert de vingerafdruk van de
@@ -123,6 +126,7 @@ Open `http://<NAS-adres>:30440` (NAS-adres uit de wizard, besluit D03). De statu
 | `oude postmaster.pid ... verwijderd` | Geen fout: vorige stop was onverwacht (stroom/kill). |
 | `databasemigratie mislukt` | Vorige Tag terugzetten; de database is ongewijzigd. Log bewaren voor de Hub/incident. |
 | Image niet op te halen (`denied`/`unauthorized`) | GHCR-pakket nog privé: zie stap 0 (route B als terugvaloptie) en `install/truenas/INSTALLATIE.md` stap 1. |
-| Statuspagina: "vingerafdruk klopt niet" | Ander Hub-adres of andere Hub dan bedoeld; er is niets opgeslagen. Controleer adres en vingerafdruk in de Hub-UI. |
-| Statuspagina: "Ingetrokken door de Hub" | De Hub heeft de koppeling ingetrokken. Opnieuw koppelen via de Hub (nieuw token). |
+| Statuspagina: code `hub_vingerafdruk_onjuist` ("vingerafdruk klopt niet") | Ander Hub-adres of andere Hub dan bedoeld; er is niets opgeslagen. Controleer adres en vingerafdruk in de Hub-UI. |
+| Statuspagina: "Ingetrokken" (code `ingetrokken_door_hub`) | De Hub heeft de koppeling ingetrokken. Opnieuw koppelen via de Hub (nieuw token). |
+| Statuspagina: "Koppelbestand onleesbaar" (code `hub_link_onleesbaar`) | `/appdata/secrets/hub-link.json` is beschadigd; de app vertrouwt geen Hub-aanmelding en toont geen formulier. Opnieuw koppelen via de Hub (nieuw token in dit formulier). |
 | Poort bezet | Andere Host Port kiezen (Container Port blijft `30440`); de Hub controleert dit vooraf via `app.used_ports`. |
