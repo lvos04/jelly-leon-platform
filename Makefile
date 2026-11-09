@@ -15,7 +15,8 @@ lint:
 
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
-	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py
+	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
+		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q
@@ -41,6 +42,7 @@ validator-venv:
 manifesten:
 	$(PY) tools/manifesten.py
 	$(PY) tools/manifest_kopie.py controleer
+	$(PY) tools/checklists.py
 
 # Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager
 test-conformance:

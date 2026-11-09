@@ -1,0 +1,154 @@
+# I02 OneDrive, ZFS-snapshots en herstel — controlelijst (eigen formaat checklist v1, ADR-0015).
+# Installeert en wijzigt niets op de NAS. Het platform leest alleen; snapshottaken en de OneDrive-taak richt de
+# gebruiker in de TrueNAS-web-UI in. Alles met het OneDrive-account is in deze bouwomgeving onmogelijk:
+# NIET GEVALIDEERD (account). Methode, scope en herstelgegevens: besluit D04 (onbekend tot de wizard).
+checklist_version: "1"
+id: I02
+titel_nl: OneDrive, ZFS-snapshots en herstel — inrichten en testen
+document: 03_INSTALLATIE/I02_BACKUP_EN_RESTORE.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: inrichten_en_testen
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D04, D05, D06, D16]
+toelichting_nl: >-
+  ZFS-snapshots staan op dezelfde pool en zijn geen off-site back-up. Geen back-upsleutels onversleuteld naast de data
+  in OneDrive. Per app staat in het manifest (backup.db_export, snapshot_datasets, rpo/rto) hoe een consistente
+  back-up eruitziet; bij SQLite-apps zonder export is dat een snapshot met de app gestopt.
+stappen:
+  - id: I02-02-01
+    titel_nl: Kopie naar OneDrive identificeren
+    uitvoeren_nl: >-
+      De Hub leest de bestaande cloud-sync-, replicatie- en snapshottaken (alleen lezen); de gebruiker vult in de
+      wizard methode, scope, versleuteling, retentie en de plek van de herstelgegevens in (D04). De Hub maakt daaruit
+      per app een back-upmatrix (database, media, geheimen) met de back-upgegevens uit de manifesten.
+    acceptatie_nl: Dekking en herstelbaarheid per app zichtbaar.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: cloudsync.query, versies: ["25.04", "25.10"]}
+      - {naam: replication.query, versies: ["25.04", "25.10"]}
+      - {naam: pool.snapshottask.query, versies: ["25.04", "25.10"]}
+    verwijzing: [install/manifests/ (backup per app)]
+    besluiten: [D04]
+    bewijs: [datum, gemaskeerde_output, status, hub_meting, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; een app zonder bekende back-up krijgt geen R2/R3-wijziging.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I02-02-02
+    titel_nl: Controle back-upbestand
+    uitvoeren_nl: >-
+      De gebruiker controleert in OneDrive checksum, archiefstructuur, een consistente database-export en dat er
+      oudere versies bestaan, en legt dat met datum en geschoonde schermafdruk vast als bewijsrecord.
+    acceptatie_nl: Bestandslijst en minimaal 2 punten uit historie aangetoond.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: [D04]
+    bewijs: [datum, schermafdruk, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; een ongecontroleerde back-up telt als ontbrekend.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (account)]
+
+  - id: I02-02-03
+    titel_nl: Proefherstel
+    uitvoeren_nl: >-
+      Eén foto en één database-export terugzetten in een tijdelijke map of database, zonder de originele app te
+      overschrijven; uitkomst als bewijsrecord bij D05. Een zandbak-kloon van een snapshot via de executor
+      (zfs.snapshot.clone_to_sandbox, R1) volgt in P2.
+    acceptatie_nl: Foto leesbaar en appdatabase integriteit correct.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D05]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; zonder geslaagde proef blijft de back-upgate rood.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (account)]
+
+  - id: I02-02-04
+    titel_nl: ZFS snapshots aanmaken
+    uitvoeren_nl: >-
+      De gebruiker maakt in de TrueNAS-web-UI periodieke snapshottaken voor de appdata-datasets, met retentie en
+      ruimtewaarschuwingen. De Hub leest taken en snapshots terug en toont per app of zijn datasets gedekt zijn.
+    acceptatie_nl: Snapshot zichtbaar en kleine restore test op nieuwe dataset geslaagd.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, meting_truenas_api]
+    truenas_methoden:
+      - {naam: pool.snapshottask.query, versies: ["25.04", "25.10"]}
+      - {naam: zfs.snapshot.query, versies: ["25.04"]}
+      - {naam: pool.snapshot.query, versies: ["25.10"]}
+      - {naam: pool.dataset.query, versies: ["25.04", "25.10"]}
+    handmatig_ui_pad_nl: Data Protection → Periodic Snapshot Tasks → Add
+    besluiten: [D06]
+    bewijs: [nas_versie, datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; zonder snapshot geen update van apps met databasemigraties.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De hersteltest op een nieuwe dataset (kloon van een snapshot) voert het platform pas uit als de executor de
+      R1-actie zfs.snapshot.clone_to_sandbox heeft (P2); tot dan is dat een handmatig bewijsrecord.
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I02-02-05
+    titel_nl: Consistente databaseback-ups
+    uitvoeren_nl: >-
+      Per app de methode uit het manifest: pg_dump (eigen apps en de Hub, met verificatie), de eigen export van de
+      app (bijv. PocketBase bij Beszel, API/blueprints bij Authentik) of — bij SQLite-apps zonder export — een
+      snapshot met de app gestopt. Nooit een ruwe kopie van een draaiende PostgreSQL of SQLite-WAL.
+    acceptatie_nl: Applicatie start uit herstelde database in teststack.
+    risico: Middel
+    wijze: [verwijzing, handmatig_bewijs]
+    verwijzing: [install/manifests/*.manifest.yaml (backup), deploy/manifest/jelly-leon-platform.manifest.yaml]
+    besluiten: [D16]
+    bewijs: [image_digest, datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; een app zonder consistente back-up krijgt geen databasemigratie.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I02-02-06
+    titel_nl: Offsite uitbreiding
+    uitvoeren_nl: >-
+      Alleen versleutelde exports van configuratie, geheimen (/appdata/secrets) en manifesten toevoegen aan de
+      bestaande OneDrive-taak, mits het opslagbudget dat toelaat; de sleutel apart bewaren.
+    acceptatie_nl: OneDrive versieerbaar en encrypt key separaat geescrowed.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Data Protection → Cloud Sync Tasks (bestaande taak bewerken)
+    besluiten: [D04]
+    bewijs: [datum, schermafdruk, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; nooit onversleutelde geheimen buiten de NAS.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (account)]
+
+  - id: I02-02-07
+    titel_nl: Monitor en escalatie
+    uitvoeren_nl: >-
+      De Hub maakt een melding bij een te oude back-up, mislukte verificatie, verlopen credentials, een
+      gedegradeerde pool of volle opslag, en stuurt kritieke meldingen via Gotify (I13) zodat ze ook zonder de Hub
+      op de telefoon aankomen.
+    acceptatie_nl: Testalert komt buiten de Hub op telefoon aan.
+    risico: Middel
+    wijze: [meting_truenas_api, verwijzing]
+    truenas_methoden:
+      - {naam: alert.list, versies: ["25.04", "25.10"]}
+      - {naam: pool.query, versies: ["25.04", "25.10"]}
+      - {naam: cloudsync.query, versies: ["25.04", "25.10"]}
+    verwijzing: [install/manifests/gotify.manifest.yaml, install/manifests/uptime-kuma.manifest.yaml]
+    besluiten: [D06]
+    bewijs: [datum, schermafdruk, status]
+    bij_fout_nl: Stop hier; zonder melding buiten de Hub geen automatische back-upbeslissingen.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (hardware)]
+
+  - id: I02-02-08
+    titel_nl: Periodieke rehearsal
+    uitvoeren_nl: >-
+      Elke 90 dagen en vóór elke R2/R3-update een proefherstel plannen en het bewijs bewaren; RPO en RTO meten tegen
+      de waarden uit D16.
+    acceptatie_nl: Laatste restore test binnen grens, RPO/RTO gemeten.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D05, D16]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; een verlopen proefherstel zet de back-upgate op rood.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (account)]

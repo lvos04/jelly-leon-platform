@@ -1,0 +1,176 @@
+# I01 TrueNAS SCALE basis — controlelijst (eigen formaat checklist v1, schemas/checklist-v1.schema.json, ADR-0015).
+# De manifeststandaard (contract 1.2 §9) kent geen I-document zonder installatie; deze lijst installeert en wijzigt
+# niets. Het platform leest alleen (alleen-lezen-key van de Hub); wat de gebruiker zelf doet, gebeurt in de
+# TrueNAS-web-UI (nooit een terminal). Uitkomsten komen als meting of bewijsrecord in de Hub-besluiten D01–D08.
+# Alle NAS-gegevens (D01–D18) zijn onbekend tot de wizard ze meet of de gebruiker ze invult: hier staan geen waarden.
+checklist_version: "1"
+id: I01
+titel_nl: TrueNAS SCALE basis — behouden en valideren
+document: 03_INSTALLATIE/I01_TRUENAS_BASIS.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D01, D02, D03, D04, D05, D06, D07, D08]
+toelichting_nl: >-
+  Preflight-regels uit I01 gelden voor elke stap: TrueNAS-release en Docker-appconfig controleren, data-eigenaar
+  bepalen, bestaande installatie herkennen, bezette poorten vergelijken, herstelbare back-up en exacte image-pin eisen,
+  geheimen nooit in logs of schermafdrukken. Een rode stap blokkeert de volgende (gates in de Hub).
+stappen:
+  - id: I01-01-01
+    titel_nl: Systeem inventariseren
+    uitvoeren_nl: >-
+      De Hub meet via de TrueNAS-API (alleen lezen) de versie, pools, datasets en geïnstalleerde apps en legt ze vast
+      als meting bij D01, D02 en D07. De gebruiker bevestigt in de wizard; geschoonde schermafdrukken van
+      System → General, Storage en Apps zijn aanvullend bewijs.
+    acceptatie_nl: Versie, pool, API-documentatie en bestaande appstatus geregistreerd.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: system.info, versies: ["25.04", "25.10"]}
+      - {naam: system.version, versies: ["25.04", "25.10"], doel_nl: volledige versienaam (D01)}
+      - {naam: core.get_methods, versies: ["25.04", "25.10"], doel_nl: API-schema van deze versie ontdekken}
+      - {naam: pool.query, versies: ["25.04", "25.10"]}
+      - {naam: pool.dataset.query, versies: ["25.04", "25.10"]}
+      - {naam: app.query, versies: ["25.04", "25.10"]}
+    handmatig_ui_pad_nl: System → General; Storage; Apps
+    besluiten: [D01, D02, D07]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, schermafdruk, status, hub_meting]
+    bij_fout_nl: Stop hier; maak oorzaak en terugweg inzichtelijk. Geen volgende stap zolang deze stap of de back-upgate rood is.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I01-01-02
+    titel_nl: Snapshot en back-up gate
+    uitvoeren_nl: >-
+      Vóór nieuwe apps: per kritieke app een consistente database-export plus snapshot, en een OneDrive-herstelproef.
+      De Hub leest snapshottaken, snapshots en cloud-synctaken (alleen lezen) en zet de back-upgate pas op groen met
+      een bewijsrecord bij D05 (herstel van één foto en één database-export).
+    acceptatie_nl: Minimaal een app-DB en foto terug te zetten.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: pool.snapshottask.query, versies: ["25.04", "25.10"]}
+      - {naam: cloudsync.query, versies: ["25.04", "25.10"]}
+      - {naam: zfs.snapshot.query, versies: ["25.04"]}
+      - {naam: pool.snapshot.query, versies: ["25.10"]}
+    besluiten: [D04, D05]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; zonder herstelbare back-up geen nieuwe installatie (gate blijft rood).
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I01-01-03
+    titel_nl: GPU identificatie
+    uitvoeren_nl: >-
+      De Hub leest de GPU's via de TrueNAS-API (app.gpu_choices) en legt ze vast bij D08. De gebruiker bevestigt in
+      de bestaande MediaGuard/Jellyfin-weergave dat hardware-transcodering werkt en welke kaart (A310 of UHD 770)
+      welke render-node is.
+    acceptatie_nl: A310 en UHD 770 apart, juiste rendernode en permissies bekend.
+    risico: Middel
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: app.gpu_choices, versies: ["25.04", "25.10"], doel_nl: GPU-inventaris (sleutel = PCI-slot)}
+    besluiten: [D08]
+    bewijs: [nas_versie, datum, gemaskeerde_output, schermafdruk, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; zonder D08-meting biedt de wizard nooit intel_render aan (contract 1.2 §9).
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      I01 noemt shellopdrachten om /dev/dri te bekijken. Het platform gebruikt geen terminal (contract §1): de
+      inventaris komt uit app.gpu_choices en de toewijzing render-node ↔ kaart blijft een bewijsrecord van de
+      gebruiker. Rechten van 568 op de render-groep zijn onbekend (open punt B03/P4).
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (hardware)]
+
+  - id: I01-01-04
+    titel_nl: JSON-RPC API read-only toegang
+    uitvoeren_nl: >-
+      De gebruiker maakt in de TrueNAS-web-UI een aparte gebruiker met rol Read-Only Admin en een API-key, en plakt
+      die in de Hub. De Hub verbindt alleen via wss:// (TLS-vingerafdruk bevestigd), meldt zich aan en leest versie,
+      pools en apps; daarna legt hij vast dat de key geen schrijfrechten heeft.
+    acceptatie_nl: Versie, pools, apps read-only opvraagbaar en key revocable.
+    risico: Middel
+    wijze: [meting_truenas_api, handmatig_in_truenas_ui]
+    truenas_methoden:
+      - {naam: auth.me, versies: ["25.04", "25.10"]}
+      - {naam: system.version, versies: ["25.04", "25.10"]}
+      - {naam: pool.query, versies: ["25.04", "25.10"]}
+      - {naam: app.query, versies: ["25.04", "25.10"]}
+    handmatig_ui_pad_nl: Credentials → Users → Add (TrueNAS Access, rol Read-Only Admin); Credentials → Users → User API Keys → Add
+    besluiten: [D01]
+    bewijs: [nas_versie, datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; zonder alleen-lezen-toegang blijven alle metingen unknown.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I01-01-05
+    titel_nl: Bestaande app inventaris
+    uitvoeren_nl: >-
+      De Hub leest de geïnstalleerde apps, hun images (met digest) en bezette hostpoorten en koppelt ze in de
+      catalogus aan data en netwerk, zonder iets te wijzigen (B01-002, B08-002). Poortconflicten met de
+      platformvoorstellen worden zichtbaar vóór elke installatie.
+    acceptatie_nl: Catalogus laat Jellyfin, MediaGuard, MSO en overige apps zien.
+    risico: Middel
+    wijze: [meting_truenas_api]
+    truenas_methoden:
+      - {naam: app.query, versies: ["25.04", "25.10"]}
+      - {naam: app.used_ports, versies: ["25.04", "25.10"]}
+      - {naam: app.image.query, versies: ["25.04", "25.10"], doel_nl: repo_digests van de images}
+    besluiten: [D07]
+    bewijs: [image_digest, datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; een onbekende of dubbele app wordt nooit gegokt (blijft unknown).
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I01-01-06
+    titel_nl: Netwerkroutes verifiëren
+    uitvoeren_nl: >-
+      Tailscale en Cloudflared blijven zoals ze zijn. De gebruiker controleert van buiten het LAN (zonder VPN) dat de
+      TrueNAS-webinterface niet bereikbaar is en legt dat vast als bewijsrecord bij D03.
+    acceptatie_nl: NAS console niet bereikbaar vanaf internet zonder VPN.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, schermafdruk, status, bewijsrecord_besluit]
+    bij_fout_nl: Stop hier; een publiek bereikbare beheerinterface eerst afsluiten (buiten het platform om).
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I01-01-07
+    titel_nl: Installatie voorbereiden
+    uitvoeren_nl: >-
+      Per nieuwe app een eigen dataset, pas na akkoord over naam, quota en ACL; nooit recursief de eigenaar wisselen van
+      mediadatasets. In v1 maakt de gebruiker de datasets in de TrueNAS-web-UI (preset Apps); de datasetkiezer van
+      de Hub leest ze terug. Datasets aanmaken via de executor volgt pas als goedgekeurde R2-actie (P2).
+    acceptatie_nl: Correct owner op nieuwe datasets zonder bestaande data-effecten.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, meting_truenas_api]
+    truenas_methoden:
+      - {naam: pool.dataset.query, versies: ["25.04", "25.10"]}
+    handmatig_ui_pad_nl: Datasets → pool → Add Dataset (Dataset Preset Apps)
+    besluiten: [D02]
+    bewijs: [datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; nooit een bestaande (media)dataset hergebruiken of van eigenaar wisselen.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I01-01-08
+    titel_nl: Baseline hardware monitoring
+    uitvoeren_nl: >-
+      De Hub verzamelt CPU-belasting, geheugen, schijven, temperaturen, poolgezondheid en meldingen via de
+      TrueNAS-API en legt een nulmeting vast; ARC, GPU en netwerk komen uit TrueNAS-reporting of Beszel (zie
+      install/manifests/BESZEL_MEETDEKKING.md). Wat geen bron heeft, blijft unknown.
+    acceptatie_nl: Backpressure drempels en reserve bekend.
+    risico: Middel
+    wijze: [meting_truenas_api]
+    truenas_methoden:
+      - {naam: system.info, versies: ["25.04", "25.10"]}
+      - {naam: pool.query, versies: ["25.04", "25.10"]}
+      - {naam: disk.query, versies: ["25.04", "25.10"]}
+      - {naam: disk.temperatures, versies: ["25.04", "25.10"]}
+      - {naam: alert.list, versies: ["25.04", "25.10"]}
+      - {naam: smart.test.results, versies: ["25.04"], doel_nl: in 25.10 geen publieke methode (alleen alert.list)}
+    besluiten: [D06]
+    bewijs: [nas_versie, datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; zonder nulmeting geen drempels voor backpressure en alerts.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]

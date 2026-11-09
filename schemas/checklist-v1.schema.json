@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvos04/jelly-leon-platform/schemas/checklist-v1.schema.json",
+  "title": "TrueNAS Home Platform V2 — controlelijst v1 (I-documenten zonder installatie)",
+  "description": "Eigen formaat van jelly-leon-platform (ADR-0015) voor I-documenten die niets installeren (I01 TrueNAS-basis, I02 back-up en herstel). De manifeststandaard (contract 1.2 §9) kent alleen custom_app en catalog_app. Een controlelijst installeert en wijzigt niets op de NAS: het platform leest alleen (TrueNAS-API met de alleen-lezen-key van de Hub); wijzigingen doet de gebruiker zelf in de TrueNAS-web-UI of ze volgen later als goedgekeurde R1/R2-actie via de executor. Semantische regels (Excel-ID's, alleen-lezen-methoden, geen terminal, geen voorbeeldwaarden) staan in tools/checklists.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["checklist_version", "id", "titel_nl", "document", "eigenaar_repo", "aanpak", "installatie",
+               "mutaties_door_platform", "besluiten", "stappen"],
+  "properties": {
+    "checklist_version": {"const": "1"},
+    "id": {"type": "string", "pattern": "^I[0-9]{2}$"},
+    "titel_nl": {"type": "string", "minLength": 3, "maxLength": 120},
+    "document": {"type": "string", "pattern": "^03_INSTALLATIE/I[0-9]{2}_[A-Z0-9_]+\\.md$"},
+    "eigenaar_repo": {"const": "lvos04/jelly-leon-platform"},
+    "aanpak": {"enum": ["behouden_en_valideren", "inrichten_en_testen"]},
+    "installatie": {"const": "geen"},
+    "mutaties_door_platform": {"const": false},
+    "besluiten": {"$ref": "#/$defs/Besluiten"},
+    "toelichting_nl": {"type": "string", "maxLength": 2000},
+    "stappen": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/Stap"}}
+  },
+  "$defs": {
+    "Besluit": {"type": "string", "pattern": "^D(0[1-9]|1[0-8])$"},
+    "Besluiten": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Besluit"}},
+    "Methode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["naam", "versies"],
+      "properties": {
+        "naam": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"},
+        "versies": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["25.04", "25.10"]}},
+        "doel_nl": {"type": "string", "maxLength": 300}
+      }
+    },
+    "Stap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "titel_nl", "uitvoeren_nl", "acceptatie_nl", "risico", "wijze", "besluiten", "bewijs",
+                   "bij_fout_nl", "blokkeert_volgende", "validatie_nu"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^I[0-9]{2}-[0-9]{2}-[0-9]{2}$"},
+        "titel_nl": {"type": "string", "minLength": 3, "maxLength": 120},
+        "uitvoeren_nl": {"type": "string", "minLength": 10, "maxLength": 1500},
+        "acceptatie_nl": {"type": "string", "minLength": 3, "maxLength": 500},
+        "risico": {"enum": ["Hoog", "Middel", "Laag"]},
+        "wijze": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"enum": ["meting_truenas_api", "handmatig_in_truenas_ui", "handmatig_bewijs", "verwijzing"]}
+        },
+        "truenas_methoden": {"type": "array", "items": {"$ref": "#/$defs/Methode"}},
+        "handmatig_ui_pad_nl": {"type": "string", "maxLength": 300},
+        "verwijzing": {"type": "array", "items": {"type": "string", "maxLength": 200}},
+        "besluiten": {"$ref": "#/$defs/Besluiten"},
+        "bewijs": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"enum": ["nas_versie", "image_digest", "datum", "gemaskeerde_output", "schermafdruk", "status",
+                             "hub_meting", "bewijsrecord_besluit"]}
+        },
+        "bij_fout_nl": {"type": "string", "minLength": 10, "maxLength": 500},
+        "blokkeert_volgende": {"type": "boolean"},
+        "afwijking_van_document_nl": {"type": "string", "maxLength": 800},
+        "validatie_nu": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"enum": ["Sim-getest", "Unit-getest", "NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)",
+                             "NIET GEVALIDEERD (account)"]}
+        }
+      }
+    }
+  }
+}

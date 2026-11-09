@@ -30,6 +30,7 @@ test = [
   "websockets==17.4",
   "pyyaml==6.0.3",
   "types-PyYAML==6.0.12.20261103",
+  "types-jsonschema==4.26.0.20261006",
   "jsonschema==4.26.0",
 ]
 
