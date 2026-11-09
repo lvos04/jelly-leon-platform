@@ -1,0 +1,9 @@
+{
+  "schema_version": "1",
+  "app_id": "jelly-leon-platform",
+  "version": null,
+  "images": {},
+  "source_commit": null,
+  "built_at": null,
+  "note_nl": "Nog geen release gepubliceerd. De release-workflow (.github/workflows/release.yml) vult dit bestand bij tag v<VERSION> met de echte GHCR-digest; nooit handmatig een digest invullen."
+}

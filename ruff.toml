@@ -2,6 +2,6 @@
 extend = "apps/api/pyproject.toml"
 
 [lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607"]
+"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607", "S608"]
 "e2e/**/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607"]
 "deploy/allinone/*.py" = ["S603", "S607", "S108"]

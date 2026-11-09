@@ -1,0 +1,142 @@
+[
+ {
+  "id": "B08-003",
+  "status": "Bezig",
+  "validatie": "Unit-getest",
+  "bewijs": "commit 3adbfeb; apps/api/src/lifecycle/statemachine.py + apps/api/tests/unit/test_statemachine.py; docs/platform-v2/TRUENAS_APP_API.md §3/§5; e2e/simulators/truenas/tests/test_apps.py::test_port_conflict_fails_job_with_validation",
+  "blokkade": "",
+  "opmerking": "P0: datamodel/statusmachine; POST /lifecycle/v1/plans/install/preview geeft eerlijk 501 capability_unavailable. Dry-run, poortconflict- en afhankelijkheidsblokkade volgen in P2 (simulator ondersteunt app.used_ports en poortconflicten al).",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "B08-004",
+  "status": "Bezig",
+  "validatie": "Sim-getest",
+  "bewijs": "commit 3adbfeb, 4e1d5d0; apps/api/tests/integration/test_migrations.py::test_failed_migration_leaves_old_schema_and_data; tests/e2e/test_upgrade_paths.py::test_upgrade_backup_restore_and_failed_migration",
+  "blokkade": "",
+  "opmerking": "Acceptatie 'DB migratiefout laat oude app met data intact' Sim-getest voor de eigen app (Docker): pg_dump vóór migratie, mislukte migratie laat schema 0001 + data intact, terug naar vorige tag start, dump herstelbaar. Veilige updates van andere apps volgen in P2. Op echte TrueNAS NIET GEVALIDEERD.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "B08-006",
+  "status": "Bezig",
+  "validatie": "Unit-getest",
+  "bewijs": "commit 3adbfeb; docs/platform-v2/TRUENAS_APP_API.md §4 (app.delete remove_ix_volumes=false); e2e/simulators/truenas/tests/test_apps.py::test_delete_keeps_data_unless_remove_ix_volumes",
+  "blokkade": "",
+  "opmerking": "P0: onderzoek + simulator (verwijderen houdt data; remove_ix_volumes=true wordt als overtreding geregistreerd). Uninstall/move-plannen geven 501 capability_unavailable tot P2.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-01",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "docs/platform-v2/TRUENAS_APP_API.md (bronnen middleware TS-25.04.2.6/TS-25.10.8); commit 4e1d5d0 e2e/simulators/truenas/tests/test_protocol_auth.py::test_login_and_methods_differ_per_version",
+  "blokkade": "Echte TrueNAS nodig (versie, pool, apps uitlezen; D01/D02/D07). Officiële API-docs (api.truenas.com) niet bereikbaar vanuit de bouwomgeving.",
+  "opmerking": "Sim-getest: system.info/system.version/core.get_methods per versie in de simulator.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-02",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 4e1d5d0; tests/e2e/test_upgrade_paths.py (pg_dump + hersteltest eigen app); e2e/simulators/truenas/tests/test_storage_faults.py::test_snapshot_create_and_clone_to_sandbox",
+  "blokkade": "Echte NAS + bestaande app-DB/foto en OneDrive-herstel nodig (D04/D05).",
+  "opmerking": "Alleen eigen app en simulator getest; geen echte back-up-gate.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-03",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (hardware)",
+  "bewijs": "docs/platform-v2/TRUENAS_APP_API.md §3 (app.gpu_choices); e2e/simulators/truenas/tests/test_storage_faults.py::test_disks_smart_gpu_tasks",
+  "blokkade": "Echte Intel Arc A310/UHD 770 en /dev/dri-mapping nodig (D08).",
+  "opmerking": "Simulator levert zichtbaar nep-GPU's; geen hardwareclaim.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-04",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 4e1d5d0; e2e/simulators/truenas/tests/test_protocol_auth.py::test_readonly_key_cannot_write; tests/test_storage_faults.py::test_key_revoked_mid_session, ::test_insecure_transport_revokes_key; install/truenas/INSTALLATIE.md stap 4",
+  "blokkade": "Echte TrueNAS + read-only API-key nodig.",
+  "opmerking": "Sim-getest: read-only key leest versie/pools/apps, schrijven geweigerd (EACCES), key intrekbaar; TrueNAS trekt keys in bij onversleuteld transport (bron middleware auth.py).",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-05",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/simulators/truenas/tests/test_apps.py::test_preinstalled_existing_apps_fixture; install/manifests/README.md",
+  "blokkade": "Werkelijke appinventaris van de NAS nodig (D07); import is B08-002 (appstore-en-fork).",
+  "opmerking": "Simulator kan bestaande apps als fixture tonen; geen echte inventaris.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I01-01-07",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 4e1d5d0; tests/e2e/test_allinone_image.py::test_first_start_as_root_then_drops_to_568; install/truenas/INSTALLATIE.md stap 2",
+  "blokkade": "Datasetnamen, quota en ACL's op de echte pool (D02) nog niet gekozen.",
+  "opmerking": "In Docker getest: de image maakt alleen zijn eigen submappen eigendom van 568 (/appdata zelf niet recursief); geen effect op andere data.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I02-02-04",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/simulators/truenas/tests/test_storage_faults.py::test_snapshot_create_and_clone_to_sandbox",
+  "blokkade": "Echte ZFS-pool nodig.",
+  "opmerking": "Sim-getest: snapshot zichtbaar en kloon naar nieuwe sandbox-dataset (pool.snapshot.* in 25.10, zfs.snapshot.* in 25.04); geen echte restore.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I02-02-05",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "tests/e2e/test_upgrade_paths.py::test_upgrade_backup_restore_and_failed_migration",
+  "blokkade": "Teststack op de echte NAS en back-ups van de overige apps nodig.",
+  "opmerking": "Alleen voor jelly-leon-platform zelf in Docker: pg_dump -Fc, pg_restore in aparte database, data teruggelezen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I23-23-01",
+  "status": "Bezig",
+  "validatie": "Sim-getest",
+  "bewijs": "commit 3adbfeb, 4e1d5d0; .github/workflows/ci.yml en release.yml; lokaal groen in wegwerp-Docker: apps/api pytest, e2e/simulators/truenas pytest, tests/e2e, tests/repo",
+  "blokkade": "",
+  "opmerking": "CI-run op GitHub Actions en een eerste release (GHCR-push) nog niet waargenomen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I23-23-02",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "tests/e2e/test_allinone_image.py::test_first_start_as_root_then_drops_to_568; install/truenas/INSTALLATIE.md",
+  "blokkade": "Echte TrueNAS-datasets en netwerk (D02/D03) nodig.",
+  "opmerking": "Security-smoke in Docker voor de lifecycle-image: alle processen uid 568 met NoNewPrivs, PostgreSQL alleen op unix-socket, geen Docker-socket. Hub/executor-images zijn van ai-server-manager.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ },
+ {
+  "id": "I23-23-07",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "tests/e2e/test_upgrade_paths.py; deploy/truenas/CUSTOM_APP.md; docs/platform-v2/TRUENAS_APP_API.md §4; docs/adr/ADR-0006-truenas-api-keuzes.md",
+  "blokkade": "Release-image en een dedicated dataset op de echte NAS nodig.",
+  "opmerking": "Image-pin, back-up vóór migratie en terugzetten getest in Docker; TrueNAS 'Roll Back' werkt niet voor image-tags van een Custom App (bron rollback.py).",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-09"
+ }
+]

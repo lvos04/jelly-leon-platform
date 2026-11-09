@@ -30,6 +30,7 @@ test = [
   "websockets==17.4",
   "pyyaml==6.0.3",
   "types-PyYAML==6.0.12.20261103",
+  "jsonschema==4.26.0",
 ]
 
 [project.scripts]
