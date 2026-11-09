@@ -55,6 +55,7 @@ jobs:
             tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py
           (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
             --exclude '/tests/')
+          MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
       - name: Tests lifecycle-dienst (unit + integratie, incl. migraties up/down/up en drift)
         working-directory: apps/api
         run: python -m pytest -q
@@ -133,10 +134,15 @@ jobs:
         env:
           STATUSPAGINA_SNAPSHOTS: ${{ runner.temp }}/statuspagina
         run: python -m pytest -q tests/integration/test_statuspage_peil.py
-      - name: Browsercontrole (axe-core, 320–1440 px, licht/donker, focus, CSP) en schermafdrukken
+      - name: Browsercontrole (axe-core, contrast tekst/UI/focus, statusregels, microcopy, 320–1440 px, licht/donker) en schermafdrukken
         run: |
           node tests/ui/controle.mjs --map "$RUNNER_TEMP/statuspagina" --shots "$RUNNER_TEMP/schermafdrukken" \
             --rapport "$RUNNER_TEMP/schermafdrukken/rapport.json"
+      - name: Live ontwerpreview (dienst als echte processen, Chromium vult het formulier zelf in)
+        run: |
+          node tests/ui/live/live.mjs --map "$RUNNER_TEMP/live" --python "$(command -v python)"
+          node tests/ui/controle.mjs --map "$RUNNER_TEMP/live" --shots "$RUNNER_TEMP/schermafdrukken/live" \
+            --shot-toestanden alle --shot-breedtes 320,1440 --rapport "$RUNNER_TEMP/schermafdrukken/rapport-live.json"
       - name: Schermafdrukken en rapport bewaren
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

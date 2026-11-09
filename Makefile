@@ -4,7 +4,7 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit peil-kopie test-ui statuspagina-shots validator-venv manifesten rooktest
+	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest
 
 venv:
 	python3.12 -m venv .venv
@@ -19,6 +19,7 @@ typecheck:
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
+	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q
@@ -55,10 +56,19 @@ test-conformance-hub:
 	$(NICE) $(PY) e2e/conformance/echte_hub.py
 
 # Peil-statuspagina (JP11). peil-kopie: versie-gepinde kopie intact (drift met ai-server-manager: make test-repo).
-# test-ui: HTML per toestand uit de echte dienst → Chromium (axe-core, 320–1440 px, licht/donker, focus, CSP).
-# statuspagina-shots: idem + schermafdrukken naar docs/screenshots/peil/statuspagina/ (bij elke release).
+# test-ui: HTML per toestand uit de echte dienst → Chromium (axe-core, gemeten contrast tekst/UI/focus, statusregels,
+#   microcopy, 320–1440 px, licht/donker, focus, tekstafstand, forced colors, CSP).
+# test-ui-live: idem, maar de dienst draait als echte processen (api + worker + Hub-simulator) en Chromium vult het
+#   formulier zelf in (docs/ontwerp/PEIL_REVIEW.md).
+# statuspagina-shots: test-ui + schermafdrukken naar docs/screenshots/peil/statuspagina/ (bij elke release).
+# ontwerpreview: test-ui-live + schermafdrukken van alle live toestanden naar docs/ontwerp/shots/.
+# PNG's worden met pngquant (palet, --quality 90-100) verkleind als dat er is; contrast meet de controle in de DOM.
 SNAP ?= /tmp/jlp-statuspagina
 SHOTS ?= docs/screenshots/peil/statuspagina
+LIVE ?= /tmp/jlp-statuspagina-live
+REVIEW ?= docs/ontwerp
+REVIEW_BREEDTES ?= 320,1440
+PNGQUANT = if command -v pngquant >/dev/null; then pngquant --quality=90-100 --speed 1 --strip --force --ext .png $(1)/*.png; fi
 
 peil-kopie:
 	$(PY) tools/peil_kopie.py controleer
@@ -70,10 +80,25 @@ test-ui:
 	$(NICE) node tests/ui/controle.mjs --map $(SNAP)
 
 statuspagina-shots:
-	rm -rf $(SNAP) $(SHOTS)
+	rm -rf $(SNAP) && rm -f $(SHOTS)/*.png
 	cd apps/api && STATUSPAGINA_SNAPSHOTS=$(SNAP) ../../$(PY) -m pytest -q tests/integration/test_statuspage_peil.py
 	test -d tests/ui/node_modules || npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
 	$(NICE) node tests/ui/controle.mjs --map $(SNAP) --shots $(SHOTS) --rapport $(SHOTS)/rapport.json
+	$(call PNGQUANT,$(SHOTS))
+
+test-ui-live:
+	test -d tests/ui/node_modules || npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
+	$(NICE) node tests/ui/live/live.mjs --map $(LIVE) --python $(abspath $(PY))
+	$(NICE) node tests/ui/controle.mjs --map $(LIVE)
+
+ontwerpreview:
+	test -d tests/ui/node_modules || npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
+	rm -rf $(REVIEW)/shots $(LIVE)
+	$(NICE) node tests/ui/live/live.mjs --map $(LIVE) --python $(abspath $(PY))
+	cp $(LIVE)/live.json $(REVIEW)/live.json
+	$(NICE) node tests/ui/controle.mjs --map $(LIVE) --shots $(REVIEW)/shots --shot-toestanden alle \
+		--shot-breedtes $(REVIEW_BREEDTES) --rapport $(REVIEW)/rapport-live.json
+	$(call PNGQUANT,$(REVIEW)/shots)
 
 # Achter een TLS-proxy: LIFECYCLE_BUILD_CA=<ca.crt> LIFECYCLE_BUILD_NETWORK=host make test-e2e
 test-e2e: image
