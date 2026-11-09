@@ -253,3 +253,32 @@ def test_every_route_requires_auth_and_kind_role_is_refused(client: Any, auth: A
             assert r.status_code == 403 and r.json()["code"] == "forbidden", (method, path, r.status_code)
             checked += 1
     assert checked >= 20
+
+
+def test_request_body_over_1_mib_is_refused_before_auth(client: Any, auth: Any) -> None:
+    """Invoervalidatie (review P0-afronding): bodies > 1 MiB → 413 in contractformaat, ook zonder Content-Length en
+    vóór de authenticatie (anders leest de app elke body volledig in het geheugen)."""
+    from lifecycle.limits import MAX_BODY_BYTES
+
+    big = b'{"app_id":"' + b"a" * (MAX_BODY_BYTES + 10) + b'"}'
+    r = client.post("/lifecycle/v1/runs", content=big, headers={"Content-Type": "application/json"})
+    assert r.status_code == 413, r.text
+    body = r.json()
+    assert set(body) == {"code", "message", "details", "trace_id"} and body["code"] == "payload_too_large"
+    assert body["details"]["max_bytes"] == MAX_BODY_BYTES and r.headers["X-Trace-Id"] == body["trace_id"]
+    uuid.UUID(body["trace_id"])
+
+    def chunks() -> Any:  # zonder Content-Length (chunked): telt tijdens het lezen
+        for _ in range(MAX_BODY_BYTES // 65536 + 2):
+            yield b"x" * 65536
+
+    r = client.post("/lifecycle/v1/runs", content=chunks(), headers={**auth("admin", idem=True),
+                                                                     "Content-Type": "application/json"})
+    assert r.status_code == 413 and r.json()["code"] == "payload_too_large", r.text
+    assert client.get("/lifecycle/v1/runs", headers=auth("viewer")).json()["items"] == []  # niets aangemaakt
+    r = client.post("/koppelen", content=chunks(), headers={"Content-Type": "application/x-www-form-urlencoded"})
+    assert r.status_code == 413
+    # net onder de grens: gewone afhandeling (hier: geen aanmelding → 401)
+    ok = b'{"reason":"' + b"a" * (MAX_BODY_BYTES - 100) + b'"}'
+    r = client.post("/lifecycle/v1/runs", content=ok, headers={"Content-Type": "application/json"})
+    assert r.status_code == 401

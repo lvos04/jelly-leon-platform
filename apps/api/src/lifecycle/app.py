@@ -22,6 +22,7 @@ from lifecycle.errors import TraceIdMiddleware, install_error_handlers
 from lifecycle.health import readiness
 from lifecycle.hublink import HubLinkService
 from lifecycle.idempotency import Idempotency
+from lifecycle.limits import BodySizeLimitMiddleware
 from lifecycle.secrets_store import SecretsError, Vault, load_identity
 from lifecycle.statuspage import AttemptLimiter
 from lifecycle.statuspage import router as status_router
@@ -114,6 +115,7 @@ def create_app(
     app.state.vault = None
     app.state.identity = None
 
+    app.add_middleware(BodySizeLimitMiddleware)  # binnen TraceIdMiddleware: 413 draagt hetzelfde trace-id
     app.add_middleware(TraceIdMiddleware)
     install_error_handlers(app)
 

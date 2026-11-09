@@ -68,7 +68,7 @@ _HTTP_CODES = {
     405: ("method_not_allowed", "Deze methode is hier niet toegestaan."),
     406: ("not_acceptable", "Dit antwoordformaat wordt niet ondersteund."),
     409: ("conflict", "Conflict met de huidige toestand."),
-    413: ("payload_too_large", "Het verzoek is te groot."),
+    413: ("payload_too_large", "Het verzoek is te groot (maximaal 1 MiB)."),
     415: ("unsupported_media_type", "Dit inhoudstype wordt niet ondersteund."),
     429: ("rate_limited", "Te veel verzoeken; probeer het later opnieuw."),
 }
@@ -104,9 +104,14 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        from lifecycle.limits import MAX_BODY_BYTES
+
         code, message = _HTTP_CODES.get(exc.status_code, ("http_error", "Verzoek mislukt."))
         headers = dict(exc.headers or {})
-        return error_response(request, ApiError(exc.status_code, code, message, {}, headers))
+        details: dict[str, Any] = {"max_bytes": MAX_BODY_BYTES} if exc.status_code == 413 else {}
+        if exc.status_code == 413:
+            headers.setdefault("Connection", "close")
+        return error_response(request, ApiError(exc.status_code, code, message, details, headers))
 
     @app.exception_handler(Exception)
     async def _unexpected(request: Request, exc: Exception) -> JSONResponse:
