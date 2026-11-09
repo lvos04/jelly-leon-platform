@@ -52,7 +52,7 @@ jobs:
         run: |
           (cd apps/api && mypy)
           mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
-            tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py
+            tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py
           (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
             --exclude '/tests/')
           MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
@@ -203,7 +203,8 @@ jobs:
     # geteste commit; alleen lezen) en deze dienst als drie "Custom Apps" (docker run: één map → /appdata, één poort,
     # zonder extra opties) tegen de TrueNAS-simulator (WSS): setupcode uit de log, beheerder, wizard, TLS-vingerafdruk,
     # metingen, executor koppelen, lifecycle koppelen, preview van Gotify als standaard Custom App. Uitvoering via de
-    # lifecycle bestaat pas in P2 (verwacht: 501 capability_unavailable). Alleen simulators; geen echte NAS.
+    # lifecycle bestaat pas in P2 (verwacht: 501 capability_unavailable). Daarna de gepinde upstream-images uit
+    # install/manifests als 568:568 met een lege map (tools/upstream_rooktest.py). Alleen Docker en simulators; geen NAS.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: test
@@ -244,11 +245,15 @@ jobs:
             --executor-image jlp-rooktest/ai-server-manager-executor:ci --lifecycle-image jlp-rooktest/jelly-leon-platform:ci \
             --validator "$RUNNER_TEMP/validator/bin/jl-manifest" --hub-commit "$ASM_COMMIT" --eigen-commit "$GITHUB_SHA" \
             --validator-commit "$(git -C "$RUNNER_TEMP/appstore" rev-parse HEAD)" --rapport "$RUNNER_TEMP/rooktest.json"
+      - name: Upstream-images als 568 met lege map (Beszel, Gotify, Uptime Kuma; digest, health, herstart)
+        run: python tools/upstream_rooktest.py --rapport "$RUNNER_TEMP/upstream-rooktest.json"
       - name: Rapport bewaren
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rooktest-p1
-          path: ${{ runner.temp }}/rooktest.json
+          path: |
+            ${{ runner.temp }}/rooktest.json
+            ${{ runner.temp }}/upstream-rooktest.json
           if-no-files-found: warn
           retention-days: 14

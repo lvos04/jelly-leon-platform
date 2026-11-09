@@ -4,7 +4,7 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest
+	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest upstream-rooktest
 
 venv:
 	python3.12 -m venv .venv
@@ -16,7 +16,7 @@ lint:
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
-		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py
+		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
 	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
@@ -138,3 +138,9 @@ rooktest: validator-venv
 		--executor-image jlp-rooktest/ai-server-manager-executor:$$cs \
 		--lifecycle-image jlp-rooktest/jelly-leon-platform:$$es --hub-commit $$c --eigen-commit $$e \
 		--validator-commit $$(git -C $(APPSTORE) rev-parse HEAD) --rapport /tmp/jlp-rooktest-rapport.json
+
+# Upstream-images uit install/manifests (Beszel hub + agent, Gotify, Uptime Kuma) op digest, als 568:568 met een lege
+# map zoals een standaard Custom App: digest-readback, health, kernroutes zoals de simulators, herstart zonder
+# dataverlies, Beszel-agent in SSH-modus met alleen de publieke hubsleutel. Docker, geen TrueNAS (Sim-getest).
+upstream-rooktest:
+	$(NICE) $(PY) tools/upstream_rooktest.py --rapport /tmp/jlp-upstream-rooktest.json
