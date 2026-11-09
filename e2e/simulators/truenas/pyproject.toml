@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "truenas-sim"
+version = "0.1.0"
+description = "TrueNAS-simulator (JSON-RPC 2.0 over WebSocket) voor tests van het TrueNAS Home Platform — geen echte TrueNAS"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.162.2",
+  "starlette==1.10.0",
+  "uvicorn==0.54.0",
+  "websockets==17.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.2.0", "httpx==0.28.1"]
+
+[project.scripts]
+truenas-sim = "truenas_sim.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

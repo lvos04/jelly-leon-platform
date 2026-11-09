@@ -1,0 +1,150 @@
+# Manifest (contract §9, B08-001 — eigenaar van de standaard: appstore-en-fork).
+# Installatie uitsluitend als standaard TrueNAS Custom App (ix-app-waarden); een compose-veld is verboden.
+# De digest van eigen GHCR-images vult de release-CI in (release/digests.json); tot dan null = nog niet uitgebracht.
+manifest_version: "1"
+app_id: jelly-leon-platform
+name: Jelly Leon Platform — lifecycle
+owner_repo: lvos04/jelly-leon-platform
+category: platform
+description_nl: >-
+  Lifecycle-dienst van het TrueNAS Home Platform: plant en registreert installatie, updates, terugzetten,
+  verwijderen en verhuizen van platform-apps. Fase P0: datamodel, API en connector; uitvoering volgt in P2.
+version: 0.1.0
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/jelly-leon-platform
+  tag: 0.1.0
+  digest: null
+custom_app:
+  ports:
+    - name: api
+      container_port: 30440
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: API, connector en statuspagina
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+      read_only: false
+  env:
+    - name: HUB_URL
+      value_from: {param: hub_url}
+    - name: HUB_ENROLLMENT_TOKEN
+      value_from: {param: enrollment_token}
+  resources:
+    cpus: 1
+    memory_mib: 512
+  gpu: none
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: api
+    scheme: http
+    path: /
+    name: Status
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30440
+    required: true
+    description_nl: Hostpoort; de Hub controleert vooraf op conflicten (app.used_ports).
+  - name: appdata_path
+    type: dataset
+    source: dataset_picker
+    dataset_role: appdata
+    required: true
+    decision: D02
+    description_nl: Dataset voor /appdata (database, geheimen, back-ups); gekozen in de datasetkiezer.
+  - name: hub_url
+    type: url
+    source: wizard
+    required: true
+    decision: D03
+    description_nl: Adres van de Hub (http://<NAS-adres>:30400), uit de onboarding-wizard.
+  - name: enrollment_token
+    type: string
+    source: generated
+    required: false
+    description_nl: Eenmalig enrollment-token van de Hub (vervalt na 60 min of na gebruik; niet geheim).
+  - name: rpo
+    type: duration
+    source: wizard
+    required: true
+    decision: D16
+    description_nl: Maximaal toelaatbaar dataverlies (RPO), door de gebruiker gekozen.
+  - name: rto
+    type: duration
+    source: wizard
+    required: true
+    decision: D16
+    description_nl: Maximaal toelaatbare hersteltijd (RTO), door de gebruiker gekozen.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS (de app rekent intern in UTC).
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: config
+    required_dataset_role: appdata
+    description_nl: ingebouwde PostgreSQL, /appdata/secrets en /appdata/backups
+network:
+  ports:
+    - name: api
+      container_port: 30440
+      host_port: {param: host_port}
+      protocol: tcp
+  host_network: false
+  host_network_reason: null
+  joins_platform_network: false
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: builtin
+backup:
+  db_export:
+    method: pg_dump
+    description_nl: pg_dump vóór elke migratie in /appdata/backups; ZFS-snapshot van de dataset aanvullend.
+  snapshot_datasets: [appdata]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: ai-server-manager
+    kind: required
+    reason_nl: Hub voor enrollment, JWKS en gebruikersrollen; zonder Hub weigert de API alles (fail-closed).
+  - app_id: ai-server-manager-executor
+    kind: optional
+    reason_nl: Uitvoering op de NAS (vanaf P2) loopt uitsluitend via de executor.
+sso: none
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Migraties draaien in één transactie; mislukt er één, dan blijft het schema op de vorige versie. Na een geslaagde
+    migratie is alleen de tag terugzetten niet veilig: eerst de voor-upgrade-dump of snapshot herstellen.
+decisions_required: [D01, D02, D03, D16]
+docs: [B08, I23, I01]
+validation_status: sim_tested
+compatibility:
+  truenas_min_version: "25.04"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/lvos04/jelly-leon-platform
+  source_commit: null
+  upstream_repo: null
+  license: null

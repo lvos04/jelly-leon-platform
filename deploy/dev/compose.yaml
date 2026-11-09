@@ -1,0 +1,42 @@
+# ALLEEN VOOR ONTWIKKELING EN CI — dit is GEEN installatiemethode.
+# Op TrueNAS wordt jelly-leon-platform uitsluitend als standaard Custom App geïnstalleerd (formulier of door de Hub
+# via de TrueNAS-API met ix-app-waarden); zie deploy/truenas/CUSTOM_APP.md. Nooit 'Install via YAML'.
+#
+#   docker compose -f deploy/dev/compose.yaml up --build
+#
+# Diensten: de alles-in-één image (lokaal gebouwd), de Hub-simulator en de TrueNAS-simulator.
+name: jlp-dev
+services:
+  lifecycle:
+    build:
+      context: ../..
+      dockerfile: deploy/allinone/Dockerfile
+    image: jelly-leon-platform:dev
+    ports:
+      - "127.0.0.1:30440:30440"
+    environment:
+      HUB_URL: http://hub-sim:30499
+      HUB_ENROLLMENT_TOKEN: dev-enrollment-token-0001
+    volumes:
+      - lifecycle-appdata:/appdata
+    depends_on:
+      hub-sim:
+        condition: service_started
+  hub-sim:
+    image: jelly-leon-platform:dev
+    entrypoint: ["python", "/sim/hub_sim.py", "--host", "0.0.0.0", "--port", "30499",
+                 "--grant", "token:jelly-leon-platform:dev-enrollment-token-0001"]
+    volumes:
+      - ../../e2e/simulators/hub:/sim:ro
+    ports:
+      - "127.0.0.1:30499:30499"
+  truenas-sim:
+    build:
+      context: ../../e2e/simulators/truenas
+    image: jlp-truenas-sim:dev
+    environment:
+      TRUENAS_SIM_VERSION: "25.10.8"
+    ports:
+      - "127.0.0.1:30498:8080"
+volumes:
+  lifecycle-appdata:

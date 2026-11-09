@@ -168,8 +168,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Hub-simulator (alleen test)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=30499)
+    parser.add_argument("--grant", action="append", default=[], help="kind:app_id:geheim (herhaalbaar), alleen test")
     args = parser.parse_args()
-    uvicorn.run(create_hub_app(), host=args.host, port=args.port, log_level="warning")
+    state = HubState()
+    for grant in args.grant:
+        kind, app_id, secret = grant.split(":", 2)
+        state.add_grant(kind, app_id, secret)
+    uvicorn.run(create_hub_app(state), host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":
