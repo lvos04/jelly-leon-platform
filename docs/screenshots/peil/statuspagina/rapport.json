@@ -1,0 +1,137 @@
+{
+ "chromium": "158.0.8127.18",
+ "playwright": "1.65.0",
+ "axe_core": "4.14.0",
+ "axe_tags": [
+  "wcag2a",
+  "wcag2aa",
+  "wcag21a",
+  "wcag21aa",
+  "wcag22aa"
+ ],
+ "breedtes": [
+  320,
+  360,
+  390,
+  768,
+  1024,
+  1440
+ ],
+ "themas": [
+  "licht",
+  "donker"
+ ],
+ "toestanden": {
+  "beperkt": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 4,
+    "licht-1440": 4,
+    "donker-390": 4,
+    "donker-1440": 4
+   }
+  },
+  "gekoppeld": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 4,
+    "licht-1440": 4,
+    "donker-390": 4,
+    "donker-1440": 4
+   }
+  },
+  "ingetrokken": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 3,
+    "licht-1440": 3,
+    "donker-390": 3,
+    "donker-1440": 3
+   }
+  },
+  "koppelen-bezig": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 7,
+    "licht-1440": 7,
+    "donker-390": 7,
+    "donker-1440": 7
+   }
+  },
+  "koppelen-invoer-ongeldig": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 7,
+    "licht-1440": 7,
+    "donker-390": 7,
+    "donker-1440": 7
+   }
+  },
+  "koppelen-mislukt": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 8,
+    "licht-1440": 8,
+    "donker-390": 8,
+    "donker-1440": 8
+   }
+  },
+  "niet-gekoppeld": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 7,
+    "licht-1440": 7,
+    "donker-390": 7,
+    "donker-1440": 7
+   }
+  },
+  "niet-gereed": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 7,
+    "licht-1440": 7,
+    "donker-390": 7,
+    "donker-1440": 7
+   }
+  },
+  "onleesbaar": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 3,
+    "licht-1440": 3,
+    "donker-390": 3,
+    "donker-1440": 3
+   }
+  },
+  "ontkoppeld": {
+   "axe": 0,
+   "overloop_320": 0,
+   "fouten": [],
+   "tab": {
+    "licht-390": 3,
+    "licht-1440": 3,
+    "donker-390": 3,
+    "donker-1440": 3
+   }
+  }
+ },
+ "fouten": 0
+}
