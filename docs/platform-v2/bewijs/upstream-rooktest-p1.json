@@ -1,0 +1,140 @@
+{
+  "soort": "rooktest upstream-images als standaard Custom App (P1: I07, I08, I13)",
+  "gestart": "2026-11-09T19:26:58Z",
+  "klaar": "2026-11-09T19:28:31Z",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges",
+  "images": {
+    "beszel-hub": "ghcr.io/henrygd/beszel/beszel:0.21.1@sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770",
+    "beszel-agent": "ghcr.io/henrygd/beszel/beszel-agent:0.21.1@sha256:cb6868012964d7a68debaa2c84bb72285e5f08531e81f506bd4c493bf052e41c",
+    "gotify": "ghcr.io/gotify/server:3.1.1@sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86",
+    "uptime-kuma": "ghcr.io/louislam/uptime-kuma:2.5.9@sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd"
+  },
+  "uitkomst": "geslaagd",
+  "stappen": [
+    {
+      "id": "B1",
+      "titel": "Beszel hub: als 568 met lege map; health, first-run, eerste gebruiker, lijst zonder token leeg (zoals e2e/simulators/beszel)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "digest": "sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770",
+        "readback_klopt": true,
+        "tweede_create_user": {
+          "http": 403,
+          "body": {
+            "err": "Forbidden"
+          }
+        },
+        "processen_uid": [
+          "568"
+        ]
+      }
+    },
+    {
+      "id": "B2",
+      "titel": "Beszel hub: aanmelden, publieke sleutel (/api/beszel/info), herstart zonder dataverlies",
+      "uitkomst": "geslaagd",
+      "details": {
+        "na_herstart": "gebruiker bestaat nog (firstRun false)"
+      }
+    },
+    {
+      "id": "B3",
+      "titel": "Beszel agent: als 568, SSH-modus met alleen de publieke hubsleutel; hub haalt metingen op; herstart van de agent geeft geen dubbele host",
+      "uitkomst": "geslaagd",
+      "details": {
+        "digest": "sha256:cb6868012964d7a68debaa2c84bb72285e5f08531e81f506bd4c493bf052e41c",
+        "readback_klopt": true,
+        "ssh_banner": "SSH-2.0-beszel_0.21.1",
+        "processen_uid": [
+          "568"
+        ],
+        "systeem": {
+          "status": "up",
+          "info_velden": [
+            "bb",
+            "cpu",
+            "ct",
+            "dp",
+            "dt",
+            "la",
+            "mp",
+            "t",
+            "u",
+            "v"
+          ],
+          "versie_agent": "0.21.1"
+        },
+        "meting": {
+          "type": "1m",
+          "velden": [
+            "cpu",
+            "cpub",
+            "cpus",
+            "d",
+            "dp",
+            "du",
+            "la",
+            "m",
+            "mb",
+            "mem",
+            "mp",
+            "mu",
+            "ni",
+            "s",
+            "su",
+            "swap",
+            "t"
+          ],
+          "arc_zichtbaar": false
+        },
+        "agentmap_na_start": [],
+        "herverbonden_na_s": 60,
+        "na_herstart": {
+          "systemen": 1,
+          "status": "up"
+        }
+      }
+    },
+    {
+      "id": "G1",
+      "titel": "Gotify: als 568 met lege map; health, versie, eerste-gebruik-venster admin/admin, applicatietoken, foutvormen (zoals e2e/simulators/gotify), herstart zonder dataverlies",
+      "uitkomst": "geslaagd",
+      "details": {
+        "digest": "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86",
+        "readback_klopt": true,
+        "admin_admin_na_installatie": 200,
+        "processen_uid": [
+          "568"
+        ],
+        "na_herstart": {
+          "applicaties": [
+            "hub"
+          ],
+          "berichten": 1
+        }
+      }
+    },
+    {
+      "id": "U1",
+      "titel": "Uptime Kuma: als 568 met lege map; entry-page, /metrics alleen met aanmelding, statuspagina- en pushfouten (zoals e2e/simulators/uptime_kuma), herstart zonder dataverlies",
+      "uitkomst": "geslaagd",
+      "details": {
+        "digest": "sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd",
+        "readback_klopt": true,
+        "processen_uid": [
+          "568"
+        ],
+        "datamap": [
+          "db-config.json",
+          "docker-tls",
+          "kuma.db",
+          "kuma.db-shm",
+          "kuma.db-wal",
+          "screenshots",
+          "upload"
+        ]
+      }
+    }
+  ]
+}

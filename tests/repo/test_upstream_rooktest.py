@@ -45,3 +45,21 @@ def test_report_guard_recognises_secrets() -> None:
     assert ur.GEHEIM_RE.search("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA")
     assert ur.GEHEIM_RE.search('"token": "eyJhbGciOiJIUzI1NiJ9.eyJ"')
     assert not ur.GEHEIM_RE.search('{"digest": "sha256:8514a69d", "readback_klopt": true}')
+
+
+def test_saved_report_is_complete_and_honest() -> None:
+    """Bewaard rapport (``docs/platform-v2/bewijs/upstream-rooktest-p1.json``) is bewijs in EVIDENCE.json."""
+    import json
+
+    r = json.loads((ROOT / "docs/platform-v2/bewijs/upstream-rooktest-p1.json").read_text(encoding="utf-8"))
+    assert r["uitkomst"] == "geslaagd" and r["validatie"] == "Sim-getest; NIET GEVALIDEERD (echte NAS)"
+    assert "geen TrueNAS" in r["omgeving"]
+    stappen = {s["id"]: s for s in r["stappen"]}
+    assert list(stappen) == ["B1", "B2", "B3", "G1", "U1"]
+    assert {s["uitkomst"] for s in stappen.values()} == {"geslaagd"}
+    for sid in ("B1", "B3", "G1", "U1"):
+        assert stappen[sid]["details"]["processen_uid"] == ["568"] and stappen[sid]["details"]["readback_klopt"]
+    assert stappen["B3"]["details"]["na_herstart"] == {"systemen": 1, "status": "up"}
+    for app_id, image in r["images"].items():  # het rapport hoort bij de huidige manifesten
+        assert image == ur.App.uit_manifest(app_id, {"KEY": "x"}).image
+    assert not ur.GEHEIM_RE.search(json.dumps(r))
