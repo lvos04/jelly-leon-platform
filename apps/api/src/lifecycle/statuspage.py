@@ -30,7 +30,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from lifecycle import APP_ID, __version__
 from lifecycle.config import ConfigError, normalize_hub_url
-from lifecycle.enrollment import EnrollmentError, HubSignals, confirm, enroll_once, mark_failed
+from lifecycle.enrollment import (
+    EnrollmentError,
+    HubSignals,
+    PairingRefused,
+    confirm,
+    enroll_once,
+    mark_failed,
+    sha256_hex,
+)
 from lifecycle.health import collect_health
 from lifecycle.hublink import ERROR_MESSAGES_NL, HubLinkCorrupt, Link
 from lifecycle.keys import normalize_fingerprint, normalize_pairing_code
@@ -262,8 +270,10 @@ def pair(
             confirmed = confirm(state.hub_link, client, HubSignals())
     except EnrollmentError as exc:
         if not exc.final:  # de gebruiker wacht: niet op de achtergrond doorproberen, adres niet bewaren
-            mark_failed(state.hub_link, exc.code, env_token_sha=None)
+            mark_failed(state.hub_link, exc.code, env_token_sha=None, secret_sha=sha256_hex(code))
         return _render(request, _alert(ERROR_MESSAGES_NL[exc.code]), 400)
+    except PairingRefused as exc:  # onder de vergrendeling vastgesteld: intussen gekoppeld of een andere poging
+        return _render(request, _alert(MSG["ever_linked"] if exc.reason == "ever_linked" else MSG["pending"]), 409)
     except HubLinkCorrupt:
         return _render(request, _alert(MSG["corrupt"]), 409)
     if confirmed == "ingetrokken":  # de Hub kent het nieuwe token al niet meer (bijv. een herhaald verzoek)

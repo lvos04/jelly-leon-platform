@@ -196,6 +196,27 @@ def test_stops_60_minutes_after_first_attempt(clean_db: str, data_dir: Path, hub
     assert sim.calls["enroll"] == 0
 
 
+def test_stops_60_minutes_after_first_attempt_also_with_unreadable_hub_link(
+    clean_db: str, data_dir: Path, hub: Any
+) -> None:
+    """Review: met een onleesbaar hub-link.json kan ``pending`` niet worden vastgelegd; de 60-minutengrens gold dan
+    nooit (eindeloos opnieuw proberen). Nu telt de eerste poging in het geheugen."""
+    sim = hub.state.sim
+    store = HubLinkStore(data_dir / "secrets")
+    store.path.write_text("kapot")
+    sim.faults.add("enroll_down")
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"
+    sha = worker.env.token_sha
+    assert sha is not None and sha in worker.env.first_attempt
+    worker.env.first_attempt[sha] -= timedelta(minutes=61)
+    worker.env.next_at = 0
+    calls = sim.calls["enroll"]
+    assert worker.tick()["enrollment"] == "mislukt:token_verlopen_na_60_min"
+    assert worker.tick()["enrollment"] == "niet_nodig" and sim.calls["enroll"] == calls
+    assert store.read().corrupt  # niets vervangen zonder geslaagde koppeling
+
+
 def test_relink_with_new_env_token_replaces_and_failed_relink_keeps_link(
     clean_db: str, data_dir: Path, hub: Any
 ) -> None:
@@ -300,7 +321,7 @@ def test_only_env_token_may_replace_a_corrupt_file(clean_db: str, data_dir: Path
         enroll_once(store, client, load_identity(data_dir / "secrets"), Settings(data_dir=data_dir),
                     kind="koppelcode", secret=sim.add_grant("koppelcode", APP), hub_url="http://hub.test",
                     expected_fingerprint=None)
-    assert store.read().corrupt
+    assert store.read().corrupt and sim.calls["enroll"] == 0  # geweigerd vóór de Hub: de code blijft geldig
     worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
     assert worker.tick()["enrollment"] == "gekoppeld" and store.read().linked
     assert [p for p in (data_dir / "secrets").iterdir() if p.name.startswith("hub-link.json.beschadigd-")]

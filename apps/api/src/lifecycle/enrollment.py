@@ -85,6 +85,16 @@ class EnrollmentError(Exception):
         self.detail = detail
 
 
+class PairingRefused(Exception):
+    """Koppelen met een koppelcode mag niet (meer): de dienst is al eens gekoppeld (``ever_linked``) of er loopt al een
+    poging (``pending``). Wordt **onder de vergrendeling** vastgesteld, zodat een gelijktijdige koppeling (bijv. het
+    env-token in de worker) niet door een koppelcode-poging kan worden overschreven (§3.7)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 @dataclass(frozen=True)
 class EnrollResult:
     service_id: str
@@ -194,8 +204,20 @@ def _persist(store: HubLinkStore, change: Callable[[dict[str, Any]], None]) -> N
 
 
 def mark_pending(store: HubLinkStore, *, kind: str, secret_sha: str, hub_url: str) -> None:
+    """Schrijf ``pending`` vóór het verzoek naar de Hub (§3.6 stap 2).
+
+    Koppelcode (statuspagina): alleen als de dienst nog nooit gekoppeld is en er geen andere poging loopt — onder de
+    vergrendeling vastgesteld (``PairingRefused``); een onleesbaar bestand geeft ``HubLinkCorrupt`` (nooit stil
+    doorgaan). Env-token: mag altijd (§3.8) en vervangt een lopende andere poging."""
+    exclusive = kind == "koppelcode"
+
     def change(doc: dict[str, Any]) -> None:
         pending = doc.get("pending")
+        if exclusive:
+            if doc.get("first_linked_at"):
+                raise PairingRefused("ever_linked")
+            if pending is not None:
+                raise PairingRefused("pending")
         if isinstance(pending, dict) and pending.get("secret_sha256") == secret_sha and pending.get("kind") == kind:
             pending["attempts"] = int(pending.get("attempts", 0)) + 1
             pending["hub_url"] = hub_url
@@ -203,15 +225,21 @@ def mark_pending(store: HubLinkStore, *, kind: str, secret_sha: str, hub_url: st
             doc["pending"] = {"kind": kind, "secret_sha256": secret_sha, "hub_url": hub_url,
                               "started_at": now_iso(), "attempts": 1}
 
-    _persist(store, change)
+    if exclusive:
+        store.update(change)
+    else:
+        _persist(store, change)
 
 
-def mark_failed(store: HubLinkStore, code: str, *, env_token_sha: str | None) -> None:
-    """Definitief mislukt: ``pending`` weg (ook het ingevulde Hub-adres), ``last_error``, env-token als afgehandeld.
-    ``state``, token en pins blijven zoals ze waren."""
+def mark_failed(store: HubLinkStore, code: str, *, env_token_sha: str | None, secret_sha: str | None = None) -> None:
+    """Definitief mislukt: ``pending`` van **deze** poging weg (ook het ingevulde Hub-adres), ``last_error``, env-token
+    als afgehandeld. ``state``, token en pins blijven zoals ze waren. Een intussen gestarte andere poging (andere
+    ``secret_sha256``) blijft staan."""
 
     def change(doc: dict[str, Any]) -> None:
-        doc["pending"] = None
+        pending = doc.get("pending")
+        if secret_sha is None or not isinstance(pending, dict) or pending.get("secret_sha256") == secret_sha:
+            doc["pending"] = None
         set_error(doc, code)
         if env_token_sha:
             add_used_token(doc, env_token_sha)
@@ -230,6 +258,9 @@ def store_success(store: HubLinkStore, result: EnrollResult, *, hub_url: str, vi
     source = "enroll"
 
     def change(doc: dict[str, Any]) -> None:
+        if via == "koppelcode" and doc.get("first_linked_at"):
+            # §3.7: intussen gekoppeld (bijv. env-token in de worker) → een koppelcode overschrijft dat nooit
+            raise PairingRefused("ever_linked")
         if doc.get("pins"):
             doc["previous_pins"] = doc["pins"]
         doc.update(
@@ -269,10 +300,16 @@ def enroll_once(
                              expected_fingerprint=expected_fingerprint)
     except EnrollmentError as exc:
         if exc.final:
-            mark_failed(store, exc.code, env_token_sha=env_sha)
+            mark_failed(store, exc.code, env_token_sha=env_sha, secret_sha=secret_sha)
         log.warning("koppelen mislukt: %s (%s, definitief: %s)", exc.code, exc.detail, exc.final)
         raise
-    store_success(store, result, hub_url=hub_url, via=kind, env_token_sha=env_sha)
+    try:
+        store_success(store, result, hub_url=hub_url, via=kind, env_token_sha=env_sha)
+    except PairingRefused:
+        _persist(store, lambda doc: doc.update(pending=None) if (doc.get("pending") or {}).get("secret_sha256")
+                 == secret_sha else None)
+        log.warning("koppelcode-poging niet opgeslagen: de dienst is intussen al gekoppeld")
+        raise
     log.info("gekoppeld met de Hub (via %s%s)", kind, ", herhaling" if result.replayed else "")
     return result
 
@@ -411,6 +448,9 @@ class EnvEnrollment:
         self.next_at = 0.0
         self.backoff = BACKOFF_START_S
         self.failed_here: set[str] = set()  # alleen als hub-link.json onleesbaar is (dan kan de hash er niet in)
+        # eerste poging per token in het geheugen: de 60-minutengrens geldt ook als ``pending`` niet in hub-link.json
+        # kan staan (onleesbaar bestand); normaal telt ``pending.started_at`` (blijft over herstarts bewaard)
+        self.first_attempt: dict[str, datetime] = {}
 
     @property
     def token_sha(self) -> str | None:
@@ -447,15 +487,17 @@ class EnvEnrollment:
         token, hub_url, sha = self.settings.enrollment_token, self.settings.hub_url, self.token_sha
         assert token and hub_url and sha
         if not ENR_TOKEN_RE.fullmatch(token):
-            mark_failed(self.store, "token_formaat_ongeldig", env_token_sha=sha)
+            mark_failed(self.store, "token_formaat_ongeldig", env_token_sha=sha, secret_sha=sha)
             self._remember_failure(sha)
             return "mislukt:token_formaat_ongeldig"
         pending = link.pending
         started = _parse_iso(pending.get("started_at")) if pending and pending.get("secret_sha256") == sha else None
+        started = started or self.first_attempt.get(sha)
         if started is not None and utcnow() - started > ENROLL_WINDOW:
-            mark_failed(self.store, "token_verlopen_na_60_min", env_token_sha=sha)
+            mark_failed(self.store, "token_verlopen_na_60_min", env_token_sha=sha, secret_sha=sha)
             self._remember_failure(sha)
             return "mislukt:token_verlopen_na_60_min"
+        self.first_attempt.setdefault(sha, utcnow())
         try:
             with client_factory() as client:
                 enroll_once(self.store, client, identity_loader(), self.settings, kind="token", secret=token,

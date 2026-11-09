@@ -184,7 +184,7 @@ def test_foreign_hub_cannot_get_trusted_without_its_fingerprint(clean_db: str, d
     """Regressie ADR-0009 + pinning: een vreemde 'Hub' die elke code accepteert, wordt niet vertrouwd zonder dat de
     gebruiker diens vingerafdruk invoert; een JWT van die server geeft nooit toegang."""
     evil_state = HubState()
-    evil_state.add_grant("koppelcode", APP, "WILL-EKEU-RIG1")
+    evil_state.add_grant("koppelcode", APP, "EV1L-4B0D-C0DE")
     evil = create_hub_app(evil_state)
     targets = {"hub.test": hub, "evil.test": evil}
 
@@ -201,9 +201,11 @@ def test_foreign_hub_cannot_get_trusted_without_its_fingerprint(clean_db: str, d
     with TestClient(create_app(settings, http_client_factory=factory), base_url=BASE, headers=ORIGIN) as c:
         token = csrf(c.get("/").text)
         # de gebruiker typt de vingerafdruk van de echte Hub; de vreemde server levert andere sleutels → geweigerd
-        r = c.post("/koppelen", data=form("WILL-EKEU-RIG1", hub.state.sim.keyset_fingerprint(), token,
+        r = c.post("/koppelen", data=form("EV1L-4B0D-C0DE", hub.state.sim.keyset_fingerprint(), token,
                                           hub_url="http://evil.test"))
-        assert r.status_code == 400 and "vingerafdruk" in r.text
+        # (review: eerder slaagde dit al op de lokale controle van de code; nu echt bij de vreemde server geweigerd)
+        assert r.status_code == 400 and "De vingerafdruk van de Hub-sleutels klopt niet" in r.text, r.text
+        assert evil_state.calls["enroll"] == 1
         evil_jwt = evil_state.mint("aanvaller", ["admin"], APP)
         r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
         assert r.status_code == 401 and r.json()["details"]["reason"] == "not_linked"
@@ -222,3 +224,86 @@ def test_body_limit_also_on_the_form(make_app: Any) -> None:
         r = c.post("/koppelen", content=b"x" * (1024 * 1024 + 1),
                    headers={"Content-Type": "application/x-www-form-urlencoded"})
         assert r.status_code == 413 and r.json()["code"] == "payload_too_large"
+
+
+def test_pairing_that_finishes_after_another_link_never_overwrites_it(clean_db: str, data_dir: Path,
+                                                                      hub: Any) -> None:
+    """Review (wedloop, §3.7): de controle "nog nooit gekoppeld" gebeurde alleen vóór het verzoek naar de Hub. Een
+    aanvaller op het LAN start een koppelcode-poging naar zijn eigen "Hub" en antwoordt pas nadat de echte koppeling
+    (env-token in de worker) is opgeslagen; zijn antwoord overschreef dan token en pins. Nu wordt dat onder de
+    vergrendeling geweigerd: de echte koppeling blijft, een JWT van de vreemde server geeft nooit toegang."""
+    from conftest import link_with_hub
+
+    evil_state = HubState()
+    evil_state.add_grant("koppelcode", APP, "EV1L-4B0D-C0DE")
+    evil = create_hub_app(evil_state)
+
+    def factory() -> httpx.Client:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.host == "evil.test" and request.url.path == "/api/v1/services/enroll":
+                link_with_hub(data_dir, hub.state.sim)  # intussen: de echte koppeling (worker, env-token) is klaar
+            target = evil if request.url.host == "evil.test" else hub
+            with TestClient(target, base_url=f"http://{request.url.host}") as tc:
+                r = tc.request(request.method, str(request.url), content=request.content,
+                               headers=dict(request.headers))
+                return httpx.Response(r.status_code, content=r.content, headers=r.headers)
+
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    settings = Settings(data_dir=data_dir, database_url=clean_db)
+    with TestClient(create_app(settings, http_client_factory=factory), base_url=BASE, headers=ORIGIN) as c:
+        token = csrf(c.get("/").text)
+        r = c.post("/koppelen", data=form("EV1L-4B0D-C0DE", evil_state.keyset_fingerprint(), token,
+                                          hub_url="http://evil.test"), follow_redirects=False)
+        assert r.status_code == 409 and "al eens gekoppeld" in r.text, r.text
+        assert evil_state.calls["enroll"] == 1  # de vreemde server antwoordde wél met geldige sleutels
+        doc = file_doc(data_dir)
+        assert doc["state"] == "gekoppeld" and doc["hub_url"] == "http://hub.test" and doc["via"] == "koppelcode"
+        assert doc["pins"]["keyset_fingerprint"] == hub.state.sim.keyset_fingerprint() and doc["pending"] is None
+        assert "evil.test" not in json.dumps(doc)
+        evil_jwt = evil_state.mint("aanvaller", ["admin"], APP)
+        r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})
+        # zelfde kid-naam, andere sleutel → handtekening ongeldig; andere kid → unknown_key
+        assert r.status_code == 401 and r.json()["details"]["reason"] in {"unknown_key", "invalid_token"}
+        good = hub.state.sim.mint("beheerder", ["admin"], APP)
+        assert c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {good}"}).status_code == 200
+
+
+def test_second_pairing_attempt_while_one_is_pending_is_refused_under_the_lock(data_dir: Path, hub: Any) -> None:
+    """Twee gelijktijdige formulierposts: de tweede ziet (onder de vergrendeling) de lopende poging en gaat nooit
+    naar de Hub; een env-token mag wel (§3.8) en vervangt de lopende poging."""
+    import pytest
+
+    from lifecycle.enrollment import PairingRefused, mark_pending
+
+    store = HubLinkStore(data_dir / "secrets")
+    mark_pending(store, kind="koppelcode", secret_sha="a" * 64, hub_url="http://hub.test")
+    with pytest.raises(PairingRefused) as exc:
+        mark_pending(store, kind="koppelcode", secret_sha="b" * 64, hub_url="http://evil.test")
+    assert exc.value.reason == "pending" and store.read().pending["secret_sha256"] == "a" * 64
+    mark_pending(store, kind="token", secret_sha="c" * 64, hub_url="http://hub.test")
+    assert store.read().pending["kind"] == "token"
+    store.update(lambda d: d.update(pending=None, first_linked_at="2026-11-09T12:00:00Z"))
+    with pytest.raises(PairingRefused) as exc:
+        mark_pending(store, kind="koppelcode", secret_sha="d" * 64, hub_url="http://hub.test")
+    assert exc.value.reason == "ever_linked" and store.read().pending is None
+
+
+def test_no_pairing_form_after_unlink_and_post_is_refused_without_hub_call(make_app: Any, hub: Any,
+                                                                           auth: Any) -> None:
+    """Na de eerste koppeling (ook na ontkoppelen door de Hub) nooit meer koppelen via de statuspagina."""
+    import uuid
+
+    sim = hub.state.sim
+    with TestClient(make_app(), base_url=BASE, headers=ORIGIN) as c:
+        r = c.post("/connector/v1/hub-link/unlink", headers=auth("admin", idem=True))
+        assert r.status_code == 200 and r.json()["state"] == "ontkoppeld"
+        page = c.get("/")
+        assert 'name="csrf"' not in page.text and "via de Hub" in page.text
+        csrf_cookie = c.cookies.get("jlp_csrf")
+        token = csrf_cookie or str(uuid.uuid4())
+        code = sim.add_grant("koppelcode", APP)
+        calls = sim.calls["enroll"]
+        r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), token))
+        assert r.status_code == 409 and "via de Hub" in r.text
+        assert sim.calls["enroll"] == calls
