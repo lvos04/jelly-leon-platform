@@ -143,8 +143,20 @@ zelf aan: ze controleren de vingerafdruk, pinnen de Hub-sleutels en bevestigen d
 toch met de hand, vul dan diezelfde drie waarden uit de Hub-UI in het formulier in (geen wedloop); de koppelcode op de
 statuspagina van de app werkt alleen zolang die app nog nooit gekoppeld is.
 
-> In fase P0 bestaat dit installatieplan nog niet: `jelly-leon-platform` antwoordt `capability_unavailable` en voert
-> niets uit (B08-003/B08-004/B08-006 volgen in P2).
+> **Stand P1:** de manifesten per app staan in `install/manifests/` (Beszel, Uptime Kuma, Gotify, Authentik; overzicht
+> en verplichte stappen na installatie in `install/manifests/README.md`). Het plan/de preview (formulierwaarden met
+> tag `<versie>@sha256:…`, conflictcontrole) is tegen de TrueNAS-simulator getest; **uitvoeren** via de lifecycle en
+> de executor bestaat pas in P2: `jelly-leon-platform` antwoordt tot dan `capability_unavailable` en voert niets uit.
+
+## Rooktest van deze stappen (zonder NAS)
+
+`tools/rooktest.py` (`make rooktest`, CI-job `rooktest`) speelt stap 3–5 na met lokaal gebouwde images en de
+TrueNAS-simulator: elke app als één container met één map → `/appdata` en één poort, zonder extra rechten (zoals het
+formulier); setupcode uit de log; eerste beheerder; wizard met NAS-adres, alleen-lezen-key en het **bevestigen van de
+TLS-vingerafdruk** (een verkeerde wordt geweigerd); metingen; executor koppelen met koppelcode + vingerafdruk; een
+eigen dienst koppelen met `HUB_URL` + `HUB_ENROLLMENT_TOKEN` + `HUB_KEY_FINGERPRINT`. Uitkomst:
+`docs/platform-v2/bewijs/rooktest-p1.json` — **Sim-getest**; de echte TrueNAS-web-UI is daarbij niet gebruikt
+(**NIET GEVALIDEERD (echte NAS)**).
 
 ## Wat als het misgaat
 

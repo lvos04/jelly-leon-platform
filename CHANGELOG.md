@@ -110,3 +110,28 @@
   licht/donker in `docs/screenshots/peil/statuspagina/`.
 - Niet gedaan: echte schermlezer, echte telefoon/tablet, ontwerpreview door de design-agent. Op een echte TrueNAS:
   **NIET GEVALIDEERD**.
+
+## Fase P1 — manifesten, controlelijsten, simulators en installatie-rooktest (ADR-0014…0016)
+
+- **Manifesten** (`install/manifests/`, contract 1.2 §9): Beszel hub + agent (0.21.1), Uptime Kuma (2.5.9) en Gotify
+  (3.1.1) als standaard Custom App met één upstream-image op index-digest, als 568:568, zonder host network,
+  Docker-socket of GPU; Authentik als catalogusapp `community/authentik` 1.3.64 (2026.8.5) met vaste versie,
+  datasets uit de datasetkiezer en door de Hub gegenereerde geheimen; I23 (Hub + executor) als versie-gepinde kopie
+  van ai-server-manager met drift-controle. `tools/manifesten.py` valideert alles met `jl-manifest validate --strict`
+  van appstore-en-fork; vijf waarschuwingen blijven bewust en beredeneerd (`validatie-uitzonderingen.yaml`, exact
+  bewaakt). Meetdekking van Beszel in een container: `install/manifests/BESZEL_MEETDEKKING.md`.
+- **Controlelijsten I01/I02** (`install/checklists/`, eigen formaat `checklist v1` + JSON Schema): precies de
+  Excel-taken, alleen-lezen-methoden per TrueNAS-versie, geen terminal (GPU via `app.gpu_choices`), eerlijke validatie
+  per stap; elke methode getest tegen de TrueNAS-simulator met de alleen-lezen-key.
+- **Simulators** Beszel, Uptime Kuma, Gotify en Authentik (OIDC + beheer-API) in `e2e/simulators/` met gedeelde
+  testbediening en foutinjectie (`simkit`), protocol per README, 40 tests.
+- **TrueNAS-simulator**: catalogus naar `truenas/apps` `f7a38eb` (authentik 1.3.64, immich 1.14.63 — de oude versies
+  zijn verdwenen) en optioneel HTTPS/WSS.
+- **Installatie-rooktest zonder YAML** (`tools/rooktest.py`, `make rooktest`, CI-job `rooktest`): Hub en executor uit
+  ai-server-manager als twee Custom Apps (één map, één poort, geen extra opties), setupcode uit de log, beheerder,
+  wizard met TLS-vingerafdruk tegen de TrueNAS-simulator, metingen, executor koppelen, lifecycle-dienst koppelen met
+  `HUB_*`, preview van Gotify als standaard Custom App; uitvoering via de lifecycle eerlijk `capability_unavailable`
+  (P2). Lokaal geslaagd: `docs/platform-v2/bewijs/rooktest-p1.json`.
+- Bevindingen: de D07-meting van de Hub geeft op een NAS zonder apps `protocol_error`; de vertaling controleert niet of
+  een hostpad een bestaande dataset is (`app.create` weigert dat pas in de job).
+- Op een echte TrueNAS: **NIET GEVALIDEERD**; OneDrive-stappen: **NIET GEVALIDEERD (account)**.

@@ -10,7 +10,8 @@ Onbekende NAS-gegevens (D01–D18) worden nooit met voorbeeldwaarden ingevuld; z
 
 Bindend: `PLATFORM_CONTRACTEN.md` (`contracts 1.2`, byte-gelijke kopie van `ai-server-manager`); wat deze repo
 daarvoor moest veranderen: `CONTRACT_1.2_CONFORMITEIT.md` §4 (JP1–JP12), uitgewerkt in `docs/adr/ADR-0011` (review: `ADR-0012`). Bewijs per
-Excel-taak: `EVIDENCE.json` (contract §11; nooit `Gereed`/`Geslaagd`).
+Excel-taak: `EVIDENCE.json` (contract §11; nooit `Gereed`/`Geslaagd`); bewaarde testrapporten zonder geheimen in
+`bewijs/` (o.a. `rooktest-p1.json`, installatie-rooktest zonder YAML, ADR-0016).
 
 ## Bestanden
 

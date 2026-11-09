@@ -73,17 +73,29 @@ def test_manifest_valid_against_appstore_schema() -> None:
     assert errors == []
 
 
-APPSTORE_PY = ROOT.parent / "appstore-en-fork/.venv/bin/python"
+def _jl_manifest() -> str | None:
+    import os
+
+    for kandidaat in (os.environ.get("JL_MANIFEST"), str(ROOT / ".venv-validator/bin/jl-manifest"),
+                      str(ROOT.parent / "appstore-en-fork/.venv/bin/jl-manifest")):
+        if kandidaat and Path(kandidaat).is_file():
+            return kandidaat
+    return None
 
 
-@pytest.mark.skipif(not APPSTORE_PY.exists(), reason="appstore-en-fork (met venv) niet naast deze repo")
 def test_manifest_passes_the_appstore_validator() -> None:
-    """De validator van de eigenaar van de manifeststandaard (contract 1.2 §9) moet het manifest accepteren; alleen de
-    digest ontbreekt nog tot de release-CI hem invult."""
+    """De validator van de eigenaar van de manifeststandaard (contract 1.2 §9) moet het manifest accepteren, ook in
+    --strict; alleen de digest ontbreekt nog tot de release-CI hem invult (digest_pending_release)."""
+    import os
     import subprocess
 
-    r = subprocess.run([str(APPSTORE_PY), "-m", "appstore.manifest.cli", "validate", str(MANIFEST), "--format",
-                        "json"], capture_output=True, text=True, check=False, cwd=ROOT.parent / "appstore-en-fork")
+    validator = _jl_manifest()
+    if validator is None:
+        if os.environ.get("MANIFEST_VALIDATOR_VERPLICHT") == "1":
+            pytest.fail("jl-manifest niet gevonden (JL_MANIFEST)")
+        pytest.skip("jl-manifest (appstore-en-fork) niet beschikbaar; in CI verplicht")
+    r = subprocess.run([validator, "validate", "--strict", str(MANIFEST), "--format", "json"], capture_output=True,
+                       text=True, check=False)
     report = json.loads(r.stdout)
     assert report["valid"] is True and report["errors"] == 0, report
     assert {f["code"] for f in report["findings"]} <= {"digest_pending_release"}, report
