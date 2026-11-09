@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
 from typing import Any
 
@@ -303,6 +305,82 @@ def test_request_body_over_1_mib_is_refused_before_auth(client: Any, auth: Any) 
     ok = b'{"reason":"' + b"a" * (MAX_BODY_BYTES - 100) + b'"}'
     r = client.post("/lifecycle/v1/runs", content=ok, headers={"Content-Type": "application/json"})
     assert r.status_code == 401
+
+
+def test_body_over_1_mib_is_413_before_routing_also_chunked(client: Any, hub: Any, auth: Any) -> None:
+    """Review contract 1.2 §5: de grens zit vóór routering en authenticatie. Een chunked body > 1 MiB gaf eerder 401
+    (zonder aanmelding), 404 (onbekende route), 405 (andere methode) en — met een geldige admin-JWT — zelfs een
+    uitgevoerde ontkoppeling op een route die zelf geen body leest."""
+    from lifecycle.limits import MAX_BODY_BYTES
+
+    def chunks(total: int = MAX_BODY_BYTES + 1) -> Any:
+        sent = 0
+        while sent < total:
+            part = min(65536, total - sent)
+            sent += part
+            yield b"x" * part
+
+    sim = hub.state.sim
+    service = {"Authorization": "Bearer " + sim.mint_service("jelly-leon-platform"),
+               "Idempotency-Key": str(uuid.uuid4())}
+    cases = [
+        ("POST", "/connector/v1/hub-link/unlink", {}),  # zonder aanmelding, route zonder body
+        ("POST", "/connector/v1/hub-link/unlink", auth("admin", idem=True)),  # geldige admin, mag niets uitvoeren
+        ("POST", "/connector/v1/hub-link/unlink", service),  # geldige dienst-JWT
+        ("POST", "/bestaat-niet", {}),  # onbekende route
+        ("PUT", "/healthz", {}),  # methode niet toegestaan
+        ("GET", "/connector/v1/discover", auth("viewer")),  # GET met body
+    ]
+    for method, path, headers in cases:
+        r = client.request(method, path, content=chunks(), headers={**headers, "Content-Type": "application/json"})
+        assert r.status_code == 413, (method, path, r.status_code, r.text)
+        body = r.json()
+        assert body["code"] == "payload_too_large" and body["details"] == {"max_bytes": MAX_BODY_BYTES}
+        assert r.headers["X-Trace-Id"] == body["trace_id"]
+    # niets uitgevoerd: nog steeds gekoppeld, de JWT's van de geweigerde verzoeken zijn niet als replay verbruikt
+    link = client.get("/connector/v1/hub-link", headers=auth("viewer"))
+    assert link.status_code == 200 and link.json()["state"] == "gekoppeld"
+    # precies 1 MiB is toegestaan (gewone afhandeling; hier: geen aanmelding → 401)
+    r = client.post("/connector/v1/hub-link/unlink", content=chunks(MAX_BODY_BYTES),
+                    headers={"Content-Type": "application/json"})
+    assert r.status_code == 401 and r.json()["details"]["reason"] == "invalid_token"
+    # een gewone mutatie onder de grens werkt nog (de gebufferde body komt aan)
+    r = client.post("/lifecycle/v1/runs", json={"app_id": "gotify", "kind": "install", "target_version": "1.1.17"},
+                    headers=auth("operator", idem=True))
+    assert r.status_code == 201, r.text
+
+
+def test_invalid_content_length_is_400(client: Any) -> None:
+    from lifecycle.limits import BodySizeLimitMiddleware
+
+    async def never(scope: Any, receive: Any, send: Any) -> None:
+        raise AssertionError("de app mag niet worden aangeroepen")
+
+    sent: list[dict[str, Any]] = []
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"{}", "more_body": False}
+
+
+    for value in (b"abc", b"-1", b"1e3"):
+        sent.clear()
+        scope = {"type": "http", "headers": [(b"content-length", value)], "state": {}}
+        asyncio.run(BodySizeLimitMiddleware(never)(scope, receive, send))
+        assert sent[0]["status"] == 400 and json.loads(sent[1]["body"])["code"] == "bad_request"
+    sent.clear()
+    scope = {"type": "http", "headers": [(b"content-length", b"2"), (b"content-length", b"2")], "state": {}}
+    asyncio.run(BodySizeLimitMiddleware(never)(scope, receive, send))
+    assert sent[0]["status"] == 400
+
+    async def disconnect() -> dict[str, Any]:
+        return {"type": "http.disconnect"}
+
+    sent.clear()  # verbinding weg vóór het einde van de body: niets uitvoeren
+    asyncio.run(BodySizeLimitMiddleware(never)({"type": "http", "headers": [], "state": {}}, disconnect, send))
+    assert sent == []
 
 
 def test_hub_link_on_connector_with_service_jwt_and_viewer(client: Any, hub: Any, auth: Any) -> None:
