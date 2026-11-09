@@ -4,7 +4,7 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit peil-kopie test-ui statuspagina-shots validator-venv manifesten
+	sim-image audit peil-kopie test-ui statuspagina-shots validator-venv manifesten rooktest
 
 venv:
 	python3.12 -m venv .venv
@@ -16,7 +16,7 @@ lint:
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
-		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py
+		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
 
@@ -90,3 +90,26 @@ sim-image:
 
 audit:
 	$(PY) -m pip_audit --strict --require-hashes --disable-pip -r apps/api/requirements.lock
+
+# Installatie-rooktest zonder YAML (P1, I23): Hub + executor uit ../ai-server-manager (gecommitte inhoud via git archive,
+# alleen lezen; ASM_REF kiest de commit) en de eigen image; draait ze als twee Custom Apps (docker run: één map, één
+# poort) tegen de TrueNAS-simulator. Image-builds machinebreed geserialiseerd met flock.
+ASM ?= ../ai-server-manager
+ASM_REF ?= HEAD
+LOCK ?= $(abspath ..)/.lokaal/docker-build.lock
+ROOKTEST_SRC ?= /tmp/jlp-rooktest-asm
+rooktest: validator-venv
+	rm -rf $(ROOKTEST_SRC) && mkdir -p $(ROOKTEST_SRC)
+	git -C $(ASM) archive $(ASM_REF) | tar -x -C $(ROOKTEST_SRC)
+	c=$$(git -C $(ASM) rev-parse $(ASM_REF)); cs=$$(git -C $(ASM) rev-parse --short=12 $(ASM_REF)); \
+	e=$$(git rev-parse HEAD); es=$$(git rev-parse --short=12 HEAD); \
+	flock $(LOCK) $(NICE) docker buildx build --load -f $(ROOKTEST_SRC)/deploy/allinone/Dockerfile \
+		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager:$$cs $(ROOKTEST_SRC) && \
+	flock $(LOCK) $(NICE) docker buildx build --load -f $(ROOKTEST_SRC)/deploy/executor/Dockerfile \
+		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager-executor:$$cs $(ROOKTEST_SRC) && \
+	flock $(LOCK) $(NICE) docker buildx build --load -f deploy/allinone/Dockerfile --build-arg VERSION=$$(cat VERSION) \
+		--build-arg REVISION=$$e -t jlp-rooktest/jelly-leon-platform:$$es . && \
+	$(PY) tools/rooktest.py --hub-image jlp-rooktest/ai-server-manager:$$cs \
+		--executor-image jlp-rooktest/ai-server-manager-executor:$$cs \
+		--lifecycle-image jlp-rooktest/jelly-leon-platform:$$es --hub-commit $$c --eigen-commit $$e \
+		--validator-commit $$(git -C $(APPSTORE) rev-parse HEAD) --rapport /tmp/jlp-rooktest-rapport.json

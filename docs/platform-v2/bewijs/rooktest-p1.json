@@ -1,0 +1,332 @@
+{
+  "soort": "installatie-rooktest zonder YAML (P1, I23)",
+  "gestart": "2026-11-09T17:21:50Z",
+  "klaar": "2026-11-09T17:22:17Z",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "images": {
+    "hub": "jlp-rooktest/ai-server-manager:efb7f3b7d523",
+    "executor": "jlp-rooktest/ai-server-manager-executor:efb7f3b7d523",
+    "lifecycle": "jlp-rooktest/jelly-leon-platform:5c8042f87435"
+  },
+  "bron": {
+    "ai-server-manager": "efb7f3b7d5235708be28310a732b91f4af39a52d",
+    "jelly-leon-platform": "5c8042f874353712a286eb9572983db3f3595572",
+    "appstore-en-fork (validator)": "59217fd927fcc0c6af474d8f961d4326197fcf03"
+  },
+  "uitkomst": "geslaagd",
+  "stappen": [
+    {
+      "id": "S0",
+      "titel": "TrueNAS-simulator starten (WSS, zelfondertekend certificaat, profiel 25.10.8)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "tls_vingerafdruk_sha256": "61c0eca130727708fa3e88ea82f43d3a4d3916a85fd1c2b76cf3e5755a88b061",
+        "adres": "docker-bridge van de testmachine"
+      }
+    },
+    {
+      "id": "C1",
+      "titel": "Custom App 'ai-server-manager' en 'ai-server-manager-executor' starten (docker run: één map → /appdata, één poort, geen extra opties)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "healthcheck": {
+          "hub": "healthy",
+          "executor": "healthy"
+        },
+        "docker_run_opties": "alleen -p <poort> en -v <map>:/appdata (geen --cap-drop, geen no-new-privileges, geen env)"
+      }
+    },
+    {
+      "id": "C2",
+      "titel": "Zonder no-new-privileges/cap_drop van het formulier: elk proces (ook PID 1) niet-root, CapEff 0 en NoNewPrivs 1 (contract 1.2 §2.2, R11)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "hub": {
+          "processen": 13,
+          "uids": [
+            "568",
+            "569"
+          ],
+          "in_orde": true
+        },
+        "executor": {
+          "processen": 1,
+          "uids": [
+            "568"
+          ],
+          "in_orde": true
+        }
+      }
+    },
+    {
+      "id": "W1",
+      "titel": "Setupcode alleen in de app-log; setup vereist",
+      "uitkomst": "geslaagd",
+      "details": {
+        "setup_vereist": true,
+        "setupcode_in_log": true,
+        "setupcode_in_api": false
+      }
+    },
+    {
+      "id": "W2",
+      "titel": "Eerste beheerder aanmaken met de setupcode (API)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "tweede_setup": 409,
+        "rol": "admin"
+      }
+    },
+    {
+      "id": "W3",
+      "titel": "Wizard: besluiten D01–D18 en gates vóór de koppeling (onbekend is nooit groen)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "besluiten": 18,
+        "status": [
+          "Ingevuld",
+          "Open"
+        ],
+        "gates": {
+          "connector_bouw": "geblokkeerd",
+          "mount_backup": "geblokkeerd",
+          "deployment": "geblokkeerd",
+          "backup_gate": "geblokkeerd",
+          "data_mutatie": "geblokkeerd",
+          "bestaande_app_updates": "geblokkeerd",
+          "upgrades": "geblokkeerd",
+          "gpu_transcode": "geblokkeerd",
+          "ai_cloud": "geblokkeerd",
+          "dns_cutover": "geblokkeerd",
+          "gree_aansturing": "geblokkeerd",
+          "zigbee_installatie": "geblokkeerd",
+          "energie_dashboard_exact": "geblokkeerd",
+          "mediaserver_cutover": "geblokkeerd",
+          "restore_policy": "geblokkeerd",
+          "authentik": "geblokkeerd",
+          "navidrome": "geblokkeerd",
+          "r2_r3_acties": "geblokkeerd"
+        },
+        "groen_zonder_meting": []
+      }
+    },
+    {
+      "id": "W4",
+      "titel": "D03 (NAS-adres = simulator) invullen, alleen-lezen-key opslaan, verbinding testen",
+      "uitkomst": "geslaagd",
+      "details": {
+        "eerste_test": {
+          "verbonden": false,
+          "reason_code": "tls_untrusted",
+          "tls_modus": null
+        },
+        "key_laatste4_alleen": true
+      }
+    },
+    {
+      "id": "W5",
+      "titel": "TLS-vingerafdruk van de simulator bevestigen en opnieuw testen",
+      "uitkomst": "geslaagd",
+      "details": {
+        "verkeerde_vingerafdruk": 409,
+        "vertrouwd": true,
+        "verbonden": true,
+        "nas_versie": "TrueNAS-25.10.8",
+        "key_scope": "alleen_lezen",
+        "tls_modus": "pinned",
+        "reason_code": null
+      }
+    },
+    {
+      "id": "W6",
+      "titel": "Metingen via TrueNAS-readback: D01, D02, D03, D06, D07",
+      "uitkomst": "geslaagd",
+      "details": {
+        "D01": {
+          "http": 200,
+          "meting": "geslaagd",
+          "reason_code": null,
+          "besluit": "Getest"
+        },
+        "D02": {
+          "http": 200,
+          "meting": "voorstel",
+          "reason_code": null,
+          "besluit": "Open"
+        },
+        "D03": {
+          "http": 200,
+          "meting": "geslaagd",
+          "reason_code": null,
+          "besluit": "Getest"
+        },
+        "D06": {
+          "http": 200,
+          "meting": "geslaagd",
+          "reason_code": null,
+          "besluit": "Getest"
+        },
+        "D07_zonder_apps": {
+          "http": 200,
+          "meting": "mislukt",
+          "reason_code": "protocol_error",
+          "besluit": "Open"
+        },
+        "D07_met_bestaande_app": {
+          "http": 200,
+          "meting": "geslaagd",
+          "reason_code": null,
+          "besluit": "Getest"
+        }
+      }
+    },
+    {
+      "id": "W6b",
+      "titel": "Gebruiker maakt in de TrueNAS-web-UI een dataset voor de nieuwe app (I01-01-07; hier als simulatorfixture — het platform maakt in v1 geen datasets)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "dataset": "simpool/apps/gotify (simulatorpool)"
+      }
+    },
+    {
+      "id": "W7",
+      "titel": "Inventaris vernieuwen (alleen lezen) en catalogus bijwerken",
+      "uitkomst": "geslaagd",
+      "details": {
+        "job": "done",
+        "laatste_run": "partial",
+        "soorten": {
+          "apps": "ok",
+          "images": "ok",
+          "pools": "ok",
+          "datasets": "ok",
+          "gpus": "ok",
+          "disks": "ok",
+          "smart": "unknown",
+          "snapshot-taken": "ok",
+          "cloud-sync": "ok",
+          "replicatie": "ok",
+          "alerts": "ok",
+          "netwerk": "unknown",
+          "systeem": "ok"
+        },
+        "catalogus_discover": 200,
+        "catalogus_apps": [
+          "bestaande-app"
+        ]
+      }
+    },
+    {
+      "id": "W8",
+      "titel": "Gates na de wizard (wat mag nu?)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "connector_bouw": "toegestaan",
+        "mount_backup": "geblokkeerd",
+        "deployment": "geblokkeerd",
+        "backup_gate": "geblokkeerd",
+        "data_mutatie": "geblokkeerd",
+        "bestaande_app_updates": "geblokkeerd",
+        "upgrades": "geblokkeerd",
+        "gpu_transcode": "geblokkeerd",
+        "ai_cloud": "geblokkeerd",
+        "dns_cutover": "geblokkeerd",
+        "gree_aansturing": "geblokkeerd",
+        "zigbee_installatie": "geblokkeerd",
+        "energie_dashboard_exact": "geblokkeerd",
+        "mediaserver_cutover": "geblokkeerd",
+        "restore_policy": "geblokkeerd",
+        "authentik": "geblokkeerd",
+        "navidrome": "geblokkeerd",
+        "r2_r3_acties": "geblokkeerd"
+      }
+    },
+    {
+      "id": "E1",
+      "titel": "Executor koppelen: koppelcode + vingerafdruk uit de Hub op de statuspagina van de executor",
+      "uitkomst": "geslaagd",
+      "details": {
+        "voor": {
+          "gekoppeld": false
+        },
+        "http": 200,
+        "na": {
+          "gekoppeld": true
+        },
+        "hub_vingerafdruk": "1ABT-CX02-AJ1V-GED5",
+        "formulier_na_koppelen": false,
+        "execute_zonder_allowlist": 403
+      }
+    },
+    {
+      "id": "L1",
+      "titel": "Lifecycle-dienst (jelly-leon-platform) als Custom App met HUB_URL + HUB_ENROLLMENT_TOKEN + HUB_KEY_FINGERPRINT; koppelt zichzelf",
+      "uitkomst": "geslaagd",
+      "details": {
+        "readyz": "ready",
+        "gekoppeld_volgens_hub": true,
+        "processen": {
+          "processen": 11,
+          "uids": [
+            "568"
+          ],
+          "in_orde": true
+        }
+      }
+    },
+    {
+      "id": "P1",
+      "titel": "Preview: Gotify-manifest → app.create-waarden (standaard Custom App, ix-app) met parameters uit wizard/datasetkiezer, conflictcontrole tegen de simulator",
+      "uitkomst": "geslaagd",
+      "details": {
+        "ready_for_install": true,
+        "preview_hash": "sha256:cf9471930643a1400ca048e1eb9e3942bcc5a3205e0dd5197bb5cb53220e80d3",
+        "catalog_app": "ix-app",
+        "ix_app_versie": "1.4.8",
+        "image_tag": "3.1.1@sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86",
+        "hostpoort_vrij": true,
+        "appnaam_vrij": true,
+        "dataset_uit_inventaris": true,
+        "custom_compose": false,
+        "bevindingen": [
+          "version_availability_unknown"
+        ]
+      }
+    },
+    {
+      "id": "P2",
+      "titel": "Uitvoering via de lifecycle: run vastleggen (discovered); verder plannen bestaat pas in P2",
+      "uitkomst": "verwacht_niet_beschikbaar",
+      "details": {
+        "run": {
+          "http": 201,
+          "state": "discovered"
+        },
+        "plannen": {
+          "http": 501,
+          "code": "capability_unavailable"
+        }
+      }
+    },
+    {
+      "id": "P3",
+      "titel": "Simulatorcontrole van de preview door de testharnas (executor-key van de simulator; géén installatie via het platform): app.create → app.query → digest-readback",
+      "uitkomst": "geslaagd",
+      "details": {
+        "app_state": "RUNNING",
+        "versie_ix_app": "1.4.8",
+        "digest_readback_klopt": true,
+        "verwachte_digest": "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86"
+      }
+    },
+    {
+      "id": "P4",
+      "titel": "Negatieve controle: dezelfde preview met een hostpad dat (nog) geen dataset is, faalt in app.create — het plan moet de dataset eerst laten bestaan",
+      "uitkomst": "geslaagd",
+      "details": {
+        "app_create": "geweigerd",
+        "reden": "core.job_wait: [EINVAL] [EINVAL] app_create.values.storage.0.host_path_config.path: This path does not exist or is not a dataset under /mnt"
+      }
+    }
+  ]
+}

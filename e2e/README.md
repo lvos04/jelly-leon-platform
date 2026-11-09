@@ -16,6 +16,8 @@ is hier toegestaan (contract §1: alleen ontwikkeling, CI en deze E2E-omgeving) 
 | Hub-simulator volgens contract 1.2 (enroll exact §3.3, `services/self`, rotatie, dienst-JWT, `key-rotations`, inbox) — alleen voor geïsoleerde dienst-tests | `simulators/hub/hub_sim.py` | gebouwd, gebruikt in `tests/e2e`, `tests/conformance` en `apps/api/tests` |
 | Conformiteitstests Hub ↔ dienst (contract 1.2, JP10): dezelfde tests tegen de simulator (CI) en tegen de echte Hub | `../tests/conformance/`, `conformance/echte_hub.py` | gebouwd; tegen de echte Hub lokaal gedraaid (zie hieronder) |
 | Dienst-E2E jelly-leon-platform (alles-in-één image + Hub-simulator) | `../tests/e2e/` | gebouwd (Sim-getest) |
+| Simulators Beszel, Uptime Kuma, Gotify en Authentik (OIDC + beheer-API), met foutinjectie (P1) | `simulators/{beszel,uptime_kuma,gotify,authentik}/`, gedeeld `simulators/simkit/` | gebouwd + eigen tests (Sim-getest); protocol per README, overzicht `simulators/README.md` |
+| Installatie-rooktest zonder YAML: Hub + executor als twee "Custom Apps" (`docker run`, één volume + één poort), wizard tegen de TrueNAS-simulator, plan/preview van een app (P1) | `../tests/rooktest/`, `tools/rooktest.py` | gebouwd; lokaal gedraaid (zie EVIDENCE.json I23-23-02) |
 | Integrale compose + scenariorunner | `integral/` (P6) | **nog niet gebouwd** |
 
 ## Conformiteit met contract 1.2 (JP10)
@@ -59,11 +61,11 @@ dezelfde branch). Elke repo levert één alles-in-één image (`deploy/allinone/
 | `my_house` | `../../my_house` | eigen | bestaande app (alleen met apparaat-simulators) |
 
 **Simulators** (gebouwd = ✓; overige volgen in P6, telkens met README "afwijkingen mogelijk"):
-✓ `truenas` · ✓ `hub` (alleen geïsoleerd) · `arr` (Sonarr/Radarr/Prowlarr/Seerr-API) · `sabnzbd` · `qbittorrent` ·
+✓ `truenas` · ✓ `hub` (alleen geïsoleerd) · ✓ `beszel` · ✓ `uptime_kuma` · ✓ `gotify` · ✓ `authentik` · `arr` (Sonarr/Radarr/Prowlarr/Seerr-API) · `sabnzbd` · `qbittorrent` ·
 `gree` (lokaal UDP-protocol) · `homewizard` (P1/Energy Socket, alleen lezen) · `zigbee` · `immich` (alleen-lezen-API) ·
 `onedrive` (offsite-doel + herstel) · `claude-credits` (lege credits) · `stt` (onzekere transcriptie) ·
-`upstream-git` (Jellyfin-upstream met incompatibele commit). Officiële images (Uptime Kuma, Gotify, Node-RED,
-AdGuard Home, NetAlertX) draaien op gepinde digest in de compose (alleen E2E).
+`upstream-git` (Jellyfin-upstream met incompatibele commit). Officiële images (Node-RED, AdGuard Home, NetAlertX en —
+naast de simulators — Uptime Kuma en Gotify) draaien op gepinde digest in de compose (alleen E2E).
 
 Regels: geen echte credentials (alle keys uit de simulators), geen uitgaand internet tijdens scenario's
 (`internal: true`-netwerk), alles op `127.0.0.1`, resources beperkt (deze bouwomgeving: 4 CPU / 15 GB gedeeld —
