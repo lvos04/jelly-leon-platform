@@ -23,6 +23,7 @@ import os
 import re
 import secrets
 import threading
+import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -158,6 +159,14 @@ def validate_doc(raw: Any) -> dict[str, Any]:
     elif doc["service_token"] is not None or doc["pins"] is not None:
         raise HubLinkCorrupt("token of pins buiten de toestand 'gekoppeld'")
     return doc
+
+
+def same_uuid(a: Any, b: Any) -> bool:
+    """Vergelijk twee UUID's ongeacht schrijfwijze (hoofdletters, streepjes); niet-UUID's zijn nooit gelijk."""
+    try:
+        return a is not None and b is not None and uuid.UUID(str(a)) == uuid.UUID(str(b))
+    except ValueError:
+        return False
 
 
 def error_view(err: dict[str, Any] | None) -> dict[str, str] | None:

@@ -259,11 +259,13 @@ def pair(
         with state.http_client_factory() as client:
             enroll_once(state.hub_link, client, state.identity, state.settings, kind="koppelcode", secret=code,
                         hub_url=url, expected_fingerprint=fingerprint)
-            confirm(state.hub_link, client, HubSignals())
+            confirmed = confirm(state.hub_link, client, HubSignals())
     except EnrollmentError as exc:
         if not exc.final:  # de gebruiker wacht: niet op de achtergrond doorproberen, adres niet bewaren
             mark_failed(state.hub_link, exc.code, env_token_sha=None)
         return _render(request, _alert(ERROR_MESSAGES_NL[exc.code]), 400)
     except HubLinkCorrupt:
         return _render(request, _alert(MSG["corrupt"]), 409)
+    if confirmed == "ingetrokken":  # de Hub kent het nieuwe token al niet meer (bijv. een herhaald verzoek)
+        return _render(request, _alert(ERROR_MESSAGES_NL["ingetrokken_door_hub"]), 400)
     return RedirectResponse("/?gekoppeld=1", status_code=303)

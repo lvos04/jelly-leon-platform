@@ -130,6 +130,19 @@ def test_rate_limit_per_source_ip_and_for_the_whole_service(make_app: Any, hub: 
     assert sim.calls["enroll"] == 20
 
 
+def test_revoked_right_after_pairing_is_not_reported_as_success(make_app: Any, hub: Any, data_dir: Path) -> None:
+    sim = hub.state.sim
+    code = sim.add_grant("koppelcode", APP)
+    sim.faults.add("self_401")
+    with unlinked_client(make_app) as c:
+        r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), csrf(c.get("/").text)),
+                   follow_redirects=False)
+        assert r.status_code == 400 and "ingetrokken" in r.text
+        doc = file_doc(data_dir)
+        assert doc["state"] == "ingetrokken" and doc["service_token"] is None
+        assert 'name="csrf"' not in c.get("/").text  # ooit gekoppeld: alleen via de Hub opnieuw
+
+
 def test_hub_down_during_pairing_forgets_address(make_app: Any, hub: Any, data_dir: Path) -> None:
     sim = hub.state.sim
     code = sim.add_grant("koppelcode", APP)

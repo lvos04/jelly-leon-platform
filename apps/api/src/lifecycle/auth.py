@@ -27,7 +27,7 @@ from fastapi import Request
 
 from lifecycle import APP_ID
 from lifecycle.errors import ApiError
-from lifecycle.hublink import HubLinkStore, Link
+from lifecycle.hublink import HubLinkStore, Link, same_uuid
 from lifecycle.keys import KeyFormatError
 from lifecycle.replay import ReplayCache, TokenReplayed
 
@@ -155,7 +155,7 @@ def verify_hub_jwt(
             roles = frozenset({"kind"})  # §4.2: rol 'kind' wint altijd
         principal = Principal("user", sub, roles)
     elif token_use == "hub_service":  # noqa: S105 - tokensoort, geen wachtwoord
-        if sub != "hub" or raw_roles != [SERVICE_ROLE] or claims.get("service_id") != link.service_id:
+        if sub != "hub" or raw_roles != [SERVICE_ROLE] or not same_uuid(claims.get("service_id"), link.service_id):
             raise AuthError("token_use_invalid")
         principal = Principal("service", "hub", frozenset({SERVICE_ROLE}))
     else:

@@ -42,6 +42,7 @@ from lifecycle.hublink import (
     add_used_token,
     clear_link,
     now_iso,
+    same_uuid,
     set_error,
 )
 from lifecycle.keys import (
@@ -328,7 +329,7 @@ def confirm(store: HubLinkStore, client: httpx.Client, signals: HubSignals) -> s
         body = response.json()
     except ValueError:
         return "later:geen_json"
-    if not isinstance(body, dict) or body.get("service_id") != link.service_id:
+    if not isinstance(body, dict) or not same_uuid(body.get("service_id"), link.service_id):
         return "later:ander_service_id"
 
     def change(doc: dict[str, Any]) -> None:
@@ -371,7 +372,8 @@ def rotate_service_token(store: HubLinkStore, client: httpx.Client, signals: Hub
     except ValueError:
         return "later:geen_json"
     new = body.get("service_token") if isinstance(body, dict) else None
-    if not isinstance(new, str) or not SVC_TOKEN_RE.fullmatch(new) or body.get("service_id") != link.service_id:
+    if not isinstance(new, str) or not SVC_TOKEN_RE.fullmatch(new) or not same_uuid(body.get("service_id"),
+                                                                                    link.service_id):
         return "later:ongeldig_antwoord"
 
     def change(doc: dict[str, Any]) -> None:

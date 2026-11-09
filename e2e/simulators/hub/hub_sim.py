@@ -57,7 +57,7 @@ FAIL_LIMIT = 10
 GRACE_AFTER_FIRST_USE_S = 600
 GRACE_MAX_S = 86400
 FAULTS = {"jwks_down", "inbox_500", "enroll_down", "enroll_redirect", "enroll_404", "bad_fingerprint",
-          "bad_response", "alias_only", "self_down", "self_404", "rotations_404"}
+          "bad_response", "alias_only", "self_down", "self_404", "self_401", "rotations_404"}
 
 
 def b64url(data: bytes) -> str:
@@ -432,6 +432,8 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
             return err(503, "service_unavailable", "sim")
         if "self_404" in state.faults:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
+        if "self_401" in state.faults:
+            return err(401, "unauthorized", "Onbekend of ingetrokken service-token (sim)")
         found = state.authenticate(authorization)
         if found is None:
             return err(401, "unauthorized", "Onbekend of ingetrokken service-token")

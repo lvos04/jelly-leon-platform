@@ -107,6 +107,13 @@ def test_user_token_with_service_role_and_bad_service_tokens(env: Any) -> None:
     assert reason(auth, sim.mint_service(AUD, str(uuid.uuid4()))) == "token_use_invalid"  # andere registratie
 
 
+def test_service_id_compared_as_uuid(env: Any) -> None:
+    store, sim, auth, _ = env
+    sid = str(store.read().service_id)
+    assert auth.authenticate("Bearer " + sim.mint_service(AUD, sid.upper())).subject == "hub"
+    assert reason(auth, sim.mint_service(AUD, "geen-uuid")) == "token_use_invalid"
+
+
 def test_signature_checked_against_pinned_key_not_only_kid(env: Any) -> None:
     _, sim, auth, polls = env
     forged = sim.mint("u1", ["admin"], AUD, key=Ed25519PrivateKey.generate())  # zelfde kid, andere sleutel
