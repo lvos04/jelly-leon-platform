@@ -1,7 +1,9 @@
 # CI voor jelly-leon-platform: lint, types, tests (met PostgreSQL 16), migraties, OpenAPI-drift, pip-audit,
-# TrueNAS-simulator, Hub-conformiteit (contract 1.2), Peil-kopie zonder drift met ai-server-manager, de statuspagina in
-# Chromium (axe-core, 320–1440 px), en de alles-in-één image bouwen + starten met healthcheck + image-E2E (elk proces,
-# ook PID 1, als 568 zonder capabilities met no_new_privs).
+# TrueNAS-simulator, simulators van derden (Beszel, Uptime Kuma, Gotify, Authentik), installeerbare manifesten met de
+# validator van appstore-en-fork (--strict) en de controlelijsten I01/I02, Hub-conformiteit (contract 1.2), Peil- en
+# I23-manifestkopie zonder drift met ai-server-manager, de statuspagina in Chromium (axe-core, 320–1440 px), en de
+# alles-in-één image bouwen + starten met healthcheck + image-E2E (elk proces, ook PID 1, als 568 zonder capabilities
+# met no_new_privs).
 # Geen geheimen nodig. Base-images en actions op vaste versie/digest.
 name: ci
 
@@ -39,7 +41,7 @@ jobs:
       - name: Installeren
         run: |
           python -m pip install --upgrade pip==26.3
-          pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]'
+          pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
       - name: Ruff
         run: ruff check .
       - name: Workflows controleren (actionlint + shellcheck)
@@ -49,12 +51,18 @@ jobs:
       - name: Mypy (strict)
         run: |
           (cd apps/api && mypy)
-          mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py
+          mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
+            tools/manifesten.py tools/manifest_kopie.py tools/checklists.py
+          (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
+            --exclude '/tests/')
       - name: Tests lifecycle-dienst (unit + integratie, incl. migraties up/down/up en drift)
         working-directory: apps/api
         run: python -m pytest -q
       - name: Tests TrueNAS-simulator
         working-directory: e2e/simulators/truenas
+        run: python -m pytest -q
+      - name: Tests simulators Beszel, Uptime Kuma, Gotify en Authentik (protocol + foutinjectie)
+        working-directory: e2e/simulators
         run: python -m pytest -q
       - name: Conformiteit met contract 1.2 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
         run: python -m pytest -q tests/conformance
@@ -63,10 +71,25 @@ jobs:
           git clone --quiet --filter=blob:none --no-checkout --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/ai-server-manager.git "$RUNNER_TEMP/peil-bron"
           git -C "$RUNNER_TEMP/peil-bron" log -1 --format='Peil-bron: %H %s' -- design/ontwerptaal
-      - name: Manifest-, documentatie- en Peil-kopiecontroles (faalt bij drift met ai-server-manager)
+      - name: Manifestvalidator van appstore-en-fork (alleen lezen, eigen venv, gecommitte inhoud)
+        run: |
+          git clone --quiet --depth 1 --single-branch --branch ccr-c133d7a0-kuz1cv \
+            https://github.com/lvos04/appstore-en-fork.git "$RUNNER_TEMP/appstore"
+          git -C "$RUNNER_TEMP/appstore" log -1 --format='Validator: appstore-en-fork %H %s'
+          python -m venv "$RUNNER_TEMP/validator"
+          "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --require-hashes \
+            -r "$RUNNER_TEMP/appstore/apps/api/requirements.lock"
+          "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --no-deps "$RUNNER_TEMP/appstore/apps/api"
+      - name: Installeerbare manifesten (jl-manifest validate --strict, uitzonderingen exact)
+        env:
+          JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
+        run: python tools/manifesten.py
+      - name: Manifest-, controlelijst-, documentatie- en kopiecontroles (faalt bij drift met ai-server-manager)
         env:
           PEIL_BRON: ${{ runner.temp }}/peil-bron
           PEIL_BRON_VERPLICHT: "1"
+          JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
+          MANIFEST_VALIDATOR_VERPLICHT: "1"
         run: python -m pytest -q tests/repo
       - name: OpenAPI-drift
         run: |

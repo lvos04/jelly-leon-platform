@@ -8,7 +8,7 @@ IMAGE ?= jelly-leon-platform:dev
 
 venv:
 	python3.12 -m venv .venv
-	$(PY) -m pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]'
+	$(PY) -m pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
 
 lint:
 	$(PY) -m ruff check .
@@ -17,12 +17,15 @@ typecheck:
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py
+	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
+		--exclude '/tests/'
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q
 
 test-sim:
 	cd e2e/simulators/truenas && ../../../$(PY) -m pytest -q
+	cd e2e/simulators && ../../$(PY) -m pytest -q
 
 test-repo:
 	$(PY) -m pytest -q tests/repo
