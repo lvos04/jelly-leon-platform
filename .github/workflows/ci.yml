@@ -134,11 +134,11 @@ jobs:
         env:
           STATUSPAGINA_SNAPSHOTS: ${{ runner.temp }}/statuspagina
         run: python -m pytest -q tests/integration/test_statuspage_peil.py
-      - name: Browsercontrole (axe-core, contrast tekst/UI/focus, statusregels, microcopy, 320–1440 px, licht/donker) en schermafdrukken
+      - name: Browsercontrole (axe, contrast, statusregels, 320–1440 px) en schermafdrukken
         run: |
           node tests/ui/controle.mjs --map "$RUNNER_TEMP/statuspagina" --shots "$RUNNER_TEMP/schermafdrukken" \
             --rapport "$RUNNER_TEMP/schermafdrukken/rapport.json"
-      - name: Live ontwerpreview (dienst als echte processen, Chromium vult het formulier zelf in)
+      - name: Live ontwerpreview (dienst als echte processen)
         run: |
           node tests/ui/live/live.mjs --map "$RUNNER_TEMP/live" --python "$(command -v python)"
           node tests/ui/controle.mjs --map "$RUNNER_TEMP/live" --shots "$RUNNER_TEMP/schermafdrukken/live" \
