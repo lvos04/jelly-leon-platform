@@ -111,13 +111,23 @@ class Verzoek:
 
 @dataclass
 class Verzoeklog:
+    """Ontvangen verzoeken zonder aanmeldgegevens. ``geheime_paden``: (regex, vervanging) voor routes waarvan een
+    padsegment zelf het geheim is (bijv. de push-token van Uptime Kuma in ``/api/push/<token>``); zo'n pad wordt
+    geredigeerd opgeslagen en telt als verzoek mét aanmelding."""
+
     items: list[Verzoek] = field(default_factory=list)
     max_items: int = 5000
+    geheime_paden: tuple[tuple[re.Pattern[str], str], ...] = ()
 
     def add(self, request: Request) -> None:
         auth = bool(request.headers.get("authorization") or request.headers.get("x-gotify-key")
                     or "token" in request.query_params)
-        self.items.append(Verzoek(time.time(), request.method, request.url.path,
+        pad = request.url.path
+        for patroon, vervanging in self.geheime_paden:
+            geredigeerd = patroon.sub(vervanging, pad)
+            if geredigeerd != pad:
+                pad, auth = geredigeerd, True
+        self.items.append(Verzoek(time.time(), request.method, pad,
                                   sorted(k for k in request.query_params if k != "token"), auth))
         del self.items[: max(0, len(self.items) - self.max_items)]
 

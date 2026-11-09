@@ -11,6 +11,7 @@ instellingen) wordt **niet** nagebootst: de Hub gebruikt die niet.
 from __future__ import annotations
 
 import base64
+import re
 import secrets
 import threading
 from dataclasses import dataclass, field
@@ -23,6 +24,10 @@ from simkit import ALGEMENE_FOUTEN, Fouten, Verzoeklog, install
 
 VERSIE = "2.5.9"
 UP, DOWN, PENDING, MAINTENANCE = 1, 0, 2, 3
+MAX_PING_MS = 100_000_000_000  # server/routers/api-router.js: past in BIGINT en FLOAT(20,2)
+_GETAL = re.compile(r"^\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+# De push-token ís het geheim (wie hem kent, kan de dead-man's switch op 'up' houden): nooit in het verzoeklog.
+GEHEIME_PADEN = ((re.compile(r"^/api/push/[^/]+"), "/api/push/<push-token>"),)
 
 FOUTEN = {
     **ALGEMENE_FOUTEN,
@@ -90,6 +95,12 @@ def _fout(status: int, msg: str) -> dict[str, Any]:
     return {"status": "fail", "msg": msg}
 
 
+def _ping(waarde: str | None) -> float | None:
+    """Zoals ``parseFloat(request.query.ping) || null``: numeriek begin van de tekst; NaN en 0 worden null."""
+    m = _GETAL.match(waarde or "")
+    return (float(m.group(0)) or None) if m else None
+
+
 def _label(waarde: Any) -> str:
     return "" if waarde is None else str(waarde).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -98,7 +109,7 @@ def create_app(state: State | None = None) -> FastAPI:
     st = state or State()
     st.seed()
     fouten = Fouten(dict(FOUTEN))
-    log = Verzoeklog()
+    log = Verzoeklog(geheime_paden=GEHEIME_PADEN)
     app = FastAPI(title="Uptime Kuma-simulator", version=VERSIE, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.sim = st
     app.state.fouten = fouten
@@ -194,14 +205,20 @@ def create_app(state: State | None = None) -> FastAPI:
 
     @app.api_route("/api/push/{push_token}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def push(push_token: str, status: str = "up", msg: str = "OK", ping: str | None = None) -> JSONResponse:
+        # api-router.js: elke fout (ongeldige ping, onbekende of inactieve token) → 404 {ok:false, msg}
+        waarde = _ping(ping)
+        if waarde is not None and not 0 <= waarde <= MAX_PING_MS:
+            return JSONResponse({"ok": False, "msg": f"Invalid ping value. Must be between 0 and {MAX_PING_MS} ms."},
+                                status_code=404)
         with st.lock:
             m = next((x for x in st.monitors.values() if x.push_token and secrets.compare_digest(x.push_token,
                                                                                                push_token)), None)
             if m is None:
                 return JSONResponse({"ok": False, "msg": "Monitor not found or not active."}, status_code=404)
             m.status = UP if status == "up" else DOWN
-            m.hartslagen.append({"status": m.status, "time": _nu(), "msg": "", "ping": int(float(ping)) if ping and
-                                 ping.replace(".", "", 1).isdigit() else None})
+            # msg staat in de echte heartbeat, maar de publieke statuspagina toont hem nooit (toPublicJSON: msg "")
+            m.hartslagen.append({"status": m.status, "time": _nu(), "msg": "",
+                                 "ping": None if waarde is None else (int(waarde) if waarde.is_integer() else waarde)})
         return JSONResponse({"ok": True})
 
     @app.post("/_sim/monitor/{monitor_id}", include_in_schema=False)

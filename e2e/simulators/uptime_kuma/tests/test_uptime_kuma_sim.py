@@ -81,6 +81,42 @@ def test_push_monitor_as_dead_mans_switch(client: TestClient) -> None:
     assert metrics(client)["monitor_status:8"] == 0
 
 
+@pytest.mark.parametrize(("ping", "status"), [("-5", 404), ("100000000001", 404), ("12.5", 200), ("abc", 200),
+                                              ("0", 200), ("7ms", 200)])
+def test_push_ping_is_validated_like_uptime_kuma(client: TestClient, ping: str, status: int) -> None:
+    """api-router.js: ``parseFloat(ping) || null``; buiten 0…1e11 ms → 404 {ok:false} en geen hartslag."""
+    tok = client.get("/_sim/sleutels").json()["push_tokens"]["Hub-hartslag"]
+    voor = len(client.get("/api/status-page/heartbeat/platform").json()["heartbeatList"]["8"])
+    r = client.get(f"/api/push/{tok}", params={"status": "down", "ping": ping})
+    assert r.status_code == status
+    lijst = client.get("/api/status-page/heartbeat/platform").json()["heartbeatList"]["8"]
+    if status == 404:
+        assert r.json() == {"ok": False, "msg": "Invalid ping value. Must be between 0 and 100000000000 ms."}
+        assert len(lijst) == voor and metrics(client)["monitor_status:8"] == 1  # niets vastgelegd
+    else:
+        verwacht = {"12.5": 12.5, "abc": None, "0": None, "7ms": 7}[ping]
+        assert lijst[-1]["ping"] == verwacht and lijst[-1]["status"] == 0
+
+
+def test_request_log_redacts_the_push_token(client: TestClient) -> None:
+    """De push-token ís het geheim (wie hem kent, houdt de dead-man's switch op 'up'): nooit in het verzoeklog."""
+    s = client.get("/_sim/sleutels").json()
+    tok = s["push_tokens"]["Hub-hartslag"]
+    client.get(f"/api/push/{tok}?status=up&ping=3")
+    client.get("/api/push/onbekend-token")
+    client.get("/metrics", headers=basic("", s["api_key"]))
+    log = client.get("/_sim/verzoeken").json()
+    assert tok not in str(log) and "onbekend-token" not in str(log) and s["api_key"] not in str(log)
+    pushes = [v for v in log if v["pad"].startswith("/api/push/")]
+    assert [v["pad"] for v in pushes] == ["/api/push/<push-token>"] * 2
+    assert all(v["aanmelding"] is True for v in pushes) and pushes[0]["query"] == ["ping", "status"]
+    assert log[-1]["pad"] == "/metrics" and log[-1]["aanmelding"] is True
+    # foutinjectie met een pad-regex werkt nog op het echte pad (de redactie geldt alleen voor het log)
+    client.post("/_sim/fouten", json={"naam": "http_503", "aantal": 1, "pad": "^/api/push/"})
+    assert client.get(f"/api/push/{tok}").status_code == 503
+    assert client.get(f"/api/push/{tok}").json() == {"ok": True}
+
+
 def test_monitor_state_and_sqlite_busy(client: TestClient) -> None:
     assert client.post("/_sim/monitor/1", json={"status": 0}).json() == {"id": 1, "status": 0}
     m = metrics(client)

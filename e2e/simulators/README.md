@@ -32,7 +32,7 @@ Elke simulator van een derde app heeft dezelfde routes onder `/_sim/` (nooit in 
 |---|---|
 | `GET /_sim/sleutels` | tokens/sleutels van de simulator (alleen testwaarden) |
 | `GET /_sim/fouten` · `POST /_sim/fouten {"naam","aantal","pad","waarde"}` · `DELETE /_sim/fouten[?naam=]` | foutinjectie: alleen de eerstvolgende `aantal` keer, alleen paden die op de regex `pad` passen |
-| `GET /_sim/verzoeken` | ontvangen verzoeken (methode, pad, querynamen, of er aanmelding bij zat — nooit de aanmeldgegevens zelf) |
+| `GET /_sim/verzoeken` | ontvangen verzoeken (methode, pad, querynamen, of er aanmelding bij zat — nooit de aanmeldgegevens zelf; een geheim in het pad, zoals de push-token van Uptime Kuma, wordt geredigeerd) |
 | `POST /_sim/reset` | begintoestand (nieuwe tokens en sleutels) |
 
 Algemene fouten in elke simulator: `http_500`, `http_502`, `http_503`, `traag` (`waarde` seconden), `ongeldige_json`,

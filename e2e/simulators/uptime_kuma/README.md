@@ -27,7 +27,7 @@ python -m uptime_kuma_sim --host 127.0.0.1 --port 31050
 | `GET /api/status-page/<slug>` | geen | `{config:{slug,title,…,published:true}, incident:null, publicGroupList:[{id,name,weight,monitorList:[{id,name,type,sendUrl}]}], maintenanceList:[]}`; onbekende slug → `404 {"status":"fail","msg":"Status Page Not Found"}` |
 | `GET /api/status-page/heartbeat/<slug>` | geen | `{heartbeatList:{"<id>":[{status,time,msg:"",ping}]}, uptimeList:{"<id>_24":<0..1>}}` (slug hoofdletterongevoelig) |
 | `GET /api/entry-page` | geen | `{"type":"entryPage","entryPage":"dashboard"}` (ook healthcheck in het manifest) |
-| `GET|POST /api/push/<token>?status=up|down&msg=&ping=` | token in het pad | `{"ok":true}`; onbekend → `404 {"ok":false,"msg":"Monitor not found or not active."}` |
+| `GET|POST /api/push/<token>?status=up|down&msg=&ping=` | token in het pad (in `/_sim/verzoeken` geredigeerd als `/api/push/<push-token>`, telt als aanmelding) | `{"ok":true}`; onbekend → `404 {"ok":false,"msg":"Monitor not found or not active."}`; `ping` zoals `parseFloat(ping) || null`, buiten 0…100000000000 ms → `404 {"ok":false,"msg":"Invalid ping value. Must be between 0 and 100000000000 ms."}` zonder hartslag |
 
 Begintoestand: statuspagina `platform` met monitors voor Hub, TrueNAS-webinterface, MediaGuard, MSO, my_house,
 Jelly Leon en een TCP-controle op de HTTPS-poort van TrueNAS (I08-08-03), plus de push-monitor **Hub-hartslag** (dead-man's switch:
