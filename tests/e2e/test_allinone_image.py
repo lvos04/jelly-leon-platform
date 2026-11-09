@@ -172,6 +172,26 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
     assert "5432" not in started.exec("sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 | awk '{print $2}'").stdout
 
 
+def test_existing_data_in_appdata_is_not_touched(data_dir: Path) -> None:
+    """I01-01-07 (negatief): de image maakt alléén zijn eigen submappen eigendom van 568; bestaande bestanden en mappen
+    in de gekozen dataset behouden eigenaar en rechten (geen recursieve chown)."""
+    own = data_dir / "bestaand"
+    own.mkdir(mode=0o750)
+    (own / "foto.jpg").write_bytes(b"niet aanraken")
+    os.chmod(own / "foto.jpg", 0o640)
+    uid, gid = str(os.getuid()), str(os.getgid())
+    assert uid != "568"
+    c = Container(data_dir, free_port())
+    c.run()
+    try:
+        wait_ready(c.port)
+        assert host_stat(data_dir, "bestaand") == (uid, gid, "750")
+        assert host_stat(data_dir, "bestaand/foto.jpg") == (uid, gid, "640")
+        assert host_stat(data_dir, "secrets")[:2] == ("568", "568")
+    finally:
+        c.remove()
+
+
 def test_restart_keeps_secrets_and_kill_recovers(started: Container, data_dir: Path) -> None:
     # sleutel zoals hij op de host-map staat (via hulpcontainer, geen root op de host nodig)
     before = as_root_in_helper(data_dir, "sha256sum", "/x/secrets/vault.key").stdout.split()[:1]
