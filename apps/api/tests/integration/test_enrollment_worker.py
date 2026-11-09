@@ -28,6 +28,8 @@ def test_env_token_enrollment_then_service_token_auth_and_outbox(
     req = sim.enroll_requests[-1]
     assert req["app_id"] == "jelly-leon-platform" and req["public_key_jwk"]["crv"] == "Ed25519"
     assert "enrollment_token" not in req  # de sim bewaart het geheim niet
+    # alleen velden die de echte Hub accepteert (de sim weigert, net als de Hub, onbekende velden met 422)
+    assert set(req) == {"app_id", "version", "base_url", "public_key_jwk"}
 
     # het eenmalige token is nu waardeloos; een tweede ronde probeert niets meer
     assert worker.tick()["enrollment"] == "niet_nodig"
@@ -63,10 +65,39 @@ def test_env_token_enrollment_then_service_token_auth_and_outbox(
 
 def test_invalid_env_token_is_final_and_not_retried(clean_db: str, data_dir: Any, hub: Any) -> None:
     worker = _worker(clean_db, data_dir, hub, "verlopen-of-onbekend-token")
-    assert worker.tick()["enrollment"] == "mislukt:invalid_grant"
+    assert worker.tick()["enrollment"] == "mislukt:invalid_enrollment"
     assert worker.tick()["enrollment"] == "niet_nodig"
     snap = worker.hub_link.current()
     assert snap.state == "fout" and "koppelcode" in (snap.last_error or "")
+
+
+def test_grant_for_other_app_is_refused(clean_db: str, data_dir: Any, hub: Any) -> None:
+    """Negatief: een token dat de Hub voor een andere app maakte, koppelt deze dienst niet (geen orakel: 401)."""
+    secret = hub.state.sim.add_grant("token", "home-control-hub")
+    worker = _worker(clean_db, data_dir, hub, secret)
+    assert worker.tick()["enrollment"] == "mislukt:invalid_enrollment"
+    assert worker.hub_link.current().state == "fout"
+    assert worker.tick()["enrollment"] == "niet_nodig"  # eenmalig token: nooit opnieuw
+
+
+def test_hub_sim_refuses_unknown_enroll_fields_like_the_real_hub(hub: Any) -> None:
+    """De simulator is net zo streng als de echte Hub; zo vangt de suite elk extra veld in de client."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from lifecycle.enrollment import build_request
+
+    sim = hub.state.sim
+    secret = sim.add_grant("token", "jelly-leon-platform")
+    body = build_request("token", secret, Ed25519PrivateKey.generate(), Settings())
+    with TestClient(hub, base_url="http://hub.test") as h:
+        for extra in ({"kind": "token"}, {"capabilities": ["read"]}, {"schema_version": "1.0"},
+                      {"pairing_code": "ABCD-EFGH-JKMN"},
+                      {"public_key_jwk": {**body["public_key_jwk"], "use": "sig"}}):
+            r = h.post("/api/v1/services/enroll", json={**body, **extra})
+            assert r.status_code == 422 and r.json()["code"] == "validation_error", (extra, r.text)
+        r = h.post("/api/v1/services/enroll", json=body)
+        assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+        assert r.json()["service_token"].startswith("svc_")
 
 
 def test_hub_down_is_retryable(clean_db: str, data_dir: Any, hub: Any) -> None:
@@ -129,9 +160,30 @@ def test_status_page_pairing_with_koppelcode(make_app: Any, hub: Any) -> None:
         page = c.get("/?gekoppeld=1")
         assert "Koppelen gelukt" in page.text and "Gekoppeld met" in page.text
         assert code not in page.text
-        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": _csrf(page.text)
-                                      if "csrf" in page.text else token})
-        assert r.status_code in (403, 409)
+        assert 'name="csrf"' not in page.text  # gekoppeld: geen formulier meer
+        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token})
+        assert r.status_code == 409 and "Al gekoppeld" in r.text  # nooit stil overschrijven met een andere Hub
+
+
+def test_status_page_pairing_is_rate_limited(make_app: Any, hub: Any) -> None:
+    """Negatief: max. 5 koppelpogingen per 15 min (ook geldige codes daarna), te lange koppelcode geweigerd."""
+    code = hub.state.sim.add_grant("koppelcode", "jelly-leon-platform", "GELDIG-123456")
+    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
+        token = _csrf(c.get("/").text)
+        for _ in range(5):
+            r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": "RADEN-000000", "csrf": token})
+            assert r.status_code == 400
+        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token})
+        assert r.status_code == 429 and "Te veel pogingen" in r.text
+        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": "X" * 33, "csrf": token})
+        assert r.status_code == 422
+        assert c.get("/lifecycle/v1/hub-link").status_code == 401  # nog steeds niet gekoppeld, API dicht
+    # een nieuwe app-instantie (herstart) begint met een eigen teller
+    with TestClient(make_app(hub_url=None, linked=False), base_url="http://lifecycle.test") as c:
+        token = _csrf(c.get("/").text)
+        r = c.post("/koppelen", data={"hub_url": "http://hub.test", "koppelcode": code, "csrf": token},
+                   follow_redirects=False)
+        assert r.status_code == 303
 
 
 @pytest.mark.parametrize("roles", [("admin",)])

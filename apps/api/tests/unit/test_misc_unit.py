@@ -6,7 +6,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from lifecycle.config import Settings
-from lifecycle.enrollment import EnrollmentError, build_request, parse_response
+from lifecycle.enrollment import REQUEST_FIELDS, EnrollmentError, build_request, jwk_thumbprint, parse_response
 from lifecycle.errors import ApiError
 from lifecycle.idempotency import parse_key, request_hash
 from lifecycle.outbox import backoff_seconds
@@ -23,6 +23,23 @@ def test_enroll_request_shape_and_secret_placement() -> None:
     assert body2["pairing_code"] == "ABC-123" and "enrollment_token" not in body2
     with pytest.raises(ValueError):
         build_request("anders", "x", key, Settings())
+
+
+def test_enroll_request_has_only_fields_the_hub_accepts() -> None:
+    """Review P0-afronding: de Hub (``EnrollIn``, extra="forbid") en contract 1.2 §3.3 weigeren onbekende velden met
+    422. Eerder stuurde de client ook ``kind``, ``capabilities`` en ``schema_version`` mee (en ``use``/``alg`` in de
+    JWK): tegen de echte Hub was elk eenmalig token dan verbrand."""
+    key = Ed25519PrivateKey.generate()
+    for kind, field in (("token", "enrollment_token"), ("koppelcode", "pairing_code")):
+        body = build_request(kind, "geheim-123456", key, Settings())
+        assert set(body) == {"app_id", "version", "base_url", "public_key_jwk", field}
+        assert set(body) <= REQUEST_FIELDS
+        jwk = body["public_key_jwk"]
+        assert set(jwk) == {"kty", "crv", "x", "kid"} and "d" not in jwk
+        assert jwk["kid"] == jwk_thumbprint(jwk["x"])
+    # RFC 8037 bijlage A.3: thumbprint van de voorbeeldsleutel
+    rfc_x, rfc_thumbprint = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo", "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+    assert jwk_thumbprint(rfc_x) == rfc_thumbprint
 
 
 def test_parse_response_tolerant_but_strict_on_token() -> None:

@@ -23,6 +23,7 @@ from lifecycle.health import readiness
 from lifecycle.hublink import HubLinkService
 from lifecycle.idempotency import Idempotency
 from lifecycle.secrets_store import SecretsError, Vault, load_identity
+from lifecycle.statuspage import AttemptLimiter
 from lifecycle.statuspage import router as status_router
 from lifecycle.timeutil import utcnow
 
@@ -109,6 +110,7 @@ def create_app(
     app.state.jwks_cache = jwks_cache
     app.state.authenticator = Authenticator(jwks_cache, hub_link.service_token_hash, issuer=settings.jwt_issuer)
     app.state.idempotency = Idempotency(factory, settings.idempotency_ttl_hours)
+    app.state.pairing_limiter = AttemptLimiter()  # per app-instantie, niet per proces-module
     app.state.vault = None
     app.state.identity = None
 

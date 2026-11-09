@@ -38,6 +38,8 @@ CHECK_NL = {
 
 
 class AttemptLimiter:
+    """Max. ``limit`` koppelpogingen per ``window_s`` voor deze app-instantie (``app.state.pairing_limiter``)."""
+
     def __init__(self, limit: int = 5, window_s: float = 900.0) -> None:
         self.limit, self.window_s = limit, window_s
         self._hits: deque[float] = deque()
@@ -54,7 +56,7 @@ class AttemptLimiter:
             return True
 
 
-limiter = AttemptLimiter()
+KOPPELCODE_MAX = 32  # zoals de Hub (``pairing_code`` ≤ 32 tekens; contract 1.2 §3.3)
 
 PAGE = """<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -129,7 +131,8 @@ def _render(request: Request, message: str = "", status_code: int = 200) -> HTML
             f'<input id="hub_url" name="hub_url" type="url" required placeholder="http://&lt;NAS-adres&gt;:30400" '
             f'value="{default_url}">'
             '<label for="koppelcode">Koppelcode uit de Hub</label>'
-            '<input id="koppelcode" name="koppelcode" required minlength="6" maxlength="128" inputmode="text">'
+            f'<input id="koppelcode" name="koppelcode" required minlength="6" maxlength="{KOPPELCODE_MAX}" '
+            'inputmode="text">'
             "<button type=\"submit\">Koppelen</button></form>"
         )
     status = health["status"]
@@ -160,7 +163,7 @@ def status_page(request: Request) -> Response:
 def pair(
     request: Request,
     hub_url: str = Form(..., max_length=512),
-    koppelcode: str = Form(..., min_length=6, max_length=128),
+    koppelcode: str = Form(..., min_length=6, max_length=KOPPELCODE_MAX),
     csrf: str = Form(..., max_length=128),
 ) -> Response:
     cookie = request.cookies.get(CSRF_COOKIE, "")
@@ -171,7 +174,7 @@ def pair(
         return _render(
             request, '<p class="err card" role="alert">Al gekoppeld; ontkoppel eerst via de Hub.</p>', 409
         )
-    if not limiter.allow():
+    if not request.app.state.pairing_limiter.allow():
         return _render(request, '<p class="err card" role="alert">Te veel pogingen; wacht 15 minuten.</p>', 429)
     try:
         url = normalize_hub_url(hub_url)

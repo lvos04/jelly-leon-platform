@@ -1,15 +1,16 @@
 # ADR-0004 — Enrollment-client en koppelen via de statuspagina
 
-- Status: aanvaard (voorlopig schema) · Datum: 2026-11-09 · Contract: §3
+- Status: aanvaard, herzien 2026-11-09 (review P0-afronding) · Datum: 2026-11-09 · Contract: §3 (1.1), §3.3 (1.2)
 
 ## Context
 Contract §3 beschrijft het mechanisme (`POST {HUB_URL}/api/v1/services/enroll`, eenmalig token of koppelcode) maar
 **niet** het verzoek- en antwoordschema. De Hub wordt tegelijk gebouwd in `ai-server-manager`.
 
-## Besluit (veiligste interpretatie, tolerant aan beide kanten)
-- Verzoek: `{"app_id","version","kind":"token"|"koppelcode","base_url","public_key_jwk"(OKP/Ed25519),
-  "capabilities","schema_version":"1.0"}` plus **`enrollment_token`** (kind token) of **`pairing_code`**
-  (kind koppelcode).
+## Besluit (veiligste interpretatie)
+- Verzoek (herzien in de review P0-afronding, zie hieronder): **alleen**
+  `{"app_id","version","base_url","public_key_jwk":{"kty":"OKP","crv":"Ed25519","x","kid"}}` plus precies één van
+  **`enrollment_token`** (token uit de omgeving) of **`pairing_code`** (koppelcode via de statuspagina, ≤ 32 tekens).
+  `kid` is de RFC 7638-thumbprint. Geen andere velden.
 - Antwoord: `service_token` (of `token`), `service_id` (of `id`), optioneel `jwks` en `policy_public_key`
   (string of JWK met `x`). Een token korter dan 16 tekens of zonder ID wordt geweigerd.
 - 400/401/403/404/409/410/422 = definitief: het eenmalige token wordt **nooit** opnieuw geprobeerd; status `fout`
@@ -22,6 +23,20 @@ Contract §3 beschrijft het mechanisme (`POST {HUB_URL}/api/v1/services/enroll`,
   wordt elk JWT geweigerd tot er opnieuw gekoppeld is. Het adres uit een mislukte koppelcode-poging wordt niet
   bewaard (ADR-0009).
 
+## Herziening (review P0-afronding, 2026-11-09)
+De eerste versie stuurde ook `kind`, `capabilities` en `schema_version` mee, en `use`/`alg` in de JWK. De Hub in
+`ai-server-manager` (`hub/routers/services.py`, `EnrollIn` met `extra="forbid"`) en het exacte schema van contract 1.2
+§3.3 weigeren onbekende velden met **422**; deze client behandelt 422 als definitief en markeert het eenmalige token
+als gebruikt. Tegen de echte Hub zou elke enrollment dus zijn mislukt en het token verbranden. Gecorrigeerd: het verzoek
+bevat alleen de velden hierboven (`lifecycle.enrollment.REQUEST_FIELDS`). De Hub-simulator is net zo streng gemaakt
+(onbekend veld, beide/geen geheim, JWK met extra velden → 422; ongeldig/verlopen/gebruikt/andere app → één code
+401 `invalid_enrollment`; succes 200 met `Cache-Control: no-store`), zodat een extra veld in de client voortaan een
+test laat falen. 413 is ook definitief.
+
+Niet in deze herziening (volgt met de 1.2-conformiteit): vingerafdruk `HUB_KEY_FINGERPRINT`/`keyset_fingerprint`
+controleren en pinnen, opslag in `/appdata/secrets/hub-link.json`, `GET /api/v1/services/self`, het weglaten van de
+oude aliassen `token`/`id` in het antwoord en de backoff-/stopregels van §3.3.
+
 ## Gevolgen
-- Moet worden afgestemd met de Hub-implementatie (contract-issue gemeld). De Hub-simulator
-  (`e2e/simulators/hub`) implementeert dit schema; tegen de echte Hub is het **niet gevalideerd**.
+- De Hub-simulator (`e2e/simulators/hub`) volgt nu het schema van de echte Hub; tegen de echte Hub zelf (een draaiende
+  `ai-server-manager`) is het **niet gevalideerd** (Sim-getest).

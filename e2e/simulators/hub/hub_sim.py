@@ -7,15 +7,19 @@ Bootst het deel van de Hub (ai-server-manager) na dat diensten nodig hebben (con
 - ``POST /api/v1/events/inbox``     events van diensten (Bearer service-token, dedupe op ``event_id``)
 
 Testbediening (``/_sim/…``): grants toevoegen, JWT's slaan, ontvangen events lezen, storingen injecteren.
-Het verzoek-/antwoordschema van enroll volgt ADR-0004 van jelly-leon-platform; de echte Hub kan afwijken
-(markering: Sim-getest, niet tegen de echte Hub gevalideerd).
+Het enroll-schema is net zo streng als de echte Hub (``ai-server-manager`` ``EnrollIn``, ``extra="forbid"``) en
+contract 1.2 §3.3: onbekende velden, beide of geen van ``enrollment_token``/``pairing_code`` of een JWK met andere
+velden dan ``kty/crv/x/kid`` → 422; ongeldig/verlopen/gebruikt of verkeerde app → 401 ``invalid_enrollment``;
+succes → 200 met ``Cache-Control: no-store``. Niet tegen de echte Hub gevalideerd (markering: Sim-getest).
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import hashlib
+import re
 import secrets
 import threading
 import time
@@ -32,6 +36,53 @@ from fastapi.responses import JSONResponse
 
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+ENROLL_FIELDS = {"app_id", "enrollment_token", "pairing_code", "version", "base_url", "public_key_jwk"}
+APP_ID_RE = re.compile(r"^[a-z]([-a-z0-9]*[a-z0-9])?$")
+BASE_URL_RE = re.compile(r"^https?://[^\s/]+(:\d+)?(/.*)?$")
+
+
+def enroll_problems(body: Any) -> list[str]:
+    """Schemacontrole zoals de echte Hub (``EnrollIn``) en contract 1.2 §3.3; lege lijst = geldig."""
+    if not isinstance(body, dict):
+        return ["body moet een JSON-object zijn"]
+    problems = [f"onbekend veld: {k}" for k in sorted(set(body) - ENROLL_FIELDS)]
+    app_id = body.get("app_id")
+    if not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id) or len(app_id) > 40:
+        problems.append("app_id ongeldig")
+    token, code = body.get("enrollment_token"), body.get("pairing_code")
+    if bool(token) == bool(code):
+        problems.append("geef precies één van enrollment_token of pairing_code")
+    if token is not None and (not isinstance(token, str) or len(token) > 128):
+        problems.append("enrollment_token ongeldig")
+    if code is not None and (not isinstance(code, str) or len(code) > 32):
+        problems.append("pairing_code ongeldig (max. 32 tekens)")
+    version = body.get("version", "")
+    if not isinstance(version, str) or len(version) > 64:
+        problems.append("version ongeldig")
+    base_url = body.get("base_url")
+    if base_url is not None and (not isinstance(base_url, str) or len(base_url) > 512
+                                 or not BASE_URL_RE.fullmatch(base_url)):
+        problems.append("base_url ongeldig")
+    jwk = body.get("public_key_jwk")
+    if jwk is not None:
+        if not isinstance(jwk, dict) or not all(isinstance(v, str) for v in jwk.values()):
+            problems.append("public_key_jwk moet een object met tekstwaarden zijn")
+        else:
+            extra = sorted(set(jwk) - {"kty", "crv", "x", "kid"})
+            if extra:
+                problems.append(f"public_key_jwk: niet toegestane velden {extra}")
+            if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519":
+                problems.append("public_key_jwk moet OKP/Ed25519 zijn")
+            x = jwk.get("x", "")
+            try:
+                raw = base64.urlsafe_b64decode(x + "=" * (-len(x) % 4))
+            except (ValueError, binascii.Error):
+                raw = b""
+            if len(raw) != 32:
+                problems.append("public_key_jwk.x moet 32 bytes zijn")
+    return problems
 
 
 @dataclass
@@ -89,16 +140,27 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
     async def enroll(request: Request) -> JSONResponse:
         if "enroll_down" in state.faults:
             return err(503, "unavailable", "Hub (sim) tijdelijk niet beschikbaar")
-        body = await request.json()
-        state.enroll_requests.append({k: v for k, v in body.items() if k not in {"enrollment_token", "pairing_code"}})
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if isinstance(body, dict):
+            state.enroll_requests.append(
+                {k: v for k, v in body.items() if k not in {"enrollment_token", "pairing_code"}}
+            )
+        problems = enroll_problems(body)
+        if problems:
+            return err(422, "validation_error", "Ongeldig enroll-verzoek: " + "; ".join(problems))
+        assert isinstance(body, dict)
         secret = body.get("enrollment_token") or body.get("pairing_code") or ""
         digest = hashlib.sha256(str(secret).encode()).hexdigest()
         with state.lock:
             grant = state.grants.get(digest)
-            if grant is None or grant["used"] or grant["expires"] < time.time():
-                return err(401, "invalid_grant", "Token of koppelcode ongeldig, verlopen of al gebruikt")
-            if grant["app_id"] != body.get("app_id"):
-                return err(403, "wrong_app", "Grant hoort bij een andere app")
+            # één code voor alles (geen orakel), zoals de echte Hub: ongeldig, verlopen, gebruikt of andere app
+            if (grant is None or grant["used"] or grant["expires"] < time.time()
+                    or grant["app_id"] != body.get("app_id")):
+                return err(401, "invalid_enrollment",
+                           "Enrollment-token of koppelcode ongeldig, al gebruikt of verlopen.")
             grant["used"] = True
             token = "svc_" + secrets.token_urlsafe(32)
             service_id = str(uuid.uuid4())
@@ -107,8 +169,14 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
             }
         policy_raw = state.policy_key.public_key().public_bytes(serialization.Encoding.Raw,
                                                                  serialization.PublicFormat.Raw)
-        return JSONResponse({"service_id": service_id, "service_token": token, "jwks": state.jwks(),
-                             "policy_public_key": _b64url(policy_raw)}, status_code=201)
+        policy_jwk = {"kty": "OKP", "crv": "Ed25519", "x": _b64url(policy_raw), "kid": "hub-sim-policy-1",
+                      "use": "sig", "alg": "EdDSA"}
+        return JSONResponse(
+            {"service_id": service_id, "app_id": body["app_id"], "service_token": token, "token_type": "Bearer",
+             "hub_issuer": "hub", "jwks": state.jwks(), "jwks_url": "/api/v1/auth/jwks",
+             "policy_public_key": policy_jwk, "events_inbox_url": "/api/v1/events/inbox"},
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/api/v1/auth/jwks")
     def jwks() -> JSONResponse:

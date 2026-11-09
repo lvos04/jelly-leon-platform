@@ -1,15 +1,21 @@
 """Enrollment-client (contract §3): eenmalig token uit de omgeving of koppelcode via de statuspagina.
 
 ``POST {HUB_URL}/api/v1/services/enroll`` → eigen service-token + Hub-JWKS + publieke policy-sleutel.
-Het verzoek- en antwoordschema staat niet in het contract; deze client volgt ADR-0004 en accepteert in het antwoord
-zowel ``service_token`` als ``token`` en zowel ``service_id`` als ``id``. Zonder Hub blijft de dienst eerlijk
-"niet gekoppeld"; een ongeldig of verlopen token wordt nooit opnieuw geprobeerd (het is eenmalig).
+Contract 1.1 legt het schema niet vast. Het verzoek bevat daarom **alleen** de velden die de Hub (``ai-server-manager``,
+``EnrollIn`` met ``extra="forbid"``) en het exacte schema van contract 1.2 §3.3 accepteren: ``app_id``, precies één
+van ``enrollment_token``/``pairing_code``, ``version``, ``base_url`` en een publieke JWK ``{kty, crv, x, kid}``
+(``kid`` = RFC 7638-thumbprint). Elk extra veld zou een 422 geven en het eenmalige token verbranden (ADR-0004).
+In het antwoord worden ``service_token`` en ``service_id`` gelezen (de oude aliassen ``token``/``id`` blijven tot de
+1.2-conformiteit geaccepteerd). Zonder Hub blijft de dienst eerlijk "niet gekoppeld"; een ongeldig of verlopen token
+wordt nooit opnieuw geprobeerd (het is eenmalig).
 """
 
 from __future__ import annotations
 
 import base64
 import contextlib
+import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -28,8 +34,9 @@ from lifecycle.secrets_store import Vault, public_key_b64url
 log = logging.getLogger("lifecycle.enrollment")
 
 ENROLL_PATH = "/api/v1/services/enroll"
-CAPABILITIES = ["read"]
-FINAL_STATUS = {400, 401, 403, 404, 409, 410, 422}
+FINAL_STATUS = {400, 401, 403, 404, 409, 410, 413, 422}
+# Exact de velden die de Hub accepteert (onbekende velden → 422 bij de Hub). Een test bewaakt deze lijst.
+REQUEST_FIELDS = frozenset({"app_id", "enrollment_token", "pairing_code", "version", "base_url", "public_key_jwk"})
 
 
 class EnrollmentError(Exception):
@@ -48,10 +55,16 @@ class EnrollResult:
     policy_public_key: str | None
 
 
+def jwk_thumbprint(x: str) -> str:
+    """RFC 7638-thumbprint van een OKP-sleutel: SHA-256 over ``{"crv","kty","x"}`` (gesorteerd, zonder spaties)."""
+    canonical = json.dumps({"crv": "Ed25519", "kty": "OKP", "x": x}, separators=(",", ":"), sort_keys=True)
+    return base64.urlsafe_b64encode(hashlib.sha256(canonical.encode()).digest()).rstrip(b"=").decode()
+
+
 def public_jwk(identity: Ed25519PrivateKey) -> dict[str, str]:
+    """Alleen de publieke sleutel: ``kty``, ``crv``, ``x`` en ``kid`` (nooit ``d`` of andere velden)."""
     x = public_key_b64url(identity)
-    kid = base64.urlsafe_b64encode(sha256_hex(x).encode()[:16]).rstrip(b"=").decode()
-    return {"kty": "OKP", "crv": "Ed25519", "x": x, "kid": f"{APP_ID}-{kid}", "use": "sig", "alg": "EdDSA"}
+    return {"kty": "OKP", "crv": "Ed25519", "x": x, "kid": jwk_thumbprint(x)}
 
 
 def build_request(kind: str, secret: str, identity: Ed25519PrivateKey, settings: Settings) -> dict[str, Any]:
@@ -60,11 +73,8 @@ def build_request(kind: str, secret: str, identity: Ed25519PrivateKey, settings:
     body: dict[str, Any] = {
         "app_id": APP_ID,
         "version": __version__,
-        "kind": kind,
         "base_url": settings.public_url,
         "public_key_jwk": public_jwk(identity),
-        "capabilities": CAPABILITIES,
-        "schema_version": "1.0",
     }
     body["enrollment_token" if kind == "token" else "pairing_code"] = secret
     return body
