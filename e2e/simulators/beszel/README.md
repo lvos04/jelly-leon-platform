@@ -45,7 +45,7 @@ Algemeen: `http_500/502/503`, `traag`, `ongeldige_json`, `te_groot`, `redirect`.
 | `verouderd` | systeem blijft `up`, laatste meting `waarde` min oud (standaard 30) → de Hub hoort `unknown` te tonen |
 | `geen_arc` | geen `mz`, `mem[3] = 0` (ARC niet zichtbaar in de container) |
 | `token_verlopen` | elk token ongeldig (401 bij refresh, lege lijsten) |
-| `dubbele_host` | tweede systeemrecord met dezelfde naam (agent zonder vaste vingerafdruk, I07-07-06) |
+| `dubbele_host` | tweede systeemrecord met dezelfde naam (bijv. hetzelfde systeem twee keer toegevoegd, of een agent in WebSocket-modus zonder bewaarde vingerafdruk; I07-07-06) |
 
 Extra systeem: `POST /_sim/systeem {"naam": …}`.
 

@@ -69,7 +69,7 @@ def test_status_page_and_heartbeats(client: TestClient) -> None:
     assert hb["heartbeatList"][eerste][-1]["msg"] == "" and f"{eerste}_24" in hb["uptimeList"]
     r = client.get("/api/status-page/onbekend")
     assert r.status_code == 404 and r.json() == {"status": "fail", "msg": "Status Page Not Found"}
-    assert client.get("/api/entry-page").json() == {"type": "entryPage", "entryPage": "dashboard"}
+    assert client.get("/api/entry-page").json() == {"type": "entryPage", "entryPage": None}
 
 
 def test_push_monitor_as_dead_mans_switch(client: TestClient) -> None:

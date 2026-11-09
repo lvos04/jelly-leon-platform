@@ -168,8 +168,10 @@ def create_app(state: State | None = None) -> FastAPI:
         return [m for m in st.monitors.values() if m.publiek]
 
     @app.get("/api/entry-page")
-    def entry_page() -> dict[str, str]:
-        return {"type": "entryPage", "entryPage": "dashboard"}
+    def entry_page() -> dict[str, str | None]:
+        # server.js: de instelling 'entryPage' bestaat pas als de beheerder hem kiest; tot dan null (gemeten met de
+        # echte image 2.5.9, ook na een herstart; tools/upstream_rooktest.py)
+        return {"type": "entryPage", "entryPage": None}
 
     @app.get("/api/status-page/heartbeat/{slug}")
     def heartbeat(slug: str) -> JSONResponse:

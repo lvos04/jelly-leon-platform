@@ -35,7 +35,8 @@ FOUTEN = {
     "verouderd": "Laatste meting is 'waarde' minuten oud (standaard 30) terwijl het systeem 'up' blijft.",
     "geen_arc": "De agent levert geen ZFS-ARC (mz/mem[3] ontbreken), zoals als arcstats niet zichtbaar is.",
     "token_verlopen": "Elk eerder uitgegeven token is ongeldig (401 bij auth-refresh, lege lijsten).",
-    "dubbele_host": "Een tweede systeemrecord met dezelfde naam/host (agent zonder vaste vingerafdruk, I07-07-06).",
+    "dubbele_host": "Een tweede systeemrecord met dezelfde naam/host (dubbel toegevoegd, of WebSocket-agent zonder "
+                    "bewaarde vingerafdruk; I07-07-06).",
 }
 
 _ID = re.compile(r"^[a-z0-9]{15}$")
