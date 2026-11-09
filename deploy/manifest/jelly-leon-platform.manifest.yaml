@@ -1,6 +1,9 @@
-# Manifest (contract §9, B08-001 — eigenaar van de standaard: appstore-en-fork).
+# Manifest (contract 1.2 §9, B08-001 — eigenaar van de standaard: appstore-en-fork).
 # Installatie uitsluitend als standaard TrueNAS Custom App (ix-app-waarden); een compose-veld is verboden.
 # De digest van eigen GHCR-images vult de release-CI in (release/digests.json); tot dan null = nog niet uitgebracht.
+# De formuliertag wordt <tag>@<digest> (§2.2). Poorten staan alleen in network.ports. HUB_URL, HUB_KEY_FINGERPRINT en
+# het eenmalige HUB_ENROLLMENT_TOKEN staan bewust NIET in dit manifest: de Hub geeft ze zelf mee in de (R2-)actie
+# app.install/app.update (§3.2, §8); een gegenereerd token als formulierwaarde in een manifest is een geheim.
 manifest_version: "1"
 app_id: jelly-leon-platform
 name: Jelly Leon Platform — lifecycle
@@ -17,22 +20,12 @@ image:
   tag: 0.1.0
   digest: null
 custom_app:
-  ports:
-    - name: api
-      container_port: 30440
-      host_port: {param: host_port}
-      protocol: tcp
-      purpose_nl: API, connector en statuspagina
   storage:
     - name: appdata
       type: host_path
       host_path: {param: appdata_path}
       read_only: false
-  env:
-    - name: HUB_URL
-      value_from: {param: hub_url}
-    - name: HUB_ENROLLMENT_TOKEN
-      value_from: {param: enrollment_token}
+  env: []
   resources:
     cpus: 1
     memory_mib: 512
@@ -54,23 +47,12 @@ parameters:
     required: true
     description_nl: Hostpoort; de Hub controleert vooraf op conflicten (app.used_ports).
   - name: appdata_path
-    type: dataset
+    type: path
     source: dataset_picker
     dataset_role: appdata
     required: true
     decision: D02
     description_nl: Dataset voor /appdata (database, geheimen, back-ups); gekozen in de datasetkiezer.
-  - name: hub_url
-    type: url
-    source: wizard
-    required: true
-    decision: D03
-    description_nl: Adres van de Hub (http://<NAS-adres>:30400), uit de onboarding-wizard.
-  - name: enrollment_token
-    type: string
-    source: generated
-    required: false
-    description_nl: Eenmalig enrollment-token van de Hub (vervalt na 60 min of na gebruik; niet geheim).
   - name: rpo
     type: duration
     source: wizard
@@ -100,9 +82,9 @@ network:
       container_port: 30440
       host_port: {param: host_port}
       protocol: tcp
+      purpose_nl: API, connector en statuspagina
   host_network: false
   host_network_reason: null
-  joins_platform_network: false
 privileges:
   privileged: false
   cap_add: []
@@ -138,7 +120,7 @@ upgrade:
     migratie is alleen de tag terugzetten niet veilig: eerst de voor-upgrade-dump of snapshot herstellen.
 decisions_required: [D01, D02, D03, D16]
 docs: [B08, I23, I01]
-validation_status: sim_tested
+validation_status: unvalidated  # de catalogus bepaalt de status zelf (Sim-getest staat in EVIDENCE.json)
 compatibility:
   truenas_min_version: "25.04"
   truenas_max_version: null

@@ -41,9 +41,12 @@ def test_manifest_rules_section_9() -> None:
     assert m["image"]["tag"] != "latest" and re.fullmatch(r"\d+\.\d+\.\d+", m["image"]["tag"])
     assert m["image"]["digest"] is None or re.fullmatch(r"sha256:[0-9a-f]{64}", m["image"]["digest"])
     assert m["privileges"] == {"privileged": False, "cap_add": [], "devices": [], "gpu": "none"}
+    assert m["custom_app"]["gpu"] == "none"  # geen GPU; dus ook geen gpu-parameter (contract 1.2 §9)
     assert m["network"]["host_network"] is False
-    ports = {p["container_port"] for p in m["custom_app"]["ports"]}
-    assert ports == {30440}
+    # contract 1.2 §9: network.ports is de enige bron; joins_platform_network en custom_app.ports vervallen
+    assert "joins_platform_network" not in m["network"] and "ports" not in m["custom_app"]
+    assert {p["container_port"] for p in m["network"]["ports"]} == {30440}
+    assert m["custom_app"]["portal"]["port"] in {p["name"] for p in m["network"]["ports"]}
     for st in m["custom_app"]["storage"]:
         hp = st.get("host_path")
         assert not isinstance(hp, str) or hp.rstrip("/") not in FORBIDDEN_HOST_PATHS
@@ -53,8 +56,11 @@ def test_manifest_rules_section_9() -> None:
         assert ref in params, f"parameter {ref} niet gedeclareerd"
     for p in params.values():
         assert "example" not in p or p["source"] != "default", "voorbeeldwaarde als echte waarde"
-    assert params["appdata_path"]["source"] == "dataset_picker"
-    assert params["hub_url"]["source"] == "wizard"
+    assert params["appdata_path"]["source"] == "dataset_picker" and params["appdata_path"]["type"] == "path"
+    # HUB_* geeft de Hub zelf mee bij app.install/app.update (§3.2, §8); nooit een token in het manifest
+    assert m["custom_app"]["env"] == []
+    assert all(p["source"] not in {"secret", "generated"} for p in params.values())
+    assert m["validation_status"] == "unvalidated"
     assert m["upgrade"]["tag_only_rollback_safe"] is False
 
 
@@ -65,6 +71,22 @@ def test_manifest_valid_against_appstore_schema() -> None:
     schema = json.loads(APPSTORE_SCHEMA.read_text(encoding="utf-8"))
     errors = [e.message for e in jsonschema.Draft202012Validator(schema).iter_errors(load_manifest())]
     assert errors == []
+
+
+APPSTORE_PY = ROOT.parent / "appstore-en-fork/.venv/bin/python"
+
+
+@pytest.mark.skipif(not APPSTORE_PY.exists(), reason="appstore-en-fork (met venv) niet naast deze repo")
+def test_manifest_passes_the_appstore_validator() -> None:
+    """De validator van de eigenaar van de manifeststandaard (contract 1.2 §9) moet het manifest accepteren; alleen de
+    digest ontbreekt nog tot de release-CI hem invult."""
+    import subprocess
+
+    r = subprocess.run([str(APPSTORE_PY), "-m", "appstore.manifest.cli", "validate", str(MANIFEST), "--format",
+                        "json"], capture_output=True, text=True, check=False, cwd=ROOT.parent / "appstore-en-fork")
+    report = json.loads(r.stdout)
+    assert report["valid"] is True and report["errors"] == 0, report
+    assert {f["code"] for f in report["findings"]} <= {"digest_pending_release"}, report
 
 
 def test_versions_consistent() -> None:
