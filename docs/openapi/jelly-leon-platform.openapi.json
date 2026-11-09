@@ -1,0 +1,1502 @@
+{
+  "components": {
+    "schemas": {
+      "Actor": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "title": "Actor",
+        "type": "object"
+      },
+      "Discover": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "item_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Item Types",
+            "type": "array"
+          },
+          "limits": {
+            "additionalProperties": true,
+            "title": "Limits",
+            "type": "object"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "timestamp_utc": {
+            "title": "Timestamp Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "source_version",
+          "schema_version",
+          "capabilities",
+          "permissions",
+          "limits",
+          "item_types",
+          "timestamp_utc"
+        ],
+        "title": "Discover",
+        "type": "object"
+      },
+      "EventPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "EventPage",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/HealthCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "down",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "observed_at",
+          "reason_code",
+          "checks"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "HealthCheck": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "down",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "observed_at",
+          "detail"
+        ],
+        "title": "HealthCheck",
+        "type": "object"
+      },
+      "HubLinkOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "enrolled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolled At"
+          },
+          "hub_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hub Url"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "linked_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Via"
+          },
+          "service_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Id"
+          },
+          "service_token_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Token Last4"
+          },
+          "state": {
+            "enum": [
+              "niet_gekoppeld",
+              "gekoppeld",
+              "fout"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "state_label_nl": {
+            "title": "State Label Nl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "state_label_nl",
+          "hub_url",
+          "service_id",
+          "service_token_last4",
+          "linked_via",
+          "enrolled_at",
+          "last_attempt_at",
+          "last_error",
+          "attempts"
+        ],
+        "title": "HubLinkOut",
+        "type": "object"
+      },
+      "LifecycleState": {
+        "enum": [
+          "discovered",
+          "inventory",
+          "risk_evaluated",
+          "backed_up",
+          "staged",
+          "tested",
+          "approved",
+          "deployed",
+          "observed",
+          "accepted",
+          "rolled_back",
+          "aborted"
+        ],
+        "title": "LifecycleState",
+        "type": "string"
+      },
+      "RunCreate": {
+        "properties": {
+          "app_id": {
+            "description": "TrueNAS-appnaam",
+            "maxLength": 40,
+            "minLength": 1,
+            "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RunKind"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind"
+        ],
+        "title": "RunCreate",
+        "type": "object"
+      },
+      "RunKind": {
+        "enum": [
+          "install",
+          "update",
+          "rollback",
+          "uninstall",
+          "move"
+        ],
+        "title": "RunKind",
+        "type": "string"
+      },
+      "RunOut": {
+        "properties": {
+          "allowed_next": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Next",
+            "type": "array"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "etag": {
+            "title": "Etag",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manual_transitions_now": {
+            "description": "Overgangen die in deze fase handmatig via de API mogen.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Manual Transitions Now",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "requested_by": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "state_label_nl": {
+            "title": "State Label Nl",
+            "type": "string"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Reason"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/TransitionOut"
+            },
+            "title": "Transitions",
+            "type": "array"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "kind",
+          "state",
+          "state_label_nl",
+          "state_reason",
+          "from_version",
+          "target_version",
+          "requested_by",
+          "reason",
+          "evidence",
+          "etag",
+          "created_at",
+          "updated_at",
+          "allowed_next",
+          "manual_transitions_now",
+          "transitions"
+        ],
+        "title": "RunOut",
+        "type": "object"
+      },
+      "RunPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "RunPage",
+        "type": "object"
+      },
+      "TransitionIn": {
+        "properties": {
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_state": {
+            "$ref": "#/components/schemas/LifecycleState"
+          }
+        },
+        "required": [
+          "to_state",
+          "reason"
+        ],
+        "title": "TransitionIn",
+        "type": "object"
+      },
+      "TransitionOut": {
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "from_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From State"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "to_state": {
+            "title": "To State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "from_state",
+          "to_state",
+          "actor",
+          "reason",
+          "evidence",
+          "at"
+        ],
+        "title": "TransitionOut",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`.",
+    "title": "jelly-leon-platform (lifecycle)",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/connector/v1/apply": {
+      "post": {
+        "operationId": "apply_connector_v1_apply_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable"
+          }
+        },
+        "summary": "Apply",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/discover": {
+      "get": {
+        "operationId": "discover_connector_v1_discover_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Discover"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discover",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/events": {
+      "get": {
+        "operationId": "events_connector_v1_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/evidence/{evidence_id}": {
+      "get": {
+        "operationId": "evidence_connector_v1_evidence__evidence_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "evidence_id",
+            "required": true,
+            "schema": {
+              "title": "Evidence Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence Connector V1 Evidence  Evidence Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/health": {
+      "get": {
+        "operationId": "health_connector_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/items": {
+      "get": {
+        "operationId": "items_connector_v1_items_get",
+        "parameters": [
+          {
+            "description": "Itemsoort; alleen 'lifecycle_run'.",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "default": "lifecycle_run",
+              "description": "Itemsoort; alleen 'lifecycle_run'.",
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Items Connector V1 Items Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Items",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/propose": {
+      "post": {
+        "operationId": "propose_connector_v1_propose_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/connector/v1/rollback": {
+      "post": {
+        "operationId": "rollback_connector_v1_rollback_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "connector"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Proces leeft (zonder auth, zonder geheimen)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/lifecycle/v1/hub-link": {
+      "get": {
+        "operationId": "get_hub_link_lifecycle_v1_hub_link_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Koppelstatus met de Hub (zonder geheimen)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/hub-link/unlink": {
+      "post": {
+        "operationId": "unlink_hub_lifecycle_v1_hub_link_unlink_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HubLinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ontkoppelen (alleen admin)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/install/preview": {
+      "post": {
+        "operationId": "placeholder_lifecycle_v1_plans_install_preview_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable — er is niets uitgevoerd"
+          }
+        },
+        "summary": "Nog niet gebouwd: installatieplan met dry-run, poortconflicten en afhankelijkheden (B08-003)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/move/preview": {
+      "post": {
+        "operationId": "placeholder_lifecycle_v1_plans_move_preview_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable — er is niets uitgevoerd"
+          }
+        },
+        "summary": "Nog niet gebouwd: verhuizen naar andere host via export (B08-006)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/rollback/preview": {
+      "post": {
+        "operationId": "placeholder_lifecycle_v1_plans_rollback_preview_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable — er is niets uitgevoerd"
+          }
+        },
+        "summary": "Nog niet gebouwd: terugzetten naar vorige waarden + snapshot via eigenaar (B08-004)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/uninstall/preview": {
+      "post": {
+        "operationId": "placeholder_lifecycle_v1_plans_uninstall_preview_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable — er is niets uitgevoerd"
+          }
+        },
+        "summary": "Nog niet gebouwd: verwijderen zonder data (B08-006)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/update/preview": {
+      "post": {
+        "operationId": "placeholder_lifecycle_v1_plans_update_preview_post",
+        "responses": {
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "capability_unavailable — er is niets uitgevoerd"
+          }
+        },
+        "summary": "Nog niet gebouwd: veilige update met snapshot en migratietest (B08-004)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/runs": {
+      "get": {
+        "operationId": "list_runs_lifecycle_v1_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "app_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "App Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/LifecycleState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RunKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Runs (nieuwste eerst, cursor-paginering)",
+        "tags": [
+          "lifecycle"
+        ]
+      },
+      "post": {
+        "operationId": "create_run_lifecycle_v1_runs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Idempotency-Key ontbreekt"
+          },
+          "422": {
+            "description": "Ongeldige invoer"
+          }
+        },
+        "summary": "Run vastleggen in toestand 'discovered' (voert niets uit)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_lifecycle_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eén run (met ETag)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/runs/{run_id}/transitions": {
+      "post": {
+        "operationId": "transition_run_lifecycle_v1_runs__run_id__transitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Toestandsovergang (in P0 alleen 'aborted'; overige → 501 capability_unavailable)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/lifecycle/v1/statemachine": {
+      "get": {
+        "operationId": "get_statemachine_lifecycle_v1_statemachine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Statemachine Lifecycle V1 Statemachine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Statusmachine (toestanden, overgangen, verplicht bewijs)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Afhankelijkheden in orde (database, schema, geheimen)",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

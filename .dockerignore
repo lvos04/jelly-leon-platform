@@ -1,0 +1,13 @@
+.git
+.venv
+**/__pycache__
+**/*.egg-info
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+docs
+install
+release
+tests
+apps/api/tests
+e2e/simulators/*/tests

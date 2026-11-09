@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jelly-leon-platform-lifecycle"
+version = "0.1.0"
+description = "jelly-leon-platform — lifecycle-dienst (installatie, updates, rollback, verwijderen/verhuizen) van het TrueNAS Home Platform"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.162.2",
+  "starlette==1.10.0",
+  "uvicorn==0.54.0",
+  "sqlalchemy==2.1.8",
+  "alembic==1.20.1",
+  "psycopg[binary]==3.3.8",
+  "pydantic==2.14.3",
+  "pyjwt==2.15.1",
+  "cryptography==50.0.2",
+  "httpx==0.28.1",
+  "python-multipart==0.0.33",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==9.2.0",
+  "ruff==0.17.4",
+  "mypy==2.4.1",
+  "pip-audit==2.10.1",
+  "websockets==17.4",
+  "pyyaml==6.0.3",
+  "types-PyYAML==6.0.12.20261103",
+]
+
+[project.scripts]
+lifecycle = "lifecycle.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
+ignore = ["S101", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "S311"]
+"src/lifecycle/migrations/**" = ["E501"]
+"src/lifecycle/statuspage.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+plugins = []
+mypy_path = "src"
+packages = ["lifecycle"]
+
+[[tool.mypy.overrides]]
+module = ["alembic.*"]
+ignore_missing_imports = true
