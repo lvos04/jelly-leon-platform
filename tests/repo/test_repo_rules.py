@@ -106,6 +106,25 @@ def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> No
     assert ":latest" not in text and "ca-bundle" not in text
 
 
+def test_release_publishes_only_on_tags_and_never_overwrites() -> None:
+    """Review P0-afronding: workflow_dispatch op een branch pushte de versie-tag naar GHCR (en kon een bestaande
+    release overschrijven). Publiceren alleen bij een tag; een bestaande versie-tag in GHCR breekt de run af."""
+    doc = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+    steps = doc["jobs"]["publish"]["steps"]
+    publishing = [
+        st for st in steps
+        if "login-action" in str(st.get("uses", "")) or "sbom-action" in str(st.get("uses", ""))
+        or "upload-artifact" in str(st.get("uses", "")) or "docker push" in str(st.get("run", ""))
+        or "gh release" in str(st.get("run", ""))
+    ]
+    assert len(publishing) == 5, [st.get("name") or st.get("uses") for st in publishing]
+    for st in publishing:
+        assert st.get("if") == "github.ref_type == 'tag'", st.get("name") or st.get("uses")
+    push = next(st for st in publishing if "docker push" in str(st.get("run", "")))
+    run = push["run"]
+    assert run.index("imagetools inspect") < run.index("docker push") and "bestaat al" in run
+
+
 def test_compose_only_for_development() -> None:
     text = (ROOT / "deploy/dev/compose.yaml").read_text()
     assert "ALLEEN VOOR ONTWIKKELING" in text and "GEEN installatiemethode" in text
