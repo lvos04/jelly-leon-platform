@@ -56,8 +56,8 @@ ERROR_MESSAGES_NL = {
     "Maak in de Hub een nieuw token of een nieuwe koppelcode.",
     "hub_antwoord_ongeldig": "De Hub gaf een ongeldig antwoord; er is niets opgeslagen. Controleer of de Hub "
     "contract 1.2 ondersteunt.",
-    "hub_vingerafdruk_onjuist": "De vingerafdruk van de Hub-sleutels klopt niet; er is niets opgeslagen. Controleer "
-    "het Hub-adres en vergelijk de vingerafdruk met de Hub-UI.",
+    "hub_vingerafdruk_onjuist": "De vingerafdruk van de Hub klopt niet; er is niets opgeslagen. Controleer het adres "
+    "van de Hub en vergelijk de vingerafdruk met die in de Hub.",
     "enroll_endpoint_ontbreekt": "Deze Hub-versie kent aanmelden niet. Werk de Hub bij en maak een nieuw token.",
     "rate_limited": "De Hub vraagt even te wachten (te veel pogingen); de dienst probeert het daarna opnieuw.",
     "koppelen_onderbroken": "Koppelen is onderbroken door een herstart. Voer de koppelcode opnieuw in of maak in de "

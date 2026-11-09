@@ -205,7 +205,7 @@ def test_foreign_hub_cannot_get_trusted_without_its_fingerprint(clean_db: str, d
         r = c.post("/koppelen", data=form("EV1L-4B0D-C0DE", hub.state.sim.keyset_fingerprint(), token,
                                           hub_url="http://evil.test"))
         # (review: eerder slaagde dit al op de lokale controle van de code; nu echt bij de vreemde server geweigerd)
-        assert r.status_code == 400 and "De vingerafdruk van de Hub-sleutels klopt niet" in r.text, r.text
+        assert r.status_code == 400 and "De vingerafdruk van de Hub klopt niet" in r.text, r.text
         assert evil_state.calls["enroll"] == 1
         evil_jwt = evil_state.mint("aanvaller", ["admin"], APP)
         r = c.get("/lifecycle/v1/runs", headers={"Authorization": f"Bearer {evil_jwt}"})

@@ -154,6 +154,12 @@ def test_niet_gekoppeld_shows_the_form_and_is_not_ready(make_app: Any) -> None:
         assert velden["csrf"]["type"] == "hidden" and velden["csrf"]["value"] == c.cookies.get("jlp_csrf")
         assert "XXXX-XXXX-XXXX-XXXX" in r.text and "Geldig 60 minuten" in r.text
         assert 'pil-onbekend"><svg aria-hidden="true"><use href="#i-niet-gekoppeld"/></svg>Niet gekoppeld' in r.text
+        # één woord, één uiterlijk (ONTWERPTAAL §1.8, §7): in de controles het vaste woord Onbekend met reden, het woord
+        # "Niet gekoppeld" alleen in het koppelblok met link-2-off
+        assert r.text.count("</svg>Niet gekoppeld</span>") == 1
+        assert ('<span class="naam">Koppeling met de Hub</span><span class="pil pil-onbekend"><svg aria-hidden="true">'
+                '<use href="#i-onbekend"/></svg>Onbekend</span>') in r.text and "Nog niet gekoppeld: zonder" in r.text
+        assert "in orde" not in r.text
         toon, tekst = totaal(r.text)
         assert toon == "onbekend" and tekst.startswith("Niet gereed | Deels onbekend — wacht op koppeling")
         assert "<dt>Gereed</dt><dd>Nee — wacht op koppeling met de Hub" in r.text
@@ -199,6 +205,9 @@ def test_koppelen_invoer_ongeldig_marks_every_field_without_hub_call(make_app: A
         assert r.text.count('aria-invalid="true"') == 3 and r.text.count('class="veldfout"') == 3
         assert "loopback" in r.text and "12 tekens" in r.text and "16 tekens" in r.text
         assert "Code <code>invoer_ongeldig</code>" in r.text and '<a class="spring" href="#hub">' in r.text
+        # de melding bovenaan linkt naar het eerste foute veld (COMPONENTEN §25), ook zonder Hub-fout
+        assert '<a href="#hub">Naar het veld Adres van de Hub</a>' in r.text
+        assert '<a class="spring" href="#hub">Naar het veld met de fout</a>' in r.text  # kort: past op 320 px
         r = c.post("/koppelen", data=form("x" * 33, "y" * 33, csrf(c.get("/").text), hub_url="h" * 513))
         assert r.status_code == 400 and r.text.count('aria-invalid="true"') == 3  # te lang: HTML, geen JSON-422
         r = c.post("/koppelen", data={"csrf": csrf(c.get("/").text)})  # velden ontbreken: zelfde HTML-fout
@@ -250,7 +259,9 @@ def test_gekoppeld_unconfirmed_is_limited(clean_db: str, data_dir: Path, hub: An
         r = c.get("/?gekoppeld=1")
         check_page(r.text, r.headers)
         snapshot("beperkt", r)
-        assert totaal(r.text)[0] == "beperkt" and "Nog niet bevestigd" in r.text
+        assert totaal(r.text)[0] == "beperkt" and "nog niet bevestigd door de Hub" in r.text
+        assert '<span class="pil pil-beperkt"><svg aria-hidden="true"><use href="#i-beperkt"/></svg>Beperkt</span>' \
+            in r.text  # vast gezondheidswoord, de koppeltoestand staat in het koppelblok
         assert "De Hub heeft de koppeling bevestigd" not in r.text  # niet bevestigd = geen succesmelding
 
 
@@ -318,8 +329,9 @@ def test_niet_gereed_when_the_database_is_down(data_dir: Path, hub: Any) -> None
         check_page(r.text, r.headers)
         snapshot("niet-gereed", r)
         assert totaal(r.text) == ("storing", "Niet gereed | Storing — de eigen database, het schema of de geheimen "
-                                             "zijn niet in orde.")
-        assert "<dt>Gereed</dt><dd>Nee — eigen afhankelijkheden niet in orde (/readyz: not_ready)</dd>" in r.text
+                                             "werken niet; zie de controles hieronder.")
+        assert "<dt>Gereed</dt><dd>Nee — /readyz meldt not_ready (eigen database, schema of geheimen)</dd>" \
+            in r.text
         assert '<span class="naam">Eigen database (ingebouwd)</span><span class="pil pil-storing">' in r.text
         assert "pil-gezond" not in r.text.split('id="h-koppeling"')[0].split('class="totaal"')[1].split("</p>")[0]
 

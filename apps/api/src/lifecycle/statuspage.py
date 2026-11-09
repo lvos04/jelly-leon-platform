@@ -64,10 +64,11 @@ router = APIRouter(include_in_schema=False)
 CSRF_COOKIE = "jlp_csrf"
 CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 DIENST_NAAM = "Jelly Leon Platform"
+# Kort (status eerst, ONTWERPTAAL §1.2): op 320 px staat de status zo binnen het eerste scherm. "Onderdeel van TrueNAS
+# Home Platform" staat al in de kop; vaktermen (lifecycle, connectorcontract) horen in de Hub, niet hier.
 DIENST_OMSCHRIJVING = (
-    "Lifecycle-dienst van het TrueNAS Home Platform: legt installeren, bijwerken, terugzetten, verwijderen en "
-    "verhuizen van apps vast en levert het connectorcontract. Alle schermen staan in de Hub; dit is alleen een "
-    "statuspagina."
+    "Houdt de levenscyclus van apps bij: installeren, bijwerken, terugzetten, verwijderen en verhuizen. Deze pagina "
+    "toont alleen de status; alle schermen staan in de Hub."
 )
 KOPPELCODE_GELDIG = "60 minuten"
 MAX_LEN = {"hub_adres": 512, "koppelcode": 32, "hub_vingerafdruk": 32, "csrf": 128}
@@ -113,15 +114,17 @@ MELDINGEN: dict[str, Melding] = {
                             "Ontkoppelen of opnieuw koppelen gaat via de Hub."),
     "koppelen_bezig": Melding("info", "Koppelen is bezig", "Er loopt al een koppelpoging (eenmalig token of "
                               "koppelcode). Laad de pagina over een minuut opnieuw."),
-    "te_veel_pogingen": Melding("fout", "Te veel koppelpogingen", "Wacht 15 minuten en probeer het dan opnieuw. Er "
-                                "is niets naar de Hub gestuurd."),
-    "invoer_ongeldig": Melding("fout", "Controleer de invoer", "Niet alle velden kloppen; zie de melding bij het "
-                               "veld. Er is niets naar de Hub gestuurd."),
+    "te_veel_pogingen": Melding("fout", "Te veel koppelpogingen", "Ter bescherming tegen raden neemt deze pagina "
+                                "tijdelijk geen pogingen aan. Wacht 15 minuten en probeer het dan opnieuw. Er is "
+                                "niets naar de Hub gestuurd."),
+    "invoer_ongeldig": Melding("fout", "Controleer de invoer", "Niet alle velden kloppen; bij elk veld met een fout "
+                               "staat wat er mis is. Er is niets naar de Hub gestuurd."),
     "geheimen_ontbreken": Melding("fout", "Geheimen ontbreken", "De eigen sleutels van deze dienst ontbreken. "
                                   "Herstart de app; bij de eerste start worden ze aangemaakt."),
-    "hub_link_onleesbaar": Melding("fout", "Koppelbestand onleesbaar", "Het koppelbestand is onleesbaar; de dienst "
-                                   "vertrouwt daarom geen enkele Hub-aanmelding. Opnieuw koppelen gaat via de Hub "
-                                   "(nieuw token in het TrueNAS-formulier)."),
+    "hub_link_onleesbaar": Melding("fout", "Koppelbestand onleesbaar", "Het koppelbestand van deze dienst is "
+                                   "onleesbaar. Daarom vertrouwt de dienst geen enkele aanmelding van de Hub en voert "
+                                   "hij niets uit. Opnieuw koppelen gaat via de Hub, met een nieuw koppeltoken in het "
+                                   "TrueNAS-formulier van deze app."),
     # Fouten van de Hub-aanroep (vaste codes §3.5, tekst uit ERROR_MESSAGES_NL); veldfout bij het waarschijnlijke veld
     "hub_onbereikbaar": Melding("fout", _MISLUKT, ERROR_MESSAGES_NL["hub_onbereikbaar"], "hub_adres",
                                 "Geen antwoord van een Hub op dit adres. Controleer het adres en of de Hub draait."),
@@ -210,34 +213,36 @@ class Koppeling:
     rij: dict[str, str] | None  # uitzonderingsrij in de controles (None = gekoppeld en bevestigd: neutraal blok)
 
 
+def _rij(toon: str, reden: str) -> dict[str, str]:
+    """Controlerij met het vaste gezondheidswoord (Gezond · Beperkt · Storing · Onbekend, ONTWERPTAAL §11.1). In de
+    controles toont het sjabloon het icoon van de toon (bijv. circle-help); de koppeltoestand zelf ("Niet gekoppeld",
+    "Ingetrokken", met link-2-off) staat in het koppelblok. Zo heeft één woord op de pagina één uiterlijk (§1.8, §7)."""
+    return {"toon": toon, "label": LABEL[toon], "reden": reden}
+
+
 def _koppeling(link: Link, link_error: str | None) -> Koppeling:
     if link_error is not None:
-        return Koppeling(None, "koppelstatus onbekend",
-                         {"toon": "onbekend", "label": "Onbekend", "reden": _zin(link_error)})
+        return Koppeling(None, "koppelstatus onbekend", _rij("onbekend", _zin(link_error)))
     if link.corrupt:
-        return Koppeling(None, "koppelbestand onleesbaar", {
-            "toon": "storing", "label": "Onleesbaar",
-            "reden": "Het koppelbestand is onleesbaar; de API vertrouwt geen enkele Hub-aanmelding."})
+        return Koppeling(None, "koppelbestand onleesbaar", _rij(
+            "storing", "Koppelbestand onleesbaar: de API vertrouwt geen enkele aanmelding van de Hub."))
     if link.state == "gekoppeld":
         if link.doc.get("confirmed_at"):
             return Koppeling("gekoppeld", "gekoppeld", None)
-        return Koppeling("gekoppeld", "gekoppeld", {
-            "toon": "beperkt", "label": "Nog niet bevestigd",
-            "reden": "Gekoppeld; de bevestiging bij de Hub (services/self) volgt."})
+        return Koppeling("gekoppeld", "gekoppeld", _rij(
+            "beperkt", "Gekoppeld, maar nog niet bevestigd door de Hub (services/self); de dienst probeert het "
+                       "opnieuw."))
     if link.state == "ingetrokken":
-        return Koppeling("ingetrokken", "ingetrokken", {
-            "toon": "storing", "label": "Ingetrokken",
-            "reden": "De Hub heeft de koppeling ingetrokken; de API weigert elke aanvraag."})
+        return Koppeling("ingetrokken", "ingetrokken", _rij(
+            "storing", "Ingetrokken door de Hub: de API weigert elke aanvraag."))
     if link.state == "ontkoppeld":
-        return Koppeling("ontkoppeld", "ontkoppeld", {
-            "toon": "onbekend", "label": "Ontkoppeld",
-            "reden": "De Hub heeft deze dienst ontkoppeld; de API weigert elke aanvraag."})
+        return Koppeling("ontkoppeld", "ontkoppeld", _rij(
+            "onbekend", "Ontkoppeld door de Hub: de API weigert elke aanvraag."))
     if link.pending is not None:
-        return Koppeling("koppelformulier", "koppelen bezig", {
-            "toon": "onbekend", "label": "Koppelen bezig", "reden": "Er loopt een koppelpoging met de Hub."})
-    return Koppeling("koppelformulier", "niet gekoppeld", {
-        "toon": "onbekend", "label": "Niet gekoppeld",
-        "reden": "Zonder koppeling weigert de API elke aanvraag; alleen deze pagina, /healthz en /readyz werken."})
+        return Koppeling("koppelformulier", "koppelen bezig", _rij("onbekend", "Koppelen met de Hub is bezig."))
+    return Koppeling("koppelformulier", "niet gekoppeld", _rij(
+        "onbekend", "Nog niet gekoppeld: zonder koppeling weigert de API elke aanvraag; alleen deze pagina, /healthz "
+                    "en /readyz werken."))
 
 
 def _totaal(worst: str, ready: bool, link: Link, koppeling: Koppeling) -> tuple[str, str, str, str]:
@@ -245,8 +250,11 @@ def _totaal(worst: str, ready: bool, link: Link, koppeling: Koppeling) -> tuple[
     if not ready:
         toon = worst if worst != "gezond" else "onbekend"
         woord = "Storing" if toon == "storing" else "Deels onbekend" if toon == "onbekend" else "Beperkt"
-        return (toon, "Niet gereed", f"{woord} — de eigen database, het schema of de geheimen zijn niet in orde.",
-                "Nee — eigen afhankelijkheden niet in orde (/readyz: not_ready)")
+        uitleg = {"storing": "de eigen database, het schema of de geheimen werken niet",
+                  "onbekend": "niet alle eigen afhankelijkheden zijn te controleren",
+                  "beperkt": "niet alle eigen afhankelijkheden werken volledig"}[toon]
+        return (toon, "Niet gereed", f"{woord} — {uitleg}; zie de controles hieronder.",
+                "Nee — /readyz meldt not_ready (eigen database, schema of geheimen)")
     if not link.linked:
         # de koppelrij staat dan altijd in de controles, dus 'worst' telt haar al mee (minstens Onbekend)
         toon = worst if RANG[worst] >= RANG["onbekend"] else "onbekend"
@@ -258,7 +266,7 @@ def _totaal(worst: str, ready: bool, link: Link, koppeling: Koppeling) -> tuple[
         wacht = "wacht op koppeling met de Hub" if koppeling.blok == "koppelformulier" else (
             "ontkoppeld door de Hub; opnieuw koppelen gaat via de Hub")
         return (toon, "Niet gereed", f"{woord} — {wacht}.",
-                f"Nee — {wacht} (de eigen afhankelijkheden zijn in orde)")
+                f"Nee — {wacht} (eigen database, schema en geheimen zijn gezond)")
     if worst == "gezond":
         return "gezond", "Alles gezond", "Gereed; alle controles zijn gezond.", "Ja"
     label = {"beperkt": "Beperkt", "storing": "Storing", "onbekend": "Deels onbekend"}[worst]
@@ -267,7 +275,8 @@ def _totaal(worst: str, ready: bool, link: Link, koppeling: Koppeling) -> tuple[
     return worst, label, f"Gereed; {uitleg}.", "Ja"
 
 
-def _melding_data(code: str | None, melding: Melding | None, trace: str | None, extra: str = "") -> dict[str, Any]:
+def _melding_data(code: str | None, melding: Melding | None, trace: str | None, extra: str = "",
+                  eerste_fout: str | None = None) -> dict[str, Any]:
     if melding is None:
         return {"melding": False}
     data: dict[str, Any] = {
@@ -275,8 +284,9 @@ def _melding_data(code: str | None, melding: Melding | None, trace: str | None, 
         "melding_titel": melding.titel, "melding_tekst": melding.tekst + extra, "melding_link": False,
         "trace_id": trace or "", "melding_code": code or "",
     }
-    if melding.veld:
-        veld_id, naam = VELDEN[melding.veld]
+    # link naar het veld (COMPONENTEN §25): het veld van de melding, anders het eerste veld met een fout
+    if veld := melding.veld or eerste_fout:
+        veld_id, naam = VELDEN[veld]
         data.update(melding_link=True, melding_link_doel=veld_id, melding_link_tekst=f"Naar het veld {naam}")
     return data
 
@@ -321,10 +331,12 @@ def render_page(
     totaal_toon, totaal_label, toelichting, gereed = _totaal(worst, ready, link, koppeling)
 
     # Melding: resultaat van dit verzoek, anders de opgeslagen toestand (vaste teksten, geen trace-ID).
+    fouten = veldfouten or {}
+    eerste = next((v for v in VELDEN if v in fouten), None)
     trace = trace_id_of(request)
     data_melding: dict[str, Any]
     if melding is not None:
-        data_melding = _melding_data(code, melding, trace)
+        data_melding = _melding_data(code, melding, trace, eerste_fout=eerste)
     elif koppeling.blok is None:  # blijvende toestand: code in de tekst (de trace-ID van dit verzoek zegt niets)
         data_melding = _melding_data(None, MELDINGEN["hub_link_onleesbaar"], None, " Code hub_link_onleesbaar.")
     elif request.query_params.get("gekoppeld") == "1" and link.linked and link.doc.get("confirmed_at"):
@@ -341,9 +353,9 @@ def render_page(
     else:
         data_melding = {"melding": False}
 
-    fouten = veldfouten or {}
-    eerste = next((v for v in VELDEN if v in fouten), None)
-    spring = (VELDEN[eerste][0], f"Naar het veld {VELDEN[eerste][1]} (fout)") if eerste else ("inhoud", "Naar inhoud")
+    # Korte, vaste tekst: het sjabloon verbergt de skiplink met top:-4rem; een tekst die op 320 px over twee regels loopt
+    # ("Naar het veld Vingerafdruk van de Hub (fout)") stak dan onder de bovenrand uit (PEIL_REVIEW.md, B-05).
+    spring = (VELDEN[eerste][0], "Naar het veld met de fout") if eerste else ("inhoud", "Naar inhoud")
     cookie = request.cookies.get(CSRF_COOKIE, "")
     token = cookie if _CSRF_RE.fullmatch(cookie) else secrets.token_urlsafe(24)
     titel_melding = "koppelen mislukt" if data_melding.get("melding_toon") == "fout" and melding else koppeling.woord
@@ -369,11 +381,11 @@ def render_page(
         "dienst_blok": [
             {"naam": "Installeren, bijwerken, terugzetten, verwijderen en verhuizen", "toon": "gate",
              "label": "Nog niet beschikbaar",
-             "reden": "Volgt in fase P2. Tot dan antwoordt de API eerlijk capability_unavailable en wordt er niets "
-                      "op de NAS uitgevoerd. Dit is geen storing; er wacht een voorwaarde."},
+             "reden": "Volgt in fase P2. Tot dan antwoordt de API met capability_unavailable en voert deze dienst "
+                      "niets uit op de NAS. Dit is geen storing."},
             {"naam": "Wijzigingen op TrueNAS", "toon": "gate", "label": "Alleen via de executor",
-             "reden": "Deze dienst heeft geen TrueNAS-schrijfsleutel. Uitvoering loopt vanaf P2 uitsluitend via de "
-                      "executor van de Hub, met goedkeuring volgens het risicobeleid."},
+             "reden": "Deze dienst heeft geen TrueNAS-schrijfsleutel. Vanaf fase P2 loopt uitvoering uitsluitend via "
+                      "de executor van de Hub, met goedkeuring volgens het risicobeleid."},
         ],
     }
     body = render(statuspagina_template(), data)
