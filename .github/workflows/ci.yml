@@ -216,7 +216,8 @@ jobs:
     timeout-minutes: 45
     needs: test
     env:
-      ASM_COMMIT: efb7f3b7d5235708be28310a732b91f4af39a52d
+      # Hub en executor op contract 1.3 (conformiteitsronde C1.3-ASM); eerder efb7f3b (contract 1.2)
+      ASM_COMMIT: 5e2177515714c51ab01f2d1b278d546cebf6733c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
