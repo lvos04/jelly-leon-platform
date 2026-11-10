@@ -84,12 +84,17 @@ met een code en een trace-ID (selecteer en kopieer); dezelfde trace-ID staat in 
   Hub-sleutels en pint die. Het token is daarna waardeloos.
 - **Handmatig geïnstalleerd, aanbevolen:** maak in de Hub-UI een enrollment-token voor `jelly-leon-platform` en vul
   in het formulier (Environment Variables) `HUB_URL`, `HUB_ENROLLMENT_TOKEN` en `HUB_KEY_FINGERPRINT` in (de Hub-UI toont
-  ze samen). Geen wedloop: alleen wie het TrueNAS-formulier kan wijzigen, kan zo koppelen.
+  ze samen). Geen wedloop: alleen wie het TrueNAS-formulier kan wijzigen, kan zo koppelen. Klopt `HUB_URL` of de vingerafdruk niet,
+  dan start de app gewoon en meldt de statuspagina `hub_adres_ongeldig` of `vingerafdruk_ongeldig`; het token blijft
+  bruikbaar tot je het formulier verbetert.
 - **Handmatig, met koppelcode:** maak in de Hub-UI een koppelcode en vul op de statuspagina het Hub-adres
   (`http://<NAS-adres>:30400`), de koppelcode (`XXXX-XXXX-XXXX`) **en** de vingerafdruk (`XXXX-XXXX-XXXX-XXXX`) in →
   **Koppelen**. Dit formulier bestaat alleen zolang de app **nog nooit** gekoppeld is; daarna gaan ontkoppelen en
   opnieuw koppelen alleen via de Hub (of een nieuw `HUB_ENROLLMENT_TOKEN` in dit formulier). Max. 5 pogingen per
-  15 minuten per bron-IP en 20 voor de hele app. Welk adres de app achter de poortpublicatie van TrueNAS als bron-IP
+  15 minuten per bron-IP en 20 voor de hele app; ook een geweigerde poging telt mee. Open de statuspagina daarvoor via
+  het **IP-adres van de NAS** of een lokale naam (zonder punt, of op `.local`, `.lan`, `.internal`, `.home.arpa`): via
+  een eigen domeinnaam weigert de app het formulier (`host_niet_toegestaan`, bescherming tegen DNS-rebinding, contract
+  1.3 §3.7). Welk adres de app achter de poortpublicatie van TrueNAS als bron-IP
   ziet (jouw apparaat of het gateway-adres van Docker, dan gelden de 5 voor alle apparaten samen) is
   **NIET GEVALIDEERD (echte NAS)**. Een koppelcode-poging die klaar is nadat de app intussen al gekoppeld is (bijv.
   via het token), wordt geweigerd en overschrijft nooit de bestaande koppeling. Restrisico: vóór de eerste koppeling kan iemand op je netwerk de app aan een eigen "Hub"
