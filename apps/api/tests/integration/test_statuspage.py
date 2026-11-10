@@ -1,6 +1,8 @@
-"""Contract 1.2 §3.7: koppelen via de statuspagina — alleen zolang nooit gekoppeld, met verplichte vingerafdruk,
-CSRF + Origin, 5 pogingen per 15 min per bron-IP (nooit ``X-Forwarded-For``) en 20 voor de hele dienst; het adres van
-een mislukte poging wordt nergens bewaard."""
+"""Contract 1.3 §3.7 (C1.3-JLP-01/02): koppelen via de statuspagina — alleen zolang nooit gekoppeld en het
+koppelbestand leesbaar, met verplichte vingerafdruk; herkomst (exacte ``Origin``, ``Sec-Fetch-Site``, ``Host``-beperking
+tegen DNS-rebinding) + CSRF; elke POST die de herkomstcontrole doorstaat telt als poging (5 per 15 min per bron-IP,
+nooit ``X-Forwarded-For``, en 20 voor de hele dienst), ook bij al gekoppeld, onleesbaar of een lopende poging; invoer
+nooit afkappen; één logregel per poging; het adres van een mislukte poging wordt nergens bewaard."""
 
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 from hub_sim import HubState, create_hub_app
 from starlette.testclient import TestClient
 
@@ -18,7 +21,7 @@ from lifecycle.config import Settings
 from lifecycle.hublink import HubLinkStore
 
 APP = "jelly-leon-platform"
-BASE = "http://lifecycle.test"
+BASE = "http://nas.local"  # §3.7: een POST alleen via een IP-adres of een lokale naam (Host-beperking)
 ORIGIN = {"Origin": BASE}
 
 
@@ -51,28 +54,106 @@ def test_pairing_with_code_and_fingerprint(make_app: Any, hub: Any, data_dir: Pa
         r = c.post("/koppelen", data=form(code.lower(), sim.keyset_fingerprint().replace("-", " "), token),
                    follow_redirects=False)
         assert r.status_code == 303, r.text
-        page = c.get("/?gekoppeld=1").text
+        page = c.get(r.headers["location"]).text  # melding hoort bij déze poging (sleutel in het geheugen)
         assert "De Hub heeft de koppeling bevestigd" in page and "Gekoppeld met de Hub" in page
+        assert 'role="status"' in page
         assert sim.keyset_fingerprint() in page
         assert code not in page and 'name="csrf"' not in page  # na de eerste koppeling nooit meer een formulier
         doc = file_doc(data_dir)
         assert doc["via"] == "koppelcode" and doc["confirmed_at"] and doc["service_token"] not in page
         r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), token))
-        assert r.status_code == 409 and "via de Hub" in r.text
+        assert r.status_code == 409 and "via de Hub" in r.text and "Code <code>al_gekoppeld</code>" in r.text
 
 
-def test_csrf_and_origin_are_required(make_app: Any, hub: Any) -> None:
+def test_melding_belongs_to_this_browser_and_never_to_a_query_parameter(make_app: Any, hub: Any) -> None:
+    """§3.7: een melding hoort bij een echte, recente poging van deze browser (sleutel in het geheugen, ≤ 15 min);
+    alleen een query-parameter (ook de sleutel in een andere browser) toont nooit "gekoppeld"."""
+    sim = hub.state.sim
+    app = make_app(hub_url=None, linked=False)
+    with TestClient(app, base_url=BASE, client=("192.0.2.10", 50000), headers=ORIGIN) as c:
+        r = c.post("/koppelen", data=form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(),
+                                          csrf(c.get("/").text)), follow_redirects=False)
+        location = r.headers["location"]
+        assert c.get(location).text.count("De Hub heeft de koppeling bevestigd") == 1
+    with TestClient(app, base_url=BASE, client=("192.0.2.11", 50000), headers=ORIGIN) as other:
+        assert "De Hub heeft de koppeling bevestigd" not in other.get(location).text  # andere browser
+        assert "De Hub heeft de koppeling bevestigd" not in other.get("/?gekoppeld=1").text
+        assert "De Hub heeft de koppeling bevestigd" not in other.get("/?melding=verzonnen").text
+    geheugen = app.state.melding_geheugen
+    sleutel = geheugen.bewaar("gekoppeld", "browser-a")
+    assert geheugen.lees(sleutel, "browser-a") == "gekoppeld" and geheugen.lees(sleutel, "browser-b") is None
+    geheugen.geldig_s = 0.0  # na 15 minuten vervallen
+    assert geheugen.lees(sleutel, "browser-a") is None
+
+
+@pytest.mark.parametrize(("headers", "code"), [
+    ({"Origin": "http://evil.test"}, "herkomst_ongeldig"),
+    ({"Origin": "null"}, "herkomst_ongeldig"),
+    ({"Origin": ""}, "herkomst_ongeldig"),
+    ({"Origin": BASE + "/"}, "herkomst_ongeldig"),  # exact: geen afsluitende slash
+    ({"Origin": "https://nas.local"}, "herkomst_ongeldig"),  # ander schema dan het verzoek
+    ({"Sec-Fetch-Site": "same-site"}, "herkomst_ongeldig"),  # een andere app op hetzelfde NAS-adres
+    ({"Sec-Fetch-Site": "cross-site"}, "herkomst_ongeldig"),
+])
+def test_origin_and_sec_fetch_site_are_checked_and_refused_without_counting(make_app: Any, hub: Any,
+                                                                             headers: dict[str, str],
+                                                                             code: str) -> None:
+    sim = hub.state.sim
+    with unlinked_client(make_app) as c:
+        good = form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(), csrf(c.get("/").text))
+        for _ in range(6):  # geweigerd vóór de pogingenteller: ook de zesde keer 403, nooit 429
+            r = c.post("/koppelen", data=good, headers=headers)
+            assert r.status_code == 403 and f"Code <code>{code}</code>" in r.text, r.text
+        assert sim.calls["enroll"] == 0
+        for site in ("same-origin", "none"):  # toegestaan; zonder Sec-Fetch-Site (oude browser) ook
+            r = c.post("/koppelen", data={**good, "koppelcode": "x"}, headers={"Sec-Fetch-Site": site})
+            assert r.status_code == 422
+
+
+def test_csrf_and_missing_origin_are_required(make_app: Any, hub: Any) -> None:
     sim = hub.state.sim
     code = sim.add_grant("koppelcode", APP)
     with unlinked_client(make_app) as c:
         token = csrf(c.get("/").text)
         good = form(code, sim.keyset_fingerprint(), token)
-        assert c.post("/koppelen", data={**good, "csrf": "fout"}).status_code == 403
-        for origin in ("http://evil.test", "null", ""):
-            assert c.post("/koppelen", data=good, headers={"Origin": origin}).status_code == 403, origin
-        c.headers.pop("Origin")
+        r = c.post("/koppelen", data={**good, "csrf": "fout"})
+        assert r.status_code == 403 and "Code <code>csrf_ongeldig</code>" in r.text
+        c.cookies.clear()  # geen cookie
         assert c.post("/koppelen", data=good).status_code == 403
+        c.headers.pop("Origin")
+        r = c.post("/koppelen", data=good)
+        assert r.status_code == 403 and "Code <code>herkomst_ongeldig</code>" in r.text
         assert sim.calls["enroll"] == 0
+
+
+@pytest.mark.parametrize("host", ["jlp.voorbeeld.nl", "nas.example.com:30440", "127.1:30440", "2130706433"])
+def test_host_restriction_against_dns_rebinding(make_app: Any, hub: Any, host: str) -> None:
+    """§3.7 punt 4: Origin = Host (zoals bij DNS-rebinding) maar Host is geen IP-adres, naam zonder punt of lokale
+    naam → 403 ``host_niet_toegestaan`` met de vaste melding; niets naar de Hub, niets veranderd. De GET-pagina zegt
+    het al."""
+    sim = hub.state.sim
+    app = make_app(hub_url=None, linked=False)
+    with TestClient(app, base_url=f"http://{host}", client=("192.0.2.10", 50000),
+                    headers={"Origin": f"http://{host}"}) as c:
+        page = c.get("/").text
+        assert "Code <code>host_niet_toegestaan</code>" in page and 'role="' not in page.split('id="inhoud"')[1][:200]
+        r = c.post("/koppelen", data=form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(), csrf(page)))
+        assert r.status_code == 403 and "Code <code>host_niet_toegestaan</code>" in r.text
+        assert "Open deze pagina via het IP-adres van de NAS, of koppel via de Hub" in r.text
+    assert sim.calls["enroll"] == 0 and HubLinkStore(app.state.settings.secrets_dir).read().state == "nooit_gekoppeld"
+
+
+@pytest.mark.parametrize("host", ["192.0.2.20:30440", "[fd00::5]:30440", "truenas:30440", "nas.home.arpa",
+                                  "nas.lan", "nas.internal", "nas.local."])
+def test_allowed_hosts_reach_the_hub(make_app: Any, hub: Any, host: str) -> None:
+    sim = hub.state.sim
+    with TestClient(make_app(hub_url=None, linked=False), base_url=f"http://{host}", client=("192.0.2.10", 50000),
+                    headers={"Origin": f"http://{host}"}) as c:
+        page = c.get("/").text
+        assert "host_niet_toegestaan" not in page
+        r = c.post("/koppelen", data=form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(), csrf(page)),
+                   follow_redirects=False)
+        assert r.status_code == 303, r.text
 
 
 def test_wrong_fingerprint_stores_nothing_and_forgets_the_address(make_app: Any, hub: Any, data_dir: Path) -> None:
@@ -102,11 +183,31 @@ def test_local_validation_without_hub_call(make_app: Any, hub: Any) -> None:
         ]
         for data, needle in cases:
             r = c.post("/koppelen", data=data)
-            assert r.status_code == 400 and needle in r.text, (data, r.text)
+            assert r.status_code == 422 and needle in r.text, (data, r.text)
         r = c.post("/koppelen", data=form("ABCD-EFGH-JKMN", fp, token, hub_url="ftp://hub"))
-        assert r.status_code == 400 and "http://" in r.text
+        assert r.status_code == 422 and "http://" in r.text
         assert c.post("/koppelen", data=form("ABCD-EFGH-JKMN", fp, token)).status_code == 429  # 6e poging
         assert sim.calls["enroll"] == 0  # 5 pogingen gebruikt, geen enkele bij de Hub
+
+
+def test_input_is_checked_as_a_whole_never_truncated(make_app: Any, hub: Any) -> None:
+    """§3.7: koppelcode ≤ 32, vingerafdruk ≤ 64, Hub-adres ≤ 512 tekens; langer → veldfout (nooit eerst afkappen).
+    Een vingerafdruk met spaties tot 64 tekens is geldige invoer (normalisatie na de lengtecontrole)."""
+    sim = hub.state.sim
+    fp = sim.keyset_fingerprint()
+    code = sim.add_grant("koppelcode", APP)
+    with unlinked_client(make_app, ip="192.0.2.30") as c:
+        token = csrf(c.get("/").text)
+        for data in (form(code + " " * 30, fp, token), form(code, fp + " " * 60, token),
+                     form(code, fp, token, hub_url="http://hub.test/" + "a" * 500)):
+            r = c.post("/koppelen", data=data)
+            assert r.status_code == 422 and "Te lang; kopieer de waarde uit de Hub." in r.text, r.text
+        assert sim.calls["enroll"] == 0
+    with unlinked_client(make_app, ip="192.0.2.31") as c:
+        lang_maar_geldig = "  ".join(fp.replace("-", "")) + " " * 10
+        assert 32 < len(lang_maar_geldig) <= 64
+        r = c.post("/koppelen", data=form(code, lang_maar_geldig, csrf(c.get("/").text)), follow_redirects=False)
+        assert r.status_code == 303, r.text
 
 
 def test_rate_limit_per_source_ip_and_for_the_whole_service(make_app: Any, hub: Any) -> None:
@@ -129,6 +230,63 @@ def test_rate_limit_per_source_ip_and_for_the_whole_service(make_app: Any, hub: 
     good = sim.add_grant("koppelcode", APP)
     assert attempt("192.0.2.15", code=good) == 429  # ook een geldige code: geen verzoek naar de Hub
     assert sim.calls["enroll"] == 20
+
+
+@pytest.mark.parametrize("toestand", ["al_gekoppeld", "koppelstatus_onleesbaar", "koppelen_bezig"])
+def test_every_post_counts_also_when_refused_by_state(make_app: Any, hub: Any, data_dir: Path,
+                                                      toestand: str) -> None:
+    """§3.7 (RV7): elke POST die de herkomstcontrole doorstaat telt mee, ook bij een al gekoppelde dienst (409
+    ``al_gekoppeld``), een onleesbaar koppelbestand of een lopende poging; daarna 429. Nooit een verzoek naar de Hub."""
+    import os
+
+    from lifecycle.enrollment import mark_pending
+
+    sim = hub.state.sim
+    store = HubLinkStore(data_dir / "secrets")
+    if toestand == "al_gekoppeld":
+        app = make_app()
+    else:
+        app = make_app(hub_url=None, linked=False)
+        if toestand == "koppelstatus_onleesbaar":
+            store.path.write_text("{ kapot")
+            os.chmod(store.path, 0o600)
+        else:
+            mark_pending(store, kind="token", secret_sha="a" * 64, hub_url="http://hub.test")
+    with TestClient(app, base_url=BASE, client=("192.0.2.40", 50000), headers=ORIGIN) as c:
+        page = c.get("/").text
+        assert 'name="csrf"' not in page  # in geen van deze toestanden een formulier (een POST uit een oud tabblad)
+        token = c.cookies.get("jlp_csrf")
+        for _ in range(5):
+            r = c.post("/koppelen", data=form("ABCD-EFGH-JKMN", sim.keyset_fingerprint(), str(token)))
+            assert r.status_code == 409 and f"Code <code>{toestand}</code>" in r.text, r.text
+        r = c.post("/koppelen", data=form("ABCD-EFGH-JKMN", sim.keyset_fingerprint(), str(token)))
+        assert r.status_code == 429 and "Code <code>te_veel_pogingen</code>" in r.text
+    assert sim.calls["enroll"] == 0
+
+
+def test_one_log_line_per_attempt_without_address_or_secret(make_app: Any, hub: Any,
+                                                            caplog: pytest.LogCaptureFixture) -> None:
+    """§3.7: elke afgehandelde poging geeft precies één regel met code en trace-ID; nooit het ingevulde Hub-adres van
+    een mislukte poging of een geheim."""
+    import logging
+
+    sim = hub.state.sim
+    with unlinked_client(make_app) as c:
+        token = csrf(c.get("/").text)
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            r = c.post("/koppelen", data=form(sim.add_grant("koppelcode", APP), "MEGG-8GFG-2E4Y-K2RQ", token,
+                                              hub_url="http://hub.test"))
+        assert r.status_code == 400
+        lines = [rec.getMessage() for rec in caplog.records if rec.name.startswith("lifecycle")]
+        assert len(lines) == 1, lines
+        assert "hub_vingerafdruk_onjuist" in lines[0] and r.headers["X-Trace-Id"] in lines[0]
+        assert "hub.test" not in lines[0] and "MEGG" not in lines[0]
+        for data in (form("x", "y", token), form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(), token)):
+            caplog.clear()
+            with caplog.at_level(logging.INFO):
+                c.post("/koppelen", data=data, follow_redirects=False)
+            assert len([rec for rec in caplog.records if rec.name.startswith("lifecycle")]) == 1
 
 
 def test_revoked_right_after_pairing_is_not_reported_as_success(make_app: Any, hub: Any, data_dir: Path) -> None:
@@ -175,7 +333,7 @@ def test_restart_during_pairing_marks_interrupted_then_same_code_works(make_app:
         "hub_url": "http://hub.test", "started_at": "2026-11-09T00:00:00.000Z", "attempts": 1}))
     with unlinked_client(make_app) as c:  # nieuwe app-instantie = herstart
         page = c.get("/").text
-        assert "onderbroken door een herstart" in page
+        assert "onderbroken door een herstart" in page and "Code <code>koppelen_onderbroken</code>" in page
         r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), csrf(page)), follow_redirects=False)
         assert r.status_code == 303, r.text
     assert file_doc(data_dir)["state"] == "gekoppeld"
@@ -273,8 +431,6 @@ def test_pairing_that_finishes_after_another_link_never_overwrites_it(clean_db: 
 def test_second_pairing_attempt_while_one_is_pending_is_refused_under_the_lock(data_dir: Path, hub: Any) -> None:
     """Twee gelijktijdige formulierposts: de tweede ziet (onder de vergrendeling) de lopende poging en gaat nooit
     naar de Hub; een env-token mag wel (§3.8) en vervangt de lopende poging."""
-    import pytest
-
     from lifecycle.enrollment import PairingRefused, mark_pending
 
     store = HubLinkStore(data_dir / "secrets")
@@ -306,5 +462,5 @@ def test_no_pairing_form_after_unlink_and_post_is_refused_without_hub_call(make_
         code = sim.add_grant("koppelcode", APP)
         calls = sim.calls["enroll"]
         r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), token))
-        assert r.status_code == 409 and "via de Hub" in r.text
+        assert r.status_code == 409 and "via de Hub" in r.text and "Code <code>al_gekoppeld</code>" in r.text
         assert sim.calls["enroll"] == calls
