@@ -205,3 +205,21 @@
 - **Nog open:** C1.3-JLP-14 hoort bij P2. Het monitorplan van de Beszel-agent (alleen SSH) kan de standaard niet
   uitdrukken (contract_issue).
 - Op een echte TrueNAS, met echte accounts of hardware: **NIET GEVALIDEERD**.
+
+### Review contract 1.3 (onafhankelijke QA, ADR-0020)
+
+- Alle CI-stappen lokaal opnieuw gedraaid (lint, types, dienst-, simulator-, conformiteits- en repotests, manifesten
+  met de gepubliceerde validator, OpenAPI-drift, pip-audit, actionlint, statuspagina in Chromium incl. DejaVu Sans en
+  live, image bouwen + E2E): groen. Contract- en Peil-kopie byte-gelijk; conformiteit ook tegen de echte Hub op
+  `ai-server-manager@5e21775`.
+- **§5 `Retry-After` bij 429/503:** de outbox stopt de ronde na een 429/503 en plant het event op zijn vroegst na
+  `Retry-After` (stuurde eerder alle overige events en wachtte alleen de eigen backoff); de worker spreekt de Hub tot
+  dan niet aan voor bevestigen, rotatie, outbox en sleutelrotaties; enrollment volgt `Retry-After` ook bij 503 en
+  kort een lange `Retry-After` niet meer in tot 15 min.
+- **Tokenrotatie:** een tijdelijk mislukte rotatie op verzoek van de Hub gaat opnieuw met backoff + jitter (5 s → 60 s)
+  in plaats van elke worker-ronde (elke 5 s).
+- **Statuspagina:** 429 `te_veel_pogingen` met `Retry-After` (seconden tot deze bron weer een poging mag doen).
+- Hub-simulator: foutinjectie `enroll_503`, `inbox_429`, `inbox_503`, `rotate_500`, `rotate_503`; regressietests die op
+  de oude code falen.
+- `CUSTOM_APP.md`: de probleemregel noemt de code van 1.3 (`koppelstatus_onleesbaar`, was `hub_link_onleesbaar`).
+- Op een echte TrueNAS, met echte accounts of hardware: **NIET GEVALIDEERD**.

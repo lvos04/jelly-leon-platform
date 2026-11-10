@@ -8,7 +8,8 @@
 # PostgreSQL 16 draait binnenin, alleen op een unix-socket (geen netwerkpoort, geen wachtwoord).
 # Start als root alleen om de eigen submappen van /appdata aan 568:568 te geven; daarna draait ELK proces — ook de
 # procesbewaker zelf als PID 1 (geen root-init zoals dumb-init) — als 568 zonder capabilities en met no_new_privs,
-# omdat het standaard Custom App-formulier no-new-privileges en cap_drop weglaat (contract 1.2 §2.2). Base-images op exacte versie én @sha256-digest (contract §1). De optionele BuildKit-secret
+# omdat het standaard Custom App-formulier no-new-privileges en cap_drop weglaat (contract 1.3 §2.2: eerst de
+# bounding set leeg). Base-images op exacte versie én @sha256-digest (contract §1). De optionele BuildKit-secret
 # 'ca_bundle' is alleen voor bouwomgevingen achter een TLS-proxy; in GitHub Actions blijft hij weg.
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12.16-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df

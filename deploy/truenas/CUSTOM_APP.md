@@ -133,5 +133,5 @@ met een code en een trace-ID (selecteer en kopieer); dezelfde trace-ID staat in 
 | Image niet op te halen (`denied`/`unauthorized`) | GHCR-pakket nog privé: zie stap 0 (route B als terugvaloptie) en `install/truenas/INSTALLATIE.md` stap 1. |
 | Statuspagina: code `hub_vingerafdruk_onjuist` ("vingerafdruk klopt niet") | Ander Hub-adres of andere Hub dan bedoeld; er is niets opgeslagen. Controleer adres en vingerafdruk in de Hub-UI. |
 | Statuspagina: "Ingetrokken" (code `ingetrokken_door_hub`) | De Hub heeft de koppeling ingetrokken. Opnieuw koppelen via de Hub (nieuw token). |
-| Statuspagina: "Koppelbestand onleesbaar" (code `hub_link_onleesbaar`) | `/appdata/secrets/hub-link.json` is beschadigd; de app vertrouwt geen Hub-aanmelding en toont geen formulier. Opnieuw koppelen via de Hub (nieuw token in dit formulier). |
+| Statuspagina: "De koppelstatus is onleesbaar" (code `koppelstatus_onleesbaar`) | `/appdata/secrets/hub-link.json` is beschadigd; de app vertrouwt geen Hub-aanmelding en toont geen formulier. Opnieuw koppelen via de Hub (nieuw token in dit formulier). |
 | Poort bezet | Andere Host Port kiezen (Container Port blijft `30440`); de Hub controleert dit vooraf via `app.used_ports`. |
