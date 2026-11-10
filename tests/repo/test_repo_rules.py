@@ -212,36 +212,90 @@ def test_no_model_identifiers_in_own_files() -> None:
 STATUS_WORK = {"Niet gestart", "Bezig", "Gereed", "Geblokkeerd", "N.v.t."}
 STATUS_TEST = {"Niet gestart", "Bezig", "Geslaagd", "Mislukt", "Geblokkeerd", "N.v.t."}
 STATUS_DECISION = {"Open", "Ingevuld", "Getest", "Geblokkeerd", "N.v.t."}
-# contract 1.2 §11 (A4): vaste lijst; meerdere waarden gescheiden door "; "; toelichting hoort in 'opmerking'
-VALIDATIE = {"Sim-getest", "Unit-getest", "NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)",
-             "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)", "Sim-geslaagd", "Sim-mislukt"}
+# contract 1.3 §11 (A33): vaste lijst; meerdere waarden gescheiden door "; "; toelichting hoort in 'opmerking'
+VALIDATIE = {"Sim-getest", "Unit-getest", "Intel-iGPU-getest (ontwikkelmachine)", "NIET GEVALIDEERD (echte NAS)",
+             "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)",
+             "Sim-geslaagd", "Sim-mislukt", "Niet getest"}
+NIET_GEVALIDEERD = re.compile(r"NIET GEVALIDEERD \([^)]*\)")
+CONTRACTPUNT = re.compile(r"C1\.3-JLP-\d\d")
+REVIEW = re.compile(r"REVIEW-jelly-leon-platform-[a-z0-9][a-z0-9.-]*")
+
+
+def _evidence() -> list[dict[str, Any]]:
+    rows = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    assert isinstance(rows, list) and rows
+    return rows
+
+
+def _contractpunten() -> set[str]:
+    lijst = (ROOT / "docs/platform-v2/CONTRACT_1.3_CONFORMITEIT.md").read_text(encoding="utf-8")
+    return set(re.findall(r"^\| (C1\.3-JLP-\d\d) \|", lijst, re.M))
+
+
+def check_evidence_row(row: dict[str, Any], tasks: set[str], punten: set[str]) -> None:
+    """Contract 1.3 §11 voor één regel (ook gebruikt door de negatieve test hieronder)."""
+    rid = row["id"]
+    assert set(row) == {"id", "status", "validatie", "bewijs", "blokkade", "opmerking", "repo", "bijgewerkt"}, rid
+    assert row["repo"] == "jelly-leon-platform", rid
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["bijgewerkt"]), rid
+    testmatrix = bool(re.fullmatch(r"(EX\d{2}|JLT-\d+)", rid))
+    if testmatrix:
+        assert row["status"] in STATUS_TEST - {"Geslaagd"}, rid
+    elif re.fullmatch(r"D\d{2}", rid):
+        assert row["status"] in STATUS_DECISION, rid
+    elif rid.startswith("C1."):
+        assert CONTRACTPUNT.fullmatch(rid) and rid in punten, f"onbekend contractpunt {rid}"
+        assert row["status"] in STATUS_WORK - {"Gereed"}, rid
+    elif rid.startswith("REVIEW-"):
+        assert REVIEW.fullmatch(rid), f"reviewregel {rid}: REVIEW-jelly-leon-platform-<onderwerp>"
+        assert row["status"] in STATUS_WORK - {"Gereed"}, rid
+    else:
+        assert rid in tasks, f"onbekende Excel-ID {rid}"
+        assert row["status"] in STATUS_WORK - {"Gereed"}, rid
+    assert row["status"] not in {"Gereed", "Geslaagd"}, rid
+    assert row["validatie"].strip(), f"{rid}: een lege validatie is nooit toegestaan"
+    values = row["validatie"].split("; ")
+    assert all(v in VALIDATIE for v in values), f"{rid}: vrije tekst in validatie"
+    assert len(set(values)) == len(values), f"{rid}: dubbele validatiewaarde"
+    if testmatrix:
+        assert not set(values) & {"Sim-getest", "Unit-getest"}, f"{rid}: testmatrix gebruikt Sim-geslaagd/Sim-mislukt"
+    else:
+        assert not set(values) & {"Sim-geslaagd", "Sim-mislukt"}, f"{rid}: alleen voor de testmatrix"
+    if "Niet getest" in values:
+        assert row["status"] == "Niet gestart", f"{rid}: 'Niet getest' alleen bij 'Niet gestart'"
+    for gevonden in NIET_GEVALIDEERD.findall(row["blokkade"]):
+        assert gevonden in values, f"{rid}: {gevonden!r} staat in blokkade maar niet in validatie"
+    if row["status"] == "Geblokkeerd":
+        assert row["blokkade"], f"{rid}: blokkade zonder reden"
 
 
 def test_evidence_json_follows_section_11() -> None:
-    evidence = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
     tasks = {t["ID"] for t in json.loads((ROOT / "docs/platform-v2/EXCEL_TAKEN.json").read_text(encoding="utf-8"))}
-    assert isinstance(evidence, list) and evidence
+    punten = _contractpunten()
+    assert len(punten) == 14, punten
     seen: set[str] = set()
-    for row in evidence:
-        assert set(row) == {"id", "status", "validatie", "bewijs", "blokkade", "opmerking", "repo", "bijgewerkt"}
-        assert row["id"] not in seen
+    for row in _evidence():
+        assert row["id"] not in seen, row["id"]
         seen.add(row["id"])
-        assert row["repo"] == "jelly-leon-platform"
-        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["bijgewerkt"])
-        if row["id"].startswith("EX"):
-            assert row["status"] in STATUS_TEST - {"Geslaagd"}
-        elif re.fullmatch(r"D\d{2}", row["id"]):
-            assert row["status"] in STATUS_DECISION
-        else:
-            assert row["id"] in tasks, f"onbekende Excel-ID {row['id']}"
-            assert row["status"] in STATUS_WORK - {"Gereed"}
-        assert row["status"] not in {"Gereed", "Geslaagd"}
-        values = row["validatie"].split("; ")
-        assert values and all(v in VALIDATIE for v in values), f"{row['id']}: vrije tekst in validatie"
-        assert len(set(values)) == len(values), f"{row['id']}: dubbele validatiewaarde"
-        if row["id"].startswith("EX"):
-            assert not set(values) & {"Sim-getest"}, f"{row['id']}: testmatrix gebruikt Sim-geslaagd/Sim-mislukt"
-        else:
-            assert not set(values) & {"Sim-geslaagd", "Sim-mislukt"}, f"{row['id']}: alleen voor de testmatrix"
-        if row["status"] == "Geblokkeerd":
-            assert row["blokkade"], f"{row['id']}: blokkade zonder reden"
+        check_evidence_row(row, tasks, punten)
+    # elk contractpunt dat NU moet, heeft een regel (ook als het geblokkeerd is of nog niet gestart)
+    assert {f"C1.3-JLP-{n:02d}" for n in range(1, 14)} <= seen
+
+
+@pytest.mark.parametrize("fout", [
+    {"validatie": ""},
+    {"validatie": "Sim-getest; ok"},
+    {"status": "Gereed"},
+    {"status": "Bezig", "validatie": "Niet getest"},
+    {"status": "Geblokkeerd", "validatie": "Sim-getest", "blokkade": "NIET GEVALIDEERD (echte NAS): pool nodig."},
+    {"id": "C1.3-JLP-99"},
+    {"id": "REVIEW-andere-repo-contract"},
+    {"validatie": "Sim-geslaagd"},
+])
+def test_evidence_check_rejects_section_11_violations(fout: dict[str, str]) -> None:
+    """Negatief: de controle hierboven vangt elke regel van §11 (1.3) af."""
+    goed = {"id": "C1.3-JLP-13", "status": "Bezig", "validatie": "Unit-getest", "bewijs": "x", "blokkade": "",
+            "opmerking": "", "repo": "jelly-leon-platform", "bijgewerkt": "2026-11-10"}
+    check_evidence_row(goed, set(), _contractpunten())
+    with pytest.raises(AssertionError):
+        check_evidence_row({**goed, **fout}, set(), _contractpunten())

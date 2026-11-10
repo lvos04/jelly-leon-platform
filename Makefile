@@ -15,7 +15,7 @@ lint:
 
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
-	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py \
+	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'

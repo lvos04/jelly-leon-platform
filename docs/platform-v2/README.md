@@ -8,10 +8,13 @@ Hier staan alleen de eigen B-, I-, A- en promptdocumenten plus de gedeelde archi
 
 Onbekende NAS-gegevens (D01–D18) worden nooit met voorbeeldwaarden ingevuld; ze worden via de onboarding-wizard in de web-UI vastgelegd.
 
-Bindend: `PLATFORM_CONTRACTEN.md` (`contracts 1.2`, byte-gelijke kopie van `ai-server-manager`); wat deze repo
-daarvoor moest veranderen: `CONTRACT_1.2_CONFORMITEIT.md` §4 (JP1–JP12), uitgewerkt in `docs/adr/ADR-0011` (review: `ADR-0012`). Bewijs per
-Excel-taak: `EVIDENCE.json` (contract §11; nooit `Gereed`/`Geslaagd`); bewaarde testrapporten zonder geheimen in
-`bewijs/` (o.a. `rooktest-p1.json`, installatie-rooktest zonder YAML, ADR-0016).
+Bindend: `PLATFORM_CONTRACTEN.md` (`contracts 1.3`) en de werklijst `CONTRACT_1.3_CONFORMITEIT.md` (§4: C1.3-JLP-01
+t/m -14): byte-gelijke kopieën van `ai-server-manager`, gepind op een vaste bron-commit in `CONTRACT_KOPIE.json` en
+bewaakt door `tests/repo/test_contract_kopie.py` (nooit lokaal aanpassen; overnemen met `tools/contract_kopie.py`).
+Uitwerking van 1.3 in deze repo: `docs/adr/ADR-0019-contract-1-3.md`. Historie: `CONTRACT_1.2_CONFORMITEIT.md` (JP1–JP12,
+`docs/adr/ADR-0011`, review `ADR-0012`). Bewijs per Excel-taak en per contractpunt (`C1.3-JLP-nn`): `EVIDENCE.json`
+(contract §11; nooit `Gereed`/`Geslaagd`); bewaarde testrapporten zonder geheimen in `bewijs/` (o.a. `rooktest-p1.json`,
+installatie-rooktest zonder YAML, ADR-0016).
 
 ## Bestanden
 
