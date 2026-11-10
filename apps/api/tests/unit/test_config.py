@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from lifecycle.config import DEFAULT_PORT, ConfigError, load_settings, normalize_base_url, normalize_hub_url
+from lifecycle.config import (
+    DEFAULT_PORT,
+    ConfigError,
+    host_header_allowed,
+    load_settings,
+    normalize_base_url,
+    normalize_hub_url,
+)
 
 
 def test_defaults_need_no_env() -> None:
@@ -43,13 +50,18 @@ def test_api_never_trusts_forwarded_headers(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_hub_url_rules_section_3_2() -> None:
     assert normalize_hub_url(" http://nas.local:30400/ ") == "http://nas.local:30400"
+    assert normalize_hub_url("http://nas.local.:30400") == "http://nas.local:30400"  # één punt aan het eind telt niet
     assert normalize_hub_url("HTTPS://NAS.example:30400") == "https://nas.example:30400"
     assert normalize_hub_url("http://[fd00::5]:30400") == "http://[fd00::5]:30400"
     assert normalize_hub_url("") is None
     for bad in ["ftp://x", "http://user:pw@x", "http://x/?a=1", "http://x#y", "x:30400", "http://", "http://x/pad",
                 "http://127.0.0.1:30400", "http://localhost:30400", "http://[::1]:30400", "http://0.0.0.0:30400",
                 "http://[::]:30400", "http://169.254.1.2:30400", "http://[fe80::1]:30400",
-                "http://[::ffff:127.0.0.1]:30400", "http://x:99999", "http://bad_host:30400"]:
+                "http://[::ffff:127.0.0.1]:30400", "http://x:99999", "http://bad_host:30400",
+                # 1.3 §3.2: alleen canonieke IPv4 (a.b.c.d); andere numerieke vormen lezen resolvers als 127.0.0.1
+                "http://127.1:30400", "http://2130706433:30400", "http://0x7f000001:30400",
+                "http://010.0.0.1:30400", "http://0:30400", "http://1.2.3.4.5:30400", "http://nas.local..:30400",
+                "http://[fe80::1%25eth0]:30400"]:
         with pytest.raises(ConfigError):
             normalize_hub_url(bad)
 
@@ -57,26 +69,46 @@ def test_hub_url_rules_section_3_2() -> None:
 def test_loopback_only_with_explicit_dev_flag() -> None:
     assert normalize_hub_url("http://127.0.0.1:30499", allow_loopback=True) == "http://127.0.0.1:30499"
     s = load_settings({"HUB_URL": "http://127.0.0.1:30499", "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})
-    assert s.hub_url == "http://127.0.0.1:30499" and s.allow_loopback_hub
-    with pytest.raises(ConfigError):
-        load_settings({"HUB_URL": "http://127.0.0.1:30499"})
-    with pytest.raises(ConfigError):  # link-local blijft ook met de vlag verboden
-        load_settings({"HUB_URL": "http://169.254.0.1:30400", "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})
+    assert s.hub_url == "http://127.0.0.1:30499" and s.allow_loopback_hub and s.hub_url_error is None
+    # 1.3 §3.5: een ongeldige HUB_URL laat de dienst niet crashen; hij meldt hub_adres_ongeldig en koppelt niet
+    s = load_settings({"HUB_URL": "http://127.0.0.1:30499"})
+    assert s.hub_url is None and s.hub_url_error == "hub_adres_ongeldig" and any("loopback" in w for w in s.warnings)
+    s = load_settings({"HUB_URL": "http://169.254.0.1:30400", "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})
+    assert s.hub_url is None and s.hub_url_error == "hub_adres_ongeldig"  # link-local blijft ook met de vlag verboden
 
 
 def test_key_fingerprint_is_normalized_and_validated() -> None:
     s = load_settings({"HUB_KEY_FINGERPRINT": "megg 8gfg 2e4y k2rq"})
-    assert s.hub_key_fingerprint == "MEGG-8GFG-2E4Y-K2RQ"
-    with pytest.raises(ConfigError):
-        load_settings({"HUB_KEY_FINGERPRINT": "MEGG-8GFG"})
+    assert s.hub_key_fingerprint == "MEGG-8GFG-2E4Y-K2RQ" and s.hub_key_fingerprint_error is None
+    s = load_settings({"HUB_KEY_FINGERPRINT": "MEGG-8GFG"})
+    assert s.hub_key_fingerprint is None and s.hub_key_fingerprint_error == "vingerafdruk_ongeldig"
 
 
-def test_public_url_may_have_a_path() -> None:
+def test_public_url_may_have_a_path_and_invalid_becomes_null() -> None:
     assert normalize_base_url("http://nas.example:30440/") == "http://nas.example:30440"
     assert normalize_base_url("https://proxy.example/jlp") == "https://proxy.example/jlp"
-    for bad in ("ftp://x", "http://u:p@x", "http://x?a", "http://x y"):
+    for bad in ("ftp://x", "http://u:p@x", "http://x?a", "http://x y", "http://127.0.0.1:30440", "http://127.1",
+                "http://169.254.1.1/jlp", "http://[::]:30440"):
         with pytest.raises(ConfigError):
             normalize_base_url(bad)
+    # §3.3: base_url alleen sturen als hij geldig is, anders null — nooit een reden om niet te starten of te koppelen
+    s = load_settings({"LIFECYCLE_PUBLIC_URL": "http://127.0.0.1:30440"})
+    assert s.public_url is None and any("base_url wordt null" in w for w in s.warnings)
+
+
+@pytest.mark.parametrize("host", ["192.168.1.10:30440", "192.168.1.10", "[fd00::5]:30440", "truenas", "truenas:30440",
+                                  "nas.local", "NAS.LOCAL.:30440", "nas.home.arpa", "nas.lan:1", "nas.internal",
+                                  "127.0.0.1:30440"])
+def test_host_header_allowed_section_3_7(host: str) -> None:
+    assert host_header_allowed(host)
+
+
+@pytest.mark.parametrize("host", ["nas.example.com", "evil.test:30440", "jlp.voorbeeld.nl", "127.1", "2130706433",
+                                  "0x7f000001", "010.0.0.1", "0", "[fe80::1%eth0]:1", "", None, "a b", "nas.local:abc",
+                                  "[::1", "nas.local..", "1.2.3.4.5", "nas.local:30440:1", "x" * 301])
+def test_host_header_refused_dns_rebinding(host: str | None) -> None:
+    """§3.7 punt 4: alleen IP-adres (canoniek), naam zonder punt of .local/.lan/.internal/.home.arpa."""
+    assert not host_header_allowed(host)
 
 
 def test_enrollment_token_not_in_repr() -> None:
