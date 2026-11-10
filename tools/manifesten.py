@@ -1,10 +1,12 @@
 """Controleer alle installeerbare manifesten (``install/manifests/*.manifest.yaml``) met de validator van de eigenaar
-van de manifeststandaard (``appstore-en-fork``, ``jl-manifest validate --strict``; contract 1.2 §9).
+van de manifeststandaard (``appstore-en-fork``, ``jl-manifest validate --strict``; contract 1.3 §9).
 
-Regel (ADR-0014 §4): een manifest zonder vermelding in ``validatie-uitzonderingen.yaml`` moet ``--strict`` zonder één
-melding halen (exitcode 0). Een manifest mét vermelding moet geldig zijn (0 fouten) en precies de vermelde
-waarschuwingen geven — niet meer, niet minder. Daarnaast eigen controles die los van de validator altijd gelden: geen
-compose-velden, geen ``latest``, upstream-images met digest, run_as nooit root.
+Regel (contract 1.3 §9, ADR-0019): geaccepteerde waarschuwingen staan in het manifest zelf (``accepted_findings``; de
+validator controleert de vaste lijst en meldt een overbodige acceptatie). Een manifest moet ``--strict`` halen, met
+twee smalle uitzonderingen uit ``overgang-1.3.yaml``: ``kopieen`` (manifesten van een andere repo, alleen de eigenaar
+past ze aan) en ``hiaten`` (wat de standaard nog niet kan uitdrukken; nooit een code uit de vaste lijst). De
+vermelde waarschuwingen moeten exact optreden — niet meer, niet minder. Daarnaast eigen controles die los van de
+validator altijd gelden: geen compose-velden, geen ``latest``, upstream-images met digest, run_as nooit root.
 
 Gebruik::
 
@@ -30,7 +32,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = ROOT / "install" / "manifests"
-UITZONDERINGEN = MANIFEST_DIR / "validatie-uitzonderingen.yaml"
+UITZONDERINGEN = MANIFEST_DIR / "overgang-1.3.yaml"
+EIGEN_REPO = "lvos04/jelly-leon-platform"
+ACCEPTEERBAAR = frozenset({"backup_db_export_none", "secret_in_form", "digest_pending_release"})
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 VERBODEN_SLEUTELS = ("compose", "custom_compose_config", "custom_compose_config_string", "services")
 
@@ -64,16 +68,25 @@ def manifesten() -> list[Path]:
     return sorted(MANIFEST_DIR.glob("*.manifest.yaml"))
 
 
-def lees_uitzonderingen() -> dict[str, set[tuple[str, str]]]:
-    data = yaml.safe_load(UITZONDERINGEN.read_text(encoding="utf-8"))
-    out: dict[str, set[tuple[str, str]]] = {}
-    for app_id, lijst in (data or {}).get("uitzonderingen", {}).items():
-        regels: set[tuple[str, str]] = set()
-        for item in lijst:
-            if not str(item.get("reden_nl", "")).strip():
-                raise ValueError(f"uitzondering zonder reden_nl bij {app_id}")
-            regels.add((str(item["code"]), str(item["pad"])))
-        out[str(app_id)] = regels
+def lees_uitzonderingen() -> dict[str, tuple[str, set[tuple[str, str]]]]:
+    """app_id → (soort ``kopieen``/``hiaten``, {(code, pad)}). Een code uit de vaste lijst van ``accepted_findings``
+    mag nooit onder ``hiaten`` staan (die hoort in het manifest)."""
+    data = yaml.safe_load(UITZONDERINGEN.read_text(encoding="utf-8")) or {}
+    if set(data) - {"kopieen", "hiaten"}:
+        raise ValueError(f"onbekende soort in {UITZONDERINGEN.name}: {sorted(set(data) - {'kopieen', 'hiaten'})}")
+    out: dict[str, tuple[str, set[tuple[str, str]]]] = {}
+    for soort in ("kopieen", "hiaten"):
+        for app_id, lijst in (data.get(soort) or {}).items():
+            regels: set[tuple[str, str]] = set()
+            for item in lijst:
+                if not str(item.get("reden_nl", "")).strip():
+                    raise ValueError(f"uitzondering zonder reden_nl bij {app_id}")
+                if soort == "hiaten" and item["code"] in ACCEPTEERBAAR:
+                    raise ValueError(f"{app_id}: {item['code']} hoort in accepted_findings van het manifest")
+                regels.add((str(item["code"]), str(item["pad"])))
+            if str(app_id) in out:
+                raise ValueError(f"{app_id} staat dubbel in {UITZONDERINGEN.name}")
+            out[str(app_id)] = (soort, regels)
     return out
 
 
@@ -129,13 +142,17 @@ def controleer(validator: Path) -> list[Uitkomst]:
         rapport = json.loads(res.stdout)
         bevindingen = rapport.get("findings", [])
         fouten = [b for b in bevindingen if b.get("severity") == "error"]
-        waarsch = sorted((str(b["code"]), str(b["path"])) for b in bevindingen if b.get("severity") == "warning")
+        # geaccepteerd in het manifest (accepted_findings): de validator heeft de vaste lijst al gecontroleerd
+        waarsch = sorted((str(b["code"]), str(b["path"])) for b in bevindingen
+                         if b.get("severity") == "warning" and not b.get("accepted"))
         u = Uitkomst(pad.name, app_id, res.returncode, len(fouten), waarsch)
         if pad.name != f"{app_id}.manifest.yaml":
             u.afwijkingen.append(f"bestandsnaam hoort {app_id}.manifest.yaml te zijn")
         if fouten or not rapport.get("valid"):
             u.afwijkingen.append("ongeldig: " + "; ".join(f"{b['code']} @ {b['path']}" for b in fouten))
-        verwacht = uitzonderingen.get(app_id, set())
+        soort, verwacht = uitzonderingen.get(app_id, ("", set()))
+        if soort == "kopieen" and data.get("owner_repo") == EIGEN_REPO:
+            u.afwijkingen.append("een manifest van deze repo staat onder kopieen: los het op in het manifest zelf")
         if set(waarsch) != verwacht:
             extra = sorted(set(waarsch) - verwacht)
             weg = sorted(verwacht - set(waarsch))

@@ -85,14 +85,60 @@ def test_every_p1_document_has_its_manifests() -> None:
 
 
 def test_all_manifests_pass_the_appstore_validator_in_strict_mode() -> None:
-    """Contract 1.2 §9: gevalideerd met de 1.2-validator van appstore-en-fork in --strict (met de vastgelegde,
-    beredeneerde uitzonderingen; die moeten exact kloppen)."""
+    """Contract 1.3 §9 (C1.3-JLP-09): gevalideerd met de 1.3-validator van appstore-en-fork in --strict; geaccepteerde
+    waarschuwingen staan in het manifest (accepted_findings); overgang-1.3.yaml alleen voor kopieën van een andere repo
+    en voor een hiaat in de standaard (exact)."""
     uitkomsten = mf.controleer(_validator())
     assert uitkomsten
     fouten = {u.bestand: u.afwijkingen for u in uitkomsten if not u.in_orde}
     assert fouten == {}
     schoon = {u.app_id for u in uitkomsten if not u.waarschuwingen}
-    assert {"beszel-hub", "beszel-agent"} <= schoon  # zonder enige melding in --strict
+    assert {"beszel-hub", "gotify", "uptime-kuma", "authentik"} <= schoon  # zonder enige open melding in --strict
+
+
+@pytest.mark.parametrize("bestand", ["gotify.manifest.yaml", "uptime-kuma.manifest.yaml", "beszel-hub.manifest.yaml",
+                                     "beszel-agent.manifest.yaml", "authentik.manifest.yaml"])
+def test_contract_1_3_fields(bestand: str) -> None:
+    """§9 (1.3): kop "contract 1.3", geen HUB_*-parameters of -env, post_install_checks voor open eerste-gebruik-
+    vensters en runtime-kenmerken, monitorplan (behalve de agent: alleen SSH), restrisico zonder no-new-privileges bij
+    upstream-images als Custom App, reden bij een catalogusapp."""
+    m = _load(bestand)
+    tekst = (mf.MANIFEST_DIR / bestand).read_text(encoding="utf-8")
+    assert "contract 1.3 §9" in tekst.splitlines()[0]
+    assert not [p["name"] for p in m["parameters"] if p["name"].upper().startswith("HUB_")]
+    assert not [e for e in m.get("custom_app", {}).get("env", []) if str(e.get("name", "")).upper().startswith("HUB_")]
+    assert m["post_install_checks"] and all(c["beschrijving_nl"].strip() for c in m["post_install_checks"])
+    if bestand != "beszel-agent.manifest.yaml":
+        mon = m["healthcheck"]["monitor"]
+        assert mon["pad"].startswith("/") and mon["verwachte_status"] == 200
+    if m["install"]["method"] == "custom_app":
+        assert "no-new-privileges" in m["privilege_reason"]
+    else:
+        assert m["install"]["reason"] == "meerdere_containers"
+        assert {p["container_port"] for p in m["network"]["ports"]} == {"same_as_host"}
+    for p in m["parameters"]:
+        if p.get("secret"):
+            assert p["source"] == "generated" and "default" not in p and "example" not in p
+
+
+def test_stopped_snapshot_for_apps_without_export() -> None:
+    """§9 (1.3): Gotify en Uptime Kuma hebben geen export; consistente back-up = app stoppen + ZFS-snapshot."""
+    for bestand in ("gotify.manifest.yaml", "uptime-kuma.manifest.yaml"):
+        backup = _load(bestand)["backup"]
+        assert backup["db_export"]["method"] == "stopped_snapshot" and backup["snapshot_datasets"]
+
+
+def test_transition_file_never_holds_acceptable_codes_for_own_manifests() -> None:
+    """De losse uitzonderingenlijst is vervallen; overgang-1.3.yaml mag alleen kopieën en hiaten bevatten."""
+    import yaml as _yaml
+
+    data = _yaml.safe_load(mf.UITZONDERINGEN.read_text(encoding="utf-8"))
+    assert set(data) == {"kopieen", "hiaten"}
+    for app_id in data["kopieen"]:
+        assert _load(f"{app_id}.manifest.yaml")["owner_repo"] != mf.EIGEN_REPO
+    for regels in data["hiaten"].values():
+        assert not {r["code"] for r in regels} & mf.ACCEPTEERBAAR
+    assert not (mf.MANIFEST_DIR / "validatie-uitzonderingen.yaml").exists()
 
 
 def test_upstream_digests_are_the_measured_ones() -> None:

@@ -62,6 +62,12 @@ def test_manifest_rules_section_9() -> None:
     assert all(p["source"] not in {"secret", "generated"} for p in params.values())
     assert m["validation_status"] == "unvalidated"
     assert m["upgrade"]["tag_only_rollback_safe"] is False
+    # contract 1.3 §9 (C1.3-JLP-09): kop 1.3, monitorplan op /readyz, digest_pending_release alleen in het manifest
+    assert "platformcontract 1.3 §9" in MANIFEST.read_text(encoding="utf-8").splitlines()[0]
+    assert m["healthcheck"]["monitor"] == {"pad": "/readyz", "verwachte_status": 200, "timeout_s": 10, "interval_s": 60}
+    accepted = {f["code"] for f in m.get("accepted_findings", [])}
+    assert accepted == ({"digest_pending_release"} if m["image"]["digest"] is None else set())
+    assert not [p for p in params if p.upper().startswith("HUB_")]
 
 
 @pytest.mark.skipif(not APPSTORE_SCHEMA.exists(), reason="schema van appstore-en-fork niet naast deze repo")
@@ -98,7 +104,9 @@ def test_manifest_passes_the_appstore_validator() -> None:
                        text=True, check=False)
     report = json.loads(r.stdout)
     assert report["valid"] is True and report["errors"] == 0, report
+    # 1.3: de enige melding is geaccepteerd in het manifest zelf (accepted_findings) en --strict slaagt
     assert {f["code"] for f in report["findings"]} <= {"digest_pending_release"}, report
+    assert all(f.get("accepted") for f in report["findings"]) and r.returncode == 0, report
 
 
 def test_versions_consistent() -> None:

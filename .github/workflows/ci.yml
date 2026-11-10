@@ -81,7 +81,7 @@ jobs:
           "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --require-hashes \
             -r "$RUNNER_TEMP/appstore/apps/api/requirements.lock"
           "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --no-deps "$RUNNER_TEMP/appstore/apps/api"
-      - name: Installeerbare manifesten (jl-manifest validate --strict, uitzonderingen exact)
+      - name: Installeerbare manifesten (jl-manifest validate --strict volgens 1.3, overgang exact)
         env:
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
         run: python tools/manifesten.py

@@ -1,12 +1,14 @@
 # Installeerbare manifests per 03_INSTALLATIE-document (I01–I26)
 
-Deze repo levert per I-document een manifest volgens contract 1.2 §9 (eigenaar van de standaard: `appstore-en-fork`),
-of — voor I-documenten die niets installeren — een controlelijst (`install/checklists/`, eigen formaat, ADR-0015).
+Deze repo levert per I-document een manifest volgens contract 1.3 §9 (eigenaar van de standaard: `appstore-en-fork`),
+of — voor I-documenten die niets installeren — een controlelijst (`install/checklists/`, documentsoort
+`kind: checklist` met `install.method: none`, ADR-0015/0019).
 Installatieregel (contract §1/§2): standaard Custom App (`ix-app`) met één gepinde image, of de **officiële
 TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit YAML/compose.
 
-> **Status P1 (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
-> appstore-en-fork (met de beredeneerde uitzonderingen in `validatie-uitzonderingen.yaml`), vertaald naar
+> **Status (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
+> appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in het manifest zelf, `accepted_findings`;
+> `overgang-1.3.yaml` alleen voor de I23-kopieën van ai-server-manager en het monitorplan van de Beszel-agent), vertaald naar
 > `app.create`-waarden en tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Op een echte TrueNAS is niets
 > geïnstalleerd: **NIET GEVALIDEERD (echte NAS)** — installeren gebeurt via de Hub en de executor (P2).
 >
@@ -30,17 +32,19 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
 
-Keuze Custom App of catalogusapp, digests en uitzonderingen: `docs/adr/ADR-0014-manifesten-p1.md`.
+Keuze Custom App of catalogusapp en digests: `docs/adr/ADR-0014-manifesten-p1.md`; contract 1.3 (monitorplan,
+`post_install_checks`, `stopped_snapshot` voor Gotify en Uptime Kuma, `install.reason` en `same_as_host` voor Authentik,
+restrisico zonder no-new-privileges, `accepted_findings`): `docs/adr/ADR-0019-contract-1-3.md`.
 
 ### Controleren
 
 ```bash
 make validator-venv     # validator van appstore-en-fork in .venv-validator (gecommitte inhoud, alleen lezen)
-make manifesten         # jl-manifest validate --strict + uitzonderingen exact, I23-kopie, controlelijsten
+make manifesten         # jl-manifest validate --strict (accepted_findings; overgang-1.3.yaml exact), I23-kopie, controlelijsten
 make upstream-rooktest  # upstream-images op digest als 568:568 met lege map: health, API-vorm, herstart (Docker)
 ```
 
-### Na de installatie (verplicht; de Hub controleert het, anders incident en nooit groen)
+### Na de installatie (verplicht; `post_install_checks` in het manifest, de Hub toont ze als taak en de app is tot de bevestiging niet gezond)
 
 | App | Wat de gebruiker direct doet (in de eigen web-UI van de app) | Controle door de Hub |
 |---|---|---|

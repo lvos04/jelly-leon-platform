@@ -1,9 +1,11 @@
-# I01 TrueNAS SCALE basis — controlelijst (eigen formaat checklist v1, schemas/checklist-v1.schema.json, ADR-0015).
-# De manifeststandaard (contract 1.2 §9) kent geen I-document zonder installatie; deze lijst installeert en wijzigt
-# niets. Het platform leest alleen (alleen-lezen-key van de Hub); wat de gebruiker zelf doet, gebeurt in de
+# I01 TrueNAS SCALE basis — controlelijst (documentsoort kind: checklist, contract 1.3 §9; schemas/checklist-v1.schema.json, ADR-0015/0019).
+# Een I-document zonder installatie (install.method: none): deze lijst installeert en wijzigt niets. Het platform leest alleen (alleen-lezen-key van de Hub); wat de gebruiker zelf doet, gebeurt in de
 # TrueNAS-web-UI (nooit een terminal). Uitkomsten komen als meting of bewijsrecord in de Hub-besluiten D01–D08.
 # Alle NAS-gegevens (D01–D18) zijn onbekend tot de wizard ze meet of de gebruiker ze invult: hier staan geen waarden.
 checklist_version: "1"
+kind: checklist
+install:
+  method: none
 id: I01
 titel_nl: TrueNAS SCALE basis — behouden en valideren
 document: 03_INSTALLATIE/I01_TRUENAS_BASIS.md

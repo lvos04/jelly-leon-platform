@@ -1,4 +1,4 @@
-# I07 Beszel (hub) — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# I07 Beszel (hub) — manifest volgens contract 1.3 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
 # Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
 # Versie en digest gecontroleerd op 2026-11-09: git ls-remote --tags henrygd/beszel (nieuwste stabiele v0.21.1) en
 # docker buildx imagetools inspect ghcr.io/henrygd/beszel/beszel:0.21.1 (gelijk aan de catalogusapp
@@ -88,7 +88,8 @@ privileges:
   cap_add: []
   devices: []
   gpu: none
-privilege_reason: null
+privilege_reason: >-
+  Geen extra rechten (geen privileged, cap_add of apparaten; draait als 568:568). Restrisico: het TrueNAS-formulier zet geen no-new-privileges, dus zonder no-new-privileges kan een setuid-programma binnen de container root worden.
 healthcheck:
   type: http
   path: /api/health
@@ -97,6 +98,7 @@ healthcheck:
   timeout_s: 5
   retries: 3
   start_period_s: 20
+  monitor: {pad: /api/health, verwachte_status: 200, timeout_s: 5, interval_s: 60}
 backup:
   db_export:
     method: app_native
@@ -123,6 +125,12 @@ upgrade:
     PocketBase-back-up van vóór de update. Hub en agent bij voorkeur op dezelfde versie houden.
 decisions_required: [D01, D02, D03, D16]
 docs: [I07_BESZEL]
+post_install_checks:
+  - id: eerste_account
+    soort: http
+    beschrijving_nl: >-
+      Tot het eerste account bestaat, kan iedereen op het LAN het aanmaken. Maak het direct na de installatie aan. De
+      Hub controleert GET /api/beszel/first-run (moet firstRun false geven); tot dan is de app niet gezond.
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10.2.2"

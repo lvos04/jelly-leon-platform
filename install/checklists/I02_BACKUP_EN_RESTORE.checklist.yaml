@@ -1,8 +1,11 @@
-# I02 OneDrive, ZFS-snapshots en herstel — controlelijst (eigen formaat checklist v1, ADR-0015).
+# I02 OneDrive, ZFS-snapshots en herstel — controlelijst (documentsoort kind: checklist, contract 1.3 §9; ADR-0015/0019).
 # Installeert en wijzigt niets op de NAS. Het platform leest alleen; snapshottaken en de OneDrive-taak richt de
 # gebruiker in de TrueNAS-web-UI in. Alles met het OneDrive-account is in deze bouwomgeving onmogelijk:
 # NIET GEVALIDEERD (account). Methode, scope en herstelgegevens: besluit D04 (onbekend tot de wizard).
 checklist_version: "1"
+kind: checklist
+install:
+  method: none
 id: I02
 titel_nl: OneDrive, ZFS-snapshots en herstel — inrichten en testen
 document: 03_INSTALLATIE/I02_BACKUP_EN_RESTORE.md

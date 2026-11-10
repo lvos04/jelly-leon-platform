@@ -198,6 +198,10 @@
   gemeten: axe 0, contrast AA, geen overloop, ook met DejaVu Sans; schermafdrukken vernieuwd.
 - **Docs:** begrippen standaard Custom App / compose-app / catalogusapp, koppelen via IP-adres of lokale naam,
   env-enrollment aanbevolen (C1.3-JLP-10/11).
-- **Nog open:** C1.3-JLP-09 (manifesten volgens §9 1.3) wacht op de publicatie van de validator (C1.3-ASF-08); alleen
-  de Beszel-parameter `beszel_hub_public_key` is al aangepast. C1.3-JLP-14 hoort bij P2.
+- **Manifesten volgens §9 (1.3)** met de gepubliceerde validator van appstore-en-fork: monitorplan,
+  `accepted_findings`, `stopped_snapshot` (Gotify, Uptime Kuma), `install.reason` en `same_as_host` (Authentik),
+  restrisico zonder no-new-privileges, `post_install_checks`, I01/I02 als `kind: checklist`;
+  `validatie-uitzonderingen.yaml` vervalt (C1.3-JLP-09).
+- **Nog open:** C1.3-JLP-14 hoort bij P2. Het monitorplan van de Beszel-agent (alleen SSH) kan de standaard niet
+  uitdrukken (contract_issue).
 - Op een echte TrueNAS, met echte accounts of hardware: **NIET GEVALIDEERD**.

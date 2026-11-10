@@ -128,3 +128,26 @@ def test_every_listed_method_is_callable_read_only_on_its_versions(ro: tuple[str
                     assert antwoord.get("error", {}).get("code") == -32601, (m["naam"], familie)
     # de versieverschillen uit TRUENAS_APP_API.md §6 zitten echt in de lijsten
     assert gezien_elders, "geen versie-afhankelijke methode getest"
+
+
+def test_checklists_are_kind_checklist_for_the_appstore_validator() -> None:
+    """Contract 1.3 §9 (C1.3-JLP-09): I01 en I02 zijn documentsoort ``kind: checklist`` (``install.method: none``);
+    ``jl-manifest checklist`` accepteert ze en de manifestvalidator weigert ze als installatie."""
+    import os
+    import subprocess
+
+    validator = os.environ.get("JL_MANIFEST")
+    if not validator or not Path(validator).is_file():
+        if os.environ.get("MANIFEST_VALIDATOR_VERPLICHT") == "1":
+            pytest.fail("jl-manifest niet gevonden (JL_MANIFEST)")
+        pytest.skip("jl-manifest (appstore-en-fork) niet beschikbaar; in CI verplicht")
+    for pad in cl.lijsten():
+        data = yaml.safe_load(pad.read_text(encoding="utf-8"))
+        assert data["kind"] == "checklist" and data["install"] == {"method": "none"}
+        goed = json.loads(subprocess.run([validator, "checklist", str(pad), "--format", "json"], capture_output=True,
+                                         text=True, check=False).stdout)
+        assert goed["valid"] is True and goed["errors"] == 0, (pad.name, goed["findings"])
+        als_manifest = json.loads(subprocess.run([validator, "validate", "--strict", str(pad), "--format", "json"],
+                                                 capture_output=True, text=True, check=False).stdout)
+        assert als_manifest["valid"] is False
+        assert "checklist_not_installable" in {f["code"] for f in als_manifest["findings"]}

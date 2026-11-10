@@ -1,4 +1,4 @@
-# I08 Uptime Kuma — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# I08 Uptime Kuma — manifest volgens contract 1.3 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
 # Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
 # Versie en digest gecontroleerd op 2026-11-09: git ls-remote --tags louislam/uptime-kuma (nieuwste stabiele 2.5.9) en
 # docker buildx imagetools inspect ghcr.io/louislam/uptime-kuma:2.5.9 (gelijk aan docker.io/louislam/uptime-kuma en aan
@@ -90,7 +90,8 @@ privileges:
   cap_add: []
   devices: []
   gpu: none
-privilege_reason: null
+privilege_reason: >-
+  Geen extra rechten (geen privileged, cap_add of apparaten; draait als 568:568). Restrisico: het TrueNAS-formulier zet geen no-new-privileges, dus zonder no-new-privileges kan een setuid-programma binnen de container root worden.
 healthcheck:
   type: http
   path: /api/entry-page
@@ -99,9 +100,10 @@ healthcheck:
   timeout_s: 10
   retries: 5
   start_period_s: 180
+  monitor: {pad: /api/entry-page, verwachte_status: 200, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
-    method: none
+    method: stopped_snapshot
     description_nl: >-
       Uptime Kuma 2.x heeft geen ingebouwde export meer en het platform heeft geen shell in de container. Consistente
       back-up = de app stoppen, ZFS-snapshot van de datamap, app starten (lifecycle doet dat vóór elke update).
@@ -125,6 +127,13 @@ upgrade:
     vóór de update. Een sprong 1.x → 2.x is in dit manifest niet voorzien (nieuwe installatie, I08: breaking changes).
 decisions_required: [D01, D02, D03, D16]
 docs: [I08_UPTIME_KUMA]
+post_install_checks:
+  - id: eerste_beheerder
+    soort: handmatig
+    beschrijving_nl: >-
+      Tot er een beheerder is, kan iedereen op het LAN de setup-pagina van Uptime Kuma openen en het eerste account
+      maken. Maak direct na de installatie de beheerder aan en bevestig dat in de Hub (alleen via Socket.IO
+      controleerbaar, dus een handmatige bevestiging).
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10.2.2"

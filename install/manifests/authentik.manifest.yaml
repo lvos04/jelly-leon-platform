@@ -1,4 +1,4 @@
-# I09 Authentik — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# I09 Authentik — manifest volgens contract 1.3 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
 # Meerdere containers (server, worker, PostgreSQL) → officiële TrueNAS-catalogusapp met vaste versie (contract §1).
 # Catalogus gecontroleerd op 2026-11-09 in truenas/apps master f7a38eb009fce1239653a2913a05bc3658fbd6ef:
 # trains/community/authentik/app_versions.json heeft alleen 1.3.64 (app_version 2026.8.5; vorige commit f142a16 had
@@ -24,6 +24,7 @@ description_nl: >-
 version: "2026.8.5"
 install:
   method: catalog_app
+  reason: meerdere_containers
 catalog:
   train: community
   app: authentik
@@ -78,11 +79,13 @@ parameters:
   - name: db_password
     type: secret_ref
     source: generated
+    secret: true
     required: true
     description_nl: Wachtwoord van de interne PostgreSQL-database; de Hub maakt het (vault) en geeft het alleen mee in app.create.
   - name: secret_key
     type: secret_ref
     source: generated
+    secret: true
     required: true
     description_nl: AUTHENTIK_SECRET_KEY (ondertekent sessies en tokens); de Hub maakt hem (vault), nooit een voorbeeldsleutel.
   - name: http_port
@@ -161,12 +164,12 @@ storage:
 network:
   ports:
     - name: http
-      container_port: 30140
+      container_port: same_as_host
       host_port: {param: http_port}
       protocol: tcp
       purpose_nl: Webinterface, OIDC-endpoints (/application/o/…) en API (/api/v3) over HTTP (alleen LAN/VPN)
     - name: https
-      container_port: 30141
+      container_port: same_as_host
       host_port: {param: https_port}
       protocol: tcp
       purpose_nl: Idem over HTTPS (zelfondertekend tot D17)
@@ -186,6 +189,7 @@ healthcheck:
   timeout_s: 10
   retries: 5
   start_period_s: 120
+  monitor: {pad: /-/health/ready/, verwachte_status: 200, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
     method: app_native
@@ -216,6 +220,17 @@ upgrade:
     (I09 stap 2).
 decisions_required: [D01, D02, D03, D16, D17]
 docs: [I09_AUTHENTIK]
+accepted_findings:
+  - code: secret_in_form
+    reden_nl: >-
+      De TrueNAS-catalogusapp vereist db_password en secret_key als (privé-)waarden in app.create. De Hub maakt ze zelf
+      (vault, source generated + secret true) en geeft ze alleen in de R2-actie mee; nooit in Git, logs of evidence.
+post_install_checks:
+  - id: initiele_setup
+    soort: handmatig
+    beschrijving_nl: >-
+      Tot de initiële setup klaar is, kan iedereen op het LAN de flow /if/flow/initial-setup/ openen en akadmin
+      instellen. Doe de setup direct na de installatie, met MFA, en maak het API-token voor home-control-hub.
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10"

@@ -1,4 +1,4 @@
-# Manifest (contract 1.2 §9, B08-001 — eigenaar van de standaard: appstore-en-fork).
+# Manifest (platformcontract 1.3 §9, B08-001 — eigenaar van de standaard: appstore-en-fork).
 # Installatie uitsluitend als standaard TrueNAS Custom App (ix-app-waarden); een compose-veld is verboden.
 # De digest van eigen GHCR-images vult de release-CI in (release/digests.json); tot dan null = nog niet uitgebracht.
 # De formuliertag wordt <tag>@<digest> (§2.2). Poorten staan alleen in network.ports. HUB_URL, HUB_KEY_FINGERPRINT en
@@ -93,6 +93,8 @@ privileges:
 privilege_reason: null
 healthcheck:
   type: builtin
+  # monitorplan (§9): /readyz geeft 200 als database, schema en geheimen in orde zijn (de koppeling telt niet mee)
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
     method: pg_dump
@@ -120,6 +122,11 @@ upgrade:
     migratie is alleen de tag terugzetten niet veilig: eerst de voor-upgrade-dump of snapshot herstellen.
 decisions_required: [D01, D02, D03, D16]
 docs: [B08, I23, I01]
+accepted_findings:
+  - code: digest_pending_release
+    reden_nl: >-
+      Eigen image zonder release: de digest vult de release-CI in (release/digests.json). Tot dan is installeren via
+      de API niet mogelijk; de handmatige installatie gebruikt de tag met digest uit de release.
 validation_status: unvalidated  # de catalogus bepaalt de status zelf (Sim-getest staat in EVIDENCE.json)
 compatibility:
   truenas_min_version: "25.04"

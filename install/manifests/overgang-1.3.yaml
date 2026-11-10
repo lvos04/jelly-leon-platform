@@ -1,0 +1,36 @@
+# Contract 1.3 §9: geaccepteerde waarschuwingen staan in het manifest zelf (accepted_findings, alleen
+# backup_db_export_none, secret_in_form en digest_pending_release). De losse lijst validatie-uitzonderingen.yaml is
+# daarom vervallen (C1.3-JLP-09, ADR-0019). Wat hier staat, kan een manifest van deze repo NIET zelf oplossen:
+#
+# - kopieen: manifesten van een andere repo (I23, eigenaar ai-server-manager). Alleen de eigenaar mag ze aanpassen;
+#   tot een nieuwe gepinde kopie (tools/manifest_kopie.py) zijn precies deze waarschuwingen toegestaan.
+# - hiaten: waarschuwingen die de manifeststandaard 1.3 nog niet laat oplossen (gemeld als contract_issue). Codes uit de
+#   vaste lijst van accepted_findings mogen hier nooit staan.
+#
+# tools/manifesten.py faalt bij elke andere waarschuwing, bij een vermelding die niet (meer) optreedt en bij een
+# vermelding voor een manifest van deze repo onder kopieen.
+kopieen:
+  ai-server-manager:
+    - code: digest_pending_release
+      pad: image.digest
+      reden_nl: Eigen image van ai-server-manager zonder release; de eigenaar zet accepted_findings in zijn manifest.
+    - code: healthcheck_monitor_missing
+      pad: healthcheck.monitor
+      reden_nl: >-
+        ai-server-manager voegt het monitorplan toe zodra de validator het kent (commentaar in zijn manifest,
+        commit 4541370); daarna een nieuwe kopie.
+  ai-server-manager-executor:
+    - code: digest_pending_release
+      pad: image.digest
+      reden_nl: Idem voor de executor-image.
+    - code: healthcheck_monitor_missing
+      pad: healthcheck.monitor
+      reden_nl: Idem voor de executor.
+hiaten:
+  beszel-agent:
+    - code: healthcheck_monitor_missing
+      pad: healthcheck.monitor
+      reden_nl: >-
+        De agent heeft alleen een SSH-poort (TCP, geen HTTP). healthcheck.monitor kent alleen een HTTP-pad; een
+        HTTP-monitor op de SSH-poort zou altijd falen. Eerlijk: geen monitorplan voor de agent; de Beszel-hub meldt of
+        het systeem bereikbaar is (contract_issue voor de volgende versie: een TCP-variant van het monitorplan).

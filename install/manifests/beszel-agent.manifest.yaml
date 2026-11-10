@@ -1,4 +1,4 @@
-# I07 Beszel (agent) — manifest volgens contract 1.2 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# I07 Beszel (agent) — manifest volgens contract 1.3 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
 # Er is geen TrueNAS-catalogusapp voor de agent (truenas/apps f7a38eb heeft alleen community/beszel-hub): standaard
 # Custom App met één gepinde upstream-image (ADR-0014). Versie en digest gecontroleerd op 2026-11-09 met
 # git ls-remote --tags henrygd/beszel (v0.21.1) en docker buildx imagetools inspect ghcr.io/henrygd/beszel/beszel-agent:0.21.1.
@@ -89,7 +89,8 @@ privileges:
   cap_add: []
   devices: []
   gpu: none
-privilege_reason: null
+privilege_reason: >-
+  Geen extra rechten (geen privileged, cap_add of apparaten; draait als 568:568). Restrisico: het TrueNAS-formulier zet geen no-new-privileges, dus zonder no-new-privileges kan een setuid-programma binnen de container root worden.
 healthcheck:
   type: tcp
   port: agent
@@ -119,6 +120,13 @@ upgrade:
   notes_nl: Geen database; alleen de image-tag wisselt. Hub en agent bij voorkeur op dezelfde versie houden.
 decisions_required: [D01, D02, D03]
 docs: [I07_BESZEL]
+post_install_checks:
+  - id: tmp_niet_schrijfbaar
+    soort: handmatig
+    beschrijving_nl: >-
+      Als 568 kan de agent niet in /tmp van de image schrijven; hij meldt dan 'SKIP_GPU sensor shadow unavailable' en
+      meet zonder die sensor verder (gemeten in Docker, BESZEL_MEETDEKKING.md). Bevestig na de eerste start in de
+      app-log dat de agent draait en in de Beszel-hub als systeem verschijnt.
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10.2.2"
