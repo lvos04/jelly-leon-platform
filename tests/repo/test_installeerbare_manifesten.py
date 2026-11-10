@@ -54,7 +54,7 @@ SIM_PARAMS: dict[str, Any] = {
     "timezone": "Europe/Amsterdam",
     "rpo": "P1D",
     "rto": "PT4H",
-    "hub_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGVlbmxlZXNiYXJlc2xldXRlbHZvb3JkZXNpbXVsYXRvcg",
+    "beszel_hub_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGVlbmxlZXNiYXJlc2xldXRlbHZvb3JkZXNpbXVsYXRvcg",
     "db_password": "sim-gegenereerd-db",
     "secret_key": "sim-gegenereerd-sleutel",
 }

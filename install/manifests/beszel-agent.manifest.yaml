@@ -30,7 +30,7 @@ custom_app:
       read_only: false
   env:
     - {name: LISTEN, value: "45876"}
-    - {name: KEY, value_from: {param: hub_public_key}}
+    - {name: KEY, value_from: {param: beszel_hub_public_key}}
     - {name: SKIP_GPU, value: "true"}
     - {name: SKIP_SYSTEMD, value: "true"}
   resources:
@@ -57,7 +57,7 @@ parameters:
       Kleine dataset voor /var/lib/beszel-agent (gegevensmap van de agent). In SSH-modus schrijft de agent hier geen
       vingerafdruk (dat doet alleen de WebSocket-modus met TOKEN); de identiteit is het systeemrecord in de hub (adres +
       poort). Gemeten op 2026-11-09 in Docker, niet op een NAS: map leeg na start en herstart, één systeem na herstart.
-  - name: hub_public_key
+  - name: beszel_hub_public_key
     type: string
     source: wizard
     required: true
