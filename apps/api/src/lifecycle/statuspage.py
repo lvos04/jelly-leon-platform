@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import math
 import re
 import secrets
 import threading
@@ -203,6 +204,18 @@ class PairingLimiter:
             for key in [k for k, v in self._by_source.items() if not v]:
                 del self._by_source[key]
             return True
+
+    def retry_after(self, source: str) -> int:
+        """Seconden tot deze bron weer een poging mag doen (header ``Retry-After`` bij 429, §5); minstens 1."""
+        now = time.monotonic()
+        waits: list[float] = []
+        with self._lock:
+            hits = self._by_source.get(source)
+            if hits and len(hits) >= self.per_source:
+                waits.append(self.window_s - (now - hits[0]))
+            if len(self._all) >= self.total:
+                waits.append(self.window_s - (now - self._all[0]))
+        return max(1, math.ceil(max(waits, default=self.window_s)))
 
 
 class MeldingGeheugen:
@@ -542,7 +555,9 @@ def _pair(request: Request, hub_adres: str, koppelcode: str, hub_vingerafdruk: s
     state = request.app.state
     source = request.client.host if request.client else "onbekend"  # TCP-verbinding; nooit X-Forwarded-For
     if not state.pairing_limiter.allow(source):
-        return _weiger(request, "te_veel_pogingen", 429)
+        refused, response = _weiger(request, "te_veel_pogingen", 429)
+        response.headers["Retry-After"] = str(state.pairing_limiter.retry_after(source))  # §5: 429 + Retry-After
+        return refused, response
     # 3. toestand: onleesbaar en al eens gekoppeld gaan nooit naar de Hub; een lopende poging ook niet
     link = _lees_link(request)
     if link.onleesbaar:

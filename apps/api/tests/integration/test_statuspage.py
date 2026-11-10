@@ -464,3 +464,22 @@ def test_no_pairing_form_after_unlink_and_post_is_refused_without_hub_call(make_
         r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), token))
         assert r.status_code == 409 and "via de Hub" in r.text and "Code <code>al_gekoppeld</code>" in r.text
         assert sim.calls["enroll"] == calls
+
+
+def test_too_many_attempts_has_retry_after_until_a_slot_frees(make_app: Any, hub: Any) -> None:
+    """§5 (429 + ``Retry-After``): de pagina noemt hoe lang het duurt tot deze bron weer een poging mag doen; zonder
+    header weet een browser of script niet wanneer opnieuw. Geen verzoek naar de Hub."""
+    sim = hub.state.sim
+    app = make_app(hub_url=None, linked=False)
+    with TestClient(app, base_url=BASE, client=("192.0.2.50", 50000), headers=ORIGIN) as c:
+        token = csrf(c.get("/").text)
+        for _ in range(5):
+            assert c.post("/koppelen", data=form("x", sim.keyset_fingerprint(), token)).status_code == 422
+        r = c.post("/koppelen", data=form("x", sim.keyset_fingerprint(), token))
+        assert r.status_code == 429 and "Code <code>te_veel_pogingen</code>" in r.text
+        assert r.headers["Retry-After"].isdigit() and 880 <= int(r.headers["Retry-After"]) <= 900
+    limiter = app.state.pairing_limiter
+    limiter.window_s = 0.5  # het oudste verzoek valt bijna uit het venster: korte wachttijd, minstens 1 s
+    assert limiter.retry_after("192.0.2.50") == 1
+    assert limiter.retry_after("192.0.2.51") >= 1  # een bron zonder pogingen: nooit 0
+    assert sim.calls["enroll"] == 0
