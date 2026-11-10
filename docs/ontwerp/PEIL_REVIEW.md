@@ -174,16 +174,40 @@ maakt de taak moeilijker; **Laag** = afwerking.
   **NIET GEVALIDEERD (hardware)**. Reflow op 320 px (WCAG 1.4.10) en tekstafstand (1.4.12) zijn in Chromium gemeten;
   forced colors alleen geëmuleerd (`forced-colors: active`).
 - Op een echte TrueNAS (o.a. bron-IP achter de poortpublicatie voor de rate-limit): **NIET GEVALIDEERD (echte NAS)**.
-- Sjabloonpunten S-01…S-07: wachten op Peil 1.1.1 in ai-server-manager; daarna kopie bijwerken
-  (`tools/peil_kopie.py bijwerken`) en `make test-ui test-ui-live statuspagina-shots`.
+- Sjabloonpunten S-01…S-07: opgelost in Peil 1.1.1 en overgenomen (§7).
 
 ## 6. Schermafdrukken en reproduceren
 
-- Release-set (pytest-momentopnamen van de echte dienstcode): `docs/screenshots/peil/statuspagina/` — 5 hoofdtoestanden
+- Release-set (pytest-momentopnamen van de echte dienstcode): `docs/screenshots/peil/statuspagina/` — 7 hoofdtoestanden
   × 320/360/390/768/1440 × licht/donker (`make statuspagina-shots`).
-- Live review: `docs/ontwerp/shots/` — alle 14 toestanden × 320 en 1440 × licht/donker (`make ontwerpreview`). De
+- Live review: `docs/ontwerp/shots/` — alle 17 toestanden × 320 en 1440 × licht/donker (`make ontwerpreview`). De
   afdrukken op 360/390/768 zijn gemaakt en bekeken maar niet gecommit; maak ze met
   `make ontwerpreview REVIEW_BREEDTES=320,360,390,768,1440`.
 - PNG's zijn met pngquant (palet, kwaliteit 90–100) verkleind; contrast is in de DOM gemeten, niet op de PNG's.
 - Alleen de controles, zonder afdrukken: `make test-ui` (pytest-momentopnamen) en `make test-ui-live` (live dienst).
   In CI draaien beide in de job `statuspagina`.
+
+## 7. Overstap naar Peil 1.1.1 en contract 1.3 (2026-11-10, ADR-0019)
+
+Alle sjabloonpunten van §3 zijn in Peil 1.1.1 opgelost en hier overgenomen via de nieuwe gepinde kopie (niet lokaal):
+
+| Punt | In 1.1.1 | Hoe deze dienst het gebruikt |
+|---|---|---|
+| S-01 | `novalidate` op alle formulieren, "(verplicht)" bij de velden (E09) | `192.168.1.10:30400` krijgt nu de vaste NL-veldfout in plaats van de browsermelding |
+| S-02 | tonen `nog-niet` (hourglass), `beleid` (ban), `niet-gekoppeld` (link-2-off), `verouderd`, `niet-beschikbaar`, `feit` (E03/E04) | "Nog niet beschikbaar" met hourglass, "Alleen via de executor" als beleid, de koppelrij als Niet gekoppeld/Ontkoppeld met link-2-off, een verouderde hartslag als Verouderd |
+| S-03 | `melding_rol` alert/status/leeg (E05) | alert alleen voor de fout van dít verzoek, status na een geslaagde koppeling, geen rol voor een toestand die al bestond |
+| S-04 | `melding_code` los van `trace_id`, `melding_pad` (E06) | code in mono, ook zonder trace-ID; het pad van het koppelbestand bij "onleesbaar" |
+| S-05 | skiplink met `transform` vanaf `top: 0` (E09) | de korte tekst blijft, maar een omlopende tekst steekt niet meer uit |
+| S-06 | prototype en COMPONENTEN §25 gelijkgetrokken (E04) | in de controles en het koppelblok hetzelfde woord met hetzelfde uiterlijk |
+| S-07 | renderer in één doorgang, JS en Python byte-gelijk (E07) | eigen renderer leest het sjabloon in een boom; byte-gelijk met `bouw/sjabloon.py` getest |
+
+Nieuw door contract 1.3: de blokken `koppelstatus_onleesbaar` (fail-closed, geen formulier) en `koppelen_bezig`
+(formulier en stappen weg), de uitleg Gereed ↔ `/readyz`, `{{bron}}`, de melding "Koppelen via dit adres kan niet"
+bij een domeinnaam (`Host`-beperking) en de negatieve herkomstgevallen in de live review.
+
+**Opnieuw gemeten** (Sim-getest in Chromium; `make statuspagina-shots`, `make ontwerpreview`, en `--letter "DejaVu Sans"`):
+12 momentopnamen en 17 live toestanden × 320/360/390/768/1024/1440 px × licht/donker: axe-core (WCAG 2.2 AA-tags) 0
+overtredingen, laagste tekstcontrast 8,34:1 (licht) en 9,32:1 (donker), laagste UI-contrast 4,86:1, focusring
+≥ 7,79:1, geen overloop, geen inhoud buiten zijn element, ook met DejaVu Sans. Schermafdrukken opnieuw gemaakt: 7
+hoofdtoestanden in `docs/screenshots/peil/statuspagina/`, 17 live toestanden in `docs/ontwerp/shots/`. Echte
+schermlezer, telefoon en NAS blijven **NIET GEVALIDEERD**.

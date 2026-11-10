@@ -30,16 +30,17 @@ apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-mig
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
 deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
-docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0016
-design/ontwerptaal/       versie-gepinde kopie Peil-statuspagina (HERKOMST.md)   tools/peil_kopie.py  kopie maken/controleren
+docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0019
+design/ontwerptaal/       gepinde kopie Peil 1.1.1-statuspagina (HERKOMST.md)    tools/peil_kopie.py  kopie maken/controleren
 tests/ui/                 browsercontrole statuspagina (Playwright + axe-core)   docs/screenshots/peil/  schermafdrukken
-docs/platform-v2/         contract 1.2 + conformiteitslijst, pakketdocs, TRUENAS_APP_API.md, EVIDENCE.json
+docs/platform-v2/         contract 1.3 + conformiteitslijst (gepind, CONTRACT_KOPIE.json; tools/contract_kopie.py),
+                          pakketdocs, TRUENAS_APP_API.md, EVIDENCE.json
 e2e/                      integrale E2E-opzet (README), simulators (truenas, hub, beszel, uptime_kuma, gotify,
                           authentik + simkit), conformance/echte_hub.py
 install/manifests/        manifesten per I-document (+ validatie-uitzonderingen)   install/checklists/  I01/I02
 schemas/                  checklist-v1.schema.json         tools/               manifesten, controlelijsten, rooktest
 tests/e2e/                image-E2E (Docker)               tests/repo/       repo-regels (manifest, docs, evidence)
-tests/conformance/        Hub ↔ dienst volgens contract 1.2 (simulator in CI; lokaal ook tegen de echte Hub)
+tests/conformance/        Hub ↔ dienst volgens contract 1.3 (simulator in CI; lokaal ook tegen de echte Hub)
 ```
 
 ```bash
@@ -56,10 +57,13 @@ De Docker-E2E heeft geen root op de host nodig (bestanden van uid 568 worden via
 opgeruimd). Op een gedeelde machine serialiseert `LIFECYCLE_BUILD_LOCK=<lockbestand>` de extra image-builds van de
 upgrade-E2E met `flock`.
 
-Koppelen met de Hub (contract 1.2): de koppeling staat in `/appdata/secrets/hub-link.json` (niet in de database), de
-Hub-sleutels worden bij het koppelen gepind en met een vingerafdruk gecontroleerd, en de Hub meldt zich bij deze dienst
-met een door hem ondertekende dienst-JWT (ADR-0011). Elk proces in de image, ook PID 1, draait als 568 zonder
-capabilities en met *no_new_privs*.
+Koppelen met de Hub (contract 1.3): de koppeling staat in `/appdata/secrets/hub-link.json` (niet in de database;
+onleesbaar = fail-closed), de Hub-sleutels worden bij het koppelen gepind en met een vingerafdruk over alle sleutels
+gecontroleerd, en de Hub meldt zich bij deze dienst met een door hem ondertekende dienst-JWT (ADR-0011, ADR-0019).
+Koppelen via de statuspagina kan alleen via het IP-adres van de NAS of een lokale naam (bescherming tegen
+DNS-rebinding); aanbevolen is het eenmalige koppeltoken in het formulier van de app. Elk proces in de image, ook PID 1,
+draait als 568 zonder capabilities, met *no_new_privs* en (bij een start als root) een lege bounding set.
 
-Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.2`; werklijst `CONTRACT_1.2_CONFORMITEIT.md`).
+Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.3`; werklijst `CONTRACT_1.3_CONFORMITEIT.md` §4,
+uitgewerkt in ADR-0019).
 Licentie: **GPL-3.0** (zie [`LICENSE`](LICENSE); besluit van de eigenaar, 2026-11-09).

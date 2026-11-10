@@ -59,6 +59,20 @@ scope en mogen pas na een eigen broncheck worden ondersteund.
 
 ## 3. Standaard Custom App = catalogusapp `ix-app`
 
+**Begrippen (contract 1.3 §2, §9; C1.3-JLP-10):**
+
+| Begrip | Wat het technisch is | In `app.query` | Voor het platform |
+|---|---|---|---|
+| *standaard Custom App* | het formulier *Apps → Discover Apps → Custom App* = de catalogusapp **`ix-app`** (trein `stable`) | `custom_app: false` | toegestaan; `install.method: custom_app` in het manifest betekent uitsluitend dit |
+| *compose-app* | *Install via YAML* (`app.create` met `custom_app: true` en `custom_compose_config(_string)`) | `custom_app: true` | **altijd verboden**; de Hub toont zo'n bestaande app als `custom_compose` |
+| *catalogusapp* | een andere app uit de officiële TrueNAS-catalogus (bijv. `authentik`) | `custom_app: false` | toegestaan met vaste trein en versie; bij één container alleen met `install.reason` |
+
+Let op de valkuil in de naam: het TrueNAS-veld `custom_app: true` betekent **niet** "standaard Custom App", maar een
+compose-app. Een derden-app met **één** container installeert het platform standaard als standaard Custom App (één
+gepinde upstream-image, `install.method: custom_app`); een catalogusapp voor één container alleen met een reden in
+`install.reason` (`meerdere_containers` of een Nederlandse reden). Bronnen: de tabel hieronder (zeker) en contract 1.3
+§2 "Begrippen".
+
 | Bewering | Bron | Zekerheid |
 |---|---|---|
 | De knop **Custom App** in *Apps → Discover Apps* opent de generieke app-wizard voor `train=stable`, `app=ix-app`; opslaan roept `app.create({values, catalog_app: "ix-app", app_name, train: "stable", version})` aan. | WEBUI `constants/catalog.constants.ts` (`customApp = 'ix-app'`, `customAppTrain = 'stable'`), `custom-app-button.component.ts` r. 55, `app-wizard.component.ts` r. 270–290 | zeker |
@@ -160,7 +174,9 @@ Ook dit is documentatie- en broncodeonderzoek: **NIET GEVALIDEERD** op een echte
 ## 7. Gevolgen voor het platform (vastgelegd in ADR-0006)
 
 1. Eigen apps: `app.create` met `catalog_app="ix-app"`, `train="stable"`, **exacte** `version` (ix-app) en **exacte**
-   image-tag; `restart_policy="unless-stopped"` expliciet; nooit `custom_app=true`.
+   image-tag; `restart_policy="unless-stopped"` expliciet; nooit `custom_app=true` (dat is een compose-app, zie de
+   begrippen in §3). Derden-apps met één container ook zo, tenzij het manifest een `install.reason` voor een
+   catalogusapp noemt (contract 1.3 §9).
 2. Updates eigen apps: `app.update` met volledig `image`-object (nieuwe tag); daarna digest-readback via
    `app.image.query`. Vooraf snapshot van de appdata-dataset (`pool.snapshot.create` / `zfs.snapshot.create`).
 3. Terugzetten eigen apps: `app.update` met de vorige waarden; bij migratie eerst data herstellen via de eigenaar

@@ -4,6 +4,12 @@ Je maakt in de TrueNAS-web-UI precies **twee** standaard Custom Apps: de Hub (`a
 (`ai-server-manager-executor`). Daarna installeert de Hub alles via de TrueNAS-API (contract §2). Je hebt geen
 terminal, geen SSH en geen *Install via YAML* nodig.
 
+> **Begrippen (contract 1.3 §2):** een *standaard Custom App* is het formulier *Apps → Discover Apps → Custom App*
+> (technisch de catalogusapp `ix-app`; in TrueNAS staat dan `custom_app: false`).
+> Nooit toegestaan: *Install via YAML* (dat maakt een *compose-app*, `custom_app: true`). Een andere app uit de officiële
+> catalogus heet hier *catalogusapp*; die gebruikt het platform voor apps met meerdere containers (zoals Authentik), en
+> voor één container alleen met een reden in het manifest (`install.reason`).
+
 > **Verificatiestatus — lees dit eerst.**
 > - **NIET GEVALIDEERD (echte NAS):** dit stappenplan is nog niet op een echte TrueNAS doorlopen. Menu- en veldnamen
 >   komen uit de broncode van de TrueNAS-web-UI (`truenas/webui` tag TS-25.10.8) en de Custom App-definitie
@@ -118,10 +124,13 @@ Host Port en onthoud die.
      daarna een gebruiker in die groep. Anders: rol *Full Admin* (ruimer dan nodig — afgeraden).
    - *Credentials → Users → User API Keys → Add* voor die gebruiker → key kopiëren.
    - **NIET GEVALIDEERD (echte NAS):** de minimale rollenset en de exacte privilege-schermen.
-4. **Koppelen via de web-UI (contract 1.2 §3.9):** in de Hub-wizard verschijnen een eenmalige **koppelcode**
+4. **Koppelen via de web-UI (contract 1.3 §3.9):** in de Hub-wizard verschijnen een eenmalige **koppelcode**
    (`XXXX-XXXX-XXXX`, 30 minuten geldig) en de **vingerafdruk** van de Hub-sleutels (`XXXX-XXXX-XXXX-XXXX`), met een
    kopieerknop. Open `http://<NAS-adres>:30410` (statuspagina van de executor) en vul het Hub-adres, de koppelcode
    **en** de vingerafdruk in; de executor weigert een Hub met andere sleutels en pint vooral de policy-sleutel.
+   Open de pagina via het **IP-adres van de NAS** (of een lokale naam zonder punt of op `.local`, `.lan`, `.internal`,
+   `.home.arpa`): via een eigen domeinnaam weigeren de koppel- en sleutelformulieren elk verzoek (bescherming tegen
+   DNS-rebinding, contract 1.3 §3.7).
    Daarna vul je op dezelfde pagina de TrueNAS-schrijfkey in. De executor test die live (`auth.login_with_api_key` +
    rolcontrole) tegen het NAS-adres en TLS-certificaat die je bij deze eerste koppeling vastlegt, versleutelt de key in
    zijn eigen vault en toont daarna alleen de laatste 4 tekens; de Hub ziet de key nooit. Ontkoppelen, opnieuw
@@ -140,8 +149,22 @@ risico) en vraagt goedkeuring. Daarna voert de executor `app.create` uit met de 
 met vaste versie. Eigen apps (`appstore-en-fork`, `jelly-leon-platform`, `home-control-hub`, …) krijgen daarbij alleen
 `HUB_URL`, `HUB_KEY_FINGERPRINT` (niet geheim) en een eenmalig `HUB_ENROLLMENT_TOKEN` (60 minuten) mee en melden zich
 zelf aan: ze controleren de vingerafdruk, pinnen de Hub-sleutels en bevestigen de koppeling. Installeer je zo'n app
-toch met de hand, vul dan diezelfde drie waarden uit de Hub-UI in het formulier in (geen wedloop); de koppelcode op de
-statuspagina van de app werkt alleen zolang die app nog nooit gekoppeld is.
+toch met de hand, vul dan diezelfde drie waarden uit de Hub-UI in het formulier in. **Dit is de aanbevolen weg**
+(env-enrollment, contract 1.3 §3.2): er is geen wedloop met iemand anders op het LAN. Een ongeldige `HUB_URL` of
+vingerafdruk laat de app gewoon starten; de statuspagina meldt `hub_adres_ongeldig` of `vingerafdruk_ongeldig` en het
+token blijft bruikbaar tot je het formulier verbetert.
+
+De koppelcode op de statuspagina van de app (bijv. `http://<NAS-adres>:30440` voor `jelly-leon-platform`) is de
+tweede weg en werkt alleen zolang die app nog nooit gekoppeld is:
+
+- Open de statuspagina via het **IP-adres van de NAS** of een **lokale naam** (een naam zonder punt, of een naam op
+  `.local`, `.lan`, `.internal` of `.home.arpa`). Via een eigen domeinnaam (bijv. een naam achter een reverse proxy)
+  weigert de pagina het formulier met "Open deze pagina via het IP-adres van de NAS, of koppel via de Hub"
+  (`host_niet_toegestaan`): zo kan een website die je bezoekt de app niet via DNS-rebinding aan een vreemde "Hub"
+  koppelen. De pagina zegt dat ook al vóór het versturen.
+- Vul alle drie de velden in (Hub-adres, koppelcode **en** vingerafdruk uit de Hub). Hooguit 5 pogingen per
+  15 minuten per apparaat en 20 voor de hele app; ook een geweigerde poging telt mee.
+- Na de eerste koppeling verdwijnt het formulier voorgoed; opnieuw koppelen of ontkoppelen gaat via de Hub.
 
 > **Stand P1:** de manifesten per app staan in `install/manifests/` (Beszel, Uptime Kuma, Gotify, Authentik; overzicht
 > en verplichte stappen na installatie in `install/manifests/README.md`). Het plan/de preview (formulierwaarden met
@@ -167,6 +190,8 @@ eigen dienst koppelen met `HUB_URL` + `HUB_ENROLLMENT_TOKEN` + `HUB_KEY_FINGERPR
 | Poort bezet bij opslaan | Andere Host Port kiezen; Container Port niet wijzigen. |
 | Geen setupcode in de logs | App herstarten en opnieuw *View Logs*; de code staat alleen in de logs van de eerste start(s). |
 | Executor: "key ingetrokken" | De key is over een onversleutelde verbinding gebruikt; maak een nieuwe key en gebruik `wss://`. |
+| Statuspagina: "Koppelen via dit adres kan niet" | Je opende de pagina via een domeinnaam. Open hem via het IP-adres van de NAS, of koppel via de Hub (eenmalig token in het formulier van de app). |
+| Statuspagina: "De koppelstatus is onleesbaar" | Het koppelbestand van de app is beschadigd; de app vertrouwt dan niets. Maak in de Hub een nieuw koppeltoken en zet het in het formulier van de app (*Edit* → omgevingsvariabelen); het oude bestand blijft bewaard als `hub-link.json.onleesbaar-<tijd>`. |
 | App blijft *Deploying* of *Crashed* | *View Logs*; de alles-in-één images melden in het Nederlands wat er mis is (bijv. `/appdata` niet schrijfbaar). |
 
 ## Terugdraaien en verwijderen (handmatig, alleen als de Hub dat niet kan)

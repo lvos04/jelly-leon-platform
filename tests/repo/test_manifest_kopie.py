@@ -3,6 +3,10 @@ af van de bron in ``lvos04/ai-server-manager`` (``deploy/manifest/``, gelezen me
 
 Bron: ``ASM_BRON`` (of ``PEIL_BRON``; git-checkout van ai-server-manager; standaard ``../ai-server-manager``) en
 ``ASM_BRON_REF`` (standaard ``HEAD``). Met ``PEIL_BRON_VERPLICHT=1`` (CI) faalt de test als de bron ontbreekt.
+
+Pinregel (ADR-0019, naar Peil 1.1.1 E08): de kopie moet exact de bron op de **gepinde commit** zijn (anders rood). Een
+nieuwere inhoud in de bron geeft een **waarschuwing**: overnemen is een bewuste stap (``tools/manifest_kopie.py
+bijwerken`` + ``tools/manifesten.py`` met de validator), geen rode CI door een commit in een andere repo.
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -63,13 +68,12 @@ def test_pinned_sha256_is_the_source_at_the_pinned_commit() -> None:
         assert mk.sha256(mk.git_show(BRON, h.commit, h.pad)) == h.sha256, naam
 
 
-def test_no_drift_with_the_current_source() -> None:
-    """Wijzigt ai-server-manager zijn manifest, dan faalt deze test tot de kopie is bijgewerkt
-    (``python tools/manifest_kopie.py bijwerken --bron ../ai-server-manager``)."""
+def test_newer_source_only_warns() -> None:
+    """Wijzigt ai-server-manager zijn manifest na de gepinde commit, dan waarschuwt deze test (bijwerken met
+    ``python tools/manifest_kopie.py bijwerken --bron ../ai-server-manager``); de pin zelf blijft hard gecontroleerd."""
     bron_beschikbaar()
     for naam, h in mk.controleer_kopie().items():
         actueel = mk.git_show(BRON, BRON_REF, h.pad)
-        assert mk.sha256(actueel) == h.sha256, (
-            f"{naam}: ai-server-manager ({BRON_REF}) heeft een ander manifest dan de gepinde kopie "
-            f"({h.commit[:12]}); werk de kopie bij"
-        )
+        if mk.sha256(actueel) != h.sha256:
+            warnings.warn(f"{naam}: ai-server-manager ({BRON_REF}) heeft een nieuwer manifest dan de gepinde kopie "
+                          f"({h.commit[:12]}); overnemen is een bewuste stap", UserWarning, stacklevel=1)

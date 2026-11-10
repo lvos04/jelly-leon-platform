@@ -172,3 +172,32 @@
   Beszel-agent in SSH-modus met alleen de publieke hubsleutel. Docker, geen TrueNAS (**Sim-getest**).
 - Evidence: I08-08-03 terug naar `NIET GEVALIDEERD (echte NAS)` (er is nog geen monitorplan met verwachte status en
   time-out per endpoint); bewijs van de upstream-rooktest bij I07, I08 en I13.
+
+## Contract 1.3 en Peil 1.1.1 (ADR-0019)
+
+- **Kopie contract 1.3** (`PLATFORM_CONTRACTEN.md`, `CONTRACT_1.3_CONFORMITEIT.md`) byte-gelijk, gepind op
+  `ai-server-manager@0a7143b` (`CONTRACT_KOPIE.json`, `tools/contract_kopie.py`) met drifttest; EVIDENCE-test volgens
+  §11 (1.3) met regels `C1.3-JLP-nn` (C1.3-JLP-13).
+- **Statuspagina:** herkomst met exacte `Origin`, `Sec-Fetch-Site` en `Host`-beperking tegen DNS-rebinding; elke POST
+  na de herkomstcontrole telt als poging (ook al gekoppeld, onleesbaar, bezig); invoer nooit afkappen; één logregel
+  per poging; melding alleen bij een echte poging van deze browser; Gereed = `/readyz` + gekoppeld + bevestigd
+  (C1.3-JLP-01/02). Browsertest met de negatieve gevallen, door Chromium zelf verstuurd.
+- **Koppelbestand:** `"1.3"` schrijven, elke `1.x` lezen; onleesbaar ook bij andere major of verkeerde rechten;
+  vervangen bij de eerste schrijfactie van een nieuw env-token (origineel `.onleesbaar-<UTC-tijd>`,
+  `unreadable_replaced_at`); vaste codes van 1.3 (C1.3-JLP-03).
+- **JWT en sleutels:** `aud` als lijst geweigerd, authenticatie vóór de body, vingerafdruk over alle
+  policy-sleutels (`HN69-2PHK-XV2D-X85W`), `rotation_sequence` uit het enroll-antwoord, canonieke IP-vormen en
+  verboden bereiken na DNS-resolutie, ongeldige `HUB_URL`/vingerafdruk zonder crash (C1.3-JLP-04/05).
+- **Image:** bounding set leeg vóór de wissel, healthcheck met `--controle`, image-E2E met `CapBnd` en de healthcheck
+  apart (C1.3-JLP-06).
+- **Events en connector:** vaste `service.*`-namen, inboxgrenzen vóór verzending, totaal = slechtste check,
+  verouderd = `unknown`/`meting_verouderd`, `limits.max_age_s` (C1.3-JLP-07/08); foutcatalogus (422 met
+  `details.fouten[]`, `Idempotent-Replay`), statische en dynamische `Idempotency-Key`-test (C1.3-JLP-12).
+- **Peil 1.1.1:** nieuwe gepinde kopie, renderer in één doorgang (byte-gelijk met de referentie), nieuwe tonen,
+  `melding_rol`, blokken onleesbaar en koppelen bezig; driftregel E08 (nieuwere versie = waarschuwing). Opnieuw
+  gemeten: axe 0, contrast AA, geen overloop, ook met DejaVu Sans; schermafdrukken vernieuwd.
+- **Docs:** begrippen standaard Custom App / compose-app / catalogusapp, koppelen via IP-adres of lokale naam,
+  env-enrollment aanbevolen (C1.3-JLP-10/11).
+- **Nog open:** C1.3-JLP-09 (manifesten volgens §9 1.3) wacht op de publicatie van de validator (C1.3-ASF-08); alleen
+  de Beszel-parameter `beszel_hub_public_key` is al aangepast. C1.3-JLP-14 hoort bij P2.
+- Op een echte TrueNAS, met echte accounts of hardware: **NIET GEVALIDEERD**.
