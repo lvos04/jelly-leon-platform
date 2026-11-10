@@ -10,7 +10,7 @@
   weigeren, gaat direct naar dead-letter met de reden, in plaats van tien keer verstuurd te worden.
 - ``payload.ernst`` (optioneel) alleen met één van de vijf Peil-woorden.
 - Niet gekoppeld = niet pushen en geen pogingen tellen (RV12, ``worker.push_outbox``); een 401 stopt de ronde zonder
-  het event een poging aan te rekenen.
+  het event een poging aan te rekenen; een 429/503 stopt de ronde en volgt ``Retry-After`` (§5).
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lifecycle import APP_ID, SCHEMA_VERSION
-from lifecycle.enrollment import HubSignals, note_signals
+from lifecycle.enrollment import HubSignals, note_signals, retry_after_seconds
 from lifecycle.models import OutboxEvent
 from lifecycle.redact import redact
 from lifecycle.timeutil import iso_z, utcnow
@@ -160,7 +160,9 @@ def push_pending(
     """Stuurt openstaande events naar de Hub-inbox. Geeft het aantal afgeleverde events terug.
 
     Een 401 stopt de ronde zonder de pogingen van het event op te hogen (het ligt aan het token, niet aan het event);
-    de worker controleert dan met ``GET /api/v1/services/self`` of de koppeling is ingetrokken (contract 1.2 §3.8).
+    de worker controleert dan met ``GET /api/v1/services/self`` of de koppeling is ingetrokken (contract 1.3 §3.8).
+    Een 429 of 503 telt als poging en stopt de ronde: het event krijgt zijn backoff, maar nooit korter dan
+    ``Retry-After``, en via ``signals.retry_after_s`` spreekt de worker de Hub niet eerder opnieuw aan (§5).
     ``Hub-Token-Rotation: required`` op een antwoord wordt via ``signals`` doorgegeven.
     """
     now = utcnow()
@@ -183,6 +185,8 @@ def push_pending(
             event.last_error = ("ongeldig: " + "; ".join(problems))[:500]
             log.warning("event %s niet verstuurd: %s", event.event_id, event.last_error)
             continue
+        hub_says_wait = False
+        not_before: float | None = None
         try:
             response = client.post(
                 hub_url + INBOX_PATH,
@@ -198,6 +202,9 @@ def push_pending(
                 break
             ok = 200 <= response.status_code < 300 or response.status_code == 409
             error = f"HTTP {response.status_code}"
+            # §5: bij 429/503 nooit eerder dan Retry-After; de Hub zegt "wacht" voor de hele dienst → ronde stoppen
+            hub_says_wait = response.status_code in (429, 503)
+            not_before = retry_after_seconds(response) if hub_says_wait else None
         if ok:
             event.delivered_at = utcnow()
             event.last_error = None
@@ -209,5 +216,8 @@ def push_pending(
             event.dead_letter = True
             log.warning("event %s naar dead-letter na %s pogingen", event.event_id, event.attempts)
         else:
-            event.next_attempt_at = utcnow() + timedelta(seconds=backoff_seconds(event.attempts))
+            delay = max(backoff_seconds(event.attempts), not_before or 0.0)
+            event.next_attempt_at = utcnow() + timedelta(seconds=delay)
+        if hub_says_wait:
+            break
     return delivered

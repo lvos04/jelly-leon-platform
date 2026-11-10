@@ -5,7 +5,8 @@ de koppeling bevestigen met ``GET /api/v1/services/self``; het service-token rot
 ``Hub-Token-Rotation: required`` meldt (de aanvraag staat als ``token_rotation_requested_at`` in ``hub-link.json`` en
 overleeft zo een herstart, contract 1.3 §3.5/§3.8); de outbox naar de Hub (alleen gekoppeld, RV12; een 401 → controle
 of de koppeling is ingetrokken); ondertekende sleutelrotaties ophalen (≤ elke 15 min); verlopen Idempotency- en
-replay-records opruimen.
+replay-records opruimen. Geeft de Hub 429/503 met ``Retry-After``, dan spreekt de worker hem niet eerder opnieuw aan
+(contract 1.3 §5); een tijdelijk mislukte rotatie gaat opnieuw met backoff + jitter (5 s → 60 s), nooit elke ronde.
 
 Events over de eigen koppeling (contract 1.3 §7, vaste ``service.*``-namen, ``entity`` = ``{service, <app_id>}``): de
 worker vergelijkt elke ronde de koppelstatus met de vorige (ook als het API-proces de wijziging deed) en schrijft per
@@ -16,6 +17,7 @@ overgang één event in de outbox: ``service.hub_link.linked`` (ook opnieuw kopp
 from __future__ import annotations
 
 import logging
+import random
 import signal
 import threading
 import time
@@ -48,6 +50,10 @@ log = logging.getLogger("lifecycle.worker")
 
 CONFIRM_RETRY_S = 60.0
 PURGE_INTERVAL_S = 300.0
+# Rotatie op verzoek van de Hub (§3.8: binnen 5 min): mislukt ze tijdelijk, dan opnieuw met backoff + jitter (5 s →
+# hooguit 60 s), nooit elke ronde.
+ROTATE_BACKOFF_START_S = 5.0
+ROTATE_BACKOFF_MAX_S = 60.0
 
 
 class Worker:
@@ -64,6 +70,11 @@ class Worker:
         self.stop = threading.Event()
         self.next_confirm_at = 0.0
         self.next_key_poll_at = 0.0
+        self.next_rotate_at = 0.0
+        self.rotate_backoff = ROTATE_BACKOFF_START_S
+        # §5: na een 429/503 met Retry-After spreekt de worker de Hub (bevestigen, rotatie, outbox, sleutelrotaties)
+        # niet eerder opnieuw aan
+        self.hub_not_before = 0.0
         self.last_purge = 0.0
         self.recovered = False
         self.last_state: tuple[str, str | None, int, int | None] = self._state()
@@ -117,10 +128,23 @@ class Worker:
         except SecretsError as exc:
             return f"geheimen:{exc}"
 
+    def hub_waits(self) -> bool:
+        """De Hub vroeg te wachten (429/503 met ``Retry-After``, §5): tot dan geen aanroepen naar de Hub."""
+        return time.monotonic() < self.hub_not_before
+
+    def note_hub_wait(self) -> None:
+        if self.signals.retry_after_s:
+            self.hub_not_before = max(self.hub_not_before, time.monotonic() + self.signals.retry_after_s)
+            log.info("de Hub vraagt %.0f s te wachten (Retry-After); tot dan geen aanroepen",
+                     self.signals.retry_after_s)
+        self.signals.retry_after_s = None
+
     def confirm_link(self) -> str:
         link = self.store.read()
         if not link.linked or link.doc.get("confirmed_at") or time.monotonic() < self.next_confirm_at:
             return "niet_nodig"
+        if self.hub_waits():
+            return "wacht:retry_after"
         with self.client_factory() as client:
             result = confirm(self.store, client, self.signals)
         if result != "bevestigd":
@@ -138,15 +162,24 @@ class Worker:
         if not link.doc.get("token_rotation_requested_at"):  # eerst vastleggen: overleeft een herstart (§3.5)
             _persist(self.store, lambda d: d.update(token_rotation_requested_at=now_iso())
                      if d.get("state") == "gekoppeld" else None)
+        if self.hub_waits():
+            return "wacht:retry_after"
+        if time.monotonic() < self.next_rotate_at:
+            return "wachten"
         with self.client_factory() as client:
             result = rotate_service_token(self.store, client, self.signals)
         if result == "geroteerd":
+            self.rotate_backoff, self.next_rotate_at = ROTATE_BACKOFF_START_S, 0.0
             self._emit("service.token.rotated", {"ernst": "info"})
+        elif result != "ingetrokken":  # tijdelijk mislukt: niet elke ronde opnieuw (§5 backoff + jitter)
+            delay = min(ROTATE_BACKOFF_MAX_S, self.rotate_backoff * random.uniform(1.0, 1.25))  # noqa: S311
+            self.next_rotate_at = time.monotonic() + delay
+            self.rotate_backoff = min(ROTATE_BACKOFF_MAX_S, self.rotate_backoff * 2)
         return result
 
     def push_outbox(self) -> int:
         link = self.store.read()
-        if not link.linked or not link.hub_url or not link.service_token:
+        if not link.linked or not link.hub_url or not link.service_token or self.hub_waits():
             return 0
         self.signals.unauthorized = False
         with self.client_factory() as client:
@@ -160,6 +193,8 @@ class Worker:
     def poll_keys(self) -> str:
         if time.monotonic() < self.next_key_poll_at or not self.store.read().linked:
             return "niet_nodig"
+        if self.hub_waits():
+            return "wacht:retry_after"
         self.next_key_poll_at = time.monotonic() + self.settings.key_rotation_poll_seconds
         with self.client_factory() as client:
             return poll_key_rotations(self.store, client)
@@ -178,6 +213,7 @@ class Worker:
                 except Exception as exc:  # één stap mag de worker nooit stoppen
                     log.warning("%s mislukt: %s", name, type(exc).__name__)
                     detail[f"{name}_error"] = type(exc).__name__
+                self.note_hub_wait()  # een Retry-After van deze stap geldt ook voor de volgende stappen
             self.last_state = self._state()
             detail["hub_link"] = self.last_state[0]
             try:

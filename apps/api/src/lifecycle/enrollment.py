@@ -14,9 +14,10 @@
 - Fouten (vaste ``last_error``-codes met hun HTTP-uitkomst, §3.3/§3.5): 401 → ``hub_weigerde``, 404 →
   ``enroll_endpoint_ontbreekt``, 413/422 (en elke andere 4xx) → ``hub_incompatibel``, ongeldig antwoord →
   ``hub_antwoord_ongeldig``: definitief; 429 → ``rate_limited`` (wacht ``Retry-After``); 5xx, netwerkfouten en 3xx
-  (redirects worden nooit gevolgd) → ``hub_onbereikbaar``, opnieuw met backoff + jitter (5 s → max. 15 min), stoppen
-  60 min na de eerste poging. Een naam die naar een verboden adres wijst → ``hub_adres_ongeldig`` (niet definitief:
-  het token blijft bruikbaar). Proxy-omgevingsvariabelen worden genegeerd (``app.default_http_client_factory``).
+  (redirects worden nooit gevolgd) → ``hub_onbereikbaar``, opnieuw met backoff + jitter (5 s → max. 15 min; bij 503
+  nooit vóór ``Retry-After``, §5), stoppen 60 min na de eerste poging. Een naam die naar een verboden adres wijst →
+  ``hub_adres_ongeldig`` (niet definitief: het token blijft bruikbaar). Proxy-omgevingsvariabelen worden genegeerd
+  (``app.default_http_client_factory``).
 - Onleesbaar koppelbestand (§3.5, RV6): een poging met een nieuw env-token vervangt het bij haar eerste schrijfactie
   (``pending`` of ``last_error``), vóór het verzoek aan de Hub; een koppelcode nooit.
 - Intrekking: pas als ook ``GET /api/v1/services/self`` 401 geeft (§3.8). Rotatie bij ``Hub-Token-Rotation:
@@ -74,6 +75,7 @@ ENR_TOKEN_RE = re.compile(r"^enr_[A-Za-z0-9_-]{43}$")
 ENROLL_WINDOW = timedelta(minutes=60)
 BACKOFF_START_S = 5.0
 BACKOFF_MAX_S = 900.0
+MAX_RETRY_AFTER_S = 86400.0  # alleen tegen onzinwaarden; een kleinere grens zou eerder dan Retry-After opnieuw proberen
 RESPONSE_STRINGS = ("schema_version", "service_id", "app_id", "service_token", "token_type", "hub_issuer",
                     "keyset_fingerprint", "jwks_url", "events_inbox_url", "key_rotation_url")
 
@@ -174,10 +176,13 @@ def validate_response(data: Any, *, expected_fingerprint: str | None) -> EnrollR
                         data["enrollment_replayed"], sequence)
 
 
-def _retry_after(response: httpx.Response) -> float | None:
+def retry_after_seconds(response: httpx.Response) -> float | None:
+    """``Retry-After`` in seconden (§5: bij 429 en 503 nooit eerder dan deze waarde). Alleen de getalvorm; een
+    HTTP-datum of onzin telt als ontbrekend. ``MAX_RETRY_AFTER_S`` begrenst alleen onzinwaarden (overloop): de Hub
+    stuurt hooguit 15 minuten (§3.3)."""
     raw = response.headers.get("Retry-After", "").strip()
-    if raw.isdigit():
-        return min(float(raw), BACKOFF_MAX_S)
+    if raw.isdigit() and len(raw) <= 9:
+        return min(float(raw), MAX_RETRY_AFTER_S)
     return None
 
 
@@ -199,15 +204,16 @@ def post_enroll(client: httpx.Client, hub_url: str, body: dict[str, Any], *,
     if status == 404:
         raise EnrollmentError("enroll_endpoint_ontbreekt", final=True, detail="404")
     if status == 429:
-        retry = _retry_after(response)
+        retry = retry_after_seconds(response)
         raise EnrollmentError("rate_limited", final=False, retry_after=retry if retry is not None else 60.0,
                               detail="429")
     if status == 401:
         raise EnrollmentError("hub_weigerde", final=True, detail="401")
     if 400 <= status < 500:  # 413/422 (en andere 4xx): de Hub vindt het verzoek ongeldig → incompatibel
         raise EnrollmentError("hub_incompatibel", final=True, detail=str(status))
-    # 3xx (nooit gevolgd), 5xx en andere statussen: storing, later opnieuw
-    raise EnrollmentError("hub_onbereikbaar", final=False, detail=str(status))
+    # 3xx (nooit gevolgd), 5xx en andere statussen: storing, later opnieuw; bij 503 nooit vóór Retry-After (§5)
+    raise EnrollmentError("hub_onbereikbaar", final=False, detail=str(status),
+                          retry_after=retry_after_seconds(response) if status == 503 else None)
 
 
 # ---------------------------------------------------------------------------------------------- opslag (§3.6)
@@ -346,10 +352,22 @@ def enroll_once(
 # ---------------------------------------------------------------------------------------------- na de koppeling
 @dataclass
 class HubSignals:
-    """Wat de Hub in antwoorden meldt; de worker handelt het af."""
+    """Wat de Hub in antwoorden meldt; de worker handelt het af. ``retry_after_s``: de Hub gaf 429/503 met
+    ``Retry-After``; de worker spreekt de Hub daarna niet eerder opnieuw aan (§5)."""
 
     rotation_required: bool = False
     unauthorized: bool = False
+    retry_after_s: float | None = None
+
+
+def note_retry_after(response: httpx.Response, signals: HubSignals) -> float | None:
+    """429/503 met ``Retry-After`` → ``signals.retry_after_s`` (de langste wachttijd telt). Geeft de wachttijd."""
+    if response.status_code not in (429, 503):
+        return None
+    wait = retry_after_seconds(response)
+    if wait is not None:
+        signals.retry_after_s = max(signals.retry_after_s or 0.0, wait)
+    return wait
 
 
 def note_signals(response: httpx.Response, signals: HubSignals) -> None:
@@ -357,6 +375,7 @@ def note_signals(response: httpx.Response, signals: HubSignals) -> None:
         signals.rotation_required = True
     if response.status_code == 401:
         signals.unauthorized = True
+    note_retry_after(response, signals)
 
 
 def get_self(client: httpx.Client, hub_url: str, token: str, signals: HubSignals) -> httpx.Response | None:
@@ -430,6 +449,7 @@ def rotate_service_token(store: HubLinkStore, client: httpx.Client, signals: Hub
         response = client.post(hub_url + ROTATE_PATH, headers={"Authorization": f"Bearer {old}"})
     except httpx.HTTPError:
         return "onbereikbaar"
+    note_retry_after(response, signals)  # 429/503: de worker wacht minstens Retry-After (§5)
     if response.status_code == 401:
         return "ingetrokken" if check_revoked(store, client, signals) else "later:401"
     if response.status_code != 200:
@@ -559,8 +579,13 @@ class EnvEnrollment:
                 self._remember_failure(sha)
                 return f"mislukt:{exc.code}"
             mark_retrying(self.store, exc.code)
-            base = exc.retry_after if exc.retry_after is not None else self.backoff
-            delay = base if exc.retry_after is not None else min(BACKOFF_MAX_S, base * random.uniform(1.0, 1.25))  # noqa: S311
+            jittered = min(BACKOFF_MAX_S, self.backoff * random.uniform(1.0, 1.25))  # noqa: S311
+            if exc.retry_after is None:
+                delay = jittered
+            elif exc.code == "rate_limited":  # §3.3: opnieuw na Retry-After, niet eerder
+                delay = exc.retry_after
+            else:  # 503: backoff, maar nooit vóór Retry-After (§5)
+                delay = max(jittered, exc.retry_after)
             self.backoff = min(BACKOFF_MAX_S, self.backoff * 2)
             self.next_at = self.clock() + delay
             return f"opnieuw:{exc.code}"

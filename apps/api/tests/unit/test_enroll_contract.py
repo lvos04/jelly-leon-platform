@@ -130,6 +130,10 @@ def _client(status: int, body: Any = None, headers: dict[str, str] | None = None
         (429, {"Retry-After": "120"}, "rate_limited", False, 120.0),
         (500, None, "hub_onbereikbaar", False, None),
         (503, None, "hub_onbereikbaar", False, None),
+        (503, {"Retry-After": "30"}, "hub_onbereikbaar", False, 30.0),  # §5: nooit eerder dan Retry-After
+        (503, {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}, "hub_onbereikbaar", False, None),  # datumvorm
+        (500, {"Retry-After": "30"}, "hub_onbereikbaar", False, None),  # alleen 429/503 dragen Retry-After
+        (429, {"Retry-After": "1800"}, "rate_limited", False, 1800.0),  # boven de backoffgrens: toch volgen
         (307, {"Location": "http://elders/"}, "hub_onbereikbaar", False, None),  # redirect = storing, niet volgen
     ],
 )

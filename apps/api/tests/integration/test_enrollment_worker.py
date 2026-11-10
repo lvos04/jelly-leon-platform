@@ -468,3 +468,100 @@ def test_event_outside_the_inbox_limits_is_dead_lettered_without_sending(clean_d
         emit(session, "media.item.created", "x", "y", {}, actor={"type": "system", "id": "t"})  # niet ons domein
     with worker.factory.begin() as session, pytest.raises(ValueError):
         emit(session, "service.enrollment.completed", "service", APP, {}, actor={"type": "system", "id": "t"})
+
+
+# ---------------------------------------------------------------------- §5: Retry-After bij 429/503 (QA contract 1.3)
+def _linked_worker(clean_db: str, data_dir: Path, hub: Any) -> Worker:
+    worker = make_worker(clean_db, data_dir, hub, hub.state.sim.add_grant("token", APP))
+    worker.tick()  # gekoppeld en bevestigd
+    worker.tick()  # outbox: service.hub_link.linked afgeleverd
+    assert worker.store.read().doc["confirmed_at"] and hub.state.sim.events
+    return worker
+
+
+def test_env_enrollment_503_never_retries_before_retry_after(clean_db: str, data_dir: Path, hub: Any) -> None:
+    """§5: bij 503 nooit eerder dan ``Retry-After``; de backoff (5 s) is korter, dus telt de wachttijd van de Hub."""
+    sim = hub.state.sim
+    sim.faults.add("enroll_503")
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"
+    assert worker.env.next_at - time.monotonic() > 115  # Retry-After 120, niet de backoff van 5 s
+    assert worker.tick()["enrollment"] == "wachten" and sim.calls["enroll"] == 1
+    sim.faults.discard("enroll_503")
+    sim.faults.add("enroll_down")  # 503 zonder Retry-After: gewone backoff (start 5 s)
+    worker.env.next_at = 0.0
+    assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"
+    assert worker.env.next_at - time.monotonic() < 15
+
+
+@pytest.mark.parametrize("fault", ["inbox_429", "inbox_503"])
+def test_outbox_follows_retry_after_and_stops_the_round(clean_db: str, data_dir: Path, hub: Any,
+                                                        fault: str) -> None:
+    """§5: na een 429/503 met ``Retry-After`` stuurt de outbox in die ronde niets meer, krijgt het event een
+    volgende poging op zijn vroegst na ``Retry-After``, en spreekt de worker de Hub tot dan niet aan (ook niet voor
+    bevestigen, rotatie of sleutelrotaties). Daarna komt alles alsnog aan (geen verlies)."""
+    from lifecycle.outbox import emit
+
+    sim = hub.state.sim
+    worker = _linked_worker(clean_db, data_dir, hub)
+    with worker.factory.begin() as session:
+        for i in range(5):
+            emit(session, "lifecycle.run.requested", "run", f"run-{i}", {}, actor={"type": "system", "id": APP})
+    sim.faults.add(fault)
+    before = dict(sim.calls)
+    assert worker.tick()["outbox_delivered"] == 0
+    assert sim.calls["inbox"] - before["inbox"] == 1  # de ronde stopt na het eerste 429/503
+    assert worker.hub_not_before - time.monotonic() > 115
+    after_wait = dict(sim.calls)
+    with worker.factory() as session:
+        rows = session.execute(sa.select(OutboxEvent).where(OutboxEvent.delivered_at.is_(None))
+                               .order_by(OutboxEvent.id)).scalars().all()
+        assert [r.attempts for r in rows] == [1, 0, 0, 0, 0]
+        assert (rows[0].next_attempt_at - utcnow()).total_seconds() > 115  # nooit vóór Retry-After
+        assert rows[0].last_error == f"HTTP {429 if fault == 'inbox_429' else 503}" and not rows[0].dead_letter
+    worker.next_key_poll_at = 0.0
+    worker.store.update(lambda d: d.update(token_rotation_requested_at=iso_z(utcnow())))
+    for _ in range(3):  # binnen Retry-After: geen enkele aanroep naar de Hub
+        detail = worker.tick()
+        assert detail["outbox_delivered"] == 0 and detail["rotation"] == "wacht:retry_after"
+        assert detail["key_rotation"] == "wacht:retry_after"
+    assert {k: sim.calls[k] for k in ("inbox", "rotate", "self", "key_rotations")} == \
+        {k: after_wait.get(k, 0) for k in ("inbox", "rotate", "self", "key_rotations")}
+    # Retry-After verstreken en de Hub weer beschikbaar: alles komt alsnog aan
+    sim.faults.discard(fault)
+    worker.hub_not_before = 0.0
+    with worker.factory.begin() as session:
+        session.execute(sa.update(OutboxEvent).values(next_attempt_at=utcnow()))
+    worker.tick()
+    worker.tick()
+    delivered = {e["entity"]["id"] for e in sim.events if e["event_type"] == "lifecycle.run.requested"}
+    assert delivered == {f"run-{i}" for i in range(5)}
+
+
+def test_failed_rotation_backs_off_and_follows_retry_after(clean_db: str, data_dir: Path, hub: Any) -> None:
+    """§3.8/§5: mislukt de rotatie die de Hub vraagt tijdelijk, dan niet elke worker-ronde opnieuw: bij 503 met
+    ``Retry-After`` pas daarna, anders met backoff + jitter (5 s → 60 s). Het oude token blijft gelden."""
+    sim = hub.state.sim
+    worker = _linked_worker(clean_db, data_dir, hub)
+    old = worker.store.read().service_token
+    sim.request_rotation(APP)
+    worker.store.update(lambda d: d.update(token_rotation_requested_at=iso_z(utcnow())))
+    sim.faults.add("rotate_503")
+    assert worker.tick()["rotation"] == "later:503" and sim.calls["rotate"] == 1
+    assert worker.hub_not_before - time.monotonic() > 115
+    for _ in range(3):
+        assert worker.tick()["rotation"] == "wacht:retry_after"
+    assert sim.calls["rotate"] == 1
+    # 500 zonder Retry-After: backoff, niet elke ronde
+    sim.faults.discard("rotate_503")
+    sim.faults.add("rotate_500")
+    worker.hub_not_before = worker.next_rotate_at = 0.0
+    assert worker.tick()["rotation"] == "later:500" and sim.calls["rotate"] == 2
+    assert 5 < worker.next_rotate_at - time.monotonic() <= 12.5  # tweede backoff: 10 s × jitter (1–1,25)
+    assert worker.tick()["rotation"] == "wachten" and sim.calls["rotate"] == 2
+    # de Hub werkt weer: rotatie slaagt, backoff terug naar het begin
+    sim.faults.discard("rotate_500")
+    worker.next_rotate_at = 0.0
+    assert worker.tick()["rotation"] == "geroteerd" and sim.calls["rotate"] == 3
+    assert worker.store.read().service_token != old and worker.rotate_backoff == 5.0
+    assert worker.store.read().doc["token_rotation_requested_at"] is None

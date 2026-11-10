@@ -62,7 +62,9 @@ GRACE_AFTER_FIRST_USE_S = 600
 GRACE_MAX_S = 86400
 FAULTS = {"jwks_down", "inbox_500", "enroll_down", "enroll_redirect", "enroll_404", "bad_fingerprint",
           "bad_response", "alias_only", "self_down", "self_404", "self_401", "rotations_404", "hub_1_2",
-          "enroll_422", "enroll_413"}
+          "enroll_422", "enroll_413", "enroll_503", "inbox_429", "inbox_503", "rotate_500", "rotate_503"}
+# foutinjectie 429/503 (enroll_503, inbox_429, inbox_503, rotate_503) antwoordt met deze Retry-After (§5)
+FAULT_RETRY_AFTER_S = 120
 EVENT_FIELDS = {"schema_version", "event_id", "source_app", "source_event_id", "event_type", "entity",
                 "timestamp_utc", "trace_id", "correlation_id", "actor", "classification", "payload", "payload_ref"}
 EVENT_TYPE_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
@@ -428,6 +430,9 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
         state.calls["enroll"] += 1
         if "enroll_down" in state.faults:
             return err(503, "service_unavailable", "Hub (sim) tijdelijk niet beschikbaar")
+        if "enroll_503" in state.faults:  # zoals enroll_down, maar met Retry-After (§5)
+            return err(503, "service_unavailable", "Hub (sim) tijdelijk niet beschikbaar",
+                       {"Retry-After": str(FAULT_RETRY_AFTER_S)})
         if "enroll_404" in state.faults:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         if "enroll_redirect" in state.faults:
@@ -509,6 +514,11 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
     @app.post("/api/v1/services/self/rotate")
     def self_rotate(authorization: str | None = Header(default=None)) -> Response:
         state.calls["rotate"] += 1
+        if "rotate_500" in state.faults:
+            return err(500, "internal_error", "rotatie (sim) faalt")
+        if "rotate_503" in state.faults:
+            return err(503, "service_unavailable", "rotatie (sim) tijdelijk niet beschikbaar",
+                       {"Retry-After": str(FAULT_RETRY_AFTER_S)})
         found = state.authenticate(authorization)
         if found is None:
             return err(401, "unauthorized", "Onbekend of ingetrokken service-token")
@@ -538,8 +548,15 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
 
     @app.post("/api/v1/events/inbox")
     async def inbox(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse:
+        state.calls["inbox"] += 1
         if "inbox_500" in state.faults:
             return err(500, "internal_error", "inbox (sim) faalt")
+        if "inbox_429" in state.faults:
+            return err(429, "rate_limited", "inbox (sim): te veel verzoeken",
+                       {"Retry-After": str(FAULT_RETRY_AFTER_S)})
+        if "inbox_503" in state.faults:
+            return err(503, "service_unavailable", "inbox (sim) tijdelijk niet beschikbaar",
+                       {"Retry-After": str(FAULT_RETRY_AFTER_S)})
         found = state.authenticate(authorization)
         if found is None:
             return err(401, "unauthorized", "Onbekend of ingetrokken service-token")
