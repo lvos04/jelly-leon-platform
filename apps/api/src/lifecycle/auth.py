@@ -1,4 +1,4 @@
-"""Authenticatie (contract 1.2 §4): alleen Hub-JWT's, alleen met **gepinde** sleutels, altijd fail-closed.
+"""Authenticatie (contract 1.3 §4): alleen Hub-JWT's, alleen met **gepinde** sleutels, altijd fail-closed.
 
 - Vertrouwensset = de bij een geslaagde koppeling gepinde sleutels in ``hub-link.json`` (``pins.jwt``). Een via HTTP
   opgehaalde JWKS voegt nooit vertrouwen toe; nieuwe sleutels komen alleen via opnieuw koppelen of een ondertekende
@@ -8,9 +8,14 @@
   altijd) en ``hub_service`` (de Hub zelf: ``sub: "hub"``, ``roles: ["service"]``, eigen ``service_id``).
 - Een inkomend ``Bearer svc_…`` (het eigen service-token) wordt **niet** geaccepteerd: dat token gaat bij elke
   dienst → Hub-aanroep over het LAN en mag niemand als de Hub laten optreden.
-- ``jti`` verplicht; mutaties met een al gebruikte ``jti`` → 401 ``token_replayed`` (``lifecycle.replay``).
-- 401 ``{code: "unauthorized", details: {reason}}`` met de vaste ``reason`` uit §4.7 en de controlevolgorde
-  ``state → tokensoort → handtekening/kid → claims → token_use → jti``.
+- ``aud`` is **precies één string** gelijk aan de eigen ``app_id``; een lijst (ook met de eigen ``app_id`` erin) → 401
+  ``invalid_token`` (1.3 §4.2: één JWT werkt nooit bij meerdere diensten met elk een eigen replaycache).
+- ``jti`` verplicht; **elke** POST/PUT/PATCH/DELETE verbruikt de ``jti``, ook zonder ``Idempotency-Key``; een al
+  gebruikte → 401 ``token_replayed`` (``lifecycle.replay``).
+- 401 ``{code: "unauthorized", details: {reason}}`` met de vaste ``reason`` uit §4.7 (geen header, ander schema of lege
+  waarde → ``invalid_token``; geen ``kid`` → ``unknown_key``) en de controlevolgorde ``1 MiB-laag → state → tokensoort →
+  handtekening/kid → claims → token_use → jti → body``. Rol (403) en ``Idempotency-Key`` komen pas ná de authenticatie;
+  een onleesbare body zonder geldige aanmelding geeft dus ook 401 (``lifecycle.errors``, RV9).
 """
 
 from __future__ import annotations
@@ -132,7 +137,7 @@ def verify_hub_jwt(
     if claims.get("iss") != issuer:
         raise AuthError("invalid_token")
     aud = claims.get("aud")
-    if not (aud == audience or (isinstance(aud, list) and aud == [audience])):
+    if not isinstance(aud, str) or aud != audience:  # 1.3 §4.2: een lijst is altijd ongeldig
         raise AuthError("invalid_token")
     exp, iat, nbf = _int_claim(claims, "exp"), _int_claim(claims, "iat"), _int_claim(claims, "nbf")
     if exp - iat > MAX_JWT_LIFETIME_S or exp < iat or nbf > exp:
@@ -228,7 +233,7 @@ def require_roles(allowed: frozenset[str]) -> Callable[[Request], Principal]:
                 403,
                 "forbidden",
                 "Je rol heeft geen toestemming voor deze actie.",
-                {"required_any_of": sorted(allowed), "roles": sorted(principal.roles)},
+                {"reason": "rol_onvoldoende", "required_any_of": sorted(allowed), "roles": sorted(principal.roles)},
             )
         request.state.principal = principal
         return principal

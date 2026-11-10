@@ -101,7 +101,7 @@ def link_with_hub(data_dir: Path, sim: Any, hub_url: str = HUB_TEST_URL, *, conf
             linked_at=at, confirmed_at=at if confirmed else None, service_token=token, service_token_last4=token[-4:],
             pins={"jwt": [p.as_entry(at, "enroll") for p in jwt_pins], "policy": [policy.as_entry(at, "enroll")],
                   "keyset_fingerprint": keyset_fingerprint_of_thumbprints([p.thumbprint for p in jwt_pins],
-                                                                          policy.thumbprint),
+                                                                          [policy.thumbprint]),
                   "rotation_sequence": 0},
             pending=None, last_error=None,
         )

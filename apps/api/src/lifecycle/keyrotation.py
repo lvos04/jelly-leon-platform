@@ -1,4 +1,4 @@
-"""Ondertekende sleutelrotatie van de Hub (contract 1.2 §4.5).
+"""Ondertekende sleutelrotatie van de Hub (contract 1.3 §4.5).
 
 ``GET {hub_url}/api/v1/auth/key-rotations?after=<rotation_sequence>`` (zonder authenticatie: de handtekening is het
 bewijs) → ``{"items":[{"sequence":n,"statement":"<JWS compact>"}]}``. Per statement:
@@ -8,10 +8,13 @@ bewijs) → ``{"items":[{"sequence":n,"statement":"<JWS compact>"}]}``. Per stat
   "retire":["kid"]}``;
 - precies één doel per statement, ondertekend met een **op dat moment gepinde** sleutel van dat doel;
 - ``sequence`` strikt oplopend zonder gaten (over beide doelen samen), in volgorde toepassen;
-- nooit de laatste sleutel van een doel intrekken;
-- een ongeldig of ontbrekend statement stopt het toepassen (incident, geen verdere statements).
+- "nooit de laatste sleutel van een doel intrekken": na het toepassen heeft het doel minstens één sleutel (vervangen
+  met ``add`` + ``retire`` in één statement mag);
+- een ongeldig of ontbrekend statement stopt het toepassen (incident, geen verdere statements); de geweigerde
+  ``sequence`` blijft zichtbaar in ``key_rotation_blocked_sequence`` (§3.5).
 
-Na toepassen: ``rotation_sequence`` en ``keyset_fingerprint`` in ``hub-link.json``. De Hub heeft rotatie nog niet
+Na toepassen: ``rotation_sequence`` en ``keyset_fingerprint`` (1.3: over **alle** gepinde jwt- én policy-sleutels) in
+``hub-link.json``. De dienst begint bij de ``rotation_sequence`` uit het enroll-antwoord. De Hub heeft rotatie nog niet
 gebouwd en geeft ``{"items":[]}``; een Hub zonder dit endpoint (404) betekent: geen rotaties.
 """
 
@@ -135,17 +138,15 @@ def apply_items(doc: dict[str, Any], items: list[Any]) -> tuple[int, str | None]
     if applied:
         pins_doc["jwt"], pins_doc["policy"] = entries["jwt"], entries["policy"]
         pins_doc["rotation_sequence"] = seq
+        # 1.3 §4.5: elke gepinde sleutel telt mee, ook tijdens een policy-rotatie (twee policy-sleutels)
         pins_doc["keyset_fingerprint"] = keyset_fingerprint_of_thumbprints(
-            [p.thumbprint for p in pins["jwt"]], _policy_thumbprint(pins["policy"]))
+            [p.thumbprint for p in pins["jwt"]], [p.thumbprint for p in pins["policy"]])
     if error:
         set_error(doc, "sleutelrotatie_ongeldig")
+        doc["key_rotation_blocked_sequence"] = seq + 1
+    elif applied:
+        doc["key_rotation_blocked_sequence"] = None
     return applied, error
-
-
-def _policy_thumbprint(policy: list[Pin]) -> str:
-    """§4.5 kent één policy-sleutel in de vingerafdruk. Staan er tijdelijk twee (rotatie met ``add`` zonder
-    ``retire``), dan telt de nieuwste (laatst toegevoegde); contract-issue, ADR-0011."""
-    return policy[-1].thumbprint
 
 
 def poll(store: HubLinkStore, client: httpx.Client) -> str:

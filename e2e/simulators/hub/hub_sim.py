@@ -1,18 +1,22 @@
 """Hub-simulator (alleen voor tests en de integrale E2E-omgeving — géén productiecode).
 
-Volgt contract 1.2 **exact** voor wat diensten van de Hub nodig hebben (niet tegen de echte Hub gevalideerd:
-Sim-getest; de echte Hub bouwt H1–H6 nog):
+Volgt contract 1.3 **exact** voor wat diensten van de Hub nodig hebben (niet tegen de echte Hub gevalideerd:
+Sim-getest; de echte Hub stapt in C1.3-ASM-02/03/09 over):
 
 - ``POST /api/v1/services/enroll`` (§3.3): onbekend veld, schemafout, beide/geen geheim, JWK met ``d``/``use``/``alg``
   of een ``kid`` ≠ thumbprint → 422 ``validation_error`` (telt niet mee); onbekend/verlopen/gebruikt/andere app →
   één code 401 ``invalid_enrollment``; vanaf 10 mislukte pogingen (401) per bron-IP binnen 15 min → 429
   ``rate_limited`` + ``Retry-After``; toegestane herhaling (zelfde grant, app, thumbprint, binnen 60 min, uitgegeven
   token nooit gebruikt) → 200 met ``enrollment_replayed: true``; antwoord met alle velden + ``Cache-Control:
-  no-store``.
+  no-store``, ``schema_version: "1.3"`` en ``rotation_sequence`` (fout ``hub_1_2``: een Hub 1.2 zonder dat veld). Een
+  ``base_url`` die niet aan de regels voldoet, wordt bewaard als ``null`` (nooit 422; alleen een ander type dan
+  string/null → 422).
 - ``GET /api/v1/services/self`` en ``POST /api/v1/services/self/rotate`` (§3.6, §3.8): oude tokens geldig tot 10 min
   na het eerste gebruik van het nieuwe (max. 24 uur); ``Hub-Token-Rotation: required`` na een rotatie-aanvraag of als
   een ouder token wordt gebruikt terwijl het nieuwste nog nooit gebruikt is.
-- ``POST /api/v1/events/inbox`` (Bearer service-token, dedupe op ``event_id``).
+- ``POST /api/v1/events/inbox`` (Bearer service-token, dedupe op ``event_id`` en ``(source_app, source_event_id)``)
+  met de grenzen van §7: onbekende velden, ``schema_version`` ≠ ``"1.0"``, ``event_type`` niet precies drie segmenten,
+  te lange velden of een payload > 16 KiB → 422; ``source_app`` ≠ ``app_id`` van het token → 403 ``source_mismatch``.
 - ``GET /api/v1/auth/jwks`` en ``GET /api/v1/auth/key-rotations?after=n`` (§4.5, ondertekende statements).
 - JWT's: gebruikers-JWT (``token_use: user``) en dienst-JWT (``token_use: hub_service``), met ``nbf`` en ``jti``.
 
@@ -57,7 +61,11 @@ FAIL_LIMIT = 10
 GRACE_AFTER_FIRST_USE_S = 600
 GRACE_MAX_S = 86400
 FAULTS = {"jwks_down", "inbox_500", "enroll_down", "enroll_redirect", "enroll_404", "bad_fingerprint",
-          "bad_response", "alias_only", "self_down", "self_404", "self_401", "rotations_404"}
+          "bad_response", "alias_only", "self_down", "self_404", "self_401", "rotations_404", "hub_1_2",
+          "enroll_422", "enroll_413"}
+EVENT_FIELDS = {"schema_version", "event_id", "source_app", "source_event_id", "event_type", "entity",
+                "timestamp_utc", "trace_id", "correlation_id", "actor", "classification", "payload", "payload_ref"}
+EVENT_TYPE_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
 
 
 def b64url(data: bytes) -> str:
@@ -72,10 +80,11 @@ def thumbprint(x: str) -> str:
     return b64url(hashlib.sha256(('{"crv":"Ed25519","kty":"OKP","x":"' + x + '"}').encode()).digest())
 
 
-def fingerprint(jwt_xs: list[str], policy_x: str) -> str:
-    """Eigen implementatie van §4.5 (bewust los van de dienst)."""
+def fingerprint(jwt_xs: list[str], policy_xs: list[str]) -> str:
+    """Eigen implementatie van §4.5 (1.3: alle policy-sleutels, beide lijsten gesorteerd; bewust los van de dienst)."""
     jwt_part = ",".join(sorted(thumbprint(x) for x in jwt_xs))
-    text = "jl-hub-keyset-v1\njwt:" + jwt_part + "\npolicy:" + thumbprint(policy_x)
+    policy_part = ",".join(sorted(thumbprint(x) for x in policy_xs))
+    text = "jl-hub-keyset-v1\njwt:" + jwt_part + "\npolicy:" + policy_part
     value = int.from_bytes(hashlib.sha256(text.encode()).digest()[:10], "big")
     chars = "".join(CROCKFORD[(value >> (75 - 5 * i)) & 31] for i in range(16))
     return "-".join(chars[i:i + 4] for i in range(0, 16, 4))
@@ -120,9 +129,8 @@ def enroll_problems(body: Any) -> list[str]:
     if "base_url" not in body:
         problems.append("base_url ontbreekt (mag null zijn)")
     base_url = body.get("base_url")
-    if base_url is not None and (not isinstance(base_url, str) or len(base_url) > 512
-                                 or not BASE_URL_RE.fullmatch(base_url)):
-        problems.append("base_url ongeldig")
+    if base_url is not None and not isinstance(base_url, str):  # 1.3 §3.3: nooit weigeren om de waarde
+        problems.append("base_url moet tekst of null zijn")
     jwk = body.get("public_key_jwk")
     if not isinstance(jwk, dict):
         problems.append("public_key_jwk ontbreekt")
@@ -139,6 +147,36 @@ def enroll_problems(body: Any) -> list[str]:
     return problems
 
 
+def event_problems(event: Any) -> list[str]:
+    """De grenzen van de Hub-inbox (§7), eigen implementatie (bewust los van de dienst)."""
+    if not isinstance(event, dict):
+        return ["event moet een JSON-object zijn"]
+    problems = [f"onbekend veld: {k}" for k in sorted(set(event) - EVENT_FIELDS)]
+    problems += [f"veld ontbreekt: {k}" for k in sorted(EVENT_FIELDS - set(event))]
+    if event.get("schema_version") != "1.0":
+        problems.append("schema_version moet 1.0 zijn")
+    et = event.get("event_type")
+    if not isinstance(et, str) or len(et) > 128 or not EVENT_TYPE_RE.fullmatch(et):
+        problems.append("event_type: precies drie segmenten")
+    sid = event.get("source_event_id")
+    if not isinstance(sid, str) or not 1 <= len(sid) <= 200:
+        problems.append("source_event_id 1–200 tekens")
+    entity = event.get("entity")
+    if (not isinstance(entity, dict) or not re.fullmatch(r"[a-z0-9_.-]{1,64}", str(entity.get("type", "")))
+            or not 1 <= len(str(entity.get("id", ""))) <= 200):
+        problems.append("entity ongeldig")
+    actor = event.get("actor")
+    if not isinstance(actor, dict) or not 1 <= len(str(actor.get("id", ""))) <= 128:
+        problems.append("actor.id 1–128 tekens")
+    payload = event.get("payload")
+    if not isinstance(payload, dict) or len(json.dumps(payload).encode()) > 16 * 1024:
+        problems.append("payload ontbreekt of is groter dan 16 KiB")
+    ts = event.get("timestamp_utc")
+    if not isinstance(ts, str) or not (ts.endswith("Z") or re.search(r"[+-]\d\d:\d\d$", ts)):
+        problems.append("timestamp_utc zonder tijdzone")
+    return problems
+
+
 @dataclass
 class Token:
     sha: str
@@ -146,6 +184,7 @@ class Token:
     first_used_at: float | None = None
     last_used_at: float | None = None
     revoked: bool = False
+    vervangen_door: str | None = None  # 1.3 §3.6: opnieuw koppelen; intrekken pas bij het eerste gebruik van het nieuwe
 
 
 @dataclass
@@ -189,6 +228,7 @@ class HubState:
     failures: defaultdict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     events: list[dict[str, Any]] = field(default_factory=list)
     seen_event_ids: set[str] = field(default_factory=set)
+    seen_source_ids: set[tuple[str, str]] = field(default_factory=set)
     faults: set[str] = field(default_factory=set)
     enroll_requests: list[dict[str, Any]] = field(default_factory=list)
     rotations: list[dict[str, Any]] = field(default_factory=list)
@@ -218,7 +258,11 @@ class HubState:
         return self._jwk(*self.policy_keys[-1])
 
     def keyset_fingerprint(self) -> str:
-        return fingerprint([raw_x(k) for _, k in self.jwt_keys], raw_x(self.policy_keys[-1][1]))
+        return fingerprint([raw_x(k) for _, k in self.jwt_keys], [raw_x(k) for _, k in self.policy_keys])
+
+    @property
+    def rotation_sequence(self) -> int:
+        return max((int(r["sequence"]) for r in self.rotations), default=0)
 
     # ------------------------------------------------------------------ grants en tokens
     def add_grant(self, kind: str, app_id: str, secret: str | None = None, ttl_s: int = TOKEN_TTL_S) -> str:
@@ -258,6 +302,16 @@ class HubState:
     def _valid(self, service: Service, t: Token) -> bool:
         if t.revoked or service.status != "actief":
             return False
+        if t.vervangen_door is not None:  # §3.6: oud token van een registratie die opnieuw gekoppeld werd
+            nieuw = next((x for x in service.tokens if x.sha == t.vervangen_door), None)
+            if nieuw is None or nieuw.revoked:
+                return True  # mislukte herkoppeling breekt de bestaande koppeling niet
+            if nieuw.first_used_at is not None:
+                t.revoked = True
+                return False
+            if self.clock() - nieuw.created_at > TOKEN_TTL_S:
+                nieuw.revoked = True  # nieuw token 60 min ongebruikt: intrekken, oude blijven geldig
+            return True
         newest = service.tokens[-1]
         if t is newest:
             return True
@@ -351,12 +405,16 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
 
     def enroll_response(service: Service, token: str, replayed: bool) -> JSONResponse:
         body: dict[str, Any] = {
-            "schema_version": "1.2", "service_id": service.service_id, "app_id": service.app_id,
+            "schema_version": "1.3", "service_id": service.service_id, "app_id": service.app_id,
             "service_token": token, "token_type": "Bearer", "hub_issuer": "hub", "jwks": state.jwks(),
             "policy_public_key": state.policy_jwk(), "keyset_fingerprint": state.keyset_fingerprint(),
+            "rotation_sequence": state.rotation_sequence,
             "jwks_url": "/api/v1/auth/jwks", "events_inbox_url": "/api/v1/events/inbox",
             "key_rotation_url": "/api/v1/auth/key-rotations", "enrollment_replayed": replayed,
         }
+        if "hub_1_2" in state.faults:  # een Hub 1.2: zonder rotation_sequence
+            body["schema_version"] = "1.2"
+            body.pop("rotation_sequence")
         if "bad_fingerprint" in state.faults:
             body["keyset_fingerprint"] = "0000-0000-0000-0000"
         if "bad_response" in state.faults:
@@ -374,6 +432,10 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         if "enroll_redirect" in state.faults:
             return Response(status_code=307, headers={"Location": "http://elders.test/api/v1/services/enroll"})
+        if "enroll_422" in state.faults:  # een Hub die het verzoek van deze dienst niet begrijpt (incompatibel)
+            return err(422, "validation_error", "Ongeldig enroll-verzoek (sim)")
+        if "enroll_413" in state.faults:
+            return err(413, "payload_too_large", "Te groot (sim)")
         if int(request.headers.get("content-length") or 0) > 1024 * 1024:
             return err(413, "payload_too_large", "Te groot")
         try:
@@ -405,11 +467,12 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
                 if service is None:
                     service = Service(str(uuid.uuid4()), grant.app_id, body["version"], now)
                     state.services[grant.app_id] = service
-                for t in service.tokens:  # herinstallatie/opnieuw koppelen: oude tokens weg, service_id blijft
-                    t.revoked = True
                 service.status, service.version, service.enrolled_at = "actief", body["version"], now
                 service.rotation_requested = False
+                old = [t for t in service.tokens if not t.revoked]
                 token = state._issue(service)
+                for t in old:  # opnieuw koppelen (1.3 §3.6): intrekken bij het eerste gebruik van het nieuwe
+                    t.vervangen_door = _sha(token)
                 grant.used, grant.used_with_thumbprint, grant.issued_token_sha = True, tp, _sha(token)
                 fails.clear()
                 return enroll_response(service, token, False)
@@ -482,10 +545,17 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
             return err(401, "unauthorized", "Onbekend of ingetrokken service-token")
         headers = {"Hub-Token-Rotation": "required"} if found[2] else None
         event = await request.json()
+        if problems := event_problems(event):
+            return JSONResponse({"code": "validation_error", "message": "ongeldig event (sim)",
+                                 "details": {"fouten": problems}, "trace_id": str(uuid.uuid4())}, status_code=422)
+        if event["source_app"] != found[0].app_id:
+            return err(403, "source_mismatch", "source_app hoort niet bij dit service-token")
+        dedupe = (event["source_app"], event["source_event_id"])
         with state.lock:
-            if event["event_id"] in state.seen_event_ids:
+            if event["event_id"] in state.seen_event_ids or dedupe in state.seen_source_ids:
                 return JSONResponse({"status": "duplicate"}, status_code=200, headers=headers)
             state.seen_event_ids.add(event["event_id"])
+            state.seen_source_ids.add(dedupe)
             state.events.append(event)
         return JSONResponse({"status": "accepted"}, status_code=202, headers=headers)
 

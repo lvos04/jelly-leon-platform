@@ -1,5 +1,5 @@
-"""A5 / contract 1.2 §4.5: thumbprints en sleutelset-vingerafdruk tegen de testvectoren van het contract, plus de
-normalisatie van menselijke invoer (vingerafdruk, koppelcode)."""
+"""A5 / contract 1.3 §4.5 (C1.3-JLP-05): thumbprints en sleutelset-vingerafdruk tegen de testvectoren van het
+contract, plus de normalisatie van menselijke invoer (vingerafdruk, koppelcode)."""
 
 from __future__ import annotations
 
@@ -37,13 +37,23 @@ def test_thumbprints_match_contract_vectors() -> None:
 
 
 def test_keyset_fingerprint_matches_contract_vectors_in_any_order() -> None:
-    assert keyset_fingerprint([jwk(JWT_X)], jwk(POLICY_X)) == "MEGG-8GFG-2E4Y-K2RQ"
-    assert keyset_fingerprint([jwk(JWT_X), jwk(SECOND_X)], jwk(POLICY_X)) == "CYRC-JS8C-14AN-JR17"
-    assert keyset_fingerprint([jwk(SECOND_X), jwk(JWT_X)], jwk(POLICY_X)) == "CYRC-JS8C-14AN-JR17"
+    assert keyset_fingerprint([jwk(JWT_X)], [jwk(POLICY_X)]) == "MEGG-8GFG-2E4Y-K2RQ"
+    assert keyset_fingerprint([jwk(JWT_X), jwk(SECOND_X)], [jwk(POLICY_X)]) == "CYRC-JS8C-14AN-JR17"
+    assert keyset_fingerprint([jwk(SECOND_X), jwk(JWT_X)], [jwk(POLICY_X)]) == "CYRC-JS8C-14AN-JR17"
     # de rol telt: dezelfde sleutels met verwisselde doelen geven een andere vingerafdruk
-    assert keyset_fingerprint([jwk(POLICY_X)], jwk(JWT_X)) != "MEGG-8GFG-2E4Y-K2RQ"
+    assert keyset_fingerprint([jwk(POLICY_X)], [jwk(JWT_X)]) != "MEGG-8GFG-2E4Y-K2RQ"
     with pytest.raises(KeyFormatError):
-        keyset_fingerprint([], jwk(POLICY_X))
+        keyset_fingerprint([], [jwk(POLICY_X)])
+    with pytest.raises(KeyFormatError):
+        keyset_fingerprint([jwk(JWT_X)], [])
+
+
+def test_keyset_fingerprint_counts_every_policy_key_new_vector_1_3() -> None:
+    """Nieuw in 1.3: tijdens een policy-rotatie (twee policy-sleutels) telt elke gepinde policy-sleutel mee, in elke
+    volgorde; nooit alleen de laatst gepinde (dat gaf in 1.2 een andere vingerafdruk dan de Hub)."""
+    assert keyset_fingerprint([jwk(JWT_X)], [jwk(POLICY_X), jwk(SECOND_X)]) == "HN69-2PHK-XV2D-X85W"
+    assert keyset_fingerprint([jwk(JWT_X)], [jwk(SECOND_X), jwk(POLICY_X)]) == "HN69-2PHK-XV2D-X85W"
+    assert keyset_fingerprint([jwk(JWT_X)], [jwk(SECOND_X)]) != "HN69-2PHK-XV2D-X85W"  # alleen de nieuwste: fout
 
 
 @pytest.mark.parametrize("raw", ["MEGG-8GFG-2E4Y-K2RQ", "megg8gfg2e4yk2rq", " MEGG 8GFG 2E4Y K2RQ ",

@@ -1,10 +1,11 @@
-"""Persistente ``jti``-replaycache (contract 1.2 §4.6), gedeeld door alle processen via de tabel ``jwt_replay``.
+"""Persistente ``jti``-replaycache (contract 1.3 §4.6), gedeeld door alle processen via de tabel ``jwt_replay``.
 
-- Een **mutatie** (POST/PUT/PATCH/DELETE) met een al gebruikte ``(iss, jti)`` → 401 ``token_replayed``, behalve een
+- **Elke** mutatie (POST/PUT/PATCH/DELETE, ook zonder ``Idempotency-Key`` en ook als de route niets wijzigt) verbruikt
+  de ``jti``. Een mutatie met een al gebruikte ``(iss, jti)`` → 401 ``token_replayed``, behalve een
   exacte herhaling (zelfde ``jti``, methode, pad en ``Idempotency-Key``): die gaat door naar de idempotency-laag, die
   het opgeslagen resultaat teruggeeft zonder tweede uitvoering.
 - Lezen (GET/HEAD) wordt niet vastgelegd en mag binnen de levensduur vaker.
-- Is de controle niet mogelijk (database weg), dan 503 ``replay_check_unavailable`` (fail-closed).
+- Is de controle niet mogelijk (database weg), dan 503 ``replay_check_unavailable`` met ``Retry-After`` (fail-closed).
 - Records blijven tot ``exp`` + 30 s (klokspeling); de worker ruimt ze daarna op.
 """
 
@@ -34,6 +35,7 @@ def unavailable() -> ApiError:
         503,
         "replay_check_unavailable",
         "De controle op hergebruikte tokens is nu niet mogelijk; er is niets uitgevoerd. Probeer het later opnieuw.",
+        headers={"Retry-After": "5"},
     )
 
 
@@ -46,7 +48,8 @@ class ReplayCache:
         if method not in MUTATING_METHODS:
             return
         expires_at = datetime.fromtimestamp(exp, UTC) + KEEP_AFTER_EXP
-        key = (idempotency_key or "").strip()[:64] or None
+        raw = (idempotency_key or "").strip()
+        key = raw if 0 < len(raw) <= 64 else None  # nooit afkappen: een te lange sleutel is nooit een exacte herhaling
         try:
             with self._factory.begin() as session:
                 stmt = (

@@ -1,17 +1,24 @@
-"""Enrollment en de dienst → Hub-aanroepen rond de koppeling (contract 1.2 §3.2–§3.8).
+"""Enrollment en de dienst → Hub-aanroepen rond de koppeling (contract 1.3 §3.2–§3.8).
 
 - Verzoek ``POST {HUB_URL}/api/v1/services/enroll``: **exact** ``app_id`` (vaste constante), precies één van
   ``enrollment_token``/``pairing_code``, ``version``, ``base_url`` en ``public_key_jwk`` ``{kty, crv, x, kid}`` met
   ``kid`` = RFC 7638-thumbprint. Geen andere velden (de Hub weigert ze met 422).
-- Antwoord: alle velden van §3.3 met het juiste type; ``schema_version`` major 1; zelf berekende
-  ``keyset_fingerprint`` gelijk aan het antwoord **en** aan ``HUB_KEY_FINGERPRINT``/de ingevoerde vingerafdruk.
-  Afwijking → niets opslaan (``hub_antwoord_ongeldig`` of ``hub_vingerafdruk_onjuist``), definitief voor dit token.
-  Oude aliassen (``token``, ``id``, ``policy_public_jwk``, ``kind``, ``secret``) bestaan niet.
+- Antwoord: alle velden van §3.3 met het juiste type; ``schema_version`` major 1 (``"1.3"``, ``"1.2"`` van een oudere
+  Hub blijft geldig); ``rotation_sequence`` (nieuw in 1.3; ontbreekt bij een Hub 1.2 → 0) wordt de beginwaarde van
+  ``pins.rotation_sequence``; zelf berekende ``keyset_fingerprint`` gelijk aan het antwoord **en** aan
+  ``HUB_KEY_FINGERPRINT``/de ingevoerde vingerafdruk. Afwijking → niets opslaan (``hub_antwoord_ongeldig`` of
+  ``hub_vingerafdruk_onjuist``), definitief voor dit token. Oude aliassen (``token``, ``id``, ``policy_public_jwk``,
+  ``kind``, ``secret``) bestaan niet.
 - Volgorde (§3.6): ``pending`` (hash van het geheim) → POST → controles → in één atomaire stap ``gekoppeld`` →
   ``GET /api/v1/services/self`` (zet ``confirmed_at``). Herstart: zelfde env-token = toegestane herhaling.
-- Fouten: 401/404/413/422 en ongeldige antwoorden zijn definitief; 429 wacht ``Retry-After``; 5xx, netwerkfouten en
-  3xx (redirects worden nooit gevolgd) opnieuw met backoff + jitter (5 s → max. 15 min), stoppen 60 min na de eerste
-  poging. Proxy-omgevingsvariabelen worden genegeerd (``trust_env=False``, zie ``app.default_http_client_factory``).
+- Fouten (vaste ``last_error``-codes met hun HTTP-uitkomst, §3.3/§3.5): 401 → ``hub_weigerde``, 404 →
+  ``enroll_endpoint_ontbreekt``, 413/422 (en elke andere 4xx) → ``hub_incompatibel``, ongeldig antwoord →
+  ``hub_antwoord_ongeldig``: definitief; 429 → ``rate_limited`` (wacht ``Retry-After``); 5xx, netwerkfouten en 3xx
+  (redirects worden nooit gevolgd) → ``hub_onbereikbaar``, opnieuw met backoff + jitter (5 s → max. 15 min), stoppen
+  60 min na de eerste poging. Een naam die naar een verboden adres wijst → ``hub_adres_ongeldig`` (niet definitief:
+  het token blijft bruikbaar). Proxy-omgevingsvariabelen worden genegeerd (``app.default_http_client_factory``).
+- Onleesbaar koppelbestand (§3.5, RV6): een poging met een nieuw env-token vervangt het bij haar eerste schrijfactie
+  (``pending`` of ``last_error``), vóór het verzoek aan de Hub; een koppelcode nooit.
 - Intrekking: pas als ook ``GET /api/v1/services/self`` 401 geeft (§3.8). Rotatie bij ``Hub-Token-Rotation:
   required`` via ``POST /api/v1/services/self/rotate``, bevestigd met ``services/self``.
 """
@@ -53,6 +60,7 @@ from lifecycle.keys import (
     normalize_fingerprint,
     public_jwk,
 )
+from lifecycle.nettransport import VerbodenAdres
 from lifecycle.timeutil import utcnow
 
 log = logging.getLogger("lifecycle.enrollment")
@@ -103,6 +111,7 @@ class EnrollResult:
     policy_pins: tuple[Pin, ...]
     keyset_fingerprint: str
     replayed: bool
+    rotation_sequence: int = 0
 
 
 def build_request(kind: str, secret: str, identity: Ed25519PrivateKey, settings: Settings) -> dict[str, Any]:
@@ -153,13 +162,16 @@ def validate_response(data: Any, *, expected_fingerprint: str | None) -> EnrollR
         raise _invalid(f"ongeldige Hub-sleutel: {exc}") from exc
     if len({p.kid for p in jwt_pins}) != len(jwt_pins):
         raise _invalid("kid komt dubbel voor in jwks")
-    computed = keyset_fingerprint_of_thumbprints([p.thumbprint for p in jwt_pins], policy_pin.thumbprint)
+    sequence = data.get("rotation_sequence", 0)  # Hub 1.2 stuurt het niet: dan 0 (§3.3)
+    if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 0:
+        raise _invalid("rotation_sequence is geen geheel getal ≥ 0")
+    computed = keyset_fingerprint_of_thumbprints([p.thumbprint for p in jwt_pins], [policy_pin.thumbprint])
     if normalize_fingerprint(data["keyset_fingerprint"]) != computed:
         raise EnrollmentError("hub_vingerafdruk_onjuist", final=True, detail="vingerafdruk in het antwoord klopt niet")
     if expected_fingerprint is not None and normalize_fingerprint(expected_fingerprint) != computed:
         raise EnrollmentError("hub_vingerafdruk_onjuist", final=True, detail="vingerafdruk wijkt af van de verwachte")
     return EnrollResult(service_id, data["service_token"], jwt_pins, (policy_pin,), computed,
-                        data["enrollment_replayed"])
+                        data["enrollment_replayed"], sequence)
 
 
 def _retry_after(response: httpx.Response) -> float | None:
@@ -174,6 +186,8 @@ def post_enroll(client: httpx.Client, hub_url: str, body: dict[str, Any], *,
     try:
         response = client.post(hub_url + ENROLL_PATH, json=body)
     except httpx.HTTPError as exc:
+        if isinstance(exc.__cause__, VerbodenAdres):  # de naam wijst naar loopback/link-local/… (§3.2)
+            raise EnrollmentError("hub_adres_ongeldig", final=False, detail="verboden adres") from exc
         raise EnrollmentError("hub_onbereikbaar", final=False, detail=type(exc).__name__) from exc
     status = response.status_code
     if status == 200:
@@ -188,17 +202,20 @@ def post_enroll(client: httpx.Client, hub_url: str, body: dict[str, Any], *,
         retry = _retry_after(response)
         raise EnrollmentError("rate_limited", final=False, retry_after=retry if retry is not None else 60.0,
                               detail="429")
-    if status in {401, 413, 422} or (400 <= status < 500):
-        raise EnrollmentError("hub_weigerde", final=True, detail=str(status))
+    if status == 401:
+        raise EnrollmentError("hub_weigerde", final=True, detail="401")
+    if 400 <= status < 500:  # 413/422 (en andere 4xx): de Hub vindt het verzoek ongeldig → incompatibel
+        raise EnrollmentError("hub_incompatibel", final=True, detail=str(status))
     # 3xx (nooit gevolgd), 5xx en andere statussen: storing, later opnieuw
     raise EnrollmentError("hub_onbereikbaar", final=False, detail=str(status))
 
 
 # ---------------------------------------------------------------------------------------------- opslag (§3.6)
-def _persist(store: HubLinkStore, change: Callable[[dict[str, Any]], None]) -> None:
-    """Bijhouden van ``pending``/fouten; een beschadigd bestand wordt hiervoor niet vervangen (fail-closed)."""
+def _persist(store: HubLinkStore, change: Callable[[dict[str, Any]], None], *, replace_corrupt: bool = False) -> None:
+    """Bijhouden van ``pending``/fouten. Een onleesbaar bestand vervangt alleen de eerste schrijfactie van een poging
+    met een nieuw env-token (``replace_corrupt``, §3.5); anders blijft het staan (fail-closed)."""
     try:
-        store.update(change)
+        store.update(change, replace_corrupt=replace_corrupt)
     except HubLinkCorrupt:
         log.warning("hub-link.json is onleesbaar; voortgang van de koppelpoging niet vastgelegd")
 
@@ -206,14 +223,17 @@ def _persist(store: HubLinkStore, change: Callable[[dict[str, Any]], None]) -> N
 def mark_pending(store: HubLinkStore, *, kind: str, secret_sha: str, hub_url: str) -> None:
     """Schrijf ``pending`` vóór het verzoek naar de Hub (§3.6 stap 2).
 
-    Koppelcode (statuspagina): alleen als de dienst nog nooit gekoppeld is en er geen andere poging loopt — onder de
-    vergrendeling vastgesteld (``PairingRefused``); een onleesbaar bestand geeft ``HubLinkCorrupt`` (nooit stil
-    doorgaan). Env-token: mag altijd (§3.8) en vervangt een lopende andere poging."""
+    Koppelcode (statuspagina): alleen als de dienst nog nooit gekoppeld is, het koppelbestand leesbaar is en er geen
+    andere poging loopt — onder de vergrendeling vastgesteld (``PairingRefused``); een onleesbaar bestand geeft
+    ``HubLinkCorrupt`` (nooit stil doorgaan). Env-token: mag altijd (§3.8), vervangt een lopende andere poging en is de
+    eerste schrijfactie die een onleesbaar bestand vervangt (§3.5, vóór het verzoek aan de Hub)."""
     exclusive = kind == "koppelcode"
 
     def change(doc: dict[str, Any]) -> None:
         pending = doc.get("pending")
         if exclusive:
+            if doc.get("unreadable_replaced_at") and not doc.get("first_linked_at"):
+                raise PairingRefused("onleesbaar")
             if doc.get("first_linked_at"):
                 raise PairingRefused("ever_linked")
             if pending is not None:
@@ -228,13 +248,14 @@ def mark_pending(store: HubLinkStore, *, kind: str, secret_sha: str, hub_url: st
     if exclusive:
         store.update(change)
     else:
-        _persist(store, change)
+        _persist(store, change, replace_corrupt=True)
 
 
 def mark_failed(store: HubLinkStore, code: str, *, env_token_sha: str | None, secret_sha: str | None = None) -> None:
     """Definitief mislukt: ``pending`` van **deze** poging weg (ook het ingevulde Hub-adres), ``last_error``, env-token
     als afgehandeld. ``state``, token en pins blijven zoals ze waren. Een intussen gestarte andere poging (andere
-    ``secret_sha256``) blijft staan."""
+    ``secret_sha256``) blijft staan. Voor een env-token is dit mogelijk de eerste schrijfactie (bijv.
+    ``token_ongeldig``): dan vervangt hij een onleesbaar bestand (§3.5), zodat de hash vaststaat."""
 
     def change(doc: dict[str, Any]) -> None:
         pending = doc.get("pending")
@@ -244,7 +265,7 @@ def mark_failed(store: HubLinkStore, code: str, *, env_token_sha: str | None, se
         if env_token_sha:
             add_used_token(doc, env_token_sha)
 
-    _persist(store, change)
+    _persist(store, change, replace_corrupt=env_token_sha is not None)
 
 
 def mark_retrying(store: HubLinkStore, code: str) -> None:
@@ -258,6 +279,8 @@ def store_success(store: HubLinkStore, result: EnrollResult, *, hub_url: str, vi
     source = "enroll"
 
     def change(doc: dict[str, Any]) -> None:
+        if via == "koppelcode" and doc.get("unreadable_replaced_at") and not doc.get("first_linked_at"):
+            raise PairingRefused("onleesbaar")
         if via == "koppelcode" and doc.get("first_linked_at"):
             # §3.7: intussen gekoppeld (bijv. env-token in de worker) → een koppelcode overschrijft dat nooit
             raise PairingRefused("ever_linked")
@@ -269,14 +292,15 @@ def store_success(store: HubLinkStore, result: EnrollResult, *, hub_url: str, vi
             service_token=result.service_token, service_token_last4=result.service_token[-4:],
             pins={"jwt": [p.as_entry(at, source) for p in result.jwt_pins],
                   "policy": [p.as_entry(at, source) for p in result.policy_pins],
-                  "keyset_fingerprint": result.keyset_fingerprint, "rotation_sequence": 0},
+                  "keyset_fingerprint": result.keyset_fingerprint, "rotation_sequence": result.rotation_sequence},
             pending=None,
         )
+        doc["key_rotation_blocked_sequence"] = None  # nieuwe pins: een oude geweigerde rotatie geldt niet meer
         set_error(doc, None)
         if env_token_sha:
             add_used_token(doc, env_token_sha)
 
-    # alleen een env-token (wie het TrueNAS-formulier kan wijzigen) mag een beschadigd bestand vervangen
+    # alleen een env-token (wie het TrueNAS-formulier kan wijzigen) mag een onleesbaar bestand vervangen
     return store.update(change, replace_corrupt=via == "token")
 
 
@@ -290,8 +314,10 @@ def enroll_once(
     secret: str,
     hub_url: str,
     expected_fingerprint: str | None,
+    logregel: bool = True,
 ) -> EnrollResult:
-    """Eén poging: ``pending`` → POST → controles → opslaan. Bij een definitieve fout is ``pending`` weer leeg."""
+    """Eén poging: ``pending`` → POST → controles → opslaan. Bij een definitieve fout is ``pending`` weer leeg.
+    ``logregel=False``: de aanroeper schrijft zelf de ene logregel van de poging (statuspagina, §3.7)."""
     secret_sha = sha256_hex(secret)
     env_sha = secret_sha if kind == "token" else None
     mark_pending(store, kind=kind, secret_sha=secret_sha, hub_url=hub_url)
@@ -301,16 +327,19 @@ def enroll_once(
     except EnrollmentError as exc:
         if exc.final:
             mark_failed(store, exc.code, env_token_sha=env_sha, secret_sha=secret_sha)
-        log.warning("koppelen mislukt: %s (%s, definitief: %s)", exc.code, exc.detail, exc.final)
+        if logregel:
+            log.warning("koppelen mislukt: %s (%s, definitief: %s)", exc.code, exc.detail, exc.final)
         raise
     try:
         store_success(store, result, hub_url=hub_url, via=kind, env_token_sha=env_sha)
     except PairingRefused:
         _persist(store, lambda doc: doc.update(pending=None) if (doc.get("pending") or {}).get("secret_sha256")
                  == secret_sha else None)
-        log.warning("koppelcode-poging niet opgeslagen: de dienst is intussen al gekoppeld")
+        if logregel:
+            log.warning("koppelcode-poging niet opgeslagen: de dienst is intussen al gekoppeld")
         raise
-    log.info("gekoppeld met de Hub (via %s%s)", kind, ", herhaling" if result.replayed else "")
+    if logregel:
+        log.info("gekoppeld met de Hub (via %s%s)", kind, ", herhaling" if result.replayed else "")
     return result
 
 
@@ -339,16 +368,17 @@ def get_self(client: httpx.Client, hub_url: str, token: str, signals: HubSignals
     return response
 
 
-def mark_revoked(store: HubLinkStore, token: str) -> None:
+def mark_revoked(store: HubLinkStore, token: str, *, logregel: bool = True) -> None:
     def change(doc: dict[str, Any]) -> None:
         if doc.get("state") == "gekoppeld" and doc.get("service_token") == token:
             clear_link(doc, "ingetrokken", error="ingetrokken_door_hub")
 
     _persist(store, change)
-    log.warning("de Hub heeft de koppeling ingetrokken (services/self gaf 401); elke Hub-JWT wordt nu geweigerd")
+    if logregel:
+        log.warning("de Hub heeft de koppeling ingetrokken (services/self gaf 401); elke Hub-JWT wordt nu geweigerd")
 
 
-def confirm(store: HubLinkStore, client: httpx.Client, signals: HubSignals) -> str:
+def confirm(store: HubLinkStore, client: httpx.Client, signals: HubSignals, *, logregel: bool = True) -> str:
     """``GET /api/v1/services/self`` met het opgeslagen token → ``confirmed_at``. 401 = ingetrokken (§3.8)."""
     link = store.read()
     token, hub_url = link.service_token, link.hub_url
@@ -358,7 +388,7 @@ def confirm(store: HubLinkStore, client: httpx.Client, signals: HubSignals) -> s
     if response is None:
         return "onbereikbaar"
     if response.status_code == 401:
-        mark_revoked(store, token)
+        mark_revoked(store, token, logregel=logregel)
         return "ingetrokken"
     if response.status_code != 200:
         return f"later:{response.status_code}"
@@ -417,6 +447,7 @@ def rotate_service_token(store: HubLinkStore, client: httpx.Client, signals: Hub
         if doc.get("state") == "gekoppeld" and doc.get("service_token") == old:
             doc["service_token"] = new
             doc["service_token_last4"] = new[-4:]
+            doc["token_rotation_requested_at"] = None  # aanvraag afgehandeld (§3.5, overleeft anders een herstart)
 
     _persist(store, change)
     signals.rotation_required = False
@@ -472,24 +503,44 @@ class EnvEnrollment:
         _persist(self.store, change)
 
     def needed(self, link: Link | None = None) -> bool:
+        """Er is een env-token dat nog niet is afgehandeld (ook als ``HUB_URL`` ontbreekt of ongeldig is: dan meldt
+        ``tick`` ``hub_adres_ongeldig`` zonder de Hub aan te spreken)."""
         sha = self.token_sha
-        if not self.settings.hub_url or not sha or sha in self.failed_here:
+        if not sha or sha in self.failed_here:
             return False
         link = link or self.store.read()
         return sha not in link.used_tokens
+
+    def config_error(self) -> str | None:
+        """§3.5: ``hub_adres_ongeldig`` (``HUB_URL`` ontbreekt of breekt §3.2) of ``vingerafdruk_ongeldig``."""
+        if self.settings.hub_url_error or not self.settings.hub_url:
+            return "hub_adres_ongeldig"
+        return self.settings.hub_key_fingerprint_error
+
+    def _note_config_error(self, link: Link, code: str) -> None:
+        """Eén keer vastleggen (niet elke ronde schrijven); het token blijft onafgehandeld en een onleesbaar bestand
+        blijft staan (er is nog geen poging)."""
+        if (link.doc.get("last_error") or {}).get("code") == code:
+            return
+        log.warning("koppelen met het env-token wacht: %s (de Hub wordt niet aangesproken)", code)
+        _persist(self.store, lambda doc: set_error(doc, code))
 
     def tick(self, client_factory: Callable[[], httpx.Client], identity_loader: Callable[[], Ed25519PrivateKey]) -> str:
         link = self.store.read()
         if not self.needed(link):
             return "niet_nodig"
+        if (problem := self.config_error()) is not None:
+            if not link.corrupt:
+                self._note_config_error(link, problem)
+            return f"wacht:{problem}"
         if self.clock() < self.next_at:
             return "wachten"
         token, hub_url, sha = self.settings.enrollment_token, self.settings.hub_url, self.token_sha
         assert token and hub_url and sha
         if not ENR_TOKEN_RE.fullmatch(token):
-            mark_failed(self.store, "token_formaat_ongeldig", env_token_sha=sha, secret_sha=sha)
+            mark_failed(self.store, "token_ongeldig", env_token_sha=sha, secret_sha=sha)
             self._remember_failure(sha)
-            return "mislukt:token_formaat_ongeldig"
+            return "mislukt:token_ongeldig"
         pending = link.pending
         started = _parse_iso(pending.get("started_at")) if pending and pending.get("secret_sha256") == sha else None
         started = started or self.first_attempt.get(sha)

@@ -100,7 +100,7 @@ def _transfer(bind: sa.Connection) -> None:
                 pins={"jwt": [p.as_entry(at, "overgezet") for p in jwt_pins],
                       "policy": [policy.as_entry(at, "overgezet")],
                       "keyset_fingerprint": keyset_fingerprint_of_thumbprints(
-                          [p.thumbprint for p in jwt_pins], policy.thumbprint),
+                          [p.thumbprint for p in jwt_pins], [policy.thumbprint]),
                       "rotation_sequence": 0},
             )
         else:

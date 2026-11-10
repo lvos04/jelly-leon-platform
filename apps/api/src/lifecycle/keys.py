@@ -1,9 +1,11 @@
-"""Sleutels, thumbprints en de sleutelset-vingerafdruk (contract 1.2 §3.3, §3.4, §4.5).
+"""Sleutels, thumbprints en de sleutelset-vingerafdruk (contract 1.3 §3.3, §3.4, §4.5).
 
 - **Thumbprint** = RFC 7638: ``base64url(SHA-256('{"crv":"Ed25519","kty":"OKP","x":"<x>"}'))``.
 - **Sleutelset-vingerafdruk** (voor mensen): SHA-256 over
-  ``"jl-hub-keyset-v1\\njwt:" + join(",", gesorteerde thumbprints van jwks.keys) + "\\npolicy:" + thumbprint(policy)``;
-  de eerste 80 bit als Crockford-base32, 16 tekens in groepen van 4 (``XXXX-XXXX-XXXX-XXXX``).
+  ``"jl-hub-keyset-v1\\njwt:" + join(",", thumbprints van alle jwt-sleutels) + "\\npolicy:" + join(",", thumbprints
+  van alle policy-sleutels)``, **beide lijsten gesorteerd op bytewaarde** (1.3: tijdens een policy-rotatie telt elke
+  gepinde policy-sleutel mee; met één policy-sleutel gelijk aan 1.2); de eerste 80 bit als Crockford-base32, 16 tekens
+  in groepen van 4 (``XXXX-XXXX-XXXX-XXXX``).
 - Invoer van mensen (vingerafdruk, koppelcode) wordt genormaliseerd: hoofdletters, alleen letters/cijfers,
   ``O→0``, ``I/L→1``.
 
@@ -78,17 +80,20 @@ def crockford(data: bytes) -> str:
     return "".join(CROCKFORD[int(bits[i : i + 5], 2)] for i in range(0, len(bits), 5))
 
 
-def keyset_fingerprint_of_thumbprints(jwt_thumbprints: Iterable[str], policy_thumbprint: str) -> str:
-    tps = sorted(jwt_thumbprints, key=lambda t: t.encode("utf-8"))
-    if not tps:
-        raise KeyFormatError("minstens één JWT-sleutel nodig")
-    text = f"{KEYSET_PREFIX}\njwt:{','.join(tps)}\npolicy:{policy_thumbprint}"
+def keyset_fingerprint_of_thumbprints(jwt_thumbprints: Iterable[str], policy_thumbprints: Iterable[str]) -> str:
+    """§4.5: beide lijsten gesorteerd op bytewaarde; minstens één sleutel per doel."""
+    jwt_tps = sorted(jwt_thumbprints, key=lambda t: t.encode("utf-8"))
+    policy_tps = sorted(policy_thumbprints, key=lambda t: t.encode("utf-8"))
+    if not jwt_tps or not policy_tps:
+        raise KeyFormatError("minstens één JWT-sleutel en één policy-sleutel nodig")
+    text = f"{KEYSET_PREFIX}\njwt:{','.join(jwt_tps)}\npolicy:{','.join(policy_tps)}"
     code = crockford(hashlib.sha256(text.encode("utf-8")).digest()[:10])
     return "-".join(code[i : i + 4] for i in range(0, 16, 4))
 
 
-def keyset_fingerprint(jwt_keys: Iterable[Mapping[str, Any]], policy_key: Mapping[str, Any]) -> str:
-    return keyset_fingerprint_of_thumbprints((jwk_thumbprint(k) for k in jwt_keys), jwk_thumbprint(policy_key))
+def keyset_fingerprint(jwt_keys: Iterable[Mapping[str, Any]], policy_keys: Iterable[Mapping[str, Any]]) -> str:
+    return keyset_fingerprint_of_thumbprints((jwk_thumbprint(k) for k in jwt_keys),
+                                             (jwk_thumbprint(k) for k in policy_keys))
 
 
 def normalize_human(value: str) -> str:

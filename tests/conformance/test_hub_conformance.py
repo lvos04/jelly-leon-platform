@@ -1,4 +1,7 @@
-"""JP10 / A5: gedraagt de Hub zich volgens contract 1.2 §3.3–§3.8 en §4.5, gezien vanuit deze dienst?
+"""JP10 / A5: gedraagt de Hub zich volgens contract 1.3 §3.3–§3.8 en §4.5, gezien vanuit deze dienst?
+
+Een Hub die nog 1.2 volgt (``schema_version: "1.2"``, zonder ``rotation_sequence``) blijft geldig voor de dienst (§3.3:
+elke major 1); een Hub die "1.3" meldt, moet ``rotation_sequence`` meesturen (de echte Hub stapt over in C1.3-ASM-02).
 
 Dezelfde tests draaien tegen de Hub-simulator (standaard) en tegen een echte Hub (zie ``conftest.py``). De volgorde
 telt: eerst de schemafouten (die verbruiken het token niet), daarna de volledige stroom met het ene token.
@@ -75,6 +78,10 @@ def test_enroll_response_passes_the_service_checks(target: Target) -> None:
     data = r.json()
     result = validate_response(data, expected_fingerprint=target.fingerprint)  # dezelfde controles als bij koppelen
     assert data["enrollment_replayed"] is False
+    assert data["schema_version"] in {"1.2", "1.3"}, data["schema_version"]
+    if data["schema_version"] == "1.3" or target.kind == "simulator":  # 1.3: rotation_sequence verplicht (§3.3)
+        assert isinstance(data.get("rotation_sequence"), int) and data["rotation_sequence"] >= 0
+        assert result.rotation_sequence == data["rotation_sequence"]
     STATE.update(first=result, data=data)
 
 

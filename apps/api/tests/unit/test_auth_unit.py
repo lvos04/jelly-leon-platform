@@ -72,6 +72,8 @@ def test_kind_role_always_wins(env: Any) -> None:
     ("kwargs", "expected"),
     [
         ({"aud": "andere-dienst"}, "invalid_token"),
+        ({"extra": {"aud": [AUD]}}, "invalid_token"),  # 1.3 §4.2: aud als lijst, ook met de eigen app_id erin
+        ({"extra": {"aud": [AUD, "andere-dienst"]}}, "invalid_token"),
         ({"iss": "nep-hub"}, "invalid_token"),
         ({"ttl_s": 600}, "invalid_token"),  # exp − iat > 120 s
         ({"ttl_s": 60, "iat_offset": -100}, "token_expired"),  # exp + 30 s verstreken
@@ -138,6 +140,26 @@ def test_alg_none_and_hs256_and_garbage(env: Any) -> None:
     assert reason(auth, None) == "invalid_token"
     with pytest.raises(ApiError):
         auth.authenticate("Basic abc")
+
+
+@pytest.mark.parametrize("header", [None, "", "Bearer", "Bearer ", "Basic abc", "bearer"])
+def test_missing_header_other_scheme_or_empty_value_is_invalid_token(env: Any, header: str | None) -> None:
+    """1.3 §4.7: geen header, een ander schema dan Bearer of een lege waarde → ``invalid_token``."""
+    _, _, auth, _ = env
+    with pytest.raises(ApiError) as exc:
+        auth.authenticate(header)
+    assert exc.value.status == 401 and exc.value.details["reason"] == "invalid_token"
+
+
+def test_jws_header_without_kid_is_unknown_key(env: Any) -> None:
+    """1.3 §4.7: een JWS-header zonder ``kid`` → ``unknown_key`` (ook met een geldige handtekening)."""
+    _, sim, auth, _ = env
+    now = int(time.time())
+    claims = {"iss": "hub", "aud": AUD, "sub": "x", "iat": now, "nbf": now, "exp": now + 60, "roles": ["admin"],
+              "token_use": "user", "jti": str(uuid.uuid4())}
+    token = jwt.encode(claims, sim.signing_key, algorithm="EdDSA", headers={"typ": "JWT"})
+    assert "kid" not in jwt.get_unverified_header(token)
+    assert reason(auth, token) == "unknown_key"
 
 
 def test_incoming_service_token_never_accepted(env: Any) -> None:

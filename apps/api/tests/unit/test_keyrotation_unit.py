@@ -1,4 +1,4 @@
-"""Contract 1.2 §4.5: ondertekende sleutelrotatie — alleen met een op dat moment gepinde sleutel van hetzelfde doel,
+"""Contract 1.3 §4.5: ondertekende sleutelrotatie — alleen met een op dat moment gepinde sleutel van hetzelfde doel,
 ``sequence`` zonder gaten, nooit de laatste sleutel weg, een ongeldig statement stopt alles."""
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def linked_doc(store: HubLinkStore, sim: HubState) -> dict[str, Any]:
         service_token="svc_" + "A" * 43, service_token_last4="AAAA",
         pins={"jwt": [p.as_entry(at, "enroll") for p in pins], "policy": [policy.as_entry(at, "enroll")],
               "keyset_fingerprint": keyset_fingerprint_of_thumbprints([p.thumbprint for p in pins],
-                                                                      policy.thumbprint),
+                                                                      [policy.thumbprint]),
               "rotation_sequence": 0}))
     return dict(link.doc)
 
@@ -45,7 +45,8 @@ def test_valid_jwt_then_policy_rotation(tmp_path: Path) -> None:
     kids = [e["kid"] for e in doc["pins"]["jwt"]]
     assert kids == [old_kid, new_kid] and [e["kid"] for e in doc["pins"]["policy"]] == [new_policy]
     assert doc["pins"]["rotation_sequence"] == 2
-    assert doc["pins"]["keyset_fingerprint"] == keyset_fingerprint(sim.jwks()["keys"], sim.policy_jwk())
+    assert doc["pins"]["keyset_fingerprint"] == keyset_fingerprint(sim.jwks()["keys"], [sim.policy_jwk()])
+    assert doc["pins"]["keyset_fingerprint"] == sim.keyset_fingerprint()
     assert all(e["source"].startswith("rotatie:") for e in doc["pins"]["jwt"][1:])
     # nogmaals dezelfde lijst: al toegepast, niets dubbel
     assert apply_items(doc, list(sim.rotations)) == (0, None)
@@ -90,3 +91,30 @@ def test_unsigned_or_tampered_statement_is_refused(tmp_path: Path) -> None:
     other.jwt_keys = [(sim.jwt_keys[0][0], other.jwt_keys[0][1])]
     other.rotate_key("jwt")
     assert apply_items(doc, list(other.rotations))[0] == 0
+
+
+def test_policy_rotation_without_retire_counts_both_policy_keys(tmp_path: Path) -> None:
+    """1.3 §4.5: tijdens een policy-rotatie (twee policy-sleutels) telt elke gepinde policy-sleutel mee in de
+    vingerafdruk; de dienst rekent hetzelfde als de Hub (simulator, eigen implementatie)."""
+    sim = HubState()
+    doc = linked_doc(HubLinkStore(tmp_path), sim)
+    sim.rotate_key("policy", retire_old=False)
+    assert apply_items(doc, list(sim.rotations)) == (1, None)
+    assert len(doc["pins"]["policy"]) == 2
+    assert doc["pins"]["keyset_fingerprint"] == sim.keyset_fingerprint()
+    alleen_nieuwste = keyset_fingerprint_of_thumbprints([e["thumbprint"] for e in doc["pins"]["jwt"]],
+                                                        [doc["pins"]["policy"][-1]["thumbprint"]])
+    assert doc["pins"]["keyset_fingerprint"] != alleen_nieuwste  # de 1.2-fout (alleen de laatste) is weg
+
+
+def test_refused_rotation_stays_visible_until_a_later_valid_one(tmp_path: Path) -> None:
+    """§3.5 ``key_rotation_blocked_sequence``: een geweigerde rotatie blijft zichtbaar (ook na een herstart)."""
+    sim = HubState()
+    doc = linked_doc(HubLinkStore(tmp_path), sim)
+    goed = HubState(jwt_keys=list(sim.jwt_keys), policy_keys=list(sim.policy_keys))  # dezelfde gepinde sleutels
+    sim.rotate_key("jwt", signer=sim.policy_keys[-1])  # ongeldig: verkeerd doel
+    assert apply_items(doc, list(sim.rotations))[0] == 0
+    assert doc["key_rotation_blocked_sequence"] == 1 and doc["pins"]["rotation_sequence"] == 0
+    goed.rotate_key("jwt")
+    assert apply_items(doc, list(goed.rotations)) == (1, None)
+    assert doc["key_rotation_blocked_sequence"] is None and doc["pins"]["rotation_sequence"] == 1
