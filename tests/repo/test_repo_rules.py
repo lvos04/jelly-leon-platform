@@ -138,6 +138,23 @@ def test_supervisor_is_pid1_without_root_init() -> None:
     assert "def reap_orphans" in supervisor and "def verify_privileges" in supervisor
 
 
+def test_bounding_set_and_healthcheck_switch_first_section_2_2() -> None:
+    """Contract 1.3 §2.2 (C1.3-JLP-06): bewaker en healthcheck legen bij root eerst de bounding set, wisselen naar 568
+    met no_new_privs en controleren pas daarna; de healthcheck staat in exec-vorm en heeft een controlevlag. De
+    image-E2E (tests/e2e/test_allinone_image.py) meet het in een draaiende container."""
+    supervisor = (ROOT / "deploy/allinone/supervisor.py").read_text()
+    demote = supervisor[supervisor.index("def demote()"):supervisor.index("def own_status()")]
+    assert demote.index("drop_bounding_set()") < demote.index("os.setuid(UID)")
+    assert "PR_CAPBSET_DROP = 24" in supervisor and "cap_last_cap" in supervisor and 'st.get("CapBnd")' in supervisor
+    health = (ROOT / "deploy/allinone/healthcheck.py").read_text()
+    wissel = health.index("started_as_root = wissel()")
+    assert wissel < health.index("\"--controle\" in sys.argv") and wissel < health.index("127.0.0.1:{port}/readyz")
+    assert "prctl(24, cap" in health and "prctl(38, 1" in health
+    docker = (ROOT / "deploy/allinone/Dockerfile").read_text()
+    cmd = re.search(r"^  CMD (\[.*\])$", docker, re.M)
+    assert cmd and json.loads(cmd.group(1)) == ["python", "/usr/local/lib/lifecycle-allinone/healthcheck.py"]
+
+
 @pytest.mark.parametrize("workflow", ["ci.yml", "release.yml"])
 def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> None:
     """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""

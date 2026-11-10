@@ -6,9 +6,12 @@ installeerbaar als **standaard TrueNAS Custom App** zonder YAML (zie ``deploy/tr
 
 Regels (naar het voorbeeld van MSO ``deploy/allinone``):
 - Start de container als root, dan wordt alléén eigenaarschap van de eigen submappen van ``/appdata`` naar 568:568
-  gezet; daarna draait **elk** proces — ook deze bewaker als PID 1 — als 568 zonder capabilities en met
-  ``no_new_privs`` (prctl), ook als het TrueNAS-formulier dat niet zet (contract 1.2 §2.2, R11). De bewaker
-  controleert dat zelf in ``/proc/self/status`` en stopt met een Nederlandse melding als het niet klopt.
+  gezet; daarna (contract 1.3 §2.2, R11, K3) eerst de **bounding set leeg** (``PR_CAPBSET_DROP`` voor elke
+  capability tot ``cap_last_cap``; mislukt één, dan stopt de start met een Nederlandse melding), dan volledig naar
+  568:568 en ``no_new_privs`` vóór de eerste ``execve``. Zo draait **elk** proces — ook deze bewaker als PID 1 — als
+  568 zonder capabilities (``CapEff``/``CapPrm``/``CapAmb`` 0, bij een root-start ook ``CapBnd`` 0), ook als het
+  TrueNAS-formulier no-new-privileges en cap_drop weglaat. De bewaker controleert dat zelf in ``/proc/self/status``
+  en stopt met een Nederlandse melding als het niet klopt.
 - Als PID 1 ruimt de bewaker verweesde processen (zombies) op en vangt SIGTERM/SIGINT vanaf de eerste regel af
   (PID 1 heeft geen standaard signaalafhandeling); er draait dus geen ``dumb-init`` als root meer.
 - Start hij als 568 (TrueNAS "Custom User"), dan wordt niets aangepast en alleen de schrijfbaarheid gecontroleerd.
@@ -46,7 +49,10 @@ DB_URL = f"postgresql+psycopg://lifecycle@/lifecycle?host={SOCKET_DIR}"
 MANAGED = ("postgres", "secrets", "backups")
 KEEP_BACKUPS = 3
 PR_SET_NO_NEW_PRIVS = 38
+PR_CAPBSET_DROP = 24
+NUL = "0000000000000000"
 STOP = threading.Event()
+STARTED_AS_ROOT = os.getuid() == 0 or os.geteuid() == 0
 
 
 def log(msg: str) -> None:
@@ -65,8 +71,27 @@ def set_no_new_privs() -> None:
         log("waarschuwing: no_new_privs kon niet worden gezet")
 
 
+def last_cap() -> int:
+    try:
+        return int(Path("/proc/sys/kernel/cap_last_cap").read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        return 63  # onbekend: alle 64 bits proberen; EINVAL boven het maximum van de kernel telt dan niet als fout
+
+
+def drop_bounding_set() -> None:
+    """Contract 1.3 §2.2 (K3): bij een start als root de bounding set legen vóór de wissel naar 568, zodat geen enkel
+    later proces (ook niet via een setuid-programma) nog een capability kan krijgen. Mislukt dat: stoppen."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    known = last_cap()
+    for cap in range(known + 1):
+        if libc.prctl(PR_CAPBSET_DROP, cap, 0, 0, 0) != 0:
+            fail(f"bounding set kon niet worden geleegd (capability {cap}, fout {ctypes.get_errno()}); gestopt. "
+                 "Start de app zonder extra beperkingen op capabilities, of als Custom User 568.")
+
+
 def demote() -> None:
-    if os.getuid() == 0:
+    if os.getuid() == 0 or os.geteuid() == 0:
+        drop_bounding_set()
         os.setgroups([])
         os.setgid(GID)
         os.setuid(UID)
@@ -89,9 +114,10 @@ def verify_privileges() -> None:
     uids, gids = st.get("Uid", "").split(), st.get("Gid", "").split()
     if set(uids) != {str(UID)} or set(gids) != {str(GID)}:
         fail(f"procesbewaker draait niet volledig als {UID}:{GID} (Uid {uids}, Gid {gids}); gestopt")
-    if st.get("CapEff") != "0000000000000000" or st.get("CapPrm") != "0000000000000000" or \
-            st.get("CapAmb", "0000000000000000") != "0000000000000000":
+    if st.get("CapEff") != NUL or st.get("CapPrm") != NUL or st.get("CapAmb", NUL) != NUL:
         fail("procesbewaker heeft na de wissel nog capabilities; gestopt")
+    if STARTED_AS_ROOT and st.get("CapBnd") != NUL:
+        fail("bounding set is na een start als root niet leeg; gestopt")
     if st.get("NoNewPrivs") != "1":
         fail("no_new_privs (PR_SET_NO_NEW_PRIVS) kon niet worden gezet; gestopt")
 

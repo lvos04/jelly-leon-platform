@@ -115,14 +115,17 @@ def as_root_in_helper(mount: Path, entrypoint: str, *args: str) -> subprocess.Co
 
 
 # Alle processen behalve de eigen 'docker exec'-shell, haar kinderen en andere exec-processen (PPid 0, bv. een
-# lopende Docker-healthcheck): naam, pid, alle vier Uid-waarden, CapEff, CapPrm, NoNewPrivs.
+# lopende Docker-healthcheck): naam, pid, alle vier Uid-waarden, CapEff, CapPrm, NoNewPrivs, CapBnd, CapAmb.
 PROC_SCRIPT = (
     'me=$$; for p in /proc/[0-9]*; do pid=${p#/proc/}; [ "$pid" = "$me" ] && continue; '
     '[ -r "$p/status" ] || continue; pp=$(awk \'/^PPid:/{print $2}\' "$p/status" 2>/dev/null); '
     '[ "$pp" = "$me" ] && continue; [ "$pp" = 0 ] && [ "$pid" != 1 ] && continue; '
     'awk -v pid="$pid" \'/^Name:/{n=$2} /^Uid:/{u=$2","$3","$4","$5} /^CapEff:/{e=$2} /^CapPrm:/{c=$2} '
-    '/^NoNewPrivs:/{nn=$2} END{print pid, n, u, e, c, nn}\' "$p/status" 2>/dev/null; done'
+    '/^NoNewPrivs:/{nn=$2} /^CapBnd:/{b=$2} /^CapAmb:/{a=$2} END{print pid, n, u, e, c, nn, b, a}\' "$p/status" '
+    '2>/dev/null; done'
 )
+NUL = "0000000000000000"
+HEALTHCHECK = "/usr/local/lib/lifecycle-allinone/healthcheck.py"
 
 
 def process_privileges(container: Container) -> list[list[str]]:
@@ -131,16 +134,36 @@ def process_privileges(container: Container) -> list[list[str]]:
     return [line.split() for line in r.stdout.splitlines() if line.strip()]
 
 
-def assert_no_root_anywhere(container: Container) -> None:
+def assert_no_root_anywhere(container: Container, *, root_start: bool = True) -> None:
+    """Contract 1.3 §2.2: elk proces in de boom van PID 1 (ook PID 1) Uid 568, CapEff/CapPrm/CapAmb 0, NoNewPrivs 1
+    en — bij een start als root — CapBnd 0 (K3). Met "Custom User 568" mag CapBnd de Docker-standaardset zijn."""
     rows = process_privileges(container)
     assert any(r[0] == "1" for r in rows), rows  # PID 1 telt mee
     pid1 = next(r for r in rows if r[0] == "1")
     assert pid1[1] == "python", f"PID 1 is {pid1[1]} (verwacht de procesbewaker)"
     assert {r[1] for r in rows} >= {"python", "postgres"}, rows
-    for pid, name, uids, cap_eff, cap_prm, nnp in rows:
+    for pid, name, uids, cap_eff, cap_prm, nnp, cap_bnd, cap_amb in rows:
         assert uids == "568,568,568,568", f"{name} (pid {pid}) draait als {uids}"
-        assert cap_eff == cap_prm == "0000000000000000", f"{name} (pid {pid}) heeft capabilities {cap_eff}"
+        assert cap_eff == cap_prm == cap_amb == NUL, f"{name} (pid {pid}) heeft capabilities {cap_eff}/{cap_prm}"
         assert nnp == "1", f"{name} (pid {pid}) zonder no_new_privs"
+        if root_start:
+            assert cap_bnd == NUL, f"{name} (pid {pid}): bounding set niet leeg ({cap_bnd})"
+        else:
+            assert cap_bnd != NUL, f"{name} (pid {pid}): onverwacht lege bounding set zonder root-start"
+
+
+def assert_healthcheck_switches_first(container: Container, *, root_start: bool = True) -> None:
+    """§2.2: de healthcheck apart — hetzelfde commando met de controlevlag meldt na de wissel Uid 568, CapEff 0,
+    CapPrm 0, NoNewPrivs 1 (en bij een root-image CapBnd 0). ``docker exec`` start hem als de image-gebruiker, net
+    als Docker voor HEALTHCHECK."""
+    r = container.exec("python", HEALTHCHECK, "--controle")
+    assert r.returncode == 0, (r.stdout, r.stderr)
+    status = json.loads(r.stdout)
+    assert status["in_orde"] is True and set(status["Uid"].split()) == {"568"}
+    assert status["CapEff"] == status["CapPrm"] == NUL and status["NoNewPrivs"] == "1"
+    assert status["gestart_als_root"] is root_start
+    if root_start:
+        assert status["CapBnd"] == NUL
 
 
 def host_stat(data: Path, rel: str) -> tuple[str, str, str]:
@@ -181,12 +204,14 @@ def test_first_start_as_root_then_drops_to_568(started: Container, data_dir: Pat
     for name in ("vault.key", "identity.ed25519"):
         uid, _gid, mode = host_stat(data_dir, f"secrets/{name}")
         assert (uid, mode) == ("568", "600"), (name, uid, mode)
-    # contract 1.2 §2.2/R11: elk proces, ook PID 1 (de procesbewaker), als 568 zonder capabilities met no_new_privs
+    # contract 1.3 §2.2/R11: elk proces, ook PID 1 (de procesbewaker), als 568 zonder capabilities met no_new_privs
+    # en een lege bounding set (root-start); de healthcheck apart met de controlevlag
     assert_no_root_anywhere(started)
+    assert_healthcheck_switches_first(started)
     code, page = get(f"http://127.0.0.1:{started.port}/")
     assert code == 200 and "niet gekoppeld" in page.lower() and 'name="hub_vingerafdruk"' in page
     # JP11: het Peil-sjabloon zit in de image (pakketdata) en de pagina heeft geen JavaScript, CSP default-src 'none'
-    assert "/*! Peil statuspagina.css 1.1.0" in page and "<script" not in page and "HERKOMST" not in page
+    assert "/*! Peil statuspagina.css 1.1.1" in page and "<script" not in page and "HERKOMST" not in page
     with urllib.request.urlopen(f"http://127.0.0.1:{started.port}/", timeout=5) as resp:
         assert resp.headers["Content-Security-Policy"].startswith("default-src 'none'; style-src 'unsafe-inline'")
     # de healthcheck (elke 30 s) vult de log niet met migratiemeldingen: extra /readyz-aanroepen voegen niets toe
@@ -243,7 +268,8 @@ def test_start_as_568_and_unwritable_dir(tmp_path: Path) -> None:
     c.run()
     try:
         wait_ready(c.port)
-        assert_no_root_anywhere(c)  # ook met 'Custom User 568': niets als root, geen capabilities
+        assert_no_root_anywhere(c, root_start=False)  # ook met 'Custom User 568': niets als root, geen capabilities
+        assert_healthcheck_switches_first(c, root_start=False)
     finally:
         c.remove()
     bad = tmp_path / "bad"
@@ -317,10 +343,10 @@ def test_enrollment_with_hub_simulator(data_dir: Path, hub_server: tuple[str, An
         assert sim.calls["enroll"] == 1  # het eenmalige token wordt na een herstart nooit opnieuw gebruikt
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline and not any(
-            e["event_type"] == "service.enrollment.completed" for e in sim.events
+            e["event_type"] == "service.hub_link.linked" for e in sim.events
         ):
             time.sleep(1)
-        assert any(e["event_type"] == "service.enrollment.completed" for e in sim.events), c.logs()
+        assert any(e["event_type"] == "service.hub_link.linked" for e in sim.events), c.logs()
     finally:
         print(c.logs())
         c.remove()
