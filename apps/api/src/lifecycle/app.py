@@ -20,14 +20,15 @@ from lifecycle.config import Settings, load_settings
 from lifecycle.db import make_engine, make_session_factory
 from lifecycle.enrollment import clear_interrupted_pairing
 from lifecycle.errors import TraceIdMiddleware, install_error_handlers
-from lifecycle.health import readiness
+from lifecycle.health import hub_link_details, readiness
 from lifecycle.hublink import HubLinkStore
 from lifecycle.idempotency import Idempotency
 from lifecycle.keyrotation import UnknownKidPoller
 from lifecycle.limits import BodySizeLimitMiddleware
+from lifecycle.nettransport import guarded_transport
 from lifecycle.replay import ReplayCache
 from lifecycle.secrets_store import SecretsError, Vault, load_identity
-from lifecycle.statuspage import PairingLimiter
+from lifecycle.statuspage import MeldingGeheugen, PairingLimiter
 from lifecycle.statuspage import router as status_router
 
 log = logging.getLogger("lifecycle")
@@ -37,19 +38,22 @@ HttpClientFactory = Callable[[], httpx.Client]
 DESCRIPTION = (
     "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). "
     "Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. "
-    "Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een "
-    "door de Hub ondertekende JWT (gepinde sleutels, `token_use` user of hub_service, `jti` verplicht; "
-    "contract 1.2 §4)."
+    "Fouten: `{code, message, details, trace_id}` (foutcatalogus contract 1.3 §5); mutaties vereisen "
+    "`Idempotency-Key`. Aanmelden alleen met een door de Hub ondertekende JWT (gepinde sleutels, `aud` één string, "
+    "`token_use` user of hub_service, `jti` verplicht en per mutatie verbruikt; contract 1.3 §4). Zonder geldige "
+    "aanmelding altijd 401, ook bij een onleesbare body."
 )
 
 
 def default_http_client_factory(settings: Settings) -> HttpClientFactory:
-    """Uitgaande Hub-aanroepen: 5 s connect / 15 s read, **nooit** een redirect volgen en proxy-omgevingsvariabelen
-    negeren (contract 1.2 §3.2, §5)."""
+    """Uitgaande Hub-aanroepen: 5 s connect / 15 s read, **nooit** een redirect volgen, proxy-omgevingsvariabelen
+    negeren en de verboden bereiken ook na DNS-resolutie per verbinding (contract 1.3 §3.2, §5;
+    ``lifecycle.nettransport``)."""
     timeout = httpx.Timeout(settings.http_read_timeout, connect=settings.http_connect_timeout)
 
     def factory() -> httpx.Client:
         return httpx.Client(timeout=timeout, follow_redirects=False, trust_env=False,
+                            transport=guarded_transport(allow_loopback=settings.allow_loopback_hub),
                             headers={"User-Agent": f"{APP_ID}/{__version__}"})
 
     return factory
@@ -102,6 +106,7 @@ def create_app(
     )
     app.state.idempotency = Idempotency(factory, settings.idempotency_ttl_hours)
     app.state.pairing_limiter = PairingLimiter()  # per app-instantie (één API-proces)
+    app.state.melding_geheugen = MeldingGeheugen()  # meldingen na een geslaagde poging, per browser (§3.7)
     app.state.vault = None
     app.state.identity = None
 
@@ -124,10 +129,12 @@ def create_app(
     def healthz() -> dict[str, str]:
         return {"status": "ok", "app_id": APP_ID, "version": __version__}
 
-    @app.get("/readyz", tags=["health"], summary="Afhankelijkheden in orde (database, schema, geheimen)")
+    @app.get("/readyz", tags=["health"], summary="Afhankelijkheden in orde (database, schema, geheimen)",
+             description="De koppeling met de Hub telt niet mee (contract 1.3 §5); `hub_link` toont alleen de witte "
+                         "lijst (state, koppelen_bezig, last_error) ter informatie.")
     def readyz(request: Request) -> JSONResponse:
         ok, checks = readiness(request.app)
-        body = {"status": "ready" if ok else "not_ready", "checks": checks}
+        body = {"status": "ready" if ok else "not_ready", "checks": checks, "hub_link": hub_link_details(request.app)}
         return JSONResponse(body, status_code=200 if ok else 503)
 
     app.include_router(status_router)

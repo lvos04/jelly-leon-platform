@@ -1,4 +1,4 @@
-"""Integratie (echte PostgreSQL + Hub-simulator volgens 1.2): koppelen met het env-token in de worker, herhaling na
+"""Integratie (echte PostgreSQL + Hub-simulator volgens 1.3): koppelen met het env-token in de worker, herhaling na
 een herstart halverwege, definitieve en tijdelijke fouten, bevestigen met ``services/self``, intrekking, rotatie van
 het service-token, opnieuw koppelen en de outbox."""
 
@@ -29,8 +29,8 @@ APP = "jelly-leon-platform"
 
 
 def make_worker(clean_db: str, data_dir: Path, hub: Any, token: str | None, **kw: Any) -> Worker:
-    settings = Settings(data_dir=data_dir, database_url=clean_db, hub_url="http://hub.test", enrollment_token=token,
-                        **kw)
+    kw.setdefault("hub_url", "http://hub.test")
+    settings = Settings(data_dir=data_dir, database_url=clean_db, enrollment_token=token, **kw)
     return Worker(settings, http_client_factory=lambda: TestClient(hub, base_url="http://hub.test",
                                                                    follow_redirects=False))
 
@@ -70,7 +70,10 @@ def test_env_token_enrollment_pins_confirms_and_never_reuses_the_token(
     # outbox: events met het service-token naar de Hub-inbox (dedupe op event_id)
     worker.tick()
     types = [e["event_type"] for e in sim.events]
-    assert "service.enrollment.completed" in types and "lifecycle.run.created" in types
+    assert "service.hub_link.linked" in types and "lifecycle.run.created" in types  # 1.3 §7: vaste service.*-namen
+    assert "service.enrollment.completed" not in types  # 1.2-naam vervalt
+    linked = next(e for e in sim.events if e["event_type"] == "service.hub_link.linked")
+    assert linked["entity"] == {"type": "service", "id": APP} and linked["payload"]["via"] == "token"
     assert all(len(t.split(".")) == 3 for t in types)  # §7: precies drie segmenten
     n = len(sim.events)
     worker.tick()
@@ -122,7 +125,8 @@ def test_restart_with_other_token_marks_interrupted(clean_db: str, data_dir: Pat
         (lambda sim: (sim.faults.add("bad_fingerprint"), sim.add_grant("token", APP))[1], "hub_vingerafdruk_onjuist"),
         (lambda sim: (sim.faults.add("bad_response"), sim.add_grant("token", APP))[1], "hub_antwoord_ongeldig"),
         (lambda sim: (sim.faults.add("alias_only"), sim.add_grant("token", APP))[1], "hub_antwoord_ongeldig"),
-        (lambda sim: "verkeerd-formaat", "token_formaat_ongeldig"),
+        (lambda sim: "verkeerd-formaat", "token_ongeldig"),
+        (lambda sim: (sim.faults.add("enroll_422"), sim.add_grant("token", APP))[1], "hub_incompatibel"),
     ],
 )
 def test_final_failures_store_nothing_and_are_never_retried(
@@ -196,25 +200,93 @@ def test_stops_60_minutes_after_first_attempt(clean_db: str, data_dir: Path, hub
     assert sim.calls["enroll"] == 0
 
 
-def test_stops_60_minutes_after_first_attempt_also_with_unreadable_hub_link(
+def test_unreadable_file_is_replaced_at_the_first_write_before_the_hub_request(
     clean_db: str, data_dir: Path, hub: Any
 ) -> None:
-    """Review: met een onleesbaar hub-link.json kan ``pending`` niet worden vastgelegd; de 60-minutengrens gold dan
-    nooit (eindeloos opnieuw proberen). Nu telt de eerste poging in het geheugen."""
+    """1.3 §3.5 (RV6): een poging met een nieuw env-token vervangt een onleesbaar bestand bij haar eerste schrijfactie
+    (``pending``), vóór het verzoek aan de Hub; het origineel blijft bewaard. Zo staat ``pending`` (en daarna de hash
+    van het afgehandelde token) vast en geldt de 60-minutengrens ook na een herstart."""
     sim = hub.state.sim
     store = HubLinkStore(data_dir / "secrets")
     store.path.write_text("kapot")
+    store.path.chmod(0o600)
     sim.faults.add("enroll_down")
     worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
     assert worker.tick()["enrollment"] == "opnieuw:hub_onbereikbaar"
-    sha = worker.env.token_sha
-    assert sha is not None and sha in worker.env.first_attempt
-    worker.env.first_attempt[sha] -= timedelta(minutes=61)
-    worker.env.next_at = 0
+    link = store.read()
+    assert not link.corrupt and link.onleesbaar and link.pending is not None and link.doc["unreadable_replaced_at"]
+    kopie = [p for p in (data_dir / "secrets").iterdir() if p.name.startswith("hub-link.json.onleesbaar-")]
+    assert len(kopie) == 1 and kopie[0].read_text() == "kapot"
+    # 61 minuten later (ook na een herstart): definitief, token afgehandeld, nooit opnieuw
+    store.update(lambda d: d["pending"].update(started_at=iso_z(utcnow() - timedelta(minutes=61))))
+    worker = make_worker(clean_db, data_dir, hub, worker.settings.enrollment_token)
     calls = sim.calls["enroll"]
     assert worker.tick()["enrollment"] == "mislukt:token_verlopen_na_60_min"
     assert worker.tick()["enrollment"] == "niet_nodig" and sim.calls["enroll"] == calls
-    assert store.read().corrupt  # niets vervangen zonder geslaagde koppeling
+    assert store.read().onleesbaar  # §3.5: zonder geslaagde koppeling blijft het "onleesbaar" (geen formulier)
+
+
+def test_refused_token_after_replacement_is_never_retried_after_restart(
+    clean_db: str, data_dir: Path, hub: Any
+) -> None:
+    """RV6: zonder vervanging vóór het verzoek kon de hash van een geweigerd token niet worden vastgelegd en probeerde
+    de dienst het na elke herstart opnieuw."""
+    sim = hub.state.sim
+    store = HubLinkStore(data_dir / "secrets")
+    store.path.write_text('{"state": "gekoppeld", kapot')
+    store.path.chmod(0o600)
+    token = sim.add_grant("token", APP, ttl_s=-1)  # verlopen: de Hub weigert (401)
+    assert make_worker(clean_db, data_dir, hub, token).tick()["enrollment"] == "mislukt:hub_weigerde"
+    doc = file_doc(data_dir)
+    assert doc["last_error"]["code"] == "hub_weigerde" and sha256_hex(token) in doc["used_enrollment_token_sha256"]
+    calls = sim.calls["enroll"]
+    assert make_worker(clean_db, data_dir, hub, token).tick()["enrollment"] == "niet_nodig"  # herstart
+    assert sim.calls["enroll"] == calls and store.read().onleesbaar
+
+
+@pytest.mark.parametrize(("overrides", "code"), [
+    ({"hub_url": None, "hub_url_error": "hub_adres_ongeldig"}, "hub_adres_ongeldig"),
+    ({"hub_url": None}, "hub_adres_ongeldig"),
+    ({"hub_key_fingerprint_error": "vingerafdruk_ongeldig"}, "vingerafdruk_ongeldig"),
+])
+def test_invalid_address_or_fingerprint_never_calls_the_hub_and_keeps_the_token(
+    clean_db: str, data_dir: Path, hub: Any, overrides: dict[str, Any], code: str
+) -> None:
+    """§3.5: bij ``hub_adres_ongeldig``/``vingerafdruk_ongeldig`` spreekt de dienst de Hub niet aan en markeert hij het
+    token niet als afgehandeld (de beheerder kan het formulier verbeteren); één keer vastgelegd, niet elke ronde."""
+    sim = hub.state.sim
+    secret = sim.add_grant("token", APP)
+    worker = make_worker(clean_db, data_dir, hub, secret, **overrides)
+    assert worker.tick()["enrollment"] == f"wacht:{code}"
+    doc = file_doc(data_dir)
+    assert doc["last_error"]["code"] == code and doc["used_enrollment_token_sha256"] == [] and doc["pending"] is None
+    mtime = (data_dir / "secrets" / "hub-link.json").stat().st_mtime_ns
+    assert worker.tick()["enrollment"] == f"wacht:{code}"
+    assert (data_dir / "secrets" / "hub-link.json").stat().st_mtime_ns == mtime  # niet elke ronde schrijven
+    assert sim.calls["enroll"] == 0
+    fixed = make_worker(clean_db, data_dir, hub, secret)  # formulier verbeterd: hetzelfde token werkt nog
+    assert fixed.tick()["enrollment"] == "gekoppeld"
+
+
+def test_rotation_sequence_from_enroll_response_and_hub_1_2_gives_0(clean_db: str, data_dir: Path,
+                                                                     hub: Any) -> None:
+    """§3.3/§4.5: de dienst begint bij de ``rotation_sequence`` uit het enroll-antwoord en vraagt alleen
+    ``key-rotations?after=<waarde>``; een Hub 1.2 stuurt het veld niet: dan 0."""
+    sim = hub.state.sim
+    sim.rotate_key("jwt")
+    sim.rotate_key("jwt")  # twee rotaties vóór de koppeling: daarna geen oude statements meer controleren
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert worker.tick()["enrollment"] == "gekoppeld"
+    doc = file_doc(data_dir)
+    assert doc["pins"]["rotation_sequence"] == 2 and doc["schema_version"] == "1.3"
+    assert doc["pins"]["keyset_fingerprint"] == sim.keyset_fingerprint()
+    worker.next_key_poll_at = 0
+    assert worker.poll_keys() == "geen"  # after=2: niets nieuws
+    store = HubLinkStore(data_dir / "secrets")
+    store.update(lambda d: d.update(state="ontkoppeld", service_token=None, pins=None, service_token_last4=None))
+    sim.faults.add("hub_1_2")
+    again = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    assert again.tick()["enrollment"] == "gekoppeld" and file_doc(data_dir)["pins"]["rotation_sequence"] == 0
 
 
 def test_relink_with_new_env_token_replaces_and_failed_relink_keeps_link(
@@ -317,11 +389,82 @@ def test_only_env_token_may_replace_a_corrupt_file(clean_db: str, data_dir: Path
     sim = hub.state.sim
     store = HubLinkStore(data_dir / "secrets")
     store.path.write_text("kapot")
+    store.path.chmod(0o600)
     with TestClient(hub, base_url="http://hub.test") as client, pytest.raises(HubLinkCorrupt):
         enroll_once(store, client, load_identity(data_dir / "secrets"), Settings(data_dir=data_dir),
                     kind="koppelcode", secret=sim.add_grant("koppelcode", APP), hub_url="http://hub.test",
                     expected_fingerprint=None)
     assert store.read().corrupt and sim.calls["enroll"] == 0  # geweigerd vóór de Hub: de code blijft geldig
     worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
-    assert worker.tick()["enrollment"] == "gekoppeld" and store.read().linked
-    assert [p for p in (data_dir / "secrets").iterdir() if p.name.startswith("hub-link.json.beschadigd-")]
+    assert worker.tick()["enrollment"] == "gekoppeld" and store.read().linked and not store.read().onleesbaar
+    assert [p for p in (data_dir / "secrets").iterdir() if p.name.startswith("hub-link.json.onleesbaar-")]
+    assert file_doc(data_dir)["unreadable_replaced_at"]
+
+
+def test_fixed_service_events_and_rotation_request_survives_restart(clean_db: str, data_dir: Path,
+                                                                    hub: Any) -> None:
+    """1.3 §7: vaste ``service.*``-namen met ``entity`` = de dienst; §3.5 ``token_rotation_requested_at``: een
+    aangevraagde rotatie overleeft een herstart; RV12: niet gekoppeld = niet pushen en geen pogingen tellen."""
+    from lifecycle.hublink import clear_link, now_iso
+
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    worker.tick()
+    worker.tick()  # outbox: linked afgeleverd
+    store = HubLinkStore(data_dir / "secrets")
+    # rotatie aangevraagd, daarna 'herstart' vóór de rotatie: de aanvraag staat in hub-link.json
+    store.update(lambda d: d.update(token_rotation_requested_at=now_iso()))
+    old = store.read().service_token
+    restarted = make_worker(clean_db, data_dir, hub, None)
+    assert restarted.signals.rotation_required
+    assert restarted.tick()["rotation"] == "geroteerd"
+    assert store.read().service_token != old and store.read().doc["token_rotation_requested_at"] is None
+    # ondertekende sleutelrotatie: toegepast → event; daarna een ongeldige → geweigerd + event
+    sim.rotate_key("jwt")
+    restarted.next_key_poll_at = 0
+    restarted.tick()
+    sim.rotate_key("policy", signer=sim.jwt_keys[-1])  # policy-wijziging door een jwt-sleutel: ongeldig
+    restarted.next_key_poll_at = 0
+    restarted.tick()
+    assert store.read().doc["key_rotation_blocked_sequence"] == 2
+    restarted.tick()  # outbox
+    by_type = {e["event_type"]: e for e in sim.events}
+    assert {"service.hub_link.linked", "service.token.rotated", "service.key_rotation.applied",
+            "service.key_rotation.rejected"} <= set(by_type)
+    assert all(e["entity"] == {"type": "service", "id": APP} for t, e in by_type.items() if t.startswith("service."))
+    assert by_type["service.key_rotation.applied"]["payload"]["rotation_sequence"] == 1
+    assert by_type["service.key_rotation.rejected"]["payload"] == {"sequence": 2, "ernst": "hoog"}
+    assert all(e["payload"].get("ernst") in {None, "kritiek", "hoog", "middel", "laag", "info"} for e in sim.events)
+    # ontkoppeld: het event komt in de outbox, maar wordt niet gepusht en telt geen pogingen (RV12)
+    n = len(sim.events)
+    store.update(lambda d: clear_link(d, "ontkoppeld"))
+    restarted.tick()
+    restarted.tick()
+    assert len(sim.events) == n
+    with restarted.factory() as session:
+        pending = session.execute(sa.select(OutboxEvent).where(OutboxEvent.delivered_at.is_(None))).scalars().all()
+        assert [p.event_type for p in pending] == ["service.hub_link.unlinked"] and pending[0].attempts == 0
+
+
+def test_event_outside_the_inbox_limits_is_dead_lettered_without_sending(clean_db: str, data_dir: Path,
+                                                                         hub: Any) -> None:
+    """§7: een bron controleert de grenzen van de inbox vóór verzending (anders valt het pas als dead-letter op)."""
+    from lifecycle.outbox import emit
+
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP))
+    worker.tick()
+    with worker.factory.begin() as session:
+        emit(session, "lifecycle.run.created", "lifecycle_run", "lang", {"a": 1},
+             actor={"type": "system", "id": "a" * 129})
+        emit(session, "lifecycle.run.created", "lifecycle_run", "ok", {"ernst": "groen"}, actor={"type": "system",
+                                                                                                  "id": "t"})
+    worker.tick()
+    with worker.factory() as session:
+        dead = session.execute(sa.select(OutboxEvent).where(OutboxEvent.dead_letter.is_(True))).scalars().all()
+    assert len(dead) == 2 and all(d.last_error.startswith("ongeldig: ") for d in dead)
+    assert not [e for e in sim.events if e["entity"]["id"] in {"lang", "ok"}]
+    with worker.factory.begin() as session, pytest.raises(ValueError):
+        emit(session, "media.item.created", "x", "y", {}, actor={"type": "system", "id": "t"})  # niet ons domein
+    with worker.factory.begin() as session, pytest.raises(ValueError):
+        emit(session, "service.enrollment.completed", "service", APP, {}, actor={"type": "system", "id": "t"})

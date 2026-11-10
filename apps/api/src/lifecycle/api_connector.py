@@ -22,8 +22,8 @@ from lifecycle import APP_ID, SCHEMA_VERSION, __version__
 from lifecycle.api_lifecycle import list_runs
 from lifecycle.audit import audit, audit_view
 from lifecycle.auth import Principal, require_read, require_unlink, require_write
-from lifecycle.errors import ApiError, capability_unavailable, trace_id_of
-from lifecycle.health import collect_health
+from lifecycle.errors import ApiError, capability_unavailable, invalid_input, trace_id_of
+from lifecycle.health import DEFAULT_MAX_AGE_S, collect_health, worker_max_age_s
 from lifecycle.hublink import clear_link
 from lifecycle.models import AuditEntry, OutboxEvent
 from lifecycle.outbox import envelope
@@ -73,8 +73,10 @@ class PinnedKids(BaseModel):
 
 
 class HubLinkOut(BaseModel):
-    state: Literal["nooit_gekoppeld", "gekoppeld", "ontkoppeld", "ingetrokken"]
-    state_label_nl: str
+    """Witte lijst van contract 1.3 §3.5 + ``pinned_kids`` en ``rotation_sequence`` (§6). ``state`` is ``null`` als het
+    koppelbestand onleesbaar is (dan ``last_error.code = koppelstatus_onleesbaar``)."""
+
+    state: Literal["nooit_gekoppeld", "gekoppeld", "ontkoppeld", "ingetrokken"] | None
     koppelen_bezig: bool
     hub_url: str | None
     service_id: str | None
@@ -84,7 +86,6 @@ class HubLinkOut(BaseModel):
     keyset_fingerprint: str | None
     service_token_last4: str | None
     last_error: LinkError | None
-    beschadigd: bool
     pinned_kids: PinnedKids
     rotation_sequence: int
 
@@ -95,14 +96,17 @@ class EventPage(BaseModel):
 
 
 @router.get("/discover", response_model=Discover)
-def discover(_: Annotated[Principal, Depends(require_read)]) -> dict[str, Any]:
+def discover(request: Request, _: Annotated[Principal, Depends(require_read)]) -> dict[str, Any]:
     return {
         "app_id": APP_ID,
         "source_version": __version__,
         "schema_version": SCHEMA_VERSION,
         "capabilities": CAPABILITIES,
         "permissions": ["lifecycle_run:read", "events:read", "evidence:read"],
-        "limits": {"max_page_size": 200, "rate_limit_per_minute": None, "execution": "none_in_p0"},
+        "limits": {"max_page_size": 200, "rate_limit_per_minute": None, "execution": "none_in_p0",
+                   # §6.2: versheid per capability/itemtype; lifecycle_run is opgeslagen data (geen meting)
+                   "max_age_s": {"health": DEFAULT_MAX_AGE_S, "health.worker": worker_max_age_s(request.app),
+                                 "read": DEFAULT_MAX_AGE_S}},
         "item_types": ITEM_TYPES,
         "timestamp_utc": iso_z(utcnow()),
     }
@@ -122,7 +126,7 @@ def items(
     limit: int | None = None,
 ) -> dict[str, Any]:
     if type not in ITEM_TYPES:
-        raise ApiError(400, "unknown_item_type", "Onbekende itemsoort.", {"supported": ITEM_TYPES})
+        raise invalid_input("type", f"Onbekende itemsoort; mogelijk: {', '.join(ITEM_TYPES)}.", "unknown_item_type")
     page: dict[str, Any] = list_runs(request, principal, cursor=cursor, limit=limit)
     return {"type": type, **page}
 
@@ -169,7 +173,7 @@ def events(
         try:
             after = int(position["after"])
         except (KeyError, ValueError, TypeError) as exc:
-            raise ApiError(400, "invalid_cursor", "Ongeldige cursor.") from exc
+            raise invalid_input("cursor", "Ongeldige cursor.", "invalid_cursor") from exc
     with request.app.state.session_factory() as session:
         rows = list(
             session.execute(select(OutboxEvent).where(OutboxEvent.id > after).order_by(OutboxEvent.id).limit(size))

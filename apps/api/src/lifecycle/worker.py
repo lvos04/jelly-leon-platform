@@ -2,8 +2,15 @@
 
 Per ronde: hartslag; koppelen met het eenmalige env-token (backoff, 60-minutengrens, herstel na herstart);
 de koppeling bevestigen met ``GET /api/v1/services/self``; het service-token roteren als de Hub
-``Hub-Token-Rotation: required`` meldt; de outbox naar de Hub (een 401 → controle of de koppeling is ingetrokken);
-ondertekende sleutelrotaties ophalen (≤ elke 15 min); verlopen Idempotency- en replay-records opruimen.
+``Hub-Token-Rotation: required`` meldt (de aanvraag staat als ``token_rotation_requested_at`` in ``hub-link.json`` en
+overleeft zo een herstart, contract 1.3 §3.5/§3.8); de outbox naar de Hub (alleen gekoppeld, RV12; een 401 → controle
+of de koppeling is ingetrokken); ondertekende sleutelrotaties ophalen (≤ elke 15 min); verlopen Idempotency- en
+replay-records opruimen.
+
+Events over de eigen koppeling (contract 1.3 §7, vaste ``service.*``-namen, ``entity`` = ``{service, <app_id>}``): de
+worker vergelijkt elke ronde de koppelstatus met de vorige (ook als het API-proces de wijziging deed) en schrijft per
+overgang één event in de outbox: ``service.hub_link.linked`` (ook opnieuw koppelen), ``.unlinked``, ``.revoked``,
+``service.key_rotation.applied`` / ``.rejected``; ``service.token.rotated`` na een geslaagde rotatie.
 """
 
 from __future__ import annotations
@@ -16,18 +23,19 @@ from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert
 
-from lifecycle import __version__
+from lifecycle import APP_ID, __version__
 from lifecycle.app import HttpClientFactory, default_http_client_factory
 from lifecycle.config import Settings
 from lifecycle.db import make_engine, make_session_factory
 from lifecycle.enrollment import (
     EnvEnrollment,
     HubSignals,
+    _persist,
     check_revoked,
     confirm,
     rotate_service_token,
 )
-from lifecycle.hublink import HubLinkStore
+from lifecycle.hublink import HubLinkStore, now_iso
 from lifecycle.idempotency import Idempotency
 from lifecycle.keyrotation import poll as poll_key_rotations
 from lifecycle.models import WorkerHeartbeat
@@ -58,11 +66,15 @@ class Worker:
         self.next_key_poll_at = 0.0
         self.last_purge = 0.0
         self.recovered = False
-        self.last_state: tuple[str, str | None] = self._state()
+        self.last_state: tuple[str, str | None, int, int | None] = self._state()
+        # een aangevraagde rotatie overleeft een herstart (§3.5 token_rotation_requested_at)
+        self.signals.rotation_required = bool(self.store.read().doc.get("token_rotation_requested_at"))
 
-    def _state(self) -> tuple[str, str | None]:
+    def _state(self) -> tuple[str, str | None, int, int | None]:
         link = self.store.read()
-        return ("beschadigd" if link.corrupt else link.state), link.doc.get("linked_at")
+        blocked = link.doc.get("key_rotation_blocked_sequence") if not link.corrupt else None
+        return (("onleesbaar" if link.corrupt else link.state), link.doc.get("linked_at"), link.rotation_sequence,
+                blocked if isinstance(blocked, int) else None)
 
     def heartbeat(self, detail: dict[str, Any]) -> None:
         with self.factory.begin() as session:
@@ -71,20 +83,30 @@ class Worker:
                 stmt.on_conflict_do_update(index_elements=["name"], set_={"beat_at": utcnow(), "detail": detail})
             )
 
-    def _emit_transition(self, before: tuple[str, str | None], after: tuple[str, str | None]) -> None:
-        """Eén event per overgang van de koppelstatus (drie segmenten, contract §7); geen geheimen. Een nieuwe
-        koppeling (ook opnieuw koppelen: ander ``linked_at``) geeft ``service.enrollment.completed``."""
+    def _emit(self, event_type: str, payload: dict[str, Any]) -> None:
+        with self.factory.begin() as session:
+            emit(session, event_type, "service", APP_ID, payload, actor={"type": "system", "id": APP_ID})
+
+    def _emit_transition(self, before: tuple[str, str | None, int, int | None],
+                         after: tuple[str, str | None, int, int | None]) -> None:
+        """Eén event per overgang (§7, vaste namen; geen geheimen). Een nieuwe koppeling (ook opnieuw koppelen: ander
+        ``linked_at``) → ``service.hub_link.linked`` met ``{via}``."""
         if before == after:
             return
+        state, linked_at, sequence, blocked = after
         link = self.store.read()
-        types = {"gekoppeld": "service.enrollment.completed", "ingetrokken": "service.hub_link.revoked",
-                 "ontkoppeld": "service.hub_link.unlinked"}
-        if after[0] not in types or (after[0] == before[0] and after[0] != "gekoppeld"):
-            return
-        with self.factory.begin() as session:
-            emit(session, types[after[0]], "service", link.service_id or "onbekend",
-                 {"state": after[0], "via": link.doc.get("via"), "keyset_fingerprint": link.keyset_fingerprint},
-                 actor={"type": "system", "id": "jelly-leon-platform"})
+        if state == "gekoppeld" and (before[0] != "gekoppeld" or before[1] != linked_at):
+            self._emit("service.hub_link.linked", {"via": link.doc.get("via"), "ernst": "info"})
+        elif state == "ontkoppeld" and before[0] != "ontkoppeld":
+            self._emit("service.hub_link.unlinked", {"ernst": "middel"})
+        elif state == "ingetrokken" and before[0] != "ingetrokken":
+            self._emit("service.hub_link.revoked", {"ernst": "hoog"})
+        elif state == "gekoppeld" and before[0] == "gekoppeld" and before[1] == linked_at:
+            if sequence > before[2]:
+                self._emit("service.key_rotation.applied", {"rotation_sequence": sequence, "ernst": "info",
+                                                           "keyset_fingerprint": link.keyset_fingerprint})
+            if blocked is not None and blocked != before[3]:
+                self._emit("service.key_rotation.rejected", {"sequence": blocked, "ernst": "hoog"})
 
     def enroll(self) -> str:
         if not self.recovered:
@@ -106,10 +128,21 @@ class Worker:
         return result
 
     def rotate_if_requested(self) -> str:
-        if not self.signals.rotation_required or not self.store.read().linked:
+        link = self.store.read()
+        if not link.linked:
             return "niet_nodig"
+        if link.doc.get("token_rotation_requested_at"):
+            self.signals.rotation_required = True
+        if not self.signals.rotation_required:
+            return "niet_nodig"
+        if not link.doc.get("token_rotation_requested_at"):  # eerst vastleggen: overleeft een herstart (§3.5)
+            _persist(self.store, lambda d: d.update(token_rotation_requested_at=now_iso())
+                     if d.get("state") == "gekoppeld" else None)
         with self.client_factory() as client:
-            return rotate_service_token(self.store, client, self.signals)
+            result = rotate_service_token(self.store, client, self.signals)
+        if result == "geroteerd":
+            self._emit("service.token.rotated", {"ernst": "info"})
+        return result
 
     def push_outbox(self) -> int:
         link = self.store.read()

@@ -94,7 +94,8 @@ def test_create_run_idempotent(client: Any, auth: Any) -> None:
     assert r1.headers["ETag"] == run["etag"]
     r2 = client.post("/lifecycle/v1/runs", json=body, headers=h)
     assert r2.status_code == 201 and r2.json()["id"] == run["id"]
-    assert r2.headers["Idempotent-Replayed"] == "true"
+    assert r2.headers["Idempotent-Replay"] == "true"  # contract 1.3 §5
+    assert r2.headers["Idempotent-Replayed"] == "true"  # 1.2-naam, één overgangsrelease
     listing = client.get("/lifecycle/v1/runs", headers=auth("viewer")).json()
     assert [i["id"] for i in listing["items"]] == [run["id"]]  # géén tweede uitvoering
     r3 = client.post("/lifecycle/v1/runs", json={**body, "reason": "anders"}, headers=h)
@@ -182,7 +183,11 @@ def test_pagination_cursor(client: Any, auth: Any) -> None:
         if not cursor:
             break
     assert seen == list(reversed(ids))
-    assert client.get("/lifecycle/v1/runs", params={"limit": 500}, headers=auth("viewer")).status_code == 400
+    r = client.get("/lifecycle/v1/runs", params={"limit": 500}, headers=auth("viewer"))
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"  # foutcatalogus §5: één code per situatie
+    assert r.json()["details"]["fouten"][0]["veld"] == "limit"
+    r = client.get("/lifecycle/v1/runs", params={"cursor": "!!kapot"}, headers=auth("viewer"))
+    assert r.status_code == 422 and r.json()["details"]["fouten"][0]["type"] == "invalid_cursor"
     one = client.get("/lifecycle/v1/runs", params={"app_id": "app-3"}, headers=auth("viewer")).json()
     assert len(one["items"]) == 1
 
@@ -191,18 +196,21 @@ def test_connector_contract(client: Any, auth: Any) -> None:
     d = client.get("/connector/v1/discover", headers=auth("viewer")).json()
     assert d["app_id"] == "jelly-leon-platform" and d["schema_version"] == "1.0" and d["capabilities"] == ["read"]
     assert d["timestamp_utc"].endswith("Z")
+    assert d["limits"]["max_age_s"] == {"health": 900, "health.worker": 60, "read": 900}  # §6.2
     h = client.get("/connector/v1/health", headers=auth("viewer")).json()
-    assert h["status"] == "degraded"  # worker draait niet in deze test (geen hartslag): nooit "healthy"
+    # §6 regel 1: totaal = slechtste check; de worker draait niet in deze test (geen hartslag) → unknown, nooit groen
+    assert h["status"] == "unknown"
     names = {c["name"]: c["status"] for c in h["checks"]}
     assert names["database"] == "healthy" and names["worker"] == "unknown" and names["hub_link"] == "healthy"
-    assert h["reason_code"] == "worker_unknown"
+    assert h["reason_code"] == "worker_unknown" and all(c["observed_at"].endswith("Z") for c in h["checks"])
     for path in ("propose", "apply", "rollback"):
         r = client.post(f"/connector/v1/{path}", json={}, headers=auth("admin", idem=True))
         assert r.status_code == 501 and r.json()["code"] == "capability_unavailable"
     run = _new_run(client, auth)
     items = client.get("/connector/v1/items", params={"type": "lifecycle_run"}, headers=auth("viewer")).json()
     assert items["type"] == "lifecycle_run" and items["items"][0]["id"] == run["id"]
-    assert client.get("/connector/v1/items", params={"type": "x"}, headers=auth("viewer")).status_code == 400
+    r = client.get("/connector/v1/items", params={"type": "x"}, headers=auth("viewer"))
+    assert r.status_code == 422 and r.json()["details"]["fouten"][0]["type"] == "unknown_item_type"
     ev = client.get("/connector/v1/events", headers=auth("viewer")).json()
     created = [e for e in ev["items"] if e["event_type"] == "lifecycle.run.created"]
     assert created and created[0]["source_app"] == "jelly-leon-platform" and created[0]["entity"]["id"] == run["id"]
@@ -448,7 +456,7 @@ def test_jti_replay_cache_for_mutations(client: Any, hub: Any) -> None:
     r1 = client.post("/lifecycle/v1/runs", json=body, headers=h)
     assert r1.status_code == 201, r1.text
     r2 = client.post("/lifecycle/v1/runs", json=body, headers=h)  # exacte herhaling
-    assert r2.status_code == 201 and r2.json()["id"] == r1.json()["id"] and r2.headers["Idempotent-Replayed"] == "true"
+    assert r2.status_code == 201 and r2.json()["id"] == r1.json()["id"] and r2.headers["Idempotent-Replay"] == "true"
     r3 = client.post("/lifecycle/v1/runs", json=body, headers={**h, "Idempotency-Key": str(uuid.uuid4())})
     assert r3.status_code == 401 and r3.json()["details"]["reason"] == "token_replayed"
     r4 = client.post(f"/lifecycle/v1/runs/{r1.json()['id']}/transitions",

@@ -198,11 +198,8 @@
         "type": "object"
       },
       "HubLinkOut": {
+        "description": "Witte lijst van contract 1.3 §3.5 + ``pinned_kids`` en ``rotation_sequence`` (§6). ``state`` is ``null`` als het\nkoppelbestand onleesbaar is (dan ``last_error.code = koppelstatus_onleesbaar``).",
         "properties": {
-          "beschadigd": {
-            "title": "Beschadigd",
-            "type": "boolean"
-          },
           "first_linked_at": {
             "anyOf": [
               {
@@ -291,18 +288,21 @@
             "title": "Service Token Last4"
           },
           "state": {
-            "enum": [
-              "nooit_gekoppeld",
-              "gekoppeld",
-              "ontkoppeld",
-              "ingetrokken"
+            "anyOf": [
+              {
+                "enum": [
+                  "nooit_gekoppeld",
+                  "gekoppeld",
+                  "ontkoppeld",
+                  "ingetrokken"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "State",
-            "type": "string"
-          },
-          "state_label_nl": {
-            "title": "State Label Nl",
-            "type": "string"
+            "title": "State"
           },
           "via": {
             "anyOf": [
@@ -318,7 +318,6 @@
         },
         "required": [
           "state",
-          "state_label_nl",
           "koppelen_bezig",
           "hub_url",
           "service_id",
@@ -328,7 +327,6 @@
           "keyset_fingerprint",
           "service_token_last4",
           "last_error",
-          "beschadigd",
           "pinned_kids",
           "rotation_sequence"
         ],
@@ -757,7 +755,7 @@
     }
   },
   "info": {
-    "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}`; mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een door de Hub ondertekende JWT (gepinde sleutels, `token_use` user of hub_service, `jti` verplicht; contract 1.2 §4).",
+    "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}` (foutcatalogus contract 1.3 §5); mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een door de Hub ondertekende JWT (gepinde sleutels, `aud` één string, `token_use` user of hub_service, `jti` verplicht en per mutatie verbruikt; contract 1.3 §4). Zonder geldige aanmelding altijd 401, ook bij een onleesbare body.",
     "title": "jelly-leon-platform (lifecycle)",
     "version": "0.1.0"
   },
@@ -1151,7 +1149,35 @@
     "/lifecycle/v1/plans/install/preview": {
       "post": {
         "operationId": "placeholder_lifecycle_v1_plans_install_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
           "501": {
             "content": {
               "application/json": {
@@ -1170,7 +1196,35 @@
     "/lifecycle/v1/plans/move/preview": {
       "post": {
         "operationId": "placeholder_lifecycle_v1_plans_move_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
           "501": {
             "content": {
               "application/json": {
@@ -1189,7 +1243,35 @@
     "/lifecycle/v1/plans/rollback/preview": {
       "post": {
         "operationId": "placeholder_lifecycle_v1_plans_rollback_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
           "501": {
             "content": {
               "application/json": {
@@ -1208,7 +1290,35 @@
     "/lifecycle/v1/plans/uninstall/preview": {
       "post": {
         "operationId": "placeholder_lifecycle_v1_plans_uninstall_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
           "501": {
             "content": {
               "application/json": {
@@ -1227,7 +1337,35 @@
     "/lifecycle/v1/plans/update/preview": {
       "post": {
         "operationId": "placeholder_lifecycle_v1_plans_update_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
           "501": {
             "content": {
               "application/json": {
@@ -1562,6 +1700,7 @@
     },
     "/readyz": {
       "get": {
+        "description": "De koppeling met de Hub telt niet mee (contract 1.3 §5); `hub_link` toont alleen de witte lijst (state, koppelen_bezig, last_error) ter informatie.",
         "operationId": "readyz_readyz_get",
         "responses": {
           "200": {

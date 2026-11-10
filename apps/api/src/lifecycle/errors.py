@@ -1,4 +1,12 @@
-"""Foutformaat (contract §5): HTTP-status + ``{code, message (NL), details, trace_id}``."""
+"""Foutformaat en foutcatalogus (contract 1.3 §5): HTTP-status + ``{code, message (NL), details, trace_id}``.
+
+- 422 ``validation_error`` met ``details.fouten[]`` (``{veld, fout, type}``, zoals de Hub); ook te lange invoer, een
+  ongeldige cursor en een onbekende itemsoort (één code per situatie).
+- 401 alleen voor authenticatie. Authenticatie gaat vóór de body (§4.7, RV9): FastAPI ontleedt een JSON-body vóór de
+  afhankelijkheden; is er voor dit verzoek nog geen aanmelding vastgesteld, dan authenticeert ``_auth_first`` eerst
+  (inclusief het verbruiken van de ``jti`` bij een mutatie). Zonder geldige aanmelding dus altijd 401, ook bij een
+  onleesbare body.
+"""
 
 from __future__ import annotations
 
@@ -44,6 +52,12 @@ def capability_unavailable(feature: str, phase: str = "P2") -> ApiError:
     )
 
 
+def invalid_input(veld: str, fout: str, soort: str) -> ApiError:
+    """422 ``validation_error`` voor één veld (zelfde vorm als de schemafouten van FastAPI)."""
+    return ApiError(422, "validation_error", "De invoer is ongeldig; zie details.fouten.",
+                    {"fouten": [{"veld": veld, "fout": fout, "type": soort}]})
+
+
 def trace_id_of(request: Request) -> str:
     value = getattr(request.state, "trace_id", None)
     return str(value) if value else str(uuid.uuid4())
@@ -87,6 +101,33 @@ class TraceIdMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Routes waarop elke aanroep een geldige Hub-JWT vraagt; /, /koppelen, /healthz en /readyz niet.
+AUTH_PREFIXES = ("/lifecycle/v1", "/connector/v1")
+
+
+def _auth_first(request: Request) -> JSONResponse | None:
+    """§4.7: zonder geldige authenticatie altijd 401, ook als FastAPI de body al vóór de afhankelijkheden afwees.
+    Alleen als voor dit verzoek nog geen aanmelding is vastgesteld (``request.state.principal``)."""
+    if getattr(request.state, "principal", None) is not None or not request.url.path.startswith(AUTH_PREFIXES):
+        return None
+    authenticator = getattr(request.app.state, "authenticator", None)
+    if authenticator is None:
+        return None
+    try:
+        request.state.principal = authenticator.authenticate(
+            request.headers.get("authorization"), method=request.method, path=request.url.path,
+            idempotency_key=request.headers.get("idempotency-key"))
+    except ApiError as err:
+        return error_response(request, err)
+    return None
+
+
+def validation_details(errors: list[dict[str, Any]] | Any) -> dict[str, Any]:
+    fouten = [{"veld": ".".join(str(p) for p in e.get("loc", ()) if p != "body"), "fout": str(e.get("msg", "")),
+               "type": str(e.get("type", ""))} for e in errors]
+    return {"fouten": fouten}
+
+
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, exc: ApiError) -> JSONResponse:
@@ -94,18 +135,22 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
-        problems = [
-            {"loc": [str(p) for p in e.get("loc", ())], "msg": str(e.get("msg", "")), "type": str(e.get("type", ""))}
-            for e in exc.errors()
-        ]
+        refused = _auth_first(request)
+        if refused is not None:
+            return refused
         return error_response(
-            request, ApiError(422, "validation_error", "Ongeldige invoer; zie details.", {"errors": problems})
+            request, ApiError(422, "validation_error", "De invoer is ongeldig; zie details.fouten.",
+                              validation_details(exc.errors()))
         )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         from lifecycle.limits import MAX_BODY_BYTES
 
+        if exc.status_code == 400:  # o.a. een body die FastAPI niet kon ontleden: ook dan eerst authenticeren
+            refused = _auth_first(request)
+            if refused is not None:
+                return refused
         code, message = _HTTP_CODES.get(exc.status_code, ("http_error", "Verzoek mislukt."))
         headers = dict(exc.headers or {})
         details: dict[str, Any] = {"max_bytes": MAX_BODY_BYTES} if exc.status_code == 413 else {}

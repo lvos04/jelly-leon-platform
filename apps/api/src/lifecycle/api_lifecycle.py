@@ -23,7 +23,8 @@ from sqlalchemy.orm import Session
 
 from lifecycle.audit import audit
 from lifecycle.auth import Principal, require_read, require_write
-from lifecycle.errors import ApiError, capability_unavailable, trace_id_of
+from lifecycle.errors import ApiError, capability_unavailable, invalid_input, trace_id_of
+from lifecycle.idempotency import parse_key
 from lifecycle.models import LifecycleRun, LifecycleTransition
 from lifecycle.outbox import emit
 from lifecycle.pagination import clamp_limit, decode_cursor, encode_cursor
@@ -197,7 +198,7 @@ def list_runs(
             at = datetime.fromisoformat(str(position["c"]))
             rid = uuid.UUID(str(position["i"]))
         except (KeyError, ValueError) as exc:
-            raise ApiError(400, "invalid_cursor", "Ongeldige cursor.") from exc
+            raise invalid_input("cursor", "Ongeldige cursor.", "invalid_cursor") from exc
         stmt = stmt.where(
             or_(LifecycleRun.created_at < at, and_(LifecycleRun.created_at == at, LifecycleRun.id < rid))
         )
@@ -332,7 +333,7 @@ def transition_run(
                 412,
                 "precondition_failed",
                 "De run is intussen gewijzigd; haal hem opnieuw op en probeer het opnieuw.",
-                {"current_etag": etag_of(run)},
+                {"huidige_etag": etag_of(run), "current_etag": etag_of(run)},  # current_etag: 1.2-naam
             )
         current = LifecycleState(run.state)
         evidence: dict[str, Any] = {**body.evidence, "reason": body.reason}
@@ -406,7 +407,14 @@ _P2 = {
 
 
 def _make_placeholder(feature: str, phase: str) -> Any:
-    def placeholder(_: Annotated[Principal, Depends(require_write)]) -> None:
+    """Plaatshouder voor P2. Contract 1.3 §5: een POST vraagt een ``Idempotency-Key`` (geen uitzondering nodig: de
+    sleutel wordt na de authenticatie gecontroleerd, daarna eerlijk 501 — er wordt niets uitgevoerd)."""
+
+    def placeholder(
+        _: Annotated[Principal, Depends(require_write)],
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    ) -> None:
+        parse_key(idempotency_key)
         raise capability_unavailable(feature, phase)
 
     return placeholder

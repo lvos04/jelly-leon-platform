@@ -2,8 +2,9 @@
 
 - Andere body met dezelfde sleutel → 422 ``idempotency_key_reused``.
 - Eerste verzoek nog bezig → 409 ``idempotency_in_progress`` (na 5 minuten mag een nieuw verzoek het overnemen).
-- 2xx- en 4xx-antwoorden worden bewaard en exact herhaald (kop ``Idempotent-Replayed: true``); 5xx niet, zodat een
-  herhaling na een interne fout opnieuw mag proberen.
+- 2xx- en 4xx-antwoorden worden bewaard en exact herhaald met de kop ``Idempotent-Replay: true`` (contract 1.3 §5;
+  de 1.2-kop ``Idempotent-Replayed: true`` gaat één overgangsrelease mee); 5xx niet, zodat een herhaling na een interne
+  fout opnieuw mag proberen.
 """
 
 from __future__ import annotations
@@ -108,7 +109,8 @@ class Idempotency:
             if existing.status != "completed":
                 raise ApiError(409, "idempotency_in_progress", "Een verzoek met deze Idempotency-Key is nog bezig.")
             headers = dict(existing.response_headers or {})
-            headers["Idempotent-Replayed"] = "true"
+            headers["Idempotent-Replay"] = "true"
+            headers["Idempotent-Replayed"] = "true"  # 1.2-naam, één overgangsrelease (ADR-0019)
             replay = dict(existing.response_body or {})
             if (existing.response_status or 200) >= 400:
                 replay["trace_id"] = trace_id
