@@ -16,12 +16,24 @@ import logging
 import sys
 from pathlib import Path
 
-from lifecycle.config import ConfigError, load_settings
+from lifecycle.config import ConfigError, Settings, load_settings
+
+log = logging.getLogger("lifecycle")
 
 
 def _setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
+    # contract 1.3 §3.7: geen Hub-adres van een mislukte koppelpoging in de log; httpx logt elk verzoek met de URL
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+
+def _meld_instellingen(settings: Settings) -> None:
+    """Contract 1.3: een ongeldige HUB_URL, HUB_KEY_FINGERPRINT of LIFECYCLE_PUBLIC_URL stopt de dienst niet; de
+    waarschuwing staat één keer in de app-log (zonder waarde)."""
+    for waarschuwing in settings.warnings:
+        log.warning("instelling: %s", waarschuwing)
 
 
 def cmd_init() -> int:
@@ -67,6 +79,7 @@ def cmd_api() -> int:
     from lifecycle.app import create_app
 
     settings = load_settings()
+    _meld_instellingen(settings)
     # /readyz (Docker-healthcheck elke 30 s) leest de schemaversie; zonder dit twee INFO-regels per controle in de log
     logging.getLogger("alembic.runtime.migration").setLevel(logging.WARNING)
     uvicorn.run(
@@ -85,7 +98,9 @@ def cmd_api() -> int:
 def cmd_worker() -> int:
     from lifecycle.worker import Worker
 
-    Worker(load_settings()).run()
+    settings = load_settings()
+    _meld_instellingen(settings)
+    Worker(settings).run()
     return 0
 
 

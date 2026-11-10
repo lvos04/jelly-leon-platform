@@ -21,13 +21,37 @@
   "licht",
   "donker"
  ],
+ "lettertype": "systeemlettertype",
  "toestanden": {
+  "adres-niet-toegestaan": {
+   "axe": 0,
+   "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 9.32
+   },
+   "min_ui_contrast": {
+    "licht": 5.41,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
+   "fouten": [],
+   "tab": {
+    "licht-390": 7,
+    "licht-1440": 7,
+    "donker-390": 7,
+    "donker-1440": 7
+   }
+  },
   "beperkt": {
    "axe": 0,
    "overloop_320": 0,
    "min_tekstcontrast": {
     "licht": 8.34,
-    "donker": 9.6
+    "donker": 10.58
    },
    "min_ui_contrast": {
     "licht": 5.89,
@@ -50,7 +74,7 @@
    "overloop_320": 0,
    "min_tekstcontrast": {
     "licht": 8.34,
-    "donker": 9.6
+    "donker": 10.58
    },
    "min_ui_contrast": {
     "licht": 5.89,
@@ -76,8 +100,8 @@
     "donker": 10.58
    },
    "min_ui_contrast": {
-    "licht": 6.36,
-    "donker": 7.78
+    "licht": 5.41,
+    "donker": 6.11
    },
    "min_focusring": {
     "licht": 8.34,
@@ -96,22 +120,22 @@
    "overloop_320": 0,
    "min_tekstcontrast": {
     "licht": 8.34,
-    "donker": 9.32
+    "donker": 10.58
    },
    "min_ui_contrast": {
-    "licht": 5.89,
+    "licht": 5.41,
     "donker": 6.11
    },
    "min_focusring": {
     "licht": 8.34,
-    "donker": 8.63
+    "donker": 9.51
    },
    "fouten": [],
    "tab": {
-    "licht-390": 7,
-    "licht-1440": 7,
-    "donker-390": 7,
-    "donker-1440": 7
+    "licht-390": 3,
+    "licht-1440": 3,
+    "donker-390": 3,
+    "donker-1440": 3
    }
   },
   "koppelen-invoer-ongeldig": {
@@ -168,7 +192,7 @@
     "donker": 9.32
    },
    "min_ui_contrast": {
-    "licht": 5.89,
+    "licht": 5.41,
     "donker": 6.11
    },
    "min_focusring": {
@@ -191,7 +215,7 @@
     "donker": 9.32
    },
    "min_ui_contrast": {
-    "licht": 5.89,
+    "licht": 5.41,
     "donker": 6.11
    },
    "min_focusring": {
@@ -215,7 +239,7 @@
    },
    "min_ui_contrast": {
     "licht": 5.71,
-    "donker": 7.78
+    "donker": 6.11
    },
    "min_focusring": {
     "licht": 8.34,
@@ -237,8 +261,8 @@
     "donker": 10.58
    },
    "min_ui_contrast": {
-    "licht": 6.36,
-    "donker": 7.78
+    "licht": 5.41,
+    "donker": 6.11
    },
    "min_focusring": {
     "licht": 8.34,
@@ -250,6 +274,29 @@
     "licht-1440": 3,
     "donker-390": 3,
     "donker-1440": 3
+   }
+  },
+  "verouderd": {
+   "axe": 0,
+   "overloop_320": 0,
+   "min_tekstcontrast": {
+    "licht": 8.34,
+    "donker": 10.58
+   },
+   "min_ui_contrast": {
+    "licht": 5.41,
+    "donker": 6.11
+   },
+   "min_focusring": {
+    "licht": 8.34,
+    "donker": 8.63
+   },
+   "fouten": [],
+   "tab": {
+    "licht-390": 4,
+    "licht-1440": 4,
+    "donker-390": 4,
+    "donker-1440": 4
    }
   }
  },

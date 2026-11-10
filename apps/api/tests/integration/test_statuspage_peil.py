@@ -122,7 +122,9 @@ def snapshot(naam: str, response: Any) -> None:
         return
     out = Path(SNAPSHOTS)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{naam}.html").write_text(response.text, encoding="utf-8")
+    # schermafdrukken komen in de repo: het tijdelijke testpad (met gebruikersnaam) wordt het pad in de image
+    html = re.sub(r"/tmp/pytest-of-[^/<]+/pytest-\d+/[^/<]+/secrets/", "/appdata/secrets/", response.text)
+    (out / f"{naam}.html").write_text(html, encoding="utf-8")
     keep = ("Content-Security-Policy", "Content-Type", "X-Frame-Options", "X-Content-Type-Options",
             "Referrer-Policy", "Cache-Control")
     (out / f"{naam}.headers.json").write_text(json.dumps({k: response.headers[k] for k in keep}, indent=1))

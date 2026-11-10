@@ -1,7 +1,7 @@
 # CI voor jelly-leon-platform: lint, types, tests (met PostgreSQL 16), migraties, OpenAPI-drift, pip-audit,
 # TrueNAS-simulator, simulators van derden (Beszel, Uptime Kuma, Gotify, Authentik), installeerbare manifesten met de
-# validator van appstore-en-fork (--strict) en de controlelijsten I01/I02, Hub-conformiteit (contract 1.2), Peil- en
-# I23-manifestkopie zonder drift met ai-server-manager, de statuspagina in Chromium (axe-core, 320–1440 px), en de
+# validator van appstore-en-fork (--strict) en de controlelijsten I01/I02, Hub-conformiteit (contract 1.3), contract-,
+# Peil- en I23-manifestkopie gepind op ai-server-manager, de statuspagina in Chromium (axe-core, 320–1440 px), en de
 # alles-in-één image bouwen + starten met healthcheck + image-E2E (elk proces, ook PID 1, als 568 zonder capabilities
 # met no_new_privs).
 # Geen geheimen nodig. Base-images en actions op vaste versie/digest.
@@ -65,9 +65,9 @@ jobs:
       - name: Tests simulators Beszel, Uptime Kuma, Gotify en Authentik (protocol + foutinjectie)
         working-directory: e2e/simulators
         run: python -m pytest -q
-      - name: Conformiteit met contract 1.2 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
+      - name: Conformiteit met contract 1.3 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
         run: python -m pytest -q tests/conformance
-      - name: Peil-bron ophalen (ai-server-manager, alleen lezen; voor de drift-controle O-14)
+      - name: Contract- en Peil-bron ophalen (ai-server-manager, alleen lezen; pin- en driftcontrole)
         run: |
           git clone --quiet --filter=blob:none --no-checkout --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/ai-server-manager.git "$RUNNER_TEMP/peil-bron"
@@ -85,7 +85,7 @@ jobs:
         env:
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
         run: python tools/manifesten.py
-      - name: Manifest-, controlelijst-, documentatie- en kopiecontroles (faalt bij drift met ai-server-manager)
+      - name: Manifest-, controlelijst-, documentatie-, contract- en Peil-kopiecontroles (pin en drift met ai-server-manager)
         env:
           PEIL_BRON: ${{ runner.temp }}/peil-bron
           PEIL_BRON_VERPLICHT: "1"
@@ -100,11 +100,12 @@ jobs:
         run: pip-audit --strict --require-hashes --disable-pip -r apps/api/requirements.lock
 
   statuspagina:
-    # Peil-statuspagina (JP11): HTML per toestand uit de echte dienst (PostgreSQL + Hub-simulator), daarna in Chromium:
-    # axe-core (WCAG 2.2 AA-tags) = 0, geen overloop op 320 px, doelen ≥ 44 px, tekst ≥ 14 px, focusring, CSP zonder
-    # overtredingen; schermafdrukken als artefact (geen pixel-baselines, ONTWERPTAAL §12).
+    # Peil-statuspagina 1.1.1 (JP11): HTML per toestand uit de echte dienst (PostgreSQL + Hub-simulator), daarna in
+    # Chromium: axe-core (WCAG 2.2 AA-tags) = 0, geen overloop en geen inhoud buiten zijn element op 320–1440 px, ook
+    # met DejaVu Sans, doelen ≥ 44 px, tekst ≥ 14 px, focusring, CSP zonder overtredingen; live met de negatieve
+    # herkomstgevallen van contract 1.3 §3.7; schermafdrukken als artefact (geen pixel-baselines, ONTWERPTAAL §12).
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: docker.io/library/postgres:16.15-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
@@ -138,7 +139,11 @@ jobs:
         run: |
           node tests/ui/controle.mjs --map "$RUNNER_TEMP/statuspagina" --shots "$RUNNER_TEMP/schermafdrukken" \
             --rapport "$RUNNER_TEMP/schermafdrukken/rapport.json"
-      - name: Live ontwerpreview (dienst als echte processen)
+      - name: Browsercontrole met DejaVu Sans (reflow met het lettertype van de runner, Peil 1.1.1 E12)
+        run: |
+          node tests/ui/controle.mjs --map "$RUNNER_TEMP/statuspagina" --letter "DejaVu Sans" \
+            --rapport "$RUNNER_TEMP/schermafdrukken/rapport-dejavu.json"
+      - name: Live ontwerpreview (dienst als echte processen; negatieve herkomstgevallen in Chromium, §3.7)
         run: |
           node tests/ui/live/live.mjs --map "$RUNNER_TEMP/live" --python "$(command -v python)"
           node tests/ui/controle.mjs --map "$RUNNER_TEMP/live" --shots "$RUNNER_TEMP/schermafdrukken/live" \

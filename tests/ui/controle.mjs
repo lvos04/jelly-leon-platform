@@ -15,15 +15,18 @@
 //   - geen tekst < 14 px, één h1
 //   - gemeten contrast in de gerenderde pagina: tekst ≥ 4,5:1; UI-grenzen ≥ 3:1 (veldrand, knop, betekenisdragende
 //     pilrand, meldingsrand, iconen, trace-ID-kader)
-//   - statusregels: elke pil heeft icoon + woord; icoon en pilvorm horen bij elkaar; groen alleen bij Gezond; totaal
-//     nooit Gezond als de dienst niet gereed is of een controle niet gezond is; één woord = één uiterlijk per pagina
-//   - microcopy: geen woorden die de Peil-woordenlijst vervangt (§11.1), geen uitroeptekens
+//   - statusregels (Peil 1.1.1): elke pil heeft icoon + woord; het symbool heet #i-<toon> (E03); groen alleen bij
+//     Gezond; totaal nooit Gezond als de dienst niet gereed is of een controle niet gezond is; één woord = één uiterlijk
+//   - inhoud buiten zijn element (1.1.1, E12): geen pil, knop, rij, melding of blok waarvan de inhoud uitsteekt
+//   - microcopy: geen woorden die de Peil-woordenlijst vervangt (§11.1), geen uitroeptekens; "In orde" nooit als
+//     statuswoord (de vaste uitleg van Gereed gebruikt het als gewone zin)
 //   - CSP: geen enkele overtreding en geen enkel extra verzoek naast de pagina zelf
 // Op 390 en 1440 (licht en donker) ook een Tab-doorloop: elk element krijgt een zichtbare focusring ≥ 3 px met
 // ≥ 3:1 contrast tegen de achtergrond, en de focus wordt niet bedekt.
 // Op 320 px per thema ook: tekstafstand volgens WCAG 1.4.12 (geen overloop, niets afgekapt) en forced colors
 // (stippelrand van Onbekend blijft, focusring blijft).
-// Met --shots: volledige schermafdrukken (standaard de vijf hoofdtoestanden op 320/360/390/768/1440 × licht/donker).
+// Met --shots: volledige schermafdrukken (standaard de hoofdtoestanden op 320/360/390/768/1440 × licht/donker).
+// Met --letter "DejaVu Sans" (of PEIL_LETTER): meten met dat lettertype, zoals de Ubuntu-runner in CI (1.1.1, E12).
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -36,13 +39,18 @@ const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const BREEDTES = [320, 360, 390, 768, 1024, 1440];
 const THEMAS = { licht: 'light', donker: 'dark' };
 const TAB_BREEDTES = [390, 1440];
-const HOOFDTOESTANDEN = ['niet-gekoppeld', 'koppelen-mislukt', 'gekoppeld', 'ingetrokken', 'niet-gereed'];
+const HOOFDTOESTANDEN = ['niet-gekoppeld', 'koppelen-mislukt', 'gekoppeld', 'ingetrokken', 'niet-gereed', 'koppelen-bezig',
+  'onleesbaar'];
 const SHOT_BREEDTES = [320, 360, 390, 768, 1440];
 // Peil §11.1 "Niet meer" (en §11 toon): deze woorden komen op een statuspagina niet voor.
-const VERBODEN = [/\bin orde\b/i, /\bActueel\b/, /\bVerminderd\b/, /\bVerstoord\b/, /\bLet op\b/, /\bOffline\b/,
+const VERBODEN = [/\bActueel\b/, /\bVerminderd\b/, /\bVerstoord\b/, /\bLet op\b/, /\bOffline\b/,
   /\bProbleem\b/, /\bniet gezond\b/i, /Laden…/, /\bKlaar\b/, /\bGelukt\b/, /\bOK\b/, /\bDoorgaan\b/,
   /Weet je het zeker/i, /\bsnooze/i, /\bsafe mode\b/i, /\bblast radius\b/i, /\brunbook\b/i, /\bhealthcheck\b/i,
   /\ballowlist\b/i, /!/];
+
+function letterCss(letter) {
+  return letter ? `body, body *:not(code):not(kbd):not(samp):not(pre):not(.mono){font-family:${JSON.stringify(letter)},sans-serif !important}` : '';
+}
 
 function args(argv) {
   const out = {};
@@ -143,8 +151,10 @@ function meet(verboden) {
     for (const svg of el.querySelectorAll(':scope > svg')) ui(`icoon in ${naam(el)}`, rgba(getComputedStyle(svg).color), eigen);
   }
   // --- statusregels (ONTWERPTAAL §4.1–§4.3)
-  const ICOON = { gezond: ['gezond'], beperkt: ['beperkt'], storing: ['storing'], onbekend: ['onbekend', 'niet-gekoppeld'],
-    gate: ['gate'], neutraal: ['gekoppeld'] };
+  // Peil 1.1.1 (E03/E04): het symbool heet altijd #i-<toon>; de neutrale pil "Gekoppeld" heeft link-2
+  const ICOON = { gezond: ['gezond'], beperkt: ['beperkt'], storing: ['storing'], onbekend: ['onbekend'],
+    'niet-gekoppeld': ['niet-gekoppeld'], 'niet-beschikbaar': ['niet-beschikbaar'], verouderd: ['verouderd'],
+    'nog-niet': ['nog-niet'], gate: ['gate'], beleid: ['beleid'], feit: ['feit'], neutraal: ['gekoppeld'] };
   const root = getComputedStyle(document.documentElement);
   const groen = ['--healthy', '--healthy-ink', '--healthy-bg'].map((v) => rgba(root.getPropertyValue(v).trim()).slice(0, 3).join(','));
   const uiterlijk = new Map();
@@ -175,6 +185,17 @@ function meet(verboden) {
     if (totaal.classList.contains('pil-gezond') && !gereed.startsWith('Ja')) fouten.push(`totaal groen terwijl Gereed = "${gereed}"`);
     const nietGezond = [...document.querySelectorAll('#h-status ~ .checks .pil')].filter((p) => !p.classList.contains('pil-gezond'));
     if (totaal.classList.contains('pil-gezond') && nietGezond.length) fouten.push('totaal groen terwijl een controle niet gezond is');
+  }
+  // --- inhoud buiten zijn element (1.1.1, E12): ziet wat de paginaoverloop mist
+  for (const el of document.querySelectorAll('a, button, label, li, dd, .pil, .melding, .blok, .veld, .totaal')) {
+    if (!zichtbaar(el) || verborgen(el)) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'inline' || cs.display === 'contents' || cs.overflowX !== 'visible') continue;
+    const over = el.scrollWidth - el.clientWidth;
+    if (over > 1) fouten.push(`inhoud buiten zijn element (${over} px): ${naam(el)}`);
+  }
+  for (const pil of document.querySelectorAll('.pil, .totaal')) {
+    if (/\bin orde\b/i.test(pil.textContent)) fouten.push(`microcopy: "In orde" als statuswoord (§11.1): "${pil.textContent.trim()}"`);
   }
   // --- microcopy
   const tekst = document.body.innerText;
@@ -247,11 +268,11 @@ function afgekapt() {
 }
 function forcedColors() {
   const fouten = [];
-  for (const pil of document.querySelectorAll('.pil-onbekend')) {
+  for (const pil of document.querySelectorAll('.pil-onbekend, .pil-niet-gekoppeld, .pil-niet-beschikbaar, .pil-verouderd')) {
     const cs = getComputedStyle(pil);
-    if (cs.borderTopStyle !== 'dashed' || parseFloat(cs.borderTopWidth) < 2) fouten.push(`forced colors: stippelrand van Onbekend weg ("${pil.textContent.trim()}")`);
+    if (cs.borderTopStyle !== 'dashed' || parseFloat(cs.borderTopWidth) < 2) fouten.push(`forced colors: stippelrand weg ("${pil.textContent.trim()}")`);
   }
-  for (const pil of document.querySelectorAll('.pil-beperkt, .pil-storing, .pil-neutraal, .pil-gate, .melding, .veld input')) {
+  for (const pil of document.querySelectorAll('.pil-beperkt, .pil-storing, .pil-neutraal, .pil-gate, .pil-beleid, .pil-nog-niet, .pil-feit, .melding, .veld input')) {
     const cs = getComputedStyle(pil);
     if (cs.borderTopStyle === 'none' || parseFloat(cs.borderTopWidth) < 1) fouten.push(`forced colors: rand weg (${pil.className})`);
   }
@@ -266,13 +287,19 @@ async function main() {
   const shotBreedtes = opt['shot-breedtes'] ? opt['shot-breedtes'].split(',').map(Number) : SHOT_BREEDTES;
   if (opt.shots) for (const t of shotToestanden) if (!toestanden.includes(t)) throw new Error(`momentopname ontbreekt: ${t}`);
   const verboden = VERBODEN.map((re) => ({ bron: re.source, vlag: re.flags }));
+  const letter = opt.letter || process.env.PEIL_LETTER || '';
+  const css = letterCss(letter);
+  const laad = async (page, url) => {
+    await page.goto(url, { waitUntil: 'load' });
+    if (css) await page.addStyleTag({ content: css });
+  };
   const server = await serve(opt.map);
   const basis = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch();
   const rapport = {
     chromium: browser.version(), playwright: require('playwright/package.json').version,
     axe_core: require('axe-core/package.json').version, axe_tags: AXE_TAGS, breedtes: BREEDTES,
-    themas: Object.keys(THEMAS), toestanden: {}, fouten: 0,
+    themas: Object.keys(THEMAS), lettertype: letter || 'systeemlettertype', toestanden: {}, fouten: 0,
   };
   if (opt.shots) fs.mkdirSync(opt.shots, { recursive: true });
   try {
@@ -290,7 +317,7 @@ async function main() {
         for (const breedte of BREEDTES) {
           await page.setViewportSize({ width: breedte, height: 900 });
           verzoeken.length = 0;
-          await page.goto(`${basis}/${toestand}`, { waitUntil: 'load' });
+          await laad(page, `${basis}/${toestand}`);
           const extra = verzoeken.filter((u) => u !== `${basis}/${toestand}` && !u.endsWith('/favicon.ico'));
           if (extra.length) r.fouten.push(`${thema} ${breedte}: extra verzoeken ${extra.join(', ')}`);
           const m = await page.evaluate(meet, verboden);
@@ -309,23 +336,23 @@ async function main() {
             for (const f of tab.fouten) r.fouten.push(`${thema} ${breedte}: ${f}`);
           }
           if (breedte === 320) {
-            await page.goto(`${basis}/${toestand}`, { waitUntil: 'load' });
+            await laad(page, `${basis}/${toestand}`);
             await page.addStyleTag({ content: TEKSTAFSTAND });
             for (const f of await page.evaluate(afgekapt)) r.fouten.push(`${thema} ${breedte}: ${f}`);
             await page.emulateMedia({ forcedColors: 'active' });
-            await page.goto(`${basis}/${toestand}`, { waitUntil: 'load' });
+            await laad(page, `${basis}/${toestand}`);
             for (const f of await page.evaluate(forcedColors)) r.fouten.push(`${thema} ${breedte}: ${f}`);
             await page.emulateMedia({ forcedColors: 'none' });
           }
           if (opt.shots && shotToestanden.includes(toestand) && shotBreedtes.includes(breedte)) {
-            await page.goto(`${basis}/${toestand}`, { waitUntil: 'load' });
+            await laad(page, `${basis}/${toestand}`);
             await page.screenshot({ path: path.join(opt.shots, `${toestand}-${thema}-${breedte}.png`), fullPage: true });
           }
         }
         if (opt.shots && shotToestanden.includes(toestand)) {
           for (const breedte of shotBreedtes.filter((b) => !BREEDTES.includes(b))) {
             await page.setViewportSize({ width: breedte, height: 900 });
-            await page.goto(`${basis}/${toestand}`, { waitUntil: 'load' });
+            await laad(page, `${basis}/${toestand}`);
             await page.screenshot({ path: path.join(opt.shots, `${toestand}-${thema}-${breedte}.png`), fullPage: true });
           }
         }
@@ -354,7 +381,7 @@ async function main() {
   }
   if (opt.rapport) fs.writeFileSync(opt.rapport, `${JSON.stringify(rapport, null, 1)}\n`);
   console.log(rapport.fouten === 0
-    ? `Geslaagd: ${toestanden.length} toestanden × ${BREEDTES.length} breedtes × 2 thema's, axe 0 overtredingen, contrast tekst ≥ 4,5:1 en UI/focus ≥ 3:1, geen overloop.`
+    ? `Geslaagd: ${toestanden.length} toestanden × ${BREEDTES.length} breedtes × 2 thema's (${rapport.lettertype}), axe 0 overtredingen, contrast tekst ≥ 4,5:1 en UI/focus ≥ 3:1, geen overloop en geen inhoud buiten zijn element.`
     : `MISLUKT: ${rapport.fouten} bevinding(en).`);
   process.exit(rapport.fouten === 0 ? 0 : 1);
 }

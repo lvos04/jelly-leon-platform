@@ -5,7 +5,7 @@
    "actie": "GET /"
   },
   "koppelen-invoer-ongeldig": {
-   "http": 400,
+   "http": 422,
    "actie": "POST /koppelen"
   },
   "koppelen-code-geweigerd": {
@@ -22,7 +22,7 @@
   },
   "gekoppeld-bevestigd": {
    "http": 200,
-   "actie": "POST /koppelen → 303 → GET /?gekoppeld=1"
+   "actie": "POST /koppelen → 303 → GET /?melding=7uY2NPNDezzlL3xNY_L2lgKy"
   },
   "gekoppeld": {
    "http": 200,
@@ -44,6 +44,18 @@
    "http": 200,
    "actie": "GET /"
   },
+  "herkomst-geweigerd": {
+   "http": 403,
+   "actie": "POST /koppelen"
+  },
+  "adres-niet-toegestaan-live": {
+   "http": 200,
+   "actie": "GET /"
+  },
+  "host-niet-toegestaan": {
+   "http": 403,
+   "actie": "POST /koppelen"
+  },
   "koppelen-ingetrokken": {
    "http": 400,
    "actie": "POST /koppelen"
@@ -57,5 +69,43 @@
    "actie": "GET /"
   }
  },
- "hub_vingerafdruk": "W2EF-7TA7-3J2R-5SKF"
+ "hub_vingerafdruk": "9JES-AZ8Q-5ZE7-P608",
+ "negatief": {
+  "andere-app-zelfde-adres": {
+   "http": 403,
+   "code": "herkomst_ongeldig",
+   "origin": "http://127.0.0.1:33159",
+   "sec_fetch_site": "same-site",
+   "host": "127.0.0.1:38475"
+  },
+  "andere-site": {
+   "http": 403,
+   "code": "herkomst_ongeldig",
+   "origin": "http://localhost:33159",
+   "sec_fetch_site": "cross-site",
+   "host": "127.0.0.1:38475"
+  },
+  "origin-null": {
+   "http": 403,
+   "code": "herkomst_ongeldig",
+   "origin": "null",
+   "sec_fetch_site": "cross-site",
+   "host": "127.0.0.1:38475"
+  },
+  "host-niet-toegestaan": {
+   "http": 403,
+   "code": "host_niet_toegestaan",
+   "origin": "http://jlp.voorbeeld.test:38475",
+   "sec_fetch_site": null,
+   "host": "jlp.voorbeeld.test:38475"
+  },
+  "geen-cookie": {
+   "http": 403,
+   "code": "csrf_ongeldig",
+   "origin": "http://127.0.0.1:38475",
+   "sec_fetch_site": "same-origin",
+   "host": "127.0.0.1:38475"
+  }
+ },
+ "negatief_hub_enroll_verzoeken": 0
 }
