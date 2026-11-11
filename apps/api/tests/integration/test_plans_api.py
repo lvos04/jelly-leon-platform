@@ -405,3 +405,46 @@ def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: s
     assert gelezen["vrijgegeven_stappen"] == []  # een vervallen plan biedt geen stap meer aan
     r = _meld(client, auth, view["id"], "installeren", readback={"staat": "RUNNING"})
     assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")
+
+
+def test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij(client: Any, auth: Any, hub: Any,
+                                                                          clean_db: str) -> None:
+    """Karakteriseringstest van een BEKENDE BEPERKING (ADR-0025, "Bekende beperkingen en vervolgpunten"; vervolgpunt
+    R-TECH S-P2-395). Legt het huidige gedrag vast; het is geen gewenst gedrag en geen nieuw ontwerp.
+
+    Een updateplan waarvan nog geen stap is gemeld, vervalt op ``expires_at`` (ADR-0025 besluit 4). Komt de melding
+    van ``stoppen`` pas daarna binnen, terwijl de app via de Hub en de executor al gestopt kan zijn, dan weigert de
+    dienst die melding met 409 ``plan_vervallen``. Het plan geeft daardoor ook ``starten`` (de herstelstap van
+    ``stoppen``, ADR-0022 besluit 6) niet vrij: het plan biedt het opnieuw starten niet aan. De eigenaar start de app
+    dan zelf of maakt een nieuw plan op een verse meting. Wijzigt het gedrag van ``report_step``, dan hoort deze test
+    mee te veranderen, samen met de beperking in ADR-0025 en de opmerking bij B08-004."""
+    meetbaar(hub, h.gotify_record())
+    view = _update(client, auth)
+    pid = view["id"]
+    assert (view["status"], view["vrijgegeven_stappen"]) == ("klaar_voor_voorstel", ["stoppen"])
+    starten = next(s for s in view["plan"]["stappen"] if s["id"] == "starten")
+    assert starten.get("opruimen") is True and starten.get("herstelt") == "stoppen"
+
+    engine = create_engine(clean_db)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE lifecycle_plans SET expires_at = now() - interval '1 second' WHERE id = :id"),
+                         {"id": pid})
+    finally:
+        engine.dispose()
+
+    for status, readback in (("voltooid", {"staat": "STOPPED"}), ("mislukt", {"staat": "RUNNING"})):
+        r = _meld(client, auth, pid, "stoppen", status=status, readback=readback)
+        assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen"), r.text
+
+    gelezen = client.get(f"/lifecycle/v1/plans/{pid}", headers=auth("viewer")).json()
+    assert (gelezen["status"], gelezen["vervallen"], gelezen["vrijgegeven_stappen"]) == (
+        "klaar_voor_voorstel", True, [])
+    voortgang = {s["id"]: s for s in gelezen["voortgang"]}
+    assert voortgang["stoppen"]["gemeld_op"] is None and voortgang["stoppen"]["execution_id"] is None
+    assert voortgang["starten"]["status"] == "wacht"
+    r = _meld(client, auth, pid, "starten", readback={"staat": "RUNNING"})
+    assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")
+    assert rijen(clean_db, "SELECT count(*) FROM outbox_events WHERE event_type = 'lifecycle.plan.step_reported'") \
+        == [(0,)]
+    assert rijen(clean_db, "SELECT count(*) FROM audit_log WHERE action = 'lifecycle.plan.step_result'") == [(0,)]

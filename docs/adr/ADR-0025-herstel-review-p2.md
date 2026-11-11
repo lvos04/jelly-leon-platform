@@ -176,4 +176,14 @@
 - **Melden door de Hub alleen.** Zodra de Hub de resultaten van de executor zelf doorgeeft (contractvraag over de vorm
   van dat resultaat, ADR-0024), kan `…/result` voor actiestappen alleen voor `service` open. Eigenaar: de
   contracteigenaar (ai-server-manager) voor de resultaatvorm, daarna de regisseur (nog niet gepland).
+- **Late melding van `stoppen` na het vervallen** (vervolgpunt R-TECH van S-P2-395, vastgelegd in S-P2-400; eigenaar:
+  de regisseur, nog geen stap gepland). Een updateplan waarvan nog geen stap is gemeld, vervalt op `expires_at`
+  (besluit 4), soms al enkele seconden na het maken. Komt de melding van `stoppen` pas daarna binnen, terwijl de app
+  via de Hub en de executor al gestopt kan zijn, dan weigert `report_step` haar met 409 `plan_vervallen`. Het plan
+  geeft daardoor ook `starten` (de herstelstap van `stoppen`, ADR-0022 besluit 6) niet vrij en biedt het opnieuw
+  starten niet aan; de app kan gestopt blijven. De eigenaar start de app dan zelf of maakt een nieuw plan op een verse
+  meting. Voor beschermde apps speelt dit niet (geen enkele stap vrij). Het gedrag is bewust niet gewijzigd: wanneer
+  een melding van een al uitgevoerde stap na het vervallen nog mag, is een ontwerpvraag. Het huidige gedrag staat vast
+  in `apps/api/tests/integration/test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`
+  (karakteriseringstest; rood als de weigering in `report_step` wegvalt).
 - Alles hierboven is **Sim-getest**. Tegen de echte Hub, de echte executor en een echte NAS: NIET GEVALIDEERD.
