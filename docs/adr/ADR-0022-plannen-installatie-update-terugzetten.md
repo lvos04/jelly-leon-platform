@@ -4,6 +4,7 @@
 - Code: `apps/api/src/lifecycle/planner.py`, `hubread.py`, `api_plans.py`, migratie `0003_lifecycle_plans`
 - Test-stand-ins (géén productiecode): `e2e/simulators/hub/contract8.py`, `e2e/simulators/hub/hub_p2.py`,
   `e2e/simulators/hub/executor_sim.py`
+- Aangevuld door ADR-0024 (review P2): versheidsgrens van 900 s voor elk plan, bewijs van terugzetten met de digest
 
 ## Aanleiding
 
@@ -30,6 +31,9 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
      `catalogus.lezen`. **Het contract noemt geen pad en de Hub heeft de route nog niet.** Voorlopige keuze, op één
      plek (`hubread.CATALOG_AVAILABILITY_PATH`): `GET /api/v1/catalog/availability?train=&app=&version=`.
    Zonder scope of route → `capability_unavailable`; onbereikbaar, 5xx, 429/503, verouderd of onleesbaar → `unknown`.
+   Verouderd is ook een meting ouder dan 900 s of meer dan 2 minuten in de toekomst (§6.2, reden `meting_verouderd`),
+   ook als de Hub haar zelf niet zo noemt en ook voor een update- of terugzetplan; een catalogusmeting zonder
+   leesbaar tijdstip is `unknown` met reden `meting_zonder_tijdstip` (ADR-0024).
    Beide blokkeren. `version_unavailable` komt alleen uit een **meting** `nee`; `onbekend` wordt nooit als "aanwezig"
    gelezen en er wordt nooit stil een nieuwere versie of `latest` gekozen (§2.2). Uitzondering volgens §2.2: de update
    van een al geïnstalleerde Custom App wijzigt alleen de image; daar is de catalogusmeting geen blokkade.
@@ -52,8 +56,13 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    `installeren` moet de teruggelezen digest gelijk zijn aan de gepinde digest; anders is de stap `mislukt`
    (`readback_afwijking`), ook als de melder "voltooid" zegt.
 8. **Terugzetten.** Custom App: `app.rollback` met `herstel_van` = de `execution_id` van de update (de executor zet de
-   vorige waarden terug met `app.update`). Catalogusapp: alleen naar een versie die **gemeten** aanwezig is, anders
-   `version_unavailable`. Het terugzetten van **data** uit het herstelpunt is geen stap in het plan: dat is een
+   vorige waarden terug met `app.update`). De stap is pas `voltooid` als de readback de digest van vóór de update
+   toont (`diff.image.van` van het updateplan). Is die nooit gemeten, dan moet de readback een digest van dezelfde
+   repository tonen, maar niet de digest waar de update naartoe ging (`diff.image.naar`) of, bij alleen
+   `herstel_van`, de digest die bij het maken van het plan draaide; is geen enkele digest bekend, dan controleert de
+   stap alleen `staat: RUNNING`. In die twee gevallen waarschuwt het plan met `vorige_digest_onbekend` (ADR-0024).
+   Catalogusapp: alleen naar een versie die **gemeten** aanwezig is, anders `version_unavailable`; de readback moet
+   die versie tonen. Het terugzetten van **data** uit het herstelpunt is geen stap in het plan: dat is een
    eigenaarshandeling (`eigenaar_herstel`), omdat de allowlist van §8 bewust geen `zfs rollback`/`destroy` kent en
    data nooit automatisch wordt overschreven of verwijderd.
 9. **Image downloaden.** "Download unavailable image only after auth set" is gelezen als: er wordt niets opgehaald
