@@ -169,11 +169,17 @@ def test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij(client: An
         bron = view["plan"]["bronnen"]["inventaris"]
         assert (bron["status"], bron["reden"], bron["aantal_apps"]) == ("unknown", "meting_verouderd", None), soort
         assert bron["gemeten_op"] == p2._iso(p2.gemeten_op), soort
-    # dezelfde verzoeken op een verse meting worden wél een plan: de blokkade kwam alleen door de leeftijd
+    # dezelfde verzoeken op een verse meting: de blokkade door de leeftijd verdwijnt (alleen herstel_van kent nog steeds
+    # geen herstelpunt van vóór de update; dat blijft geblokkeerd, R-HARDE-EIS-1)
     p2.gemeten_op = None
     vers = client.post(PREVIEW.format("rollback"), json={"app_name": "gotify", "herstel_van": EXEC},
                        headers=auth("operator", idem=True)).json()
-    assert vers["status"] == "klaar_voor_voorstel" and vers["vrijgegeven_stappen"] == ["terugzetten"]
+    assert vers["status"] == "geblokkeerd" and blokkades(vers) == {"herstelpunt_onbekend"}
+    assert vers["plan"]["bronnen"]["inventaris"]["status"] == "ok"
+    p2.zet_apps(h.gotify_record())
+    vers = client.post(PREVIEW.format("update"), json=body(schaduw={"parameters": h.SCHADUW}),
+                       headers=auth("operator", idem=True)).json()
+    assert vers["status"] == "klaar_voor_voorstel" and vers["vrijgegeven_stappen"] == ["stoppen"]
 
     p2.zet_apps()
     p2.catalogus_gemeten_op = p2.clock() - 1200  # de Hub zegt 'ja', maar op een meting van twintig minuten oud
@@ -273,14 +279,20 @@ def test_updateplan_geeft_stap_voor_stap_vrij(client: Any, auth: Any, hub: Any, 
 
 
 def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: Any) -> None:
+    """Terugzetten via het updateplan, voor de testvariant waarvoor alleen de image terugzetten veilig is (geen
+    migraties, ``tag_only_rollback_safe``; ADR-0025). Voor het echte Gotify-manifest: zie
+    ``test_terugzetten_na_update_met_migraties_is_geblokkeerd``."""
     p2 = meetbaar(hub, h.gotify_record())
-    view = _update(client, auth)
+    r = client.post(PREVIEW.format("update"), json={**body(), "manifest_yaml": h.gotify_alleen_image_veilig()},
+                    headers=auth("operator", idem=True))
+    assert r.status_code == 201, r.text
+    view = r.json()
+    assert [s["id"] for s in view["plan"]["stappen"]] == ["stoppen", "snapshot-data", "starten", "bijwerken"]
     pid = view["id"]
     goed = {"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.GOTIFY_DIGEST}"]}
     update_exec = str(uuid.uuid4())
     for stap, readback in (("stoppen", {"staat": "STOPPED"}), ("snapshot-data", {"staat": "AANWEZIG"}),
-                           ("starten", {"staat": "RUNNING"}), ("kloon-data", {"staat": "AANWEZIG"}),
-                           ("schaduw-installeren", goed)):
+                           ("starten", {"staat": "RUNNING"})):
         assert _meld(client, auth, pid, stap, readback=readback).status_code == 200
     # de update zelf start, maar de readback laat een andere digest zien → mislukt (nooit 'gelukt' op vertrouwen)
     fout = client.post(f"/lifecycle/v1/plans/{pid}/steps/bijwerken/result", headers=auth("operator", idem=True),
@@ -310,6 +322,8 @@ def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: A
                           readback={"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.OUDE_DIGEST}"]})
     assert terug_gelezen.status_code == 200 and terug_gelezen.json()["status"] == "voltooid", terug_gelezen.text
 
+    assert opnieuw["plan"]["stappen"][0]["herstelpunt"] == view["plan"]["vastgepind"]["snapshot_naam"]
+
     onbekend = client.post(PREVIEW.format("rollback"), json={"update_plan_id": str(uuid.uuid4())},
                            headers=auth("operator", idem=True))
     assert onbekend.status_code == 404
@@ -317,6 +331,31 @@ def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: A
                       {"app_name": "gotify", "catalog": {"train": "stable", "app": "gotify", "version": "latest"}}):
         r = client.post(PREVIEW.format("rollback"), json=fout_body, headers=auth("operator", idem=True))
         assert r.status_code == 422, r.text
+
+
+def test_terugzetten_na_update_met_migraties_is_geblokkeerd(client: Any, auth: Any, hub: Any) -> None:
+    """HARDE EIS (contract §2.3 regel 7a, EX15; R-HARDE-EIS-1): na een update van een app met migraties geeft het
+    terugzetplan geen ``app.rollback`` vrij — alleen de image terug zou de oude versie op de gemigreerde database
+    zetten. Het plan noemt de herstelpunten voor de eigenaar; melden van een stap wordt geweigerd."""
+    p2 = meetbaar(hub, h.gotify_record())
+    view = _update(client, auth)
+    pid = view["id"]
+    goed = {"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.GOTIFY_DIGEST}"]}
+    for stap, readback in (("stoppen", {"staat": "STOPPED"}), ("snapshot-data", {"staat": "AANWEZIG"}),
+                           ("starten", {"staat": "RUNNING"}), ("kloon-data", {"staat": "AANWEZIG"}),
+                           ("schaduw-installeren", goed), ("bijwerken", goed)):
+        assert _meld(client, auth, pid, stap, readback=readback).status_code == 200
+    p2.zet_apps(h.gotify_record(tag="3.1.1", digest=h.GOTIFY_DIGEST))
+    terug = client.post(PREVIEW.format("rollback"), json={"update_plan_id": pid}, headers=auth("operator", idem=True))
+    assert terug.status_code == 201, terug.text
+    tv = terug.json()
+    assert (tv["status"], tv["vrijgegeven_stappen"]) == ("geblokkeerd", []) and blokkades(tv) == {
+        "terugzetten_vraagt_data"}
+    details = tv["plan"]["blokkades"][0]["details"]
+    assert details["herstelpunten"] == view["plan"]["vastgepind"]["herstelpunten"] and details["migrations"] is True
+    r = _meld(client, auth, tv["id"], "terugzetten",
+              readback={"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.OUDE_DIGEST}"]})
+    assert (r.status_code, r.json()["code"]) == (409, "plan_geblokkeerd")
 
 
 def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: str) -> None:

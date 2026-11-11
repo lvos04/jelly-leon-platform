@@ -140,15 +140,46 @@ def test_update_met_schaduwtest_en_daarna_terugzetten(keten: k.Keten) -> None:
     assert kloon in keten.inhoud()["datasets"] and view["vrijgegeven_stappen"] == ["kloon-opruimen"]
     assert h.stap(view["plan"], "kloon-opruimen")["voorstel"] is None
 
-    # terugzetten: app.update met de bewaarde vorige waarden — geen app.rollback, geen snapshot-rollback
+    # terugzetten: Gotify migreert de database; alleen de image terugzetten zou de oude versie op de gemigreerde data
+    # zetten (contract §2.3 regel 7a, EX15). Het plan geeft dus niets vrij en noemt de herstelpunten voor de eigenaar;
+    # er gaat niets naar de NAS (R-HARDE-EIS-1, ADR-0025).
+    voor = muterend(keten)
+    terug = keten.plan("rollback", {"update_plan_id": view["id"]})
+    assert (terug["soort"], terug["status"], terug["vrijgegeven_stappen"]) == ("rollback", "geblokkeerd", []), \
+        terug["plan"]
+    assert h.codes(terug["plan"]) == {"terugzetten_vraagt_data"}
+    assert terug["plan"]["blokkades"][0]["details"]["herstelpunten"] == [f"{k.DATASET}@{snapshot}"]
+    assert keten.loop(terug)["vrijgegeven_stappen"] == [] and muterend(keten) == voor
+    productie = keten.app("gotify")
+    assert productie is not None and productie["active_workloads"]["images"] == [NIEUW]
+    assert not any(m.endswith((".delete", ".destroy")) and not m.startswith("app.") for m in muterend(keten))
+    assert keten.inhoud()["snapshots"][f"{k.DATASET}@{snapshot}"] == DATA_VOOR  # het herstelpunt staat er nog
+    assert keten.overtredingen() == []
+
+
+def test_terugzetten_alleen_image_door_de_hele_keten(keten: k.Keten) -> None:
+    """Terugzetten van alleen de image, voor de testvariant waarvoor dat veilig is (geen migraties,
+    ``tag_only_rollback_safe``; ADR-0025): app.update met de bewaarde vorige waarden — geen app.rollback van TrueNAS,
+    geen snapshot-rollback — met het herstelpunt van vóór de update in de goedkeuring."""
+    k.gotify_draait(keten)
+    view = keten.plan("update", {**keten.body(), "manifest_yaml": h.gotify_alleen_image_veilig()})
+    assert [s["id"] for s in view["plan"]["stappen"]] == ["stoppen", "snapshot-data", "starten", "bijwerken"]
+    snapshot = view["plan"]["vastgepind"]["snapshot_naam"]
+    view = keten.loop(view, tot="starten")
+    bij = keten.voer_uit(view, "bijwerken")
+    assert bij.resultaat["status"] == "voltooid", bij.resultaat
+    productie = keten.app("gotify")
+    assert productie is not None and productie["active_workloads"]["images"] == [NIEUW]
+
     terug = keten.plan("rollback", {"update_plan_id": view["id"]})
     assert (terug["soort"], terug["status"]) == ("rollback", "klaar_voor_voorstel"), terug["plan"]
-    stap_id = next(s["id"] for s in terug["plan"]["stappen"]
-                   if s["voorstel"] and s["voorstel"]["action_id"] == "app.rollback")
-    assert h.stap(terug["plan"], stap_id)["voorstel"]["parameters"] == {"herstel_van": bij.resultaat["execution_id"]}
+    s = h.stap(terug["plan"], "terugzetten")
+    assert s["voorstel"]["parameters"] == {"herstel_van": bij.resultaat["execution_id"]}
+    assert s["herstelpunt"] == snapshot
     voor = muterend(keten)
-    terug = keten.loop(terug)
-    assert h.status(terug["voortgang"])[stap_id] == "voltooid", terug["voortgang"]
+    uitkomst = keten.voer_uit(terug, "terugzetten")
+    assert uitkomst.request["approval"]["backup_checkpoint_id"] == snapshot
+    assert h.status(uitkomst.plan["voortgang"])["terugzetten"] == "voltooid", uitkomst.plan["voortgang"]
     productie = keten.app("gotify")
     assert productie is not None and productie["state"] == "RUNNING"
     assert productie["active_workloads"]["images"] == [OUD]

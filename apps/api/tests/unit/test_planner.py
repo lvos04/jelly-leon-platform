@@ -21,6 +21,7 @@ from planhulp import (
     OUDE_DIGEST,
     SCHADUW,
     codes,
+    gotify_alleen_image_veilig,
     gotify_record,
     inventaris,
     manifest,
@@ -334,7 +335,10 @@ def test_verouderde_inventaris_geeft_voor_geen_enkel_soort_plan_een_stap_vrij(ve
 def test_verse_inventaris_binnen_de_grens_geeft_wel_vrij(verschil: timedelta) -> None:
     gotify = verschoven(inventaris(gotify_record(tag="3.1.1", digest=GOTIFY_DIGEST)), verschil)
     node_red = verschoven(inventaris(NODE_RED), verschil)
-    for naam, doc in elk_soort_plan(gotify, node_red).items():
+    plannen = elk_soort_plan(gotify, node_red)
+    # met alleen herstel_van kent een terugzetplan geen herstelpunt: dat blokkeert altijd, maar niet op de meting
+    assert codes(plannen.pop("terugzetten (herstel_van)")) == {"herstelpunt_onbekend"}
+    for naam, doc in plannen.items():
         assert doc["blokkades"] == [], naam
         assert "vrijgegeven" in status(planner.begin(doc)).values(), naam
 
@@ -359,8 +363,9 @@ def test_verouderde_catalogusmeting_is_onbekend_ook_als_ze_ja_zei(gemeten_op: st
                                                   beschikbaar=meting_van(gemeten_op)),
     }
     for naam, doc in plannen.items():
-        assert codes(doc) == {"version_availability_unknown"}, naam
-        details = doc["blokkades"][0]["details"]
+        # terugzetten naar een catalogusversie kent daarnaast geen herstelpunt (R-HARDE-EIS-1)
+        assert codes(doc) - {"herstelpunt_onbekend"} == {"version_availability_unknown"}, naam
+        details = next(b["details"] for b in doc["blokkades"] if b["code"] == "version_availability_unknown")
         assert (details["reden"], details["gemeten_op"]) == (reden, gemeten_op), naam
         geen_stap_vrij(doc)
     bron = plannen["installeren"]["bronnen"]["catalogus"]
@@ -467,11 +472,21 @@ def test_voltooid_telt_alleen_met_kloppende_readback() -> None:
 
 
 # ------------------------------------------------------------------ terugzetten (B08-004)
-def bijgewerkt() -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    doc = update()
-    v = tot_schaduw(doc)
-    v = meld(doc, v, "schaduw-installeren", readback=GOED)
-    # de update zelf mislukt bij de readback (bijvoorbeeld een migratiefout in productie)
+def bijgewerkt(*, veilig: bool = True, **kw: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Een updateplan dat tot en met 'bijwerken' liep; de update zelf mislukt bij de readback (bijvoorbeeld een
+    migratiefout in productie). ``veilig``: de testvariant waarvoor alleen de image terugzetten veilig is (geen
+    migraties, ``tag_only_rollback_safe``); anders het echte Gotify-manifest (migraties, testkopie)."""
+    if veilig:
+        doc = update(manifest_yaml=gotify_alleen_image_veilig(), schaduw_parameters=None, **kw)
+        v = planner.begin(doc)
+        v = meld(doc, v, "stoppen", readback={"staat": "STOPPED"})
+        v = meld(doc, v, "snapshot-data")
+        v = meld(doc, v, "starten", readback={"staat": "RUNNING"})
+    else:
+        doc = update(**kw)
+        v = tot_schaduw(doc)
+        v = meld(doc, v, "schaduw-installeren", readback=GOED)
+    assert status(v)["bijwerken"] == "vrijgegeven", v
     v = meld(doc, v, "bijwerken", readback={"staat": "CRASHED", "digests": GOED["digests"]})
     assert status(v)["bijwerken"] == "mislukt"
     return doc, v
@@ -488,6 +503,7 @@ def terug(**kw: Any) -> dict[str, Any]:
 
 def test_terugzetten_na_mislukte_update_is_app_update_met_vorige_waarden() -> None:
     bron, voortgang = bijgewerkt()
+    assert bron["eigenaar_herstel"]["migrations"] is False and bron["eigenaar_herstel"]["tag_only_rollback_safe"]
     doc = terug(update_plan=bron, update_stappen=voortgang)
     assert doc["blokkades"] == [] and doc["soort"] == "rollback" and doc["bron"] == {"update_plan_id": str(PLAN)}
     s = stap(doc, "terugzetten")
@@ -502,6 +518,42 @@ def test_terugzetten_na_mislukte_update_is_app_update_met_vorige_waarden() -> No
     assert status(meld(doc, v, "terugzetten", readback=oud)) == {"terugzetten": "voltooid"}
 
 
+@pytest.mark.parametrize("herstel", [
+    {"migrations": True, "tag_only_rollback_safe": False},
+    {"migrations": False, "tag_only_rollback_safe": False},  # bv. Node-RED: flows.json kan mee veranderen
+    {"migrations": True, "tag_only_rollback_safe": True},
+    {"tag_only_rollback_safe": True},  # een updateplan van vóór deze regel: onbekend is niet veilig
+    {},
+])
+def test_terugzetten_zonder_veilig_alleen_image_geeft_niets_vrij(herstel: dict[str, Any]) -> None:
+    """HARDE EIS (contract §2.3 regel 7a, EX15): terugzetten = vorige image én snapshot samen, nooit alleen de image.
+    Het plan kan alleen de image terugzetten; zegt het manifest van de update niet dat dat veilig is, dan geeft het
+    niets vrij en zegt het de eigenaar welke herstelpunten bij die terugzetting horen (R-HARDE-EIS-1)."""
+    bron, voortgang = bijgewerkt()
+    bron = {**bron, "eigenaar_herstel": {**{k: v for k, v in bron["eigenaar_herstel"].items()
+                                            if k not in ("migrations", "tag_only_rollback_safe")}, **herstel}}
+    doc = terug(update_plan=bron, update_stappen=voortgang)
+    assert codes(doc) == {"terugzetten_vraagt_data"}
+    geen_stap_vrij(doc)
+    details = doc["blokkades"][0]["details"]
+    assert details["herstelpunten"] == bron["vastgepind"]["herstelpunten"] and details["herstelpunten"]
+    assert details["app_name"] == "gotify"
+
+
+def test_terugzetten_na_update_met_migraties_geeft_niets_vrij() -> None:
+    """Het echte Gotify-manifest (migraties, ``tag_only_rollback_safe: false``): na een update geeft het terugzetplan
+    geen ``app.rollback`` vrij; alleen de image terugzetten zou de oude versie op de gemigreerde database starten."""
+    bron, voortgang = bijgewerkt(veilig=False)
+    assert bron["eigenaar_herstel"]["migrations"] is True
+    doc = terug(update_plan=bron, update_stappen=voortgang)
+    assert codes(doc) == {"terugzetten_vraagt_data"}
+    geen_stap_vrij(doc)
+    blokkade = doc["blokkades"][0]
+    assert blokkade["details"]["herstelpunten"] == bron["vastgepind"]["herstelpunten"]
+    assert blokkade["details"]["notities_nl"] == bron["eigenaar_herstel"]["notities_nl"]
+    assert "eigenaar" in blokkade["voorstel_nl"] and "herstelpunten" in blokkade["voorstel_nl"]
+
+
 def test_niets_terug_te_zetten_als_de_update_nooit_is_uitgevoerd() -> None:
     bron = update()
     v = tot_schaduw(bron)
@@ -512,22 +564,24 @@ def test_niets_terug_te_zetten_als_de_update_nooit_is_uitgevoerd() -> None:
 
 
 def test_terugzetten_naar_catalogusversie_alleen_als_die_gemeten_bestaat() -> None:
+    """Ook met een gemeten catalogusversie kent dit plan geen herstelpunt van vóór de update: het geeft dan niets vrij
+    (``herstelpunt_onbekend``). De versieregels blijven gelden en staan ernaast."""
     record = {**app_record("authentik", repository="ghcr.io/goauthentik/server", tag="2025.1.1", app_id="authentik",
                            catalogus_app="authentik", trein="community", versie="1.3.64"),
               "installatiewijze": "catalog_app"}
     catalog = {"train": "community", "app": "authentik", "version": "1.3.60"}
     weg = terug(app_name="authentik", catalog=catalog, inventaris=inventaris(record), beschikbaar=meting("nee"))
-    assert codes(weg) == {"version_unavailable"}
+    assert codes(weg) == {"version_unavailable", "herstelpunt_onbekend"}
     geen_stap_vrij(weg)
     onbekend = terug(app_name="authentik", catalog=catalog, inventaris=inventaris(record),
                      beschikbaar=meting("onbekend"))
-    assert codes(onbekend) == {"version_availability_unknown"}
+    assert codes(onbekend) == {"version_availability_unknown", "herstelpunt_onbekend"}
     goed = terug(app_name="authentik", catalog=catalog, inventaris=inventaris(record))
-    assert goed["blokkades"] == []
+    assert codes(goed) == {"herstelpunt_onbekend"}
+    geen_stap_vrij(goed)
     s = stap(goed, "terugzetten")
     assert s["voorstel"]["parameters"] == {"catalog_version": "1.3.60"} and s["verwacht"]["versie"] == "1.3.60"
     assert contract8.parameter_fouten("app.rollback", s["voorstel"]["target"], s["voorstel"]["parameters"]) == []
-    assert any(b["code"] == "herstelpunt_onbekend" for b in goed["bevindingen"])
     ander = terug(app_name="authentik", catalog={**catalog, "app": "iets-anders"}, inventaris=inventaris(record))
     assert "catalogusapp_verschilt" in codes(ander)
 
@@ -539,17 +593,14 @@ def test_terugzetten_vraagt_een_bron_en_een_geinstalleerde_app() -> None:
     assert "app_naam_ongeldig" in codes(terug(herstel_van=EXEC))
     assert "inventaris_onbekend" in codes(terug(app_name="gotify", herstel_van=EXEC,
                                                 inventaris=Inventaris("unknown", "hub_onbereikbaar")))
-    assert terug(app_name="gotify", herstel_van=EXEC)["blokkades"] == []
+    assert codes(terug(app_name="gotify", herstel_van=EXEC)) == {"herstelpunt_onbekend"}
 
 
 def test_terugzetten_zonder_gemeten_vorige_digest_eist_dat_de_nieuwe_digest_weg_is() -> None:
     """Is de digest van vóór de update nooit gemeten, dan bewijst 'de app draait' niets: de update-digest moet weg."""
-    bron = update(inventaris=inventaris(gotify_record(digest=None)))
+    bron, v = bijgewerkt(inventaris=inventaris(gotify_record(digest=None)))
     assert bron["blokkades"] == [] and bron["diff"]["image"]["van"]["digest"] is None
     assert "huidige_digest_onbekend" in {b["code"] for b in bron["bevindingen"]}
-    v = tot_schaduw(bron)
-    v = meld(bron, v, "schaduw-installeren", readback=GOED)
-    v = meld(bron, v, "bijwerken", readback={"staat": "CRASHED", "digests": GOED["digests"]})
     doc = terug(update_plan=bron, update_stappen=v)
     assert doc["blokkades"] == []  # terugzetten blijft mogelijk: het is de herstelactie
     assert "vorige_digest_onbekend" in {b["code"] for b in doc["bevindingen"]}
@@ -571,20 +622,24 @@ def test_terugzetten_zonder_gemeten_vorige_digest_eist_dat_de_nieuwe_digest_weg_
     assert status(terug_) == {"terugzetten": "voltooid"}
 
 
-def test_terugzetten_met_alleen_herstel_van_bewijst_minstens_dat_de_huidige_digest_weg_is() -> None:
+def test_terugzetten_met_alleen_herstel_van_kent_geen_herstelpunt_en_geeft_niets_vrij() -> None:
+    """Met alleen ``herstel_van`` kent het plan geen herstelpunt van vóór de update: geblokkeerd (R-HARDE-EIS-1). Het
+    plan blijft eerlijk over wat het zou controleren: minstens dat de huidige digest weg is, of alleen 'draait'."""
     doc = terug(app_name="gotify", herstel_van=EXEC)
-    assert doc["blokkades"] == []
-    assert {b["code"] for b in doc["bevindingen"]} >= {"vorige_digest_onbekend", "herstelpunt_onbekend"}
+    assert codes(doc) == {"herstelpunt_onbekend"}
+    geen_stap_vrij(doc)
+    assert "vorige_digest_onbekend" in {b["code"] for b in doc["bevindingen"]}
     assert stap(doc, "terugzetten")["verwacht"] == {
         "staat": "RUNNING", "digest_niet": {"repository": GOTIFY_REPO, "digest": GOTIFY_DIGEST}}
-    begin = planner.begin(doc)
-    assert status(meld(doc, begin, "terugzetten", readback=GOED)) == {"terugzetten": "mislukt"}
-    oud = {"staat": "RUNNING", "digests": [f"{GOTIFY_REPO}@{OUDE_DIGEST}"]}
-    assert status(meld(doc, begin, "terugzetten", readback=oud)) == {"terugzetten": "voltooid"}
+    with pytest.raises(planner.ResultaatFout) as fout:
+        meld(doc, planner.begin(doc), "terugzetten", readback={"staat": "RUNNING",
+                                                                "digests": [f"{GOTIFY_REPO}@{OUDE_DIGEST}"]})
+    assert fout.value.code == "stap_niet_vrijgegeven"
 
     # niets gemeten: het plan zegt eerlijk dat alleen 'draait' te controleren is, en belooft niet meer
     blind = terug(app_name="gotify", herstel_van=EXEC,
                   inventaris=inventaris(gotify_record(tag="3.1.1", digest=None)))
+    assert codes(blind) == {"herstelpunt_onbekend"}
     assert stap(blind, "terugzetten")["verwacht"] == {"staat": "RUNNING"}
     melding = next(b["melding"] for b in blind["bevindingen"] if b["code"] == "vorige_digest_onbekend")
     assert "is daarmee niet bewezen" in melding and "alleen" in melding

@@ -29,6 +29,16 @@ def manifest(naam: str) -> str:
     return (ROOT / "install" / "manifests" / f"{naam}.manifest.yaml").read_text(encoding="utf-8")
 
 
+def gotify_alleen_image_veilig() -> str:
+    """TESTVARIANT van het Gotify-manifest zonder migraties en met ``tag_only_rollback_safe: true``: de enige soort app
+    waarvoor het terugzetplan alleen de image terug mag zetten (ADR-0025). Het echte Gotify-manifest zegt het
+    omgekeerde; deze variant bestaat alleen om de regels voor de digest bij terugzetten te kunnen toetsen."""
+    tekst = manifest("gotify")
+    oud = "upgrade:\n  migrations: true\n  tag_only_rollback_safe: false\n"
+    assert tekst.count(oud) == 1
+    return tekst.replace(oud, "upgrade:\n  migrations: false\n  tag_only_rollback_safe: true\n")
+
+
 def gotify_record(*, tag: str = "3.0.0", digest: str | None = OUDE_DIGEST, host_port: int = 30215,
                   dataset: str | None = "pool-x/apps/gotify", naam: str = "gotify") -> dict[str, Any]:
     return app_record(naam, repository=GOTIFY_REPO, tag=tag, digest=digest, app_id="gotify",

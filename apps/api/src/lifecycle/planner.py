@@ -15,6 +15,10 @@ goedkeuring per gebonden diff en ondertekent het ``ExecutionRequest``; de execut
 - Een stap telt pas als ``voltooid`` wanneer de teruggelezen toestand en digest kloppen met wat het plan verwacht.
   Terugzetten: de digest van vóór de update moet terug zijn; is die niet gemeten, dan mag in elk geval de digest van
   vóór het terugzetten er niet meer staan en zegt het plan dat de vorige versie niet bewezen is.
+- Terugzetten geeft alleen de image terug (``app.rollback``). Dat mag alleen met een bekend herstelpunt van vóór de
+  update en alleen als het manifest van de update zegt dat alleen de image terugzetten veilig is (geen migraties,
+  ``tag_only_rollback_safe``). Anders is het plan geblokkeerd: image én data gaan samen terug (contract §2.3 regel 7a,
+  EX15) en data terugzetten is een handeling van de eigenaar (R3), nooit van het platform (ADR-0025).
 """
 
 from __future__ import annotations
@@ -539,7 +543,8 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
     extra["eigenaar_herstel"] = {
         "toelichting_nl": "Data terugzetten uit een snapshot (R3) doet alleen de eigenaar; het platform doet dat nooit "
                           "automatisch en verwijdert nooit datasets of media.",
-        "tag_only_rollback_safe": manifest.upgrade.tag_only_rollback_safe, "notities_nl": manifest.upgrade.notes_nl}
+        "tag_only_rollback_safe": manifest.upgrade.tag_only_rollback_safe, "migrations": migraties,
+        "notities_nl": manifest.upgrade.notes_nl}
     return _document(b, app_id=manifest.app_id, app_name=naam, manifest=_manifest_view(report, manifest),
                      inventaris=inventaris, meting=meting, doel=doel,
                      diff=_diff(manifest, None, inventaris, record), extra=extra)
@@ -552,7 +557,12 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
                   beschikbaar: Beschikbaar, now: datetime) -> dict[str, Any]:
     """Terugzetten. Custom App: ``app.rollback {herstel_van}`` = ``app.update`` met de vorige waarden die de executor
     vóór de update bewaarde. Catalogusapp: ``{catalog_version}``, alleen als die versie gemeten nog in de catalogus
-    staat (anders ``version_unavailable``). Data herstellen blijft een stap van de eigenaar (R3)."""
+    staat (anders ``version_unavailable``). Data herstellen blijft een stap van de eigenaar (R3).
+
+    Dit plan zet alleen de image terug. Daarom (contract §2.3 regel 7a: "vorige image én snapshot samen, nooit alleen
+    de image"; EX15) is het geblokkeerd zonder bekend herstelpunt van vóór de update (``herstelpunt_onbekend``: alleen
+    het updateplan kent dat; de Hub eist het ook als ``backup_checkpoint_id``) en als het manifest van die update niet
+    zegt dat alleen de image terugzetten veilig is (``terugzetten_vraagt_data``)."""
     b = _Bouw("rollback", plan_id)
     inventaris = verse_inventaris(inventaris, now)
     _bron_blokkade(b, inventaris)
@@ -562,6 +572,7 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
     meting: Beschikbaarheid | None = None
     eigenaar = None
     herstelpunt: str | None = None
+    eigen_herstel: Mapping[str, Any] = {}
     if update_plan is not None:
         naam = str(update_plan.get("app_name") or "")
         bron = {"update_plan_id": update_plan.get("plan_id")}
@@ -581,7 +592,8 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
             verwacht["digest_niet"] = {"repository": naar["repository"], "digest": naar["digest"]}
         vast = update_plan.get("vastgepind") or {}
         herstelpunt = str(vast["snapshot_naam"]) if vast.get("herstelpunten") and vast.get("snapshot_naam") else None
-        eigenaar = {**(update_plan.get("eigenaar_herstel") or {}), "herstelpunten": vast.get("herstelpunten") or []}
+        eigen_herstel = _map(update_plan.get("eigenaar_herstel"))
+        eigenaar = {**eigen_herstel, "herstelpunten": vast.get("herstelpunten") or []}
     if not naam or not APP_NAME_RE.fullmatch(naam):
         b.blokkeer("app_naam_ongeldig", "Een geldige TrueNAS-appnaam is verplicht.")
         naam = naam or None
@@ -621,9 +633,23 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
         b.blokkeer("bron_ontbreekt", "Geef een updateplan, herstel_van of een catalogusversie op.")
     if params is not None and naam:
         if herstelpunt is None:
-            b.waarschuw("herstelpunt_onbekend", "Dit plan kent geen herstelpunt. De Hub eist voor app.rollback een "
-                        "backup_checkpoint_id in de goedkeuring; zonder herstelpunt weigert de executor.",
-                        "herstelpunt")
+            b.blokkeer("herstelpunt_onbekend",
+                       "Dit plan kent geen herstelpunt van vóór de update. Terugzetten zet alleen de image terug; "
+                       "zonder herstelpunt is dat niet veilig, en de Hub eist voor app.rollback een "
+                       "backup_checkpoint_id in de goedkeuring.",
+                       "Maak het terugzetplan vanuit het updateplan (update_plan_id): dat kent de snapshots van vóór "
+                       "de update. Data terugzetten blijft een handeling van de eigenaar (R3).", app_name=naam)
+        elif not (eigen_herstel.get("migrations") is False and eigen_herstel.get("tag_only_rollback_safe") is True):
+            b.blokkeer("terugzetten_vraagt_data",
+                       "Alleen de image terugzetten is voor deze app niet veilig: het manifest van de update meldt "
+                       "databasemigraties of zegt dat alleen de tag terugzetten niet veilig is. Image en data gaan "
+                       "samen terug (contract §2.3 regel 7a, EX15); het platform zet nooit zelf data terug.",
+                       "Zet als eigenaar (R3) de app terug in TrueNAS: stop de app, zet de datasets terug naar de "
+                       "herstelpunten van vóór de update en zet daarna de vorige image terug.",
+                       app_name=naam, herstelpunten=list(eigenaar.get("herstelpunten") or []) if eigenaar else [],
+                       migrations=eigen_herstel.get("migrations"),
+                       tag_only_rollback_safe=eigen_herstel.get("tag_only_rollback_safe"),
+                       notities_nl=eigen_herstel.get("notities_nl"))
         if "digest" not in verwacht and "versie" not in verwacht:
             b.waarschuw("vorige_digest_onbekend", (
                 "De digest van de vorige versie is niet gemeten. Na het terugzetten controleert het plan dat de app "
