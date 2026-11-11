@@ -281,6 +281,63 @@ def test_update_van_catalogusapp_gebruikt_de_gemeten_catalogusversie() -> None:
     assert any(b["code"] == "schaduwtest_niet_beschikbaar" for b in doc["bevindingen"])
 
 
+def _authentik_gemeten() -> dict[str, Any]:
+    opslag = [(f"/mnt/pool-x/apps/authentik/{n}", m, f"pool-x/apps/authentik/{n}")
+              for n, m in (("data", "/data"), ("templates", "/templates"), ("certs", "/certs"),
+                           ("postgres", "/var/lib/postgresql"))]
+    return {**app_record("authentik", repository="ghcr.io/goauthentik/server", tag="2025.1.1", app_id="authentik",
+                         catalogus_app="authentik", trein="community", versie="1.3.60", opslag=opslag),
+            "installatiewijze": "catalog_app"}
+
+
+def test_update_met_opslag_buiten_het_herstelpunt_geeft_niets_vrij() -> None:
+    """HARDE EIS (R-HARDE-EIS-3): elke opslag van soort config of data (geen tmpfs) hoort in het herstelpunt van de
+    update. De standaard geeft daarvoor alleen een waarschuwing (backup_dataset_not_covered); de planner is strenger
+    (ADR-0022 besluit 2): zonder de database in het herstelpunt geen 'bijwerken'."""
+    volledig = update(manifest_yaml=manifest("authentik"), parameters={}, inventaris=inventaris(_authentik_gemeten()))
+    assert volledig["blokkades"] == [], volledig["blokkades"]
+    assert len(volledig["vastgepind"]["herstelpunten"]) == 4
+    tekst = manifest("authentik")
+    oud = "snapshot_datasets: [data, templates, certs, postgres_data]"
+    assert tekst.count(oud) == 1
+    zonder_db = update(manifest_yaml=tekst.replace(oud, "snapshot_datasets: [data, templates, certs]"), parameters={},
+                       inventaris=inventaris(_authentik_gemeten()))
+    assert "backup_dataset_not_covered" in {b["code"] for b in zonder_db["bevindingen"]}
+    assert codes(zonder_db) == {"herstelpunt_onvolledig"}
+    details = zonder_db["blokkades"][0]["details"]
+    assert (details["opslag"], details["soort"], details["mount"]) == ("postgres_data", "data", "/var/lib/postgresql")
+    geen_stap_vrij(zonder_db)
+    alleen_data = update(manifest_yaml=tekst.replace(oud, "snapshot_datasets: [data]"), parameters={},
+                         inventaris=inventaris(_authentik_gemeten()))
+    assert codes(alleen_data) == {"herstelpunt_onvolledig"}
+    assert {b["details"]["opslag"] for b in alleen_data["blokkades"]} == {"templates", "certs", "postgres_data"}
+
+
+def _node_red_zonder_herstelpunt(soort: str) -> str:
+    """Node-RED-manifest met ``snapshot_datasets: []`` en ``db_export: none`` (de validator weigert dat niet); met
+    ``soort`` voor de enige opslag."""
+    tekst = manifest("node-red")
+    for oud, nieuw in (("  snapshot_datasets: [data]\n", "  snapshot_datasets: []\n"),
+                       ("    method: stopped_snapshot\n", "    method: none\n"),
+                       ("    mount: /data\n    kind: data\n", f"    mount: /data\n    kind: {soort}\n")):
+        assert tekst.count(oud) == 1, oud
+        tekst = tekst.replace(oud, nieuw)
+    return tekst
+
+
+@pytest.mark.parametrize("soort", ["scratch", "data"])
+def test_update_zonder_herstelpunt_geeft_niets_vrij(soort: str) -> None:
+    """B08-004 "geen update zonder herstelpunt" (R-TECH-3): noemt het manifest geen enkele dataset voor de snapshot,
+    dan blokkeert herstelpunt_ontbreekt de update — ook als geen opslag config/data is (dan is dit de enige regel)."""
+    doc = update(manifest_yaml=_node_red_zonder_herstelpunt(soort), parameters={}, schaduw_parameters=None,
+                 inventaris=inventaris(NODE_RED))
+    assert "herstelpunt_ontbreekt" in codes(doc), doc["blokkades"]
+    if soort == "scratch":
+        assert codes(doc) == {"herstelpunt_ontbreekt"}
+    geen_stap_vrij(doc)
+    assert stap(doc, "bijwerken")["herstelpunt"] is None and doc["vastgepind"]["herstelpunten"] == []
+
+
 # ------------------------------------------------------------------ versheid van de metingen (contract 1.3 §6.2)
 NODE_RED = app_record("node-red", repository="nodered/node-red", tag="5.0.8-24", digest=OUDE_DIGEST,
                       app_id="node-red", poorten=[(1880, 31880, "tcp")],

@@ -409,6 +409,22 @@ def _datasets(b: _Bouw, manifest: Manifest, record: Mapping[str, Any]) -> list[t
     return out
 
 
+def _herstelpunt_volledig(b: _Bouw, manifest: Manifest) -> None:
+    """HARDE EIS: elke opslag met configuratie of gegevens (soort ``config``/``data``, geen tmpfs) hoort in het
+    herstelpunt van de update. De standaard waarschuwt daarvoor alleen (``backup_dataset_not_covered``); een update
+    zonder bv. de database in het herstelpunt geeft het plan niet vrij (strenger dan de standaard, ADR-0022 besluit 2;
+    review P2, R-HARDE-EIS-3)."""
+    tmpfs = {s.name for s in (manifest.custom_app.storage if manifest.custom_app else []) if s.type == "tmpfs"}
+    for decl in manifest.storage:
+        if decl.kind in ("config", "data") and decl.name not in manifest.backup.snapshot_datasets \
+                and decl.name not in tmpfs:
+            b.blokkeer("herstelpunt_onvolledig",
+                       f"Opslag '{decl.name}' ({decl.kind}, {decl.mount}) zit niet in het herstelpunt van de update "
+                       "(backup.snapshot_datasets).",
+                       "Neem elke opslag met configuratie of gegevens op in backup.snapshot_datasets; zonder volledig "
+                       "herstelpunt geen update.", opslag=decl.name, soort=decl.kind, mount=decl.mount)
+
+
 def _schaduw(b: _Bouw, report: Any, manifest: Manifest, parameters: Mapping[str, Any],
              schaduw_parameters: Mapping[str, Any] | None, doel: Doel, meting: Beschikbaarheid | None,
              inventaris: Inventaris, now: datetime, naam: str, snapshots: list[tuple[str, str, str, str]],
@@ -507,6 +523,7 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
 
     # 1. herstelpunt: export/stoppen volgens het manifest, daarna een snapshot per dataset
     methode = manifest.backup.db_export.method
+    _herstelpunt_volledig(b, manifest)
     datasets = _datasets(b, manifest, record)
     snapshot = _snapshot_naam(b, manifest.version)
     voor: list[str] = []
