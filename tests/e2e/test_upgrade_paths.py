@@ -23,15 +23,15 @@ from conftest import ROOT, docker_ok, free_port
 
 IMAGE = os.environ.get("LIFECYCLE_IMAGE", "jelly-leon-platform:dev")
 pytestmark = pytest.mark.skipif(not docker_ok(), reason="Docker niet beschikbaar")
-HEAD = "0002"  # kop van de migraties in de image (contract 1.2: hub-link.json + jwt_replay)
-NEXT = "0003"
+HEAD = "0003"  # kop van de migraties in de image (fase P2: lifecycle_plans); alleen hier bijwerken
+NEXT = "0004"
 
-MIGRATION_OK = '''"""test: kolom erbij"""
+MIGRATION_OK = f'''"""test: kolom erbij"""
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0003"
-down_revision = "0002"
+revision = "{NEXT}"
+down_revision = "{HEAD}"
 branch_labels = None
 depends_on = None
 
@@ -44,11 +44,11 @@ def downgrade():
     op.drop_column("lifecycle_runs", "e2e_extra")
 '''
 
-MIGRATION_FAIL = '''"""test: faalt halverwege"""
+MIGRATION_FAIL = f'''"""test: faalt halverwege"""
 from alembic import op
 
-revision = "0003"
-down_revision = "0002"
+revision = "{NEXT}"
+down_revision = "{HEAD}"
 branch_labels = None
 depends_on = None
 
@@ -74,7 +74,7 @@ def build_variant(tmp: Path, tag: str, migration: str) -> str:
                                                                                                "*.egg-info"))
     shutil.copy(ROOT / "apps/api/requirements.lock", ctx / "apps/api/requirements.lock")
     shutil.copytree(ROOT / "deploy/allinone", ctx / "deploy/allinone")
-    (ctx / "apps/api/src/lifecycle/migrations/versions/0003_e2e.py").write_text(migration)
+    (ctx / f"apps/api/src/lifecycle/migrations/versions/{NEXT}_e2e.py").write_text(migration)
     image = f"jelly-leon-platform:e2e-{tag}"
     extra: list[str] = []
     # alleen achter een TLS-proxy (bouwomgeving): CA als BuildKit-secret, nooit in de image
