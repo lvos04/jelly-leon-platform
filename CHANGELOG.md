@@ -284,6 +284,6 @@
 - **Plan vervalt met zijn meting:** uiterlijk 900 s na de oudste gebruikte meting.
 - **Node-RED-hulpmiddel:** geen eigen `env` of groep op een tabblad of node in een bundel; na de import wordt
   teruggelezen dat alleen de globale `HUB_URL` telt; `exporteer` schrijft nooit buiten de exportmap.
-- **CI:** de validator van appstore-en-fork staat vast op `cbf4fd2` (`ASF_COMMIT`), ook in `make validator-venv`. De
-  kopie van de standaard in de dienst blijft bewust op `7b3159d` (ADR-0021).
+- **CI:** de validator van appstore-en-fork staat vast op `1967069` (`ASF_COMMIT`), ook in `make validator-venv`; de
+  kopie van de standaard in de dienst staat op dezelfde commit (ADR-0021). Een plan met geheimen blijft geblokkeerd.
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.

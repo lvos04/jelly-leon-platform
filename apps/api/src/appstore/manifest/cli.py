@@ -92,6 +92,8 @@ def _cmd_translate(args: argparse.Namespace) -> int:
         Target(truenas_version=args.truenas_version, ix_app_version=args.ix_app_version),
         app_name=args.app_name,
         manifest_sha256=report.manifest_sha256,
+        # het eigen bestand van wie de vertaling bekijkt; de uitvoer installeert niets (ADR-0015)
+        trusted_app_id=True,
     )
     print(json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0 if result.ready_for_install else 1

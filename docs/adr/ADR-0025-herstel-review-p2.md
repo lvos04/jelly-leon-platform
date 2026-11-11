@@ -84,19 +84,21 @@
    `tab-<sha256[:16]>`, en het bestand moet direct in de exportmap staan. `[` en `]` in `FLOWS` blijven toegestaan,
    omdat de JSON-lijsten ze nodig hebben. Veilig is dat alleen zolang 568 de werkmap van de entrypoint niet kan
    beschrijven; dat is gemeten bij de gepinde digest (ADR-0023 besluit 2).
-7. **Validator vast op één commit.** `ASF_COMMIT` = `cbf4fd22bcf2ceefad55c241ceaeb4deba48339b` (appstore-en-fork, de
-   vertaling met vault-verwijzingen, C1.3-ASF-14). Die commit geldt voor beide CI-jobs, voor `make validator-venv` en
-   voor de rooktest (keuze van de regisseur; een eigen, gemelde wijziging volgens P-INSTALLATIE punt 1). Daarvoor was
-   de validator niet vastgezet; de laatste groene run gebruikte `7b3159d`. De vertaaltest van Authentik toetst nu codes
-   en paden, geen meldtekst. Een opgegeven geheim geeft `parameter_value_not_allowed`. Zonder waarde staat er alleen
-   `vault://app/authentik/<parameter>`. Een geheim komt nooit in de uitvoer.
-   **De kopie van de standaard in de dienst blijft bewust op `7b3159d`** (ADR-0021). Tussen `7b3159d` en `cbf4fd2`
-   verschillen alleen `manifest/translate.py` en `manifest/findings.py` (geheimen als vault-verwijzing); de
-   validatieregels en schema's zijn gelijk. De validator in CI en de planner oordelen dus hetzelfde over manifesten,
-   maar niet over geheimen. De oude vertaling blokkeert elk geheim; daardoor blijft een installatieplan met geheimen
-   (Authentik) geblokkeerd. Overnemen zou zo'n plan vrijgeven met vault-verwijzingen in `app.install`. Of de Hub en de
-   executor die invullen, is S-P2-070 (ai-server-manager) en in deze stap niet vastgesteld: ONBEKEND. Dan geldt de
-   veiligste stand. Een kopie overnemen is bovendien een eigen stap (ADR-0021 besluit 2, VALKUILEN V-018).
+7. **Validator en kopie op één commit.** `ASF_COMMIT` = `1967069fad62beadf5da9f31160ff4c025a5a7bf`
+   (appstore-en-fork: de vertaling met vault-verwijzingen, C1.3-ASF-14, plus het herstel `1fbe145` na de review
+   daarvan). Die commit geldt voor beide CI-jobs, voor `make validator-venv` en voor de rooktest (keuze van de
+   regisseur; een eigen, gemelde wijziging volgens P-INSTALLATIE punt 1). Daarvoor was de validator niet vastgezet; de
+   laatste groene run gebruikte `7b3159d`. Een eerdere keuze (`cbf4fd2`) is vervangen omdat `1fbe145` daarin een gat
+   dicht. De vertaaltest van Authentik toetst nu codes en paden, geen meldtekst: een opgegeven geheim geeft
+   `parameter_value_not_allowed`; zonder waarde zet `jl-manifest translate` (het eigen bestand, de `app_id` staat vast)
+   alleen `vault://app/authentik/<parameter>`. Een geheim komt nooit in de uitvoer.
+   **De kopie van de standaard in de dienst gaat mee naar dezelfde commit** (ADR-0021; `tools/validator_kopie.py
+   bijwerken`, byte-gelijk, drifttest groen), zodat de dienst niet met een andere versie vertaalt dan de validator. De
+   planner roept de vertaling aan zonder `trusted_app_id`: het manifest van een plan komt van de aanvrager en de
+   `app_id` ervan staat niet vast. Een geheime parameter krijgt dan geen vault-verwijzing maar
+   `parameter_value_not_allowed`; een installatieplan met geheimen (Authentik) blijft dus geblokkeerd, zoals met de
+   vorige kopie. Of de Hub en de executor vault-verwijzingen invullen, is S-P2-070 (ai-server-manager) en in deze stap
+   niet vastgesteld (ONBEKEND); een plan met verwijzingen komt pas als de `app_id` vastligt en de Hub ze invult.
 
 ## Tests
 
@@ -120,7 +122,9 @@
   `test_import_checks_after_reading_back_that_only_the_global_hub_url_counts`,
   `test_export_never_writes_outside_the_target_directory`, `test_export_keeps_lock_names_and_own_ids`,
   `test_render_keeps_brackets_only_because_json_lists_need_them`.
-- `tests/repo/test_beleid_kopie.py`; `tests/repo/test_repo_rules.py::test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make`.
+- `tests/repo/test_beleid_kopie.py`; `tests/repo/test_repo_rules.py::test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make`;
+  `apps/api/tests/unit/test_planner.py::test_geheime_waarden_komen_nooit_in_een_plan` (ook zonder waarde geen
+  vault-verwijzing in een plan).
 - Elke test die een fout aantoont, is eerst rood gezien: op de code van vóór het herstel, of met een mutatie (een
   regel tijdelijk teruggezet, niet gecommit). `test_export_keeps_lock_names_and_own_ids` en
   `test_render_keeps_brackets_only_because_json_lists_need_them` bewaken bestaand gedrag; de migratietest heeft een
@@ -133,9 +137,9 @@
   Daarna een stap in deze repo (regisseur; nog niet gepland).
 - **Terugzetten naar een catalogusversie** is altijd geblokkeerd, omdat die route geen herstelpunt kent. Eigenaar:
   jelly-leon-platform, samen met de contractvraag hierboven.
-- **De kopie van de manifeststandaard in de dienst** (ADR-0021) moet naar dezelfde commit als `ASF_COMMIT`, zodra de
-  Hub vault-verwijzingen invult. Eigenaar: S-P2-070 (ai-server-manager) en daarna een kopiestap in deze repo
-  (regisseur). ADR-0022 besluit 11 verandert dan mee.
+- **Geheimen in een plan:** een installatieplan met geheime parameters blijft geblokkeerd tot de `app_id` van het
+  manifest vastligt (bijvoorbeeld een geldige catalogusversie) en de Hub vault-verwijzingen invult. Eigenaar:
+  S-P2-070 (ai-server-manager), daarna de regisseur voor deze repo; ADR-0022 besluit 11 verandert dan mee.
 - **Node-RED** (S-P2-410): een `post_install_check` "exec en function niet geladen" (`GET /nodes`; met besluit C-11
   alleen met een beheerder); de tekst van `description_nl` in het manifest (R-MANIFEST-2: het manifest levert nog geen
   flows, beheerder of Hub-token); een rooktest-stap die op de echte image laat zien dat een bundel met env op het

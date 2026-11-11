@@ -17,9 +17,10 @@ permissions:
 
 env:
   # Validator van appstore-en-fork op één vaste commit voor beide jobs en `make validator-venv` (P-INSTALLATIE punt 1;
-  # review P2, S-P2-395). cbf4fd2 = vertaling met vault-verwijzingen (C1.3-ASF-14); verzetten is een eigen, gemelde
+  # review P2, S-P2-395). 1967069 = vertaling met vault-verwijzingen (C1.3-ASF-14) plus het herstel 1fbe145 na de
+  # review daarvan; dezelfde commit als de kopie in apps/api/src/appstore (ADR-0021). Verzetten is een eigen, gemelde
   # wijziging. Eerder: ongepind de branch-HEAD (laatste groene run met 7b3159d).
-  ASF_COMMIT: cbf4fd22bcf2ceefad55c241ceaeb4deba48339b
+  ASF_COMMIT: 1967069fad62beadf5da9f31160ff4c025a5a7bf
 
 concurrency:
   group: ci-${{ github.ref }}

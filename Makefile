@@ -38,7 +38,7 @@ test-repo:
 # (gecommitte inhoud via git archive, alleen lezen; APPSTORE=<checkout> om een andere bron te kiezen).
 # ASF_COMMIT: dezelfde vaste commit als env.ASF_COMMIT in .github/workflows/ci.yml (P-INSTALLATIE punt 1).
 APPSTORE ?= ../appstore-en-fork
-ASF_COMMIT ?= cbf4fd22bcf2ceefad55c241ceaeb4deba48339b
+ASF_COMMIT ?= 1967069fad62beadf5da9f31160ff4c025a5a7bf
 VALIDATOR_SRC ?= /tmp/jlp-appstore-validator
 validator-venv:
 	rm -rf $(VALIDATOR_SRC) && mkdir -p $(VALIDATOR_SRC)

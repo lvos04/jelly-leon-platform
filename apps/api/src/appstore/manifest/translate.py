@@ -9,6 +9,13 @@ render-node D08) leveren een blokkerende bevinding op, nooit een aangenomen waar
 alleen uit ``network.ports``, de tag wordt ``<tag>@<digest>`` met een verplichte digest-readback na installatie, en
 een vastgezette versie die niet meer in de gemeten catalogus staat geeft ``version_unavailable``. Deze module voert
 niets uit.
+
+Geheimen (contract 1.3 §3.1 a, C1.3-ASF-14, ADR-0015): een geheime parameter (``source: generated``/``secret``,
+``type: secret_ref`` of ``secret: true``) wordt nooit ingevuld. Op zijn plek komt alleen de verwijzing
+``vault://app/<manifest.app_id>/<parameter>``; ``TranslationResult.vault_refs`` noemt elke plek, zodat de Hub en de
+executor weten wat zij uit de vault invullen. Dat kan in de ``values`` van een catalogusapp en in een
+omgevingsvariabele van een Custom App naar een geheim dat de Hub maakt (besluit van de gebruiker, 2026-11-11). Elke
+andere vault-verwijzing in de payload wordt geweigerd; een melding noemt nooit een waarde.
 """
 
 from __future__ import annotations
@@ -55,9 +62,45 @@ from .truenas import (
 _DATASET = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.:-]+)+$")
 _DURATION = re.compile(r"^P(?=\d|T\d)(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?$")
 _TZ = re.compile(r"^(UTC|Etc/UTC|[A-Za-z_]+(/[A-Za-z0-9_+-]+){1,2})$")
-_VAULT_REF = re.compile(r"^vault://[a-z0-9_-]{1,64}/[a-z0-9_.-]{1,128}$")
+#: Vorm van een vault-verwijzing (contract 1.3 §3.1 a; CONTRACT_1.3_CONFORMITEIT, rij C1.3-ASM-18). Gelijk aan
+#: ``VAULT_REF_RE`` van de policy van de Hub (ai-server-manager ``apps/policy/src/asm_policy/params.py``).
+_VAULT_REF = re.compile(r"vault://app/(?P<app_id>[a-z0-9][a-z0-9_-]{0,63})/(?P<parameter>[a-z0-9_.-]{1,128})")
+#: Alles wat op een vault-verwijzing lijkt (ook met hoofdletters of midden in een tekst).
+_VAULT_MARK = re.compile(r"vault://", re.IGNORECASE)
+#: Alleen deze parametertypen kunnen een verwijzing (tekst) krijgen; de Hub maakt tekstgeheimen (§3.1 a).
+_VAULT_REF_TYPES = ("string", "secret_ref")
+#: Een sleutel met een van deze tekens maakt het pad van een verwijzing dubbelzinnig (``a.b`` naast ``a`` → ``b``).
+_PATH_SEPARATORS = frozenset(".[]")
+#: Sleutels waaronder nooit een verwijzing komt: daar is een waarde openbaar of komt zij in een log (image-naam bij het
+#: ophalen, tijdzone, notities, labels; ADR-0015).
+_PUBLIC_KEYS = frozenset({"image", "images", "tz", "notes", "labels"})
+#: Plek in de payload als reeks sleutels en lijstposities, bv. ``("values", "envs", 2, "value")``.
+Segments = tuple[str | int, ...]
+_NO_TEXT_PLACE = (
+    "een geheim kan hier niet als vault-verwijzing staan (alleen in de waarden van een catalogusapp of in een "
+    "omgevingsvariabele van een Custom App); deze plek vraagt een waarde, en een geheim gaat nooit als waarde mee"
+)
 #: Alle stuurtekens, ook tab/newline/CR: een parameterwaarde is altijd één regel.
 _CONTROL = re.compile(r"[\x00-\x1f\x7f\u0085\u2028\u2029]")
+
+
+def vault_ref(app_id: str, parameter: str) -> str:
+    """De verwijzing naar een geheim in de vault van de Hub: ``vault://app/<app_id>/<parameter>``."""
+    return f"vault://app/{app_id}/{parameter}"
+
+
+def render_path(segments: Segments) -> str:
+    """Pad als tekst, bv. ``values.envs[2].value``. Eenduidig voor een verwijzing: de vertaling zet die nooit onder een
+    sleutel met ``.``, ``[`` of ``]``."""
+    out = ""
+    for s in segments:
+        out += f"[{s}]" if isinstance(s, int) else (f".{s}" if out else s)
+    return out
+
+
+def is_secret(param: Parameter) -> bool:
+    """Geheime parameter: de vertaling vult hem nooit in (contract 1.3 §3.1 a, C1.3-ASF-14)."""
+    return param.source in ("generated", "secret") or param.type == "secret_ref" or param.secret
 
 
 class Target(BaseModel):
@@ -98,6 +141,19 @@ class CompatibilityResult(BaseModel):
     reasons_nl: list[str]
 
 
+class VaultRef(BaseModel):
+    """Plek in de payload waar de executor een geheim uit de vault van de Hub invult (C1.3-ASF-14, ADR-0015)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Pad in de payload, bv. ``values.voorbeeld.db_password`` of ``values.envs[2].value``.
+    path: str
+    #: Naam van de geheime parameter in het manifest.
+    parameter: str
+    #: De verwijzing die op die plek staat: ``vault://app/<app_id>/<parameter>``.
+    ref: str
+
+
 class TranslationResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -107,6 +163,8 @@ class TranslationResult(BaseModel):
     preview_hash: str | None
     compatibility: CompatibilityResult
     digest_readback: DigestReadback | None = None
+    #: Elke plek in ``payload`` met een vault-verwijzing; leeg als er geen payload is.
+    vault_refs: list[VaultRef] = Field(default_factory=list)
     findings: list[Finding]
 
     def blocking(self) -> list[Finding]:
@@ -115,7 +173,10 @@ class TranslationResult(BaseModel):
 
 # ---------------------------------------------------------------------------------------------- parameters
 def _check_value(param: Parameter, value: Any) -> str | None:
-    """Controleer één parameterwaarde; geeft een Nederlandse fout of ``None``."""
+    """Controleer één parameterwaarde; geeft een Nederlandse fout of ``None`` (nooit de waarde zelf).
+
+    Geheime parameters komen hier nooit: die krijgen alleen een vault-verwijzing (:meth:`_Resolver.secret`).
+    """
     t = param.type
     if t == "boolean":
         return None if isinstance(value, bool) else "verwacht ja/nee (boolean)"
@@ -133,6 +194,8 @@ def _check_value(param: Parameter, value: Any) -> str | None:
         return "bevat een plaatshouder in plaats van een echte waarde"
     if _INTERPOLATION.search(value):
         return "bevat variabele-interpolatie ($VAR, ${…}, $(…), $$)"
+    if _VAULT_MARK.search(value):
+        return "bevat een vault-verwijzing; die zet de vertaling alleen zelf, voor een geheime parameter"
     if t == "path":
         problem = host_path_problem(value)
         return problem[1] if problem else None
@@ -155,19 +218,24 @@ def _check_value(param: Parameter, value: Any) -> str | None:
         return None
     if t == "duration":
         return None if _DURATION.match(value) else "verwacht een ISO-8601-duur (bv. PT4H)"
-    if t == "secret_ref":
-        return None if _VAULT_REF.match(value) else "verwacht een vault-verwijzing vault://<scope>/<naam>"
     if t == "gpu":
         return None if value in ("none", "intel_render") else "verwacht 'none' of 'intel_render'"
     return None
 
 
 class _Resolver:
-    def __init__(self, manifest: Manifest, supplied: dict[str, Any]) -> None:
+    def __init__(self, manifest: Manifest, supplied: dict[str, Any], *, trusted_app_id: bool) -> None:
         self.m = manifest
         self.supplied = supplied
+        self.trusted_app_id = trusted_app_id
         self.params = {p.name: p for p in manifest.parameters}
         self.findings: list[Finding] = []
+        #: Elke vault-verwijzing die deze vertaling zelf op een plek in de payload heeft gezet.
+        self.refs: list[VaultRef] = []
+        #: Dezelfde verwijzingen per echte plek (sleutels en lijstposities), voor de controle op ongemarkeerde tekst.
+        self.ref_at: dict[Segments, str] = {}
+        #: Geheime parameters die de vertaling op een plek tegenkwam (een opgegeven waarde is dan al beoordeeld).
+        self.secrets_seen: set[str] = set()
         for name in supplied:
             if name not in self.params:
                 self.findings.append(
@@ -184,21 +252,19 @@ class _Resolver:
             return "none"
         return self.get(ref, path)
 
-    def get(self, ref: ParamRef, path: str) -> Any:
+    def get(self, ref: ParamRef, path: str, *, ref_at: Segments | None = None, hub_generated_only: bool = False) -> Any:
+        """Waarde van een parameter op ``path`` (manifestpad).
+
+        ``ref_at`` = de plek in de payload als daar een vault-verwijzing mag staan (tekst in de ``values`` van een
+        catalogusapp of in een omgevingsvariabele); zonder ``ref_at`` wordt een geheime parameter geweigerd.
+        ``hub_generated_only``: alleen een geheim dat de Hub maakt (``source: generated`` + ``secret: true``).
+        """
         param = self.params.get(ref.param)
         if param is None:  # door de validator al uitgesloten
             self.findings.append(error("unknown_parameter", path, f"Onbekende parameter {ref.param!r}."))
             return None
-        if param.source in ("generated", "secret") or param.type == "secret_ref":
-            self.findings.append(
-                error(
-                    "parameter_value_not_allowed",
-                    path,
-                    f"Parameter {param.name!r} is een geheim; geheimen gaan nooit via app.create-waarden van deze "
-                    "catalogus. Invullen vanuit de vault door de executor is nog niet beschikbaar (capability_unavailable).",
-                )
-            )
-            return None
+        if is_secret(param):
+            return self.secret(param, path, ref_at, hub_generated_only=hub_generated_only)
         if ref.param in self.supplied:
             value = self.supplied[ref.param]
         elif param.source == "default" and param.default is not None:
@@ -219,6 +285,85 @@ class _Resolver:
             self.findings.append(error("parameter_value_invalid", path, f"Waarde voor {param.name!r}: {problem}."))
             return None
         return value
+
+    def secret(self, param: Parameter, path: str, ref_at: Segments | None, *, hub_generated_only: bool) -> str | None:
+        """C1.3-ASF-14: een geheim wordt nooit ingevuld; alleen ``vault://app/<app_id>/<parameter>`` (de vaste
+        ``app_id`` uit het manifest, nooit de gekozen appnaam), en alleen als die ``app_id`` vaststaat
+        (``trusted_app_id``). Een opgegeven waarde mag alleen precies die eigen verwijzing zijn; al het andere wordt
+        geweigerd. De melding noemt de parameter, nooit de opgegeven waarde."""
+        self.secrets_seen.add(param.name)
+        own = vault_ref(self.m.app_id, param.name)
+        keys = [s for s in (ref_at or ()) if isinstance(s, str)]
+        reason: str | None = None
+        if ref_at is None:
+            reason = _NO_TEXT_PLACE
+        elif param.type not in _VAULT_REF_TYPES:
+            reason = f"een vault-verwijzing kan alleen bij type 'string' of 'secret_ref', niet bij {param.type!r}"
+        elif hub_generated_only and not param.hub_generated_secret:
+            reason = (
+                "in het Custom App-formulier alleen een geheim dat de Hub maakt (source generated + secret true); "
+                "elk ander geheim blijft uit het formulier"
+            )
+        elif any(_PATH_SEPARATORS & set(k) for k in keys):
+            reason = (
+                "een verwijzing staat nooit onder een sleutel met '.', '[' of ']': het pad naar de plek zou "
+                "dubbelzinnig zijn en de executor kan het geheim dan in een ander veld zetten"
+            )
+        elif any(k.lower() in _PUBLIC_KEYS for k in keys):
+            reason = (
+                "een verwijzing staat nooit op een openbare plek (image, tijdzone, notities of labels): daar komt de "
+                "waarde in een log of in het overzicht van TrueNAS"
+            )
+        elif not self.trusted_app_id:
+            reason = (
+                "een vault-verwijzing kan alleen als de app_id vaststaat (een geldige versie uit de catalogus); bij een "
+                "los manifest kan de app_id die van een andere app zijn"
+            )
+        elif param.name in self.supplied:
+            supplied = self.supplied[param.name]
+            if not (isinstance(supplied, str) and supplied == own):
+                reason = self._supplied_reason(supplied, own)
+        if reason is not None or ref_at is None:  # ref_at is dan altijd al met een reden geweigerd
+            self.findings.append(
+                error(
+                    "parameter_value_not_allowed",
+                    path,
+                    f"Parameter {param.name!r} is een geheim: {reason or _NO_TEXT_PLACE}.",
+                )
+            )
+            return None
+        self.refs.append(VaultRef(path=render_path(ref_at), parameter=param.name, ref=own))
+        self.ref_at[ref_at] = own
+        return own
+
+    def unused_secret_values(self) -> None:
+        """R-TECH-2: een opgegeven waarde voor een geheime parameter die nergens gebruikt wordt, wordt ook geweigerd
+        (de eigen verwijzing mag; die zet niets in de payload)."""
+        for name, supplied in self.supplied.items():
+            param = self.params.get(name)
+            if param is None or not is_secret(param) or name in self.secrets_seen:
+                continue
+            if isinstance(supplied, str) and supplied == vault_ref(self.m.app_id, name):
+                continue
+            self.findings.append(
+                error(
+                    "parameter_value_not_allowed",
+                    f"parameters.{name}",
+                    f"Parameter {name!r} is een geheim: een waarde voor een geheim wordt nooit meegegeven, ook niet "
+                    "als het manifest de parameter niet gebruikt.",
+                )
+            )
+
+    def _supplied_reason(self, supplied: Any, own: str) -> str:
+        match = _VAULT_REF.fullmatch(supplied) if isinstance(supplied, str) else None
+        if match is not None and match["app_id"] != self.m.app_id:
+            return f"de opgegeven vault-verwijzing hoort bij een andere app; alleen {own} is toegestaan"
+        if match is not None:
+            return f"de opgegeven vault-verwijzing hoort bij een andere parameter; alleen {own} is toegestaan"
+        return (
+            "een waarde voor een geheim wordt nooit meegegeven; de vertaling zet alleen de verwijzing "
+            f"{own} en de executor vult de waarde in"
+        )
 
 
 # ---------------------------------------------------------------------------------------------- compatibiliteit
@@ -406,7 +551,13 @@ def _custom_app_values(
         if env.value is not None:
             envs.append(IxEnv(name=env.name, value=env.value))
         elif env.value_from is not None:
-            value = r.get(env.value_from, f"custom_app.env[{idx}].value_from")
+            # besluit gebruiker 2026-11-11: ook hier een vault-verwijzing, alleen naar een geheim dat de Hub maakt
+            value = r.get(
+                env.value_from,
+                f"custom_app.env[{idx}].value_from",
+                ref_at=("values", "envs", len(envs), "value"),
+                hub_generated_only=True,
+            )
             if value is not None:
                 envs.append(IxEnv(name=env.name, value=str(value).lower() if isinstance(value, bool) else str(value)))
     tz = r.get(ca.timezone, "custom_app.timezone") if isinstance(ca.timezone, ParamRef) else (ca.timezone or "Etc/UTC")
@@ -494,14 +645,48 @@ def _custom_app_values(
     )
 
 
-def _substitute(value: Any, r: _Resolver, path: str) -> Any:
+def _substitute(value: Any, r: _Resolver, at: Segments) -> Any:
+    """Vul de parameters in de ``values`` van een catalogusapp in; ``at`` is ook de plek in de payload."""
     if isinstance(value, dict):
         if set(value) == {"param"} and isinstance(value["param"], str):
-            return r.get(ParamRef(param=value["param"]), path)
-        return {k: _substitute(v, r, f"{path}.{k}") for k, v in value.items()}
+            return r.get(ParamRef(param=value["param"]), render_path(at), ref_at=at)
+        return {k: _substitute(v, r, (*at, k)) for k, v in value.items()}
     if isinstance(value, list):
-        return [_substitute(v, r, f"{path}[{i}]") for i, v in enumerate(value)]
+        return [_substitute(v, r, (*at, i)) for i, v in enumerate(value)]
     return value
+
+
+def _texts(value: Any, at: Segments) -> list[tuple[Segments, str, bool]]:
+    """(plek, tekst, is_sleutel) voor elke tekstwaarde en elke tekstsleutel in de payload. Bij een sleutel is de plek
+    die van het object waarin de sleutel staat."""
+    if isinstance(value, dict):
+        keys = [(at, k, True) for k in value if isinstance(k, str)]
+        return keys + [t for k, v in value.items() for t in _texts(v, (*at, k))]
+    if isinstance(value, list):
+        return [t for i, v in enumerate(value) for t in _texts(v, (*at, i))]
+    return [(at, value, False)] if isinstance(value, str) else []
+
+
+def _unmarked_vault_refs(payload: AppCreatePayload, ref_at: dict[Segments, str]) -> list[Finding]:
+    """Alleen de vertaling maakt een vault-verwijzing. Een letterlijke verwijzing in het manifest (of iets dat erop
+    lijkt, ook in een sleutel) zou de Hub een geheim van een andere app laten invullen: weigeren, met het pad en zonder
+    de waarde. De vergelijking gaat over de echte plek (sleutels en lijstposities), niet over het pad als tekst: een
+    sleutel ``a.b`` is een andere plek dan ``a`` → ``b``."""
+    return [
+        error(
+            "vault_ref_not_allowed",
+            render_path(at),
+            (
+                "In een sleutel van dit object staat een vault-verwijzing"
+                if is_key
+                else "Hier staat een vault-verwijzing die de vertaling niet zelf heeft gemaakt"
+            )
+            + "; alleen een geheime parameter krijgt een verwijzing naar de vault van de Hub, en alleen voor de eigen "
+            "app.",
+        )
+        for at, text, is_key in _texts(payload.model_dump(mode="json"), ())
+        if _VAULT_MARK.search(text) and (is_key or ref_at.get(at) != text)
+    ]
 
 
 def translate(
@@ -510,12 +695,19 @@ def translate(
     target: Target | None = None,
     app_name: str | None = None,
     manifest_sha256: str | None = None,
+    *,
+    trusted_app_id: bool = False,
 ) -> TranslationResult:
-    """Vertaal een **gevalideerd** manifest. Geeft altijd een resultaat; ``payload`` is ``None`` bij blokkades."""
+    """Vertaal een **gevalideerd** manifest. Geeft altijd een resultaat; ``payload`` is ``None`` bij blokkades.
+
+    ``trusted_app_id``: de aanroeper staat in voor de ``app_id`` van het manifest (een geldige versie uit de catalogus,
+    of het eigen bestand bij ``jl-manifest translate``). Alleen dan krijgt een geheime parameter een vault-verwijzing;
+    standaard niet, want een los manifest kan zich de ``app_id`` van een andere app geven (ADR-0015).
+    """
     target = target or Target()
     manifest_sha = manifest_sha256 or sha256_digest(manifest.model_dump(mode="json", exclude_none=False))
     compat, findings = check_compatibility(manifest, target)
-    resolver = _Resolver(manifest, dict(parameters or {}))
+    resolver = _Resolver(manifest, dict(parameters or {}), trusted_app_id=trusted_app_id)
     name = app_name or manifest.app_id
     payload: AppCreatePayload | None = None
     readback: DigestReadback | None = None
@@ -557,7 +749,7 @@ def translate(
             )
     else:
         assert manifest.catalog is not None and manifest.values is not None
-        values_any = _substitute(manifest.values, resolver, "values")
+        values_any = _substitute(manifest.values, resolver, ("values",))
         # verdediging in de diepte: de ingevulde waarden opnieuw controleren (een parameter smokkelt niets binnen)
         resolver.findings.extend(
             catalog_value_findings(values_any, host_network_reason=manifest.network.host_network_reason, resolved=True)
@@ -570,7 +762,13 @@ def translate(
                 version=manifest.catalog.version,
                 values=values_any,
             )
+    resolver.unused_secret_values()
+    if any(f.severity is Severity.ERROR for f in resolver.findings):
+        payload = None  # ook een geweigerde waarde voor een ongebruikte geheime parameter blokkeert de payload
     findings = findings + resolver.findings
+    if payload is not None and (unmarked := _unmarked_vault_refs(payload, resolver.ref_at)):
+        findings += unmarked
+        payload = None  # nooit een payload met een verwijzing die niet gemarkeerd is
     blocking = any(f.severity is Severity.ERROR for f in findings)
     preview_hash = sha256_digest(payload.model_dump(mode="json")) if payload is not None else None
     return TranslationResult(
@@ -579,5 +777,6 @@ def translate(
         preview_hash=preview_hash,
         compatibility=compat,
         digest_readback=readback,
+        vault_refs=list(resolver.refs) if payload is not None else [],
         findings=sorted(findings, key=lambda f: (f.severity is not Severity.ERROR, f.path, f.code)),
     )

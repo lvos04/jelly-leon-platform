@@ -1,7 +1,8 @@
 # ADR-0021 — De manifeststandaard als byte-gelijke, gepinde kopie in de lifecycle-dienst
 
 - Status: aanvaard · Datum: 2026-11-11 · Contract: 1.3 §2.2, §9 · Bouwplan: B08-003, B08-004
-- Bron (alleen gelezen): `lvos04/appstore-en-fork` `7b3159d168b1e8b575e220068bb3df50ed0203ad`,
+- Bron (alleen gelezen): `lvos04/appstore-en-fork` `7b3159d168b1e8b575e220068bb3df50ed0203ad` (sinds de review van P2:
+  `1967069fad62beadf5da9f31160ff4c025a5a7bf`, zie "Stand na de review van P2"),
   `apps/api/src/appstore/__init__.py` en `apps/api/src/appstore/manifest/`
 
 ## Aanleiding
@@ -46,12 +47,10 @@ conflictanalyse al gebouwd en getest. Tot nu toe gebruikte deze repo de validato
 
 ## Stand na de review van P2 (S-P2-395, ADR-0025 besluit 7)
 
-- De validator in CI en in `make validator-venv` staat vast op appstore-en-fork `cbf4fd2`
+- De validator in CI en in `make validator-venv` staat vast op appstore-en-fork `1967069`
   (`ASF_COMMIT` in `.github/workflows/ci.yml` en in de `Makefile`). Die commit vertaalt een geheim als
-  `vault://app/<app_id>/<parameter>` (C1.3-ASF-14).
-- De kopie in de dienst blijft **bewust** op `7b3159d`. Tussen beide commits verschillen alleen
-  `manifest/translate.py` en `manifest/findings.py`: de validatieregels en schema's zijn gelijk, dus over een manifest
-  oordelen CI en de planner hetzelfde. Over geheimen niet: de kopie weigert elk geheim, zodat een installatieplan met
-  geheimen geblokkeerd blijft. Overnemen zou zo'n plan vrijgeven met vault-verwijzingen in `app.install`, terwijl in
-  deze stap niet is vastgesteld dat de Hub en de executor die invullen (S-P2-070, ai-server-manager). Dat is
-  ONBEKEND, dus de veiligste stand geldt. Overnemen blijft een eigen stap (besluit 2), samen met ADR-0022 besluit 11.
+  `vault://app/<app_id>/<parameter>`, maar alleen als de `app_id` vaststaat (C1.3-ASF-14, met het herstel `1fbe145`).
+- De kopie in de dienst is met `tools/validator_kopie.py bijwerken` naar **dezelfde commit** gebracht (op verzoek
+  van de regisseur; `KOPIE.json`), zodat CI en de planner met dezelfde code oordelen. De planner geeft geen
+  `trusted_app_id` mee: het manifest van een plan komt van de aanvrager. Een geheim krijgt daar dus geen
+  vault-verwijzing en een installatieplan met geheimen blijft geblokkeerd (ADR-0022 besluit 11, ADR-0025 besluit 7).

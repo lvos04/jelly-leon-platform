@@ -187,6 +187,15 @@ def test_geheime_waarden_komen_nooit_in_een_plan() -> None:
     assert "heel-geheim-123" not in json.dumps(doc)
     assert doc["diff"]["geheimen"]["parameters"] == ["db_password", "secret_key"]
     assert doc["bronnen"]["catalogus"]["app"] == "authentik"  # voor een catalogusapp telt de versie uit het manifest
+    # Zonder waarde: het manifest van een plan komt van de aanvrager (een los manifest), dus de app_id staat niet vast.
+    # De vertaling (kopie van appstore-en-fork 1967069, ADR-0021) geeft dan geen vault-verwijzing en het plan blijft
+    # geblokkeerd, tot de Hub geheimen uit de vault invult (S-P2-070) en de app_id vastligt (ADR-0025 besluit 7).
+    zonder = installatie(manifest_yaml=manifest("authentik"),
+                         parameters={k: v for k, v in params.items() if k != "db_password"})
+    fouten = {(b["code"], b["details"]["pad"]) for b in zonder["blokkades"] if b["details"].get("bron") == "vertaling"}
+    assert fouten == {("parameter_value_not_allowed", "values.authentik.db_password"),
+                      ("parameter_value_not_allowed", "values.authentik.secret_key")}
+    assert zonder["stappen"] == [] and "vault://" not in json.dumps(zonder)
 
 
 # ------------------------------------------------------------------ bijwerken (B08-004)

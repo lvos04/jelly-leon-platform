@@ -142,6 +142,7 @@ CODES: dict[str, str] = {
     "parameter_value_invalid": "Waarde voor een parameter is ongeldig.",
     "parameter_value_unknown": "Waarde opgegeven voor een onbekende parameter.",
     "parameter_value_not_allowed": "Deze parameter mag niet via de installatie worden meegegeven.",
+    "vault_ref_not_allowed": "Vault-verwijzing die de vertaling niet zelf heeft gemaakt (alleen voor een geheime parameter).",
     "manifest_invalid": "Het manifest is niet geldig; vertalen is geweigerd.",
     "ix_app_version_unknown": "Versie van de TrueNAS-catalogusapp ix-app is onbekend.",
     "ix_app_version_unsupported": "Versie van ix-app wordt niet ondersteund.",

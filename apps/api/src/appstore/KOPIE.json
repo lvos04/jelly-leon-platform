@@ -1,7 +1,7 @@
 {
  "uitleg": "Herkomst van de byte-gelijke kopie van de manifeststandaard (B08-001, eigenaar appstore-en-fork; ADR-0021). Niet met de hand wijzigen: python tools/validator_kopie.py bijwerken --bron <appstore-en-fork> [--ref <commit>].",
  "bron_repo": "lvos04/appstore-en-fork",
- "bron_commit": "7b3159d168b1e8b575e220068bb3df50ed0203ad",
+ "bron_commit": "1967069fad62beadf5da9f31160ff4c025a5a7bf",
  "bron_map": "apps/api/src/appstore",
  "bestanden": {
   "__init__.py": {
@@ -23,13 +23,13 @@
    "sha256": "3a6666400b5b90ddc8fa4e7e29ea3165585ec545fe836dbc2369e9998cf33d2d"
   },
   "manifest/cli.py": {
-   "sha256": "f92838d571d50bda3e6ab3e26e008c7aa00d72c0862f40ee7ae474be2e642db5"
+   "sha256": "c4173d1e08ef12ba0e3bbb6a33598ceec629cff668216eade1f103f53388ba9b"
   },
   "manifest/conflicts.py": {
    "sha256": "ec0a1d3ca277589b5c77ae4855a18c55af0b697cb7971fa679b348537f4409ca"
   },
   "manifest/findings.py": {
-   "sha256": "2037ed8f509c858bedd0be954cba8be46cd1d498de4ca41a43e0e42f8a93cec6"
+   "sha256": "86db457285f54586ce0d11badebbfb3b63b3ee3c09f3e209d0284ca89f422dc8"
   },
   "manifest/loader.py": {
    "sha256": "728cd0f95c093c30a5dba3ec2a0c15e670e45748913d6f85cb325955ff1fe799"
@@ -47,7 +47,7 @@
    "sha256": "75b2b41c1593698c9dd34f29950b51ee1c9fa72cf200083814b8655f2e4d94da"
   },
   "manifest/translate.py": {
-   "sha256": "ba44265074bf9f17fef75c3f85e0a48f4ef201b8511a416ea2be17dd6b2a397e"
+   "sha256": "3481d3f0d2c0afcb241fd194b7b3c65647067c0ef41307c6acd1d224e26f7830"
   },
   "manifest/truenas.py": {
    "sha256": "c402c0dd8cf998dc2fc11eb66df39ec95e27cef8b7307805f221d7176237298e"

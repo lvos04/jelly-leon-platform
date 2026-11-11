@@ -81,9 +81,10 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
 11. **Geheimen.** Een plan bevat nooit geheime waarden; de standaard weigert geheime parameters in formulierwaarden
     (`parameter_value_not_allowed`). Gevolg: het installatieplan van een app met geheime parameters (bijvoorbeeld
     authentik) is nu altijd geblokkeerd tot de standaard kluisverwijzingen kent (zie "Open punten").
-    Stand na ADR-0025 besluit 7: de standaard kent ze sinds appstore-en-fork `cbf4fd2` (`vault://app/<app_id>/<naam>`),
-    en de validator in CI staat op die commit. De kopie in deze dienst blijft bewust op `7b3159d`; de planner blokkeert
-    dus nog elk geheim, tot de Hub de verwijzingen invult (S-P2-070) en de kopie wordt overgenomen.
+    Stand na ADR-0025 besluit 7: de standaard kent ze sinds appstore-en-fork `1967069` (`vault://app/<app_id>/<naam>`),
+    alleen als de `app_id` vaststaat. Validator in CI en kopie in deze dienst staan op die commit. Het manifest van een
+    plan komt van de aanvrager, dus de planner blokkeert nog elk geheim, tot de `app_id` vastligt en de Hub de
+    verwijzingen invult (S-P2-070).
 
 ## Test-stand-ins
 
@@ -118,8 +119,8 @@ Alles wat hiermee is aangetoond heet **Sim-getest**; tegen de echte Hub/executor
   terugkrijgt; het voorbeeld `parameters: {"grace_seconds": 30}` in het contract past niet op het lege schema van
   `app.restart` in het beleid van de Hub.
 - TrueNAS-versie en `ix-app`-versie in de inventaris van de Hub (nu: `doel` van de aanvrager).
-- Geheimen: het Hub-beleid voorziet `vault://app/…`-verwijzingen; de manifeststandaard sinds `cbf4fd2` ook, de kopie
-  in deze dienst nog niet (ADR-0025 besluit 7).
+- Geheimen: het Hub-beleid voorziet `vault://app/…`-verwijzingen; de manifeststandaard sinds `1967069` ook, maar
+  alleen bij een vaststaande `app_id`; voor het (losse) manifest van een plan dus niet (ADR-0025 besluit 7).
 - In welke vorm het platform "vorige image én snapshot samen" terugzet (§2.3 regel 7a); tot dan is dat een handeling
   van de eigenaar (ADR-0025 besluit 1).
 - Wat het `backup_checkpoint_id` van een `app.rollback` is (nu: de naam van het herstelpunt van vóór de update).
