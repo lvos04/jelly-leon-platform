@@ -43,6 +43,10 @@ MANIFEST = ROOT / "install" / "manifests" / "node-red.manifest.yaml"
 
 GLOBALE_NODE = "jlp-global-config"
 TOEGESTANE_TYPES = frozenset({"tab", "comment", "inject", "change", "switch", "http request", "debug", "catch"})
+# Node-RED zoekt $env('HUB_URL') eerst in de env van de groep en het tabblad, pas daarna in de globale instellingen. Een
+# bundel mag dus nergens een eigen env of groep hebben, en een tabblad alleen deze velden (review P2, R-VEILIG-1).
+TAB_VELDEN = frozenset({"id", "type", "label", "disabled", "info"})
+VERBODEN_NODE_VELDEN = ("env", "g")
 # De enige adressen waar een flow heen mag: vaste routes van de Hub. Sleutel = de JSONata voor msg.url.
 HUB_ROUTES: dict[str, tuple[str, str]] = {
     "$env('HUB_URL') & '/api/v1/apps?limit=200'": ("GET", "/api/v1/apps"),
@@ -163,6 +167,9 @@ def lint(nodes: list[Node]) -> list[str]:
         uit.append("tab_label: het label begint met 'JLP · '")
     if not VERSIE_RE.match(str(tab.get("info", ""))):
         uit.append("tab_versie: de beschrijving begint met een regel 'versie x.y.z'")
+    for veld in sorted(set(tab) - TAB_VELDEN):
+        uit.append(f"veld_niet_toegestaan: tabblad {tab.get('id')} heeft '{veld}' (alleen "
+                   f"{', '.join(sorted(TAB_VELDEN))}; een env op het tabblad gaat vóór de globale HUB_URL)")
     per_id = {str(n.get("id")): n for n in nodes}
     naar: dict[str, list[Node]] = {}
     for node in nodes:
@@ -174,6 +181,10 @@ def lint(nodes: list[Node]) -> list[str]:
             uit.append(f"buiten_tabblad: {node.get('id')} hoort niet bij tabblad {tab.get('id')}")
         if "credentials" in node:
             uit.append(f"credentials_in_bundel: {node.get('id')} — inloggegevens komen pas bij de import")
+        for veld in VERBODEN_NODE_VELDEN:
+            if node is not tab and veld in node:
+                uit.append(f"veld_niet_toegestaan: {node.get('id')} heeft '{veld}' (geen eigen env of groep: "
+                           "HUB_URL komt alleen uit de globale instellingen)")
         for uitgang in node.get("wires") or []:
             for doel in uitgang:
                 if str(doel) not in per_id:
@@ -356,15 +367,36 @@ def importeer(nr: NodeRed, bundels: dict[str, list[Node]], *, hub_url: str, toke
                 node["credentials"] = {"password": token}  # Node-RED versleutelt dit; GET /flows geeft het nooit terug
             nieuw.append(node)
     nr.zet_flows(rev, nieuw)
-    return readback(nr, bundels, verboden=(token,))
+    return readback(nr, bundels, verboden=(token,), hub_url=hub_url)
 
 
-def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str, ...] = ()) -> dict[str, Any]:
-    """Leest terug en vergelijkt per bundel de checksum. Het token mag nergens in de teruggelezen flows staan."""
+def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[str]:
+    """Wat ná de import een flow van een eigen tabblad naar een ander adres dan de Hub kan sturen: een env op het
+    tabblad of op een node daarin (of een groep), of een globale HUB_URL die niet precies de opgegeven Hub-URL is."""
+    uit = []
+    for node in flows:
+        eigen = str(node.get("id")) in eigen_tabs or str(node.get("z")) in eigen_tabs
+        if eigen and (node.get("env") or node.get("g")):
+            uit.append(f"{node.get('id')} heeft een eigen env of groep")
+    globale = [e for n in flows if n.get("type") == "global-config" for e in n.get("env") or []
+               if isinstance(e, dict) and e.get("name") == "HUB_URL"]
+    if [e.get("value") for e in globale] != [hub_url]:
+        uit.append("de globale HUB_URL is niet precies de opgegeven Hub-URL")
+    return uit
+
+
+def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str, ...] = (),
+             hub_url: str | None = None) -> dict[str, Any]:
+    """Leest terug en vergelijkt per bundel de checksum. Het token mag nergens in de teruggelezen flows staan. Met
+    ``hub_url`` (bij de import): de eigen tabbladen kunnen nergens anders heen dan naar die Hub (R-VEILIG-1)."""
     _rev, terug = nr.flows()
     tekst = json.dumps(terug, ensure_ascii=False)
     if any(g and g in tekst for g in verboden) or '"credentials"' in tekst:
         raise Fout("De teruggelezen flows bevatten inloggegevens; dat hoort niet.")
+    if hub_url is not None:
+        eigen_tabs = {str((tab_van(n) or {}).get("id")) for n in bundels.values()}
+        if omleidingen := _omleidingen(terug, eigen_tabs, hub_url):
+            raise Fout("Na de import kan een flow naar een ander adres dan de Hub: " + "; ".join(omleidingen))
     tabs = per_tab(terug)
     uit: dict[str, Any] = {}
     for naam, nodes in bundels.items():
@@ -377,16 +409,29 @@ def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str
     return uit
 
 
+def _bestandsnaam(tab_id: str) -> str:
+    """Een tabblad-id komt van Node-RED (invoer van buiten) en is nooit een pad: alleen een eigen id (``jlp-…``) blijft
+    zo; elk ander id krijgt een vaste veilige naam uit de sha256 van het id (review P2, R-VEILIG-2)."""
+    if ID_RE.fullmatch(tab_id):
+        return tab_id
+    return "tab-" + hashlib.sha256(tab_id.encode("utf-8")).hexdigest()[:16]
+
+
 def exporteer(nr: NodeRed, doel: Path) -> dict[str, Any]:
-    """Git-export: één bestand per tabblad, plus de vergelijking met het lock (gelijk, afwijkend of onbekend)."""
+    """Git-export: één bestand per tabblad, plus de vergelijking met het lock (gelijk, afwijkend of onbekend). Een
+    bestand komt altijd direct in ``doel``; een tabblad-id wordt nooit als pad gebruikt."""
     _rev, flows = nr.flows()
     lock = lees_lock()["bundels"]
     per_tab_id = {v["tab"]: (naam, v) for naam, v in lock.items()}
     doel.mkdir(parents=True, exist_ok=True)
+    map_ = doel.resolve()
     uit: dict[str, Any] = {}
     for tab_id, nodes in per_tab(flows).items():
-        naam, vast = per_tab_id.get(tab_id, (tab_id, None))
-        (doel / f"{naam}.json").write_text(json.dumps(nodes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        naam, vast = per_tab_id.get(tab_id, (_bestandsnaam(tab_id), None))
+        bestand = (doel / f"{naam}.json").resolve()
+        if bestand.parent != map_:
+            raise Fout(f"Exportnaam '{naam}' valt buiten de exportmap; niets geschreven voor dit tabblad.")
+        bestand.write_text(json.dumps(nodes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         som = checksum(nodes)
         uit[naam] = {"tab": tab_id, "sha256": som, "ingeschakeld": (tab_van(nodes) or {}).get("disabled") is not True,
                      "vergelijking": "onbekend" if vast is None else

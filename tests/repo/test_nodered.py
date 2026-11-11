@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -171,6 +172,22 @@ AFGEWEZEN = {
     "draad-naar-buiten": (lambda: _wijzig("hartslag", "jlp-hs-tik", wires=[["jlp-elders"]]), "draad_naar_buiten"),
     "vreemd-id": (lambda: _met("X", type="comment"), "id_ongeldig"),
     "zonder-versie": (lambda: _wijzig("hartslag", "jlp-hartslag", info="geen versie"), "tab_versie"),
+    # Review P2 (S-P2-395, R-VEILIG-1): $env('HUB_URL') leest eerst de env van het tabblad (of de groep) en pas daarna
+    # de globale; met HUB_URL op het tabblad ging het service-token naar een ander adres. Een hostnaam zonder schema of
+    # een IPv4-adres als één getal herkent de adrescontrole niet; daarom: geen env op een node en een witte lijst van
+    # velden op het tabblad.
+    "tab-env-hostnaam": (lambda: _wijzig("hartslag", "jlp-hartslag", env=[
+        {"name": "HUB_URL", "value": "aanvaller.example.net", "type": "str"}]), "veld_niet_toegestaan"),
+    "tab-env-ip-als-getal": (lambda: _wijzig("hartslag", "jlp-hartslag", env=[
+        {"name": "HUB_URL", "value": "3232235777:8080", "type": "str"}]), "veld_niet_toegestaan"),
+    "tab-env-hex": (lambda: _wijzig("hartslag", "jlp-hartslag", env=[
+        {"name": "HUB_URL", "value": "0xc0a80101", "type": "str"}]), "veld_niet_toegestaan"),
+    "tab-env-leeg-van-naam": (lambda: _wijzig("hartslag", "jlp-hartslag", env=[
+        {"name": "X", "value": "y", "type": "str"}]), "veld_niet_toegestaan"),
+    "tab-onbekend-veld": (lambda: _wijzig("hartslag", "jlp-hartslag", locked=True), "veld_niet_toegestaan"),
+    "node-env": (lambda: _wijzig("hartslag", "jlp-hs-bouw", env=[{"name": "HUB_URL", "value": "x", "type": "str"}]),
+                 "veld_niet_toegestaan"),
+    "node-in-groep": (lambda: _wijzig("hartslag", "jlp-hs-stuur", g="jlp-groep"), "veld_niet_toegestaan"),
 }
 
 
@@ -197,10 +214,88 @@ def test_import_refuses_before_touching_node_red() -> None:
     with pytest.raises(nf.Fout):
         nf.importeer(nr, {"hartslag": _met("exec", type="exec", command="id")}, hub_url="https://hub.example",
                      token="t" * 30)
+    for geval in ("tab-env-hostnaam", "tab-env-ip-als-getal", "node-env"):  # R-VEILIG-1
+        with pytest.raises(nf.Fout):
+            nf.importeer(nr, {"hartslag": AFGEWEZEN[geval][0]()}, hub_url="https://hub.example", token="t" * 30)
     for hub_url in ("https://gebruiker:geheim@hub.example", "ftp://hub.example", "https://hub.example/pad?x=1", ""):
         with pytest.raises(nf.Fout):
             nf.importeer(nr, goed, hub_url=hub_url, token="t" * 30)
     assert nr.aanroepen == 0
+
+
+class _NepNodeRed(nf.NodeRed):
+    """Node-RED zonder netwerk: ``flows`` geeft wat er staat, ``zet_flows`` slaat op; ``na_import`` kan de teruggelezen
+    flows veranderen (zoals een Node-RED die iets anders bewaart dan gestuurd)."""
+
+    def __init__(self, flows: list[dict[str, Any]], na_import: Any = None) -> None:
+        self.url, self.kop = "http://ongebruikt.invalid", {}
+        self.staat = copy.deepcopy(flows)
+        self.na_import = na_import
+
+    def flows(self) -> tuple[str, list[dict[str, Any]]]:
+        return "rev-1", copy.deepcopy(self.staat)
+
+    def zet_flows(self, rev: str, flows: list[dict[str, Any]]) -> str:
+        # zoals Node-RED: credentials worden versleuteld apart bewaard en komen nooit terug via GET /flows
+        self.staat = [{k: v for k, v in n.items() if k != "credentials"} for n in copy.deepcopy(flows)]
+        if self.na_import is not None:
+            self.na_import(self.staat)
+        return "rev-2"
+
+
+def test_import_checks_after_reading_back_that_only_the_global_hub_url_counts() -> None:
+    """R-VEILIG-1: ná de import leest de import terug dat op de eigen tabbladen geen env staat (die gaat in Node-RED
+    vóór de globale HUB_URL) en dat de globale HUB_URL precies de opgegeven Hub-URL is."""
+    bundels = {"hartslag": _bundel("hartslag")}
+    goed = _NepNodeRed([])
+    uit = nf.importeer(goed, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert uit["hartslag"]["gelijk"] is True
+    for node in goed.staat:
+        if node["type"] == "global-config":
+            assert node["env"] == [{"name": "HUB_URL", "value": "https://hub.example", "type": "str"}]
+        else:
+            assert not node.get("env")
+
+    def tab_env(flows: list[dict[str, Any]]) -> None:
+        next(n for n in flows if n["id"] == "jlp-hartslag")["env"] = [
+            {"name": "HUB_URL", "value": "aanvaller.example.net", "type": "str"}]
+
+    def andere_hub(flows: list[dict[str, Any]]) -> None:
+        g = next(n for n in flows if n["type"] == "global-config")
+        g["env"] = [{"name": "HUB_URL", "value": "https://elders.example", "type": "str"}]
+
+    for knoei in (tab_env, andere_hub):
+        with pytest.raises(nf.Fout):
+            nf.importeer(_NepNodeRed([], knoei), bundels, hub_url="https://hub.example", token="t" * 30)
+    # een leeg env-veld is geen omleiding (geen Fout; de checksumvergelijking ziet het verschil wel)
+    leeg = _NepNodeRed([], lambda flows: next(n for n in flows if n["id"] == "jlp-hartslag").update(env=[]))
+    assert nf.importeer(leeg, bundels, hub_url="https://hub.example", token="t" * 30)["hartslag"]["gelijk"] is False
+
+
+@pytest.mark.parametrize("tab_id", ["../../buiten/ontsnapt", "a/b", "<absoluut>", "..", "C:\\x", "jlp-x/../../y"])
+def test_export_never_writes_outside_the_target_directory(tmp_path: Path, tab_id: str) -> None:
+    """R-VEILIG-2: een tabblad-id uit Node-RED is invoer van buiten; ``exporteer`` gebruikt het nooit als pad. Een id
+    dat niet in het lock staat en niet de vorm ``jlp-…`` heeft, krijgt een vaste veilige naam."""
+    if tab_id == "<absoluut>":  # een absoluut pad, binnen de testmap zodat een rode test niets daarbuiten schrijft
+        (tmp_path / "abs").mkdir()
+        tab_id = str(tmp_path / "abs" / "x")
+    doel = tmp_path / "werk" / "export"
+    nr = _NepNodeRed([{"id": tab_id, "type": "tab", "label": "x"},
+                      {"id": "n1", "type": "comment", "z": tab_id}])
+    uit = nf.exporteer(nr, doel)
+    alle = sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file())
+    assert alle and all(p.startswith("werk/export/") and p.count("/") == 2 for p in alle), alle
+    ((naam, rij),) = uit.items()
+    assert rij["tab"] == tab_id and rij["vergelijking"] == "onbekend"
+    assert re.fullmatch(r"tab-[0-9a-f]{16}", naam) and (doel / f"{naam}.json").is_file()
+
+
+def test_export_keeps_lock_names_and_own_ids(tmp_path: Path) -> None:
+    hartslag = _bundel("hartslag")
+    eigen = {"id": "jlp-eigen", "type": "tab", "label": "JLP · eigen"}
+    uit = nf.exporteer(_NepNodeRed([*hartslag, eigen]), tmp_path / "export")
+    assert set(uit) == {"hartslag", "jlp-eigen"} and uit["hartslag"]["vergelijking"] == "gelijk_aan_lock"
+    assert sorted(p.name for p in (tmp_path / "export").iterdir()) == ["hartslag.json", "jlp-eigen.json"]
 
 
 # ---------------------------------------------------------------------- documentatie en bewaard bewijs
