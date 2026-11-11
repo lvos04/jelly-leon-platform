@@ -41,7 +41,6 @@ from lifecycle import beschermd
 from lifecycle.custom_app import (
     DIGEST_RE,
     IX_APP,
-    Blocker,
     RecipeError,
     catalog_version_blocker,
     check_digest_readback,
@@ -107,9 +106,6 @@ class _Bouw:
 
     def blokkeer(self, code: str, melding: str, voorstel: str | None = None, **details: Any) -> None:
         self.blokkades.append({"code": code, "melding_nl": melding, "voorstel_nl": voorstel, "details": details})
-
-    def blokkade(self, blocker: Blocker) -> None:
-        self.blokkeer(blocker.code, blocker.message_nl, blocker.proposal_nl, **blocker.details)
 
     def waarschuw(self, code: str, melding: str, pad: str = "") -> None:
         self.bevindingen.append({"code": code, "ernst": "warning", "pad": pad, "melding": melding, "bron": "planner",
@@ -658,7 +654,8 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
             blocker = catalog_version_blocker(catalog_app=app, train=train, pinned_version=version,
                                               available_versions=[])
             if blocker is not None:
-                b.blokkade(blocker)
+                b.blokkeer(blocker.code, blocker.message_nl, blocker.proposal_nl, **blocker.details,
+                           gemeten_op=meting.gemeten_op, bron="catalogus")
         elif meting.beschikbaar != "ja":
             b.blokkeer("capability_unavailable" if meting.status == "capability_unavailable"
                        else "version_availability_unknown",

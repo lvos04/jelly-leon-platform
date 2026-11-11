@@ -630,6 +630,9 @@ def test_terugzetten_naar_catalogusversie_alleen_als_die_gemeten_bestaat() -> No
     weg = terug(app_name="authentik", catalog=catalog, inventaris=inventaris(record), beschikbaar=meting("nee"))
     assert codes(weg) == {"version_unavailable", "herstelpunt_onbekend"}
     geen_stap_vrij(weg)
+    # zoals bij installeren en bijwerken noemt de blokkade op de catalogusmeting het tijdstip (R-TECH-5, ADR-0024)
+    details = next(b["details"] for b in weg["blokkades"] if b["code"] == "version_unavailable")
+    assert (details["gemeten_op"], details["bron"]) == ("2026-11-11T11:59:00Z", "catalogus")
     onbekend = terug(app_name="authentik", catalog=catalog, inventaris=inventaris(record),
                      beschikbaar=meting("onbekend"))
     assert codes(onbekend) == {"version_availability_unknown", "herstelpunt_onbekend"}
