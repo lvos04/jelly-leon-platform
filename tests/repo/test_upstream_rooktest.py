@@ -21,7 +21,10 @@ import upstream_rooktest as ur  # noqa: E402
 def test_every_upstream_custom_app_manifest_is_covered() -> None:
     gevonden = ur.upstream_custom_apps()
     assert gevonden, "geen upstream-manifesten gevonden"
-    assert sorted(gevonden) == sorted(ur.APPS), "nieuw upstream-manifest: neem het op in tools/upstream_rooktest.py"
+    assert sorted(gevonden) == sorted([*ur.APPS, *ur.ELDERS_GEDEKT]), (
+        "nieuw upstream-manifest: neem het op in tools/upstream_rooktest.py (APPS of ELDERS_GEDEKT)")
+    for app_id, hulpmiddel in ur.ELDERS_GEDEKT.items():
+        assert app_id not in ur.APPS and (ROOT / hulpmiddel).is_file(), hulpmiddel
 
 
 @pytest.mark.parametrize("app_id", ur.APPS)

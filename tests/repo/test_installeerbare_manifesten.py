@@ -39,6 +39,7 @@ VERWACHT = {
     "gotify": ("custom_app", "I13_GOTIFY"),
     "ai-server-manager": ("custom_app", "I23_HOME_CONTROL_HUB"),
     "ai-server-manager-executor": ("custom_app", "I23_HOME_CONTROL_HUB"),
+    "node-red": ("custom_app", "I10_NODE_RED"),  # fase P2 (ADR-0023)
 }
 # Gecontroleerd op 2026-11-09 met `docker buildx imagetools inspect` (index-digest, multi-arch).
 DIGESTS = {
@@ -47,6 +48,8 @@ DIGESTS = {
         "sha256:cb6868012964d7a68debaa2c84bb72285e5f08531e81f506bd4c493bf052e41c",
     "ghcr.io/louislam/uptime-kuma:2.5.9": "sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd",
     "ghcr.io/gotify/server:3.1.1": "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86",
+    # Gecontroleerd op 2026-11-11 (zelfde werkwijze).
+    "nodered/node-red:5.0.9-24": "sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f",
 }
 # Parameterwaarden zoals de wizard/datasetkiezer ze tegen de TrueNAS-simulator zou meten (alleen voor de vertaaltest;
 # 'simpool' is de pool van de simulator, geen echte poolnaam).
@@ -97,7 +100,8 @@ def test_all_manifests_pass_the_appstore_validator_in_strict_mode() -> None:
 
 
 @pytest.mark.parametrize("bestand", ["gotify.manifest.yaml", "uptime-kuma.manifest.yaml", "beszel-hub.manifest.yaml",
-                                     "beszel-agent.manifest.yaml", "authentik.manifest.yaml"])
+                                     "beszel-agent.manifest.yaml", "authentik.manifest.yaml",
+                                     "node-red.manifest.yaml"])
 def test_contract_1_3_fields(bestand: str) -> None:
     """§9 (1.3): kop "contract 1.3", geen HUB_*-parameters of -env, post_install_checks voor open eerste-gebruik-
     vensters en runtime-kenmerken, monitorplan (behalve de agent: alleen SSH), restrisico zonder no-new-privileges bij
@@ -110,7 +114,8 @@ def test_contract_1_3_fields(bestand: str) -> None:
     assert m["post_install_checks"] and all(c["beschrijving_nl"].strip() for c in m["post_install_checks"])
     if bestand != "beszel-agent.manifest.yaml":
         mon = m["healthcheck"]["monitor"]
-        assert mon["pad"].startswith("/") and mon["verwachte_status"] == 200
+        # Node-RED: de monitor bewaakt de beveiliging zelf — /diagnostics is 403 zolang die actief is (ADR-0023).
+        assert mon["pad"].startswith("/") and mon["verwachte_status"] == (403 if m["app_id"] == "node-red" else 200)
     if m["install"]["method"] == "custom_app":
         assert "no-new-privileges" in m["privilege_reason"]
     else:
@@ -196,7 +201,7 @@ def _translate(validator: Path, bestand: str, params: dict[str, Any], tmp_path: 
 
 
 @pytest.mark.parametrize("bestand", ["gotify.manifest.yaml", "uptime-kuma.manifest.yaml", "beszel-hub.manifest.yaml",
-                                     "beszel-agent.manifest.yaml"])
+                                     "beszel-agent.manifest.yaml", "node-red.manifest.yaml"])
 def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: str, tmp_path: Path) -> None:
     validator = _validator()
     m = _load(bestand)
@@ -216,6 +221,10 @@ def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: st
     assert values["privileged"] is False and values["host_network"] is False and values["capabilities"]["add"] == []
     assert values["restart_policy"] == "unless-stopped"
     assert out["digest_readback"]["expected_digest"] == m["image"]["digest"]
+    # vaste omgevingsvariabelen komen letterlijk in het formulier (Node-RED: FLOWS draagt de beveiliging)
+    vaste_env = {e["name"]: e["value"] for e in m["custom_app"]["env"] if "value" in e}
+    assert vaste_env.items() <= {e["name"]: e["value"] for e in values["envs"]}.items()
+    assert values["entrypoint"] == [] and values["command"] == []
 
 
 def test_authentik_translation_is_blocked_until_the_executor_fills_secrets(tmp_path: Path) -> None:

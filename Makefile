@@ -4,7 +4,8 @@ NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
-	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest upstream-rooktest
+	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest upstream-rooktest \
+	nodered nodered-rooktest
 
 venv:
 	python3.12 -m venv .venv
@@ -17,10 +18,11 @@ typecheck:
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
-		tools/validator_kopie.py
+		tools/validator_kopie.py tools/nodered_flows.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
 	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
+	MYPYPATH=e2e/simulators/hub:tools $(PY) -m mypy --strict --python-version 3.12 tools/nodered_rooktest.py
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q
@@ -146,3 +148,15 @@ rooktest: validator-venv
 # dataverlies, Beszel-agent in SSH-modus met alleen de publieke hubsleutel. Docker, geen TrueNAS (Sim-getest).
 upstream-rooktest:
 	$(NICE) $(PY) tools/upstream_rooktest.py --rapport /tmp/jlp-upstream-rooktest.json
+
+# Node-RED (I10, ADR-0023). nodered: manifest-FLOWS gelijk aan install/node-red/settings-overrides.json, flowbundels
+#   door de eigen controle en het lock (checksums) actueel — zonder Docker.
+# nodered-rooktest: de gepinde image als 568 met het manifest tegen de Hub-simulator (beveiliging, flows importeren,
+#   melding, aanvraag via de Hub, hartslag, herstel, stop zichtbaar). Alleen Docker en de simulator; geen NAS.
+nodered:
+	$(PY) tools/nodered_flows.py render --check
+	$(PY) tools/nodered_flows.py lint
+	$(PY) tools/nodered_flows.py lock --check
+
+nodered-rooktest:
+	$(NICE) $(PY) tools/nodered_rooktest.py --rapport /tmp/jlp-nodered-rooktest.json

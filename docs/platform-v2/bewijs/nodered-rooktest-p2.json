@@ -1,0 +1,321 @@
+{
+  "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
+  "gestart": "2026-11-11T07:56:59Z",
+  "klaar": "2026-11-11T07:57:58Z",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map op /data, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges; Hub = simulator op het adres van de Docker-bridge",
+  "images": {
+    "node-red": "nodered/node-red:5.0.9-24@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f"
+  },
+  "niet_gedekt": [
+    "beheerder, flows en service-token op een echte NAS (het manifest kan ze niet leveren; ADR-0023)",
+    "flow 'my_house sensor verouderd → melding' (geen contractroute voor sensorversheid)",
+    "incident in de echte Hub of Uptime Kuma na het stoppen van Node-RED",
+    "uitvoering van een goedgekeurde herstart door de echte uitvoerder"
+  ],
+  "uitkomst": "geslaagd",
+  "stappen": [
+    {
+      "id": "N1",
+      "titel": "Container en beveiliging zoals het manifest ze levert (I10-10-01, -02)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "digest": "sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f",
+        "readback_klopt": true,
+        "uids": [
+          "568"
+        ],
+        "proeven": {
+          "GET /diagnostics (monitor: 403)": 403,
+          "GET /flows anoniem (alleen-lezen: 200)": 200,
+          "POST /flows anoniem (401)": 401,
+          "POST /nodes anoniem (geen 200)": 404,
+          "POST /auth/token zonder beheerder (geen 200)": 403
+        },
+        "node_types": [
+          "catch",
+          "change",
+          "comment",
+          "complete",
+          "debug",
+          "delay",
+          "global-config",
+          "http request",
+          "inject",
+          "join",
+          "json",
+          "junction",
+          "link call",
+          "link in",
+          "link out",
+          "rbe",
+          "split",
+          "status",
+          "switch",
+          "template",
+          "tls-config",
+          "trigger",
+          "unknown"
+        ],
+        "flows": 0
+      }
+    },
+    {
+      "id": "N2",
+      "titel": "Controleproef: zonder FLOWS is Node-RED onbeveiligd en de monitor ziet dat",
+      "uitkomst": "geslaagd",
+      "details": {
+        "GET /diagnostics": 200,
+        "/auth/login": {},
+        "gevaarlijke_nodes_geladen": [
+          "exec",
+          "file",
+          "file in",
+          "function",
+          "http in",
+          "http response",
+          "mqtt in",
+          "mqtt out",
+          "tcp in",
+          "tcp out",
+          "tcp request",
+          "udp in",
+          "udp out",
+          "watch",
+          "websocket in",
+          "websocket out"
+        ],
+        "monitor_slaagt": false
+      }
+    },
+    {
+      "id": "N3",
+      "titel": "Beheerdersmodus (wegwerpaccount); exec/function voeren niets uit (I10-10-02)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "fout_wachtwoord": "geweigerd",
+        "POST /flows anoniem": 401,
+        "POST /nodes als beheerder": 404,
+        "bestanden_na_proef": [
+          ".config.nodes.json",
+          ".config.runtime.json",
+          ".config.runtime.json.backup",
+          ".sessions.json",
+          "flows.json",
+          "flows_cred.json",
+          "lib",
+          "node_modules",
+          "package.json",
+          "settings.js"
+        ],
+        "eigen_controle": [
+          "tab_label: het label begint met 'JLP · '",
+          "tab_versie: de beschrijving begint met een regel 'versie x.y.z'",
+          "nodetype_niet_toegestaan: jlp-proef-exec is 'exec' (geen exec, function, bestand, http in of contrib-nodes)"
+        ]
+      }
+    },
+    {
+      "id": "N4",
+      "titel": "Flows importeren: token versleuteld, checksums gelijk aan het lock (I10-10-03)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "readback": {
+          "hartslag": {
+            "tab": "jlp-hartslag",
+            "verwacht": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+            "gelezen": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+            "gelijk": true,
+            "ingeschakeld": true
+          },
+          "mediaguard-offline": {
+            "tab": "jlp-mediaguard-offline",
+            "verwacht": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+            "gelezen": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+            "gelijk": true,
+            "ingeschakeld": true
+          },
+          "testflow-herstart": {
+            "tab": "jlp-testflow-herstart",
+            "verwacht": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+            "gelezen": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+            "gelijk": true,
+            "ingeschakeld": false
+          }
+        },
+        "token_in_flows_json": 0,
+        "token_in_flows_cred_json": 0,
+        "export": {
+          "hartslag": {
+            "tab": "jlp-hartslag",
+            "sha256": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+            "ingeschakeld": true,
+            "vergelijking": "gelijk_aan_lock"
+          },
+          "mediaguard-offline": {
+            "tab": "jlp-mediaguard-offline",
+            "sha256": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+            "ingeschakeld": true,
+            "vergelijking": "gelijk_aan_lock"
+          },
+          "testflow-herstart": {
+            "tab": "jlp-testflow-herstart",
+            "sha256": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+            "ingeschakeld": false,
+            "vergelijking": "gelijk_aan_lock"
+          }
+        }
+      }
+    },
+    {
+      "id": "N5",
+      "titel": "MediaGuard gestopt → melding; hersteld → melding; onbekend → niets (I10-10-03)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "events": [
+          [
+            "flow.app_watch.down",
+            "mediaguard"
+          ],
+          [
+            "flow.app_watch.recovered",
+            "mediaguard"
+          ],
+          [
+            "flow.app_watch.down",
+            "mediaguard"
+          ],
+          [
+            "flow.app_watch.recovered",
+            "mediaguard"
+          ]
+        ],
+        "voorbeeld_event": {
+          "event_type": "flow.app_watch.down",
+          "source_app": "node-red",
+          "entity": {
+            "type": "app",
+            "id": "mediaguard"
+          },
+          "actor": {
+            "type": "flow",
+            "id": "mediaguard-offline"
+          },
+          "classification": "internal",
+          "payload": {
+            "staat": "down",
+            "runtime_staat": "STOPPED",
+            "aanwezig": true,
+            "bron": "hub_inventaris",
+            "flow_versie": "1.0.0"
+          }
+        }
+      }
+    },
+    {
+      "id": "N6",
+      "titel": "Testflow herstart: standaard uit; de Hub beslist R1/R2 (I10-10-04)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "inject_op_uitgeschakelde_flow": 404,
+        "besluiten": {
+          "node-red": {
+            "status": "toegestaan",
+            "risk_class": "R1",
+            "actor": {
+              "type": "flow",
+              "id": "node-red:testflow-herstart"
+            },
+            "action_id": "app.restart"
+          },
+          "authentik": {
+            "status": "wacht_op_goedkeuring",
+            "risk_class": "R2",
+            "actor": {
+              "type": "flow",
+              "id": "node-red:testflow-herstart"
+            },
+            "action_id": "app.restart"
+          }
+        },
+        "aanroepen_bij_de_hub": [
+          "apps",
+          "heartbeat",
+          "inbox",
+          "proposals"
+        ],
+        "uitgevoerd": "niets: er is geen uitvoerder in deze proef; de flow kan alleen aanvragen"
+      }
+    },
+    {
+      "id": "N7",
+      "titel": "Hartslag met flowvertraging komt bij de Hub aan (I10-10-06)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "heartbeat": {
+          "gemeld": "healthy",
+          "beoordeling": {
+            "status": "healthy",
+            "reden": null
+          },
+          "verwacht_interval_s": 60,
+          "checks": [
+            {
+              "name": "flow_vertraging",
+              "status": "healthy",
+              "detail": "3 ms"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "N8",
+      "titel": "Andere flowversie zetten en de versie uit Git herstellen (I10-10-05)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "na_wijziging": {
+          "gelezen": "sha256:3b7f95e952e7842363046f424612751a701339e56f11b97ddfa1e9600e4330bd",
+          "vergelijking": "afwijkend"
+        },
+        "na_herstel": {
+          "gelezen": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+          "vergelijking": "gelijk_aan_lock"
+        }
+      }
+    },
+    {
+      "id": "N9",
+      "titel": "Herstart zonder verlies; stoppen is zichtbaar (I10-10-05, -06)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "heartbeat_na_herstart": {
+          "status": "healthy",
+          "reden": null
+        },
+        "meldingen_rond_herstart": [
+          [
+            "flow.app_watch.down",
+            "mediaguard"
+          ],
+          [
+            "flow.app_watch.down",
+            "mediaguard"
+          ]
+        ],
+        "monitor_na_stop": false,
+        "hub_direct_na_stop": {
+          "status": "healthy",
+          "verouderd": false
+        },
+        "hub_na_3x_interval": {
+          "status": "unknown",
+          "reason_code": "meting_verouderd",
+          "verouderd": true
+        },
+        "tijd": "3 × het interval is niet gewacht maar gevraagd aan de simulator (over_s=181)",
+        "incident_in_echte_hub_of_uptime_kuma": "NIET GEVALIDEERD"
+      }
+    }
+  ]
+}

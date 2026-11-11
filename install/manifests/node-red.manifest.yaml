@@ -1,0 +1,161 @@
+# I10 Node-RED — manifest volgens contract 1.3 §9 (manifeststandaard v1, eigenaar appstore-en-fork).
+# Installatie als standaard TrueNAS Custom App (ix-app) met één gepinde upstream-image; nooit compose/YAML (ADR-0014).
+# Versie en digest gecontroleerd op 2026-11-11: git ls-remote --tags node-red/node-red-docker (v5.0.9) en
+# docker buildx imagetools inspect nodered/node-red:5.0.9-24 (dezelfde app_version als de catalogusapp
+# community/node-red 1.4.35). De catalogusapp draait als 1000:1000 en kent geen beheerder-login of nodebeperking;
+# deze Custom App draait als 568:568 en zet de beveiliging via FLOWS (ADR-0023): de editor is voor iedereen op het
+# vertrouwde netwerk alleen-lezen, er is nog GEEN beheerder, alleen kern-nodes zonder exec/function/bestand, geen
+# installatie van extra nodes. FLOWS wordt gemaakt uit install/node-red/settings-overrides.json
+# (tools/nodered_flows.py render --check). Op een echte NAS: NIET GEVALIDEERD.
+# Wat dit manifest NIET kan (contractvraag, ADR-0023): een beheerder aanmaken, de flows uit install/node-red/flows
+# plaatsen en het service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden.
+manifest_version: "1"
+app_id: node-red
+name: Node-RED
+owner_repo: lvos04/jelly-leon-platform
+category: infrastructure
+description_nl: >-
+  Flow-automatisering (I10): leest de toestand bij de Hub, meldt gebeurtenissen en vraagt acties aan bij de Hub; voert
+  zelf nooit iets uit op de NAS of in een app. Eén container, draait als 568:568, zonder Docker-socket. De editor is
+  alleen-lezen tot er een beheerder is; alleen kern-nodes zonder exec, function of bestandstoegang.
+version: "5.0.9-24"
+install:
+  method: custom_app
+image:
+  repository: nodered/node-red
+  tag: "5.0.9-24"
+  digest: "sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f"
+custom_app:
+  storage:
+    - name: data
+      type: host_path
+      host_path: {param: data_path}
+      read_only: false
+  env:
+    - name: FLOWS
+      value: 'flows.json -D adminAuth={"type":"credentials","users":[],"default":{"permissions":"read"}} -D nodesIncludes=["05-junction.js","20-inject.js","21-debug.js","24-complete.js","25-catch.js","25-status.js","60-link.js","90-comment.js","91-global-config.js","98-unknown.js","10-switch.js","15-change.js","80-template.js","89-delay.js","89-trigger.js","rbe.js","05-tls.js","21-httprequest.js","70-JSON.js","17-split.js"] -D externalModules={"autoInstall":false,"palette":{"allowInstall":false,"allowUpdate":false,"allowUpload":false},"modules":{"allowInstall":false}} -D functionExternalModules=false -D editorTheme.projects.enabled=false -D editorTheme.tours=false -D telemetry={"enabled":false,"updateNotification":false} -D diagnostics={"enabled":false,"ui":false}'
+  resources:
+    cpus: 1
+    memory_mib: 512
+  gpu: none
+  run_as: {mode: custom, user: 568, group: 568}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal: {port: web, scheme: http, path: /, name: Node-RED}
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30049
+    required: true
+    description_nl: Hostpoort (voorstel = standaard van de TrueNAS-catalogusapp); de Hub controleert vooraf app.used_ports.
+  - name: data_path
+    type: path
+    source: dataset_picker
+    dataset_role: node_red_data
+    decision: D02
+    required: true
+    description_nl: Dataset voor /data (flows, versleutelde credentials en de sleutel daarvan), eigenaar 568:568.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbaar verlies aan flows en flowinstellingen (RPO), gekozen in de wizard.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal toelaatbare hersteltijd (RTO), gekozen in de wizard.
+storage:
+  - name: data
+    mount: /data
+    kind: data
+    required_dataset_role: node_red_data
+    description_nl: flows.json, flows_cred.json (versleuteld) en .config.runtime.json (de sleutel van de credentials).
+network:
+  ports:
+    - name: web
+      container_port: 1880
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Editor en Admin-API (alleen vertrouwd netwerk; anoniem alleen-lezen, wijzigen alleen na login)
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: >-
+  Geen extra rechten (geen privileged, cap_add of apparaten; draait als 568:568, geen Docker-socket). Restrisico: het TrueNAS-formulier zet geen no-new-privileges, dus zonder no-new-privileges kan een setuid-programma binnen de container root worden. Uitgaand verkeer is in het formulier niet te beperken; de beperking zit in de toegestane nodes en de flowcontrole.
+healthcheck:
+  type: http
+  path: /auth/login
+  port: web
+  interval_s: 60
+  timeout_s: 10
+  retries: 5
+  start_period_s: 120
+  monitor: {pad: /diagnostics, verwachte_status: 403, timeout_s: 10, interval_s: 60}
+backup:
+  db_export:
+    method: stopped_snapshot
+    description_nl: >-
+      Node-RED heeft geen database. Consistente back-up = de app stoppen, ZFS-snapshot van de datamap (flows,
+      versleutelde credentials en de sleutel horen bij elkaar), app starten. De flows staan daarnaast als bundels met
+      checksum in Git (install/node-red/flows).
+  snapshot_datasets: [data]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: ai-server-manager
+    kind: required
+    reason_nl: De flows lezen en melden alleen bij de Hub en vragen acties alleen daar aan (contract §8); zonder Hub doen ze niets.
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: false
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Een nieuwe Node-RED kan flows.json en de instellingen in /data bijwerken; terug naar een oudere tag alleen samen
+    met de snapshot van vóór de update. De beveiliging hangt aan het gedrag van de entrypoint van precies deze digest
+    (FLOWS wordt ongequoot doorgegeven): bij elke nieuwe digest eerst tools/nodered_rooktest.py draaien.
+decisions_required: [D01, D02, D03, D16]
+docs: [I10_NODE_RED]
+post_install_checks:
+  - id: beveiliging_actief
+    soort: http
+    beschrijving_nl: >-
+      GET /diagnostics moet 403 geven. Dat antwoord komt alleen als de instellingen uit FLOWS zijn toegepast; 200
+      betekent dat Node-RED zonder beveiliging draait en direct gestopt moet worden. De monitor bewaakt hetzelfde.
+  - id: schrijven_vraagt_login
+    soort: http
+    beschrijving_nl: >-
+      POST /flows zonder login moet 401 geven en GET /auth/login moet het type credentials melden. Zo is aangetoond
+      dat niemand zonder beheerder-login flows kan wijzigen.
+  - id: beheerder_en_flows
+    soort: handmatig
+    beschrijving_nl: >-
+      Dit manifest levert geen beheerder en geen flows: de editor is alleen-lezen en leeg. De beheerder, de flows uit
+      install/node-red/flows en het service-token van de Hub wachten op een contractuitbreiding (ADR-0023); tot dan
+      doet Node-RED niets en is dat de bedoeling.
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/node-red/node-red-docker
+  source_commit: "9e8ee9b7670bc956de928fe1b379090ffbc113c7"
+  upstream_repo: https://github.com/node-red/node-red
+  license: Apache-2.0

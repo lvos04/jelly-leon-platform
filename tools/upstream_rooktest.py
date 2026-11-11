@@ -49,6 +49,8 @@ MANIFEST_DIR = ROOT / "install" / "manifests"
 # Upstream-images (install.method custom_app, geen eigen GHCR-image) die deze rooktest dekt. tests/repo controleert dat
 # elk zo'n manifest hier staat, zodat een nieuw manifest niet ongemerkt buiten de rooktest valt.
 APPS = ("beszel-hub", "beszel-agent", "gotify", "uptime-kuma")
+# Upstream-manifesten met een eigen rooktest (andere stappen dan B/G/U hieronder): app_id → hulpmiddel.
+ELDERS_GEDEKT = {"node-red": "tools/nodered_rooktest.py"}
 HELPER_APP = "gotify"  # Debian-image met sh/chown: maakt de mappen van 568 en ruimt ze op (geen root op de host)
 GEHEIM_RE = re.compile(r"(ssh-ed25519 \S+|eyJ[A-Za-z0-9_-]{10,}|uk\d+_\S+)")
 
@@ -428,7 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--rapport", type=Path, default=None)
     p.add_argument("--houd", action="store_true", help="containers en werkmap laten staan (debuggen)")
     args = p.parse_args(argv)
-    ontbrekend = sorted(set(upstream_custom_apps()) - set(APPS))
+    ontbrekend = sorted(set(upstream_custom_apps()) - set(APPS) - set(ELDERS_GEDEKT))
     if ontbrekend:
         print(f"niet gedekt door deze rooktest: {ontbrekend}", file=sys.stderr)
         return 1
