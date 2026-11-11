@@ -1,0 +1,59 @@
+{
+ "uitleg": "Herkomst van de byte-gelijke kopie van de manifeststandaard (B08-001, eigenaar appstore-en-fork; ADR-0021). Niet met de hand wijzigen: python tools/validator_kopie.py bijwerken --bron <appstore-en-fork> [--ref <commit>].",
+ "bron_repo": "lvos04/appstore-en-fork",
+ "bron_commit": "7b3159d168b1e8b575e220068bb3df50ed0203ad",
+ "bron_map": "apps/api/src/appstore",
+ "bestanden": {
+  "__init__.py": {
+   "sha256": "f2274324059ecd22d08efe274c0b825658079643e594a0b05b6242a7631b4292"
+  },
+  "manifest/__init__.py": {
+   "sha256": "ac9426c2f3620e224f7787799e47e2b10b08bb8e9c6e19139e38c31fe6d971ff"
+  },
+  "manifest/adoption-manifest-v1.schema.json": {
+   "sha256": "19aa2dfe430e26d28412f55a021f5f8b433af3ae39289d8e6b1437c609a57854"
+  },
+  "manifest/canonical.py": {
+   "sha256": "11bba5893191897a94fc60e80fe5b23269dca8746b64353bb943b4513030cfa2"
+  },
+  "manifest/checklist-v1.schema.json": {
+   "sha256": "7f5e911dc9245d3cabe28f8aa29df4ab5d474926f6c6fca34cfa1e8fdaf356cf"
+  },
+  "manifest/checklist.py": {
+   "sha256": "3a6666400b5b90ddc8fa4e7e29ea3165585ec545fe836dbc2369e9998cf33d2d"
+  },
+  "manifest/cli.py": {
+   "sha256": "f92838d571d50bda3e6ab3e26e008c7aa00d72c0862f40ee7ae474be2e642db5"
+  },
+  "manifest/conflicts.py": {
+   "sha256": "ec0a1d3ca277589b5c77ae4855a18c55af0b697cb7971fa679b348537f4409ca"
+  },
+  "manifest/findings.py": {
+   "sha256": "2037ed8f509c858bedd0be954cba8be46cd1d498de4ca41a43e0e42f8a93cec6"
+  },
+  "manifest/loader.py": {
+   "sha256": "728cd0f95c093c30a5dba3ec2a0c15e670e45748913d6f85cb325955ff1fe799"
+  },
+  "manifest/manifest-v1.schema.json": {
+   "sha256": "709fb1ba8627a4e2e0de639d33e7763e9f9573d9830f7cd87d326de323f46a29"
+  },
+  "manifest/model.py": {
+   "sha256": "2fc082a51ae5ba97cccdcb8883bcc63e771b72e7db3e3a1587a8406900c518a0"
+  },
+  "manifest/provenance.py": {
+   "sha256": "a8defedf4126ec9a7adcb0d993ea61239d80e7eb6016ea477e28b9839139a9da"
+  },
+  "manifest/rules.py": {
+   "sha256": "75b2b41c1593698c9dd34f29950b51ee1c9fa72cf200083814b8655f2e4d94da"
+  },
+  "manifest/translate.py": {
+   "sha256": "ba44265074bf9f17fef75c3f85e0a48f4ef201b8511a416ea2be17dd6b2a397e"
+  },
+  "manifest/truenas.py": {
+   "sha256": "c402c0dd8cf998dc2fc11eb66df39ec95e27cef8b7307805f221d7176237298e"
+  },
+  "manifest/validator.py": {
+   "sha256": "d10af2acb38715534ea0589e757c7aea09835c756c5f7a057d09a2f0d4544ae6"
+  }
+ }
+}

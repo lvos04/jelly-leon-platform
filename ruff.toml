@@ -1,5 +1,6 @@
 # Ruff voor de hele repo (dienstcode heeft dezelfde regels in apps/api/pyproject.toml).
 extend = "apps/api/pyproject.toml"
+extend-exclude = ["apps/api/src/appstore"]
 
 [lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607", "S608"]

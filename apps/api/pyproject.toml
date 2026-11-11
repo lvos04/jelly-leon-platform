@@ -19,6 +19,9 @@ dependencies = [
   "cryptography==50.0.2",
   "httpx==0.28.1",
   "python-multipart==0.0.33",
+  # manifeststandaard (byte-gelijke kopie van appstore-en-fork in src/appstore, ADR-0021)
+  "jsonschema==4.26.0",
+  "pyyaml==6.0.3",
 ]
 
 [project.optional-dependencies]
@@ -28,10 +31,8 @@ test = [
   "mypy==2.4.1",
   "pip-audit==2.10.1",
   "websockets==17.4",
-  "pyyaml==6.0.3",
   "types-PyYAML==6.0.12.20261103",
   "types-jsonschema==4.26.0.20261006",
-  "jsonschema==4.26.0",
 ]
 
 [project.scripts]
@@ -42,6 +43,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed", "peil/statuspagina.html"]
+appstore = ["KOPIE.json", "manifest/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,6 +53,8 @@ filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecate
 [tool.ruff]
 line-length = 120
 target-version = "py312"
+# byte-gelijke kopie van appstore-en-fork (ADR-0021): wordt in de bron-repo gelint, hier nooit aangepast
+extend-exclude = ["src/appstore"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
@@ -58,7 +62,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 
 # Expliciet vastleggen: anders kan ruff "alembic" afhankelijk van de werkmap als first-party zien (CI-verschil).
 [tool.ruff.lint.isort]
-known-first-party = ["lifecycle", "truenas_sim"]
+known-first-party = ["lifecycle", "appstore", "truenas_sim"]
 known-third-party = ["alembic"]
 
 [tool.ruff.lint.per-file-ignores]

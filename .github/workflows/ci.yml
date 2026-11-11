@@ -52,7 +52,8 @@ jobs:
         run: |
           (cd apps/api && mypy)
           mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
-            tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py
+            tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
+            tools/validator_kopie.py
           (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
             --exclude '/tests/')
           MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
@@ -74,7 +75,7 @@ jobs:
           git -C "$RUNNER_TEMP/peil-bron" log -1 --format='Peil-bron: %H %s' -- design/ontwerptaal
       - name: Manifestvalidator van appstore-en-fork (alleen lezen, eigen venv, gecommitte inhoud)
         run: |
-          git clone --quiet --depth 1 --single-branch --branch ccr-c133d7a0-kuz1cv \
+          git clone --quiet --filter=blob:none --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/appstore-en-fork.git "$RUNNER_TEMP/appstore"
           git -C "$RUNNER_TEMP/appstore" log -1 --format='Validator: appstore-en-fork %H %s'
           python -m venv "$RUNNER_TEMP/validator"
@@ -85,12 +86,14 @@ jobs:
         env:
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
         run: python tools/manifesten.py
-      - name: Manifest-, controlelijst-, documentatie-, contract- en Peil-kopiecontroles (pin en drift met ai-server-manager)
+      - name: Manifest-, validator-, controlelijst-, documentatie-, contract- en Peil-kopiecontroles (pin en drift met de bron)
         env:
           PEIL_BRON: ${{ runner.temp }}/peil-bron
           PEIL_BRON_VERPLICHT: "1"
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
           MANIFEST_VALIDATOR_VERPLICHT: "1"
+          APPSTORE_BRON: ${{ runner.temp }}/appstore
+          VALIDATOR_BRON_VERPLICHT: "1"
         run: python -m pytest -q tests/repo
       - name: OpenAPI-drift
         run: |

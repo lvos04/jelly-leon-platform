@@ -49,6 +49,8 @@ COPY --from=pg /out/pg/share /usr/share/postgresql/16
 COPY --from=pg /out/lib /opt/pglibs
 COPY --from=deps /install /usr/local
 COPY apps/api/src/lifecycle /usr/local/lib/python3.12/site-packages/lifecycle
+# manifeststandaard: byte-gelijke kopie van appstore-en-fork (ADR-0021)
+COPY apps/api/src/appstore /usr/local/lib/python3.12/site-packages/appstore
 COPY deploy/allinone/supervisor.py deploy/allinone/healthcheck.py /usr/local/lib/lifecycle-allinone/
 RUN set -eu; \
     for b in postgres initdb pg_ctl pg_isready psql pg_dump pg_restore; do \

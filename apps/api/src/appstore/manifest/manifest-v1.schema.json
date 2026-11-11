@@ -1,0 +1,427 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvos04/appstore-en-fork/schemas/manifest-v1.schema.json",
+  "title": "TrueNAS Home Platform V2 — app-manifest v1",
+  "description": "Manifeststandaard B08-001 (platformcontract 1.3 §9). Installatie uitsluitend als standaard TrueNAS Custom App (ix-app) of officiële catalogusapp; compose/YAML is verboden. Poorten staan alleen in network.ports; network.joins_platform_network en custom_app.ports zijn vervallen en worden alleen nog voor de overgang geaccepteerd (melding deprecated_field). Nieuw in 1.3: install.reason (catalogusapp met reden), geheime parameters die de Hub maakt (source generated + secret true), accepted_findings (alleen backup_db_export_none, secret_in_form, digest_pending_release), backup.db_export stopped_snapshot, post_install_checks, network.ports[].container_port same_as_host (catalogusapps) en healthcheck.monitor; HUB_* is gereserveerd (reserved_env). Documentsoorten kind: adoption en kind: checklist hebben een eigen schema en worden door deze validator geweigerd. Semantische veiligheidsregels (privileged, Docker-socket, hostpaden, latest, digest, voorbeeldwaarden, GPU, HUB_*) staan in de validator (appstore.manifest.rules).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version", "app_id", "name", "owner_repo", "category", "description_nl", "version", "install",
+    "parameters", "storage", "network", "privileges", "healthcheck", "backup", "dependencies", "sso", "risk",
+    "upgrade", "decisions_required", "docs", "validation_status"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1"},
+    "app_id": {"$ref": "#/$defs/AppId"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "owner_repo": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$"},
+    "category": {
+      "enum": ["platform", "media", "downloads", "photos", "home", "network", "security", "productivity", "ai",
+               "infrastructure", "other"]
+    },
+    "description_nl": {"type": "string", "minLength": 10, "maxLength": 2000},
+    "version": {"type": "string", "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method"],
+      "properties": {
+        "method": {"enum": ["custom_app", "catalog_app"]},
+        "reason": {
+          "description": "Waarom deze installatiemethode (contract 1.3 §9): bij catalog_app 'meerdere_containers' of een NL-reden waarom een catalogusapp nodig is bij één container; ontbreekt hij → install_reason_ontbreekt (waarschuwing, fout in --strict).",
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        }
+      }
+    },
+    "image": {"$ref": "#/$defs/Image"},
+    "custom_app": {"$ref": "#/$defs/CustomApp"},
+    "catalog": {"$ref": "#/$defs/Catalog"},
+    "values": {"type": "object"},
+    "parameters": {"type": "array", "items": {"$ref": "#/$defs/Parameter"}},
+    "storage": {"type": "array", "items": {"$ref": "#/$defs/StorageDecl"}},
+    "network": {"$ref": "#/$defs/Network"},
+    "privileges": {"$ref": "#/$defs/Privileges"},
+    "privilege_reason": {"type": ["string", "null"], "maxLength": 1000},
+    "healthcheck": {"$ref": "#/$defs/Healthcheck"},
+    "backup": {"$ref": "#/$defs/Backup"},
+    "dependencies": {"type": "array", "items": {"$ref": "#/$defs/Dependency"}},
+    "sso": {"enum": ["oidc", "native", "none"]},
+    "risk": {"$ref": "#/$defs/Risk"},
+    "upgrade": {"$ref": "#/$defs/Upgrade"},
+    "decisions_required": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^D(0[1-9]|1[0-8])$"}
+    },
+    "docs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[IAB][0-9]{2}([_-][A-Za-z0-9_.-]{1,80})?$"}
+    },
+    "validation_status": {"enum": ["unvalidated", "unit_tested", "sim_tested", "validated_on_nas"]},
+    "compatibility": {"$ref": "#/$defs/Compatibility"},
+    "provenance": {"$ref": "#/$defs/Provenance"},
+    "accepted_findings": {
+      "description": "Geaccepteerde waarschuwingen (contract 1.3 §9), alleen uit de vaste lijst. --strict faalt op elke andere waarschuwing en op een geaccepteerde code die niet (meer) optreedt. Fouten zijn nooit te accepteren.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/AcceptedFinding"}
+    },
+    "post_install_checks": {
+      "description": "Taken voor de beheerder na installatie (open eerste-gebruik-vensters, runtime-kenmerken die pas bij starten blijken); tot de bevestiging is de app niet 'gezond' (gate).",
+      "type": "array",
+      "items": {"$ref": "#/$defs/PostInstallCheck"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"install": {"properties": {"method": {"const": "custom_app"}}, "required": ["method"]}},
+             "required": ["install"]},
+      "then": {
+        "required": ["image", "custom_app"],
+        "not": {"anyOf": [{"required": ["catalog"]}, {"required": ["values"]}]}
+      }
+    },
+    {
+      "if": {"properties": {"install": {"properties": {"method": {"const": "catalog_app"}}, "required": ["method"]}},
+             "required": ["install"]},
+      "then": {
+        "required": ["catalog", "values"],
+        "not": {"anyOf": [{"required": ["image"]}, {"required": ["custom_app"]}]}
+      }
+    }
+  ],
+  "$defs": {
+    "AppId": {"type": "string", "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$", "minLength": 1, "maxLength": 40},
+    "Name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,62}$"},
+    "Port": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "ParamRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["param"],
+      "properties": {"param": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$"}}
+    },
+    "Duration": {"type": "string", "pattern": "^P(?=\\d|T\\d)(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)?)?$"},
+    "RiskClass": {"enum": ["R0", "R1", "R2", "R3"]},
+    "Image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "digest"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]{1,5})?(?:/[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*)+$"
+        },
+        "tag": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"},
+        "digest": {"type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "CustomApp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "env", "resources", "gpu", "run_as"],
+      "properties": {
+        "ports": {
+          "description": "Vervallen in contract 1.2 (§9): poorten staan alleen in network.ports. Alleen nog geaccepteerd voor de overgang (deprecated_field als gelijk, anders ports_inconsistent).",
+          "type": "array",
+          "items": {"$ref": "#/$defs/PortBinding"}
+        },
+        "storage": {"type": "array", "items": {"$ref": "#/$defs/StorageBinding"}},
+        "env": {"type": "array", "items": {"$ref": "#/$defs/EnvVar"}},
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpus", "memory_mib"],
+          "properties": {
+            "cpus": {"type": ["integer", "null"], "minimum": 1, "maximum": 256},
+            "memory_mib": {"type": ["integer", "null"], "minimum": 64, "maximum": 1048576}
+          }
+        },
+        "gpu": {
+          "description": "none, intel_render of {param: <naam>} naar een parameter van type gpu (contract 1.2 §9); begrensd door privileges.gpu.",
+          "oneOf": [{"enum": ["none", "intel_render"]}, {"$ref": "#/$defs/ParamRef"}]
+        },
+        "run_as": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["image_default", "custom"]},
+            "user": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+            "group": {"type": "integer", "minimum": 1, "maximum": 2147483647}
+          },
+          "if": {"properties": {"mode": {"const": "custom"}}},
+          "then": {"required": ["user", "group"]}
+        },
+        "timezone": {"oneOf": [{"type": "string", "minLength": 1}, {"$ref": "#/$defs/ParamRef"}]},
+        "restart_policy": {"enum": ["unless-stopped", "on-failure", "always", "no"]},
+        "portal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["port"],
+          "properties": {
+            "port": {"$ref": "#/$defs/Name"},
+            "scheme": {"enum": ["http", "https"]},
+            "path": {"type": "string", "pattern": "^/[A-Za-z0-9._~/-]*$"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 40}
+          }
+        }
+      }
+    },
+    "PortBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "container_port", "host_port", "protocol"],
+      "properties": {
+        "name": {"$ref": "#/$defs/Name"},
+        "container_port": {
+          "description": "same_as_host alleen voor catalogusapps waarvan de container op de gekozen hostpoort luistert (contract 1.3 §9).",
+          "oneOf": [{"$ref": "#/$defs/Port"}, {"const": "same_as_host"}]
+        },
+        "host_port": {"oneOf": [{"$ref": "#/$defs/Port"}, {"$ref": "#/$defs/ParamRef"}]},
+        "protocol": {"enum": ["tcp", "udp"]},
+        "purpose_nl": {"type": "string", "maxLength": 300}
+      }
+    },
+    "StorageBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/Name"},
+        "type": {"enum": ["host_path", "ix_volume", "tmpfs"]},
+        "host_path": {"oneOf": [{"type": "string"}, {"$ref": "#/$defs/ParamRef"}]},
+        "dataset_name": {"$ref": "#/$defs/Name"},
+        "tmpfs_size_mib": {"type": "integer", "minimum": 1, "maximum": 65536},
+        "read_only": {"type": "boolean"}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "host_path"}}}, "then": {"required": ["host_path"]}},
+        {"if": {"properties": {"type": {"const": "ix_volume"}}}, "then": {"required": ["dataset_name"]}},
+        {"if": {"properties": {"type": {"const": "tmpfs"}}}, "then": {"required": ["tmpfs_size_mib"]}}
+      ]
+    },
+    "EnvVar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
+        "value": {"type": "string", "maxLength": 4096},
+        "value_from": {"$ref": "#/$defs/ParamRef"}
+      },
+      "oneOf": [{"required": ["value"]}, {"required": ["value_from"]}]
+    },
+    "Catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train", "app", "version"],
+      "properties": {
+        "train": {"enum": ["stable", "community", "enterprise"]},
+        "app": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 64},
+        "version": {"type": "string", "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"}
+      }
+    },
+    "Parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "source", "description_nl", "required"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$"},
+        "type": {
+          "enum": ["string", "integer", "boolean", "port", "path", "dataset", "url", "timezone", "duration",
+                   "secret_ref", "gpu"]
+        },
+        "source": {"enum": ["wizard", "dataset_picker", "secret", "generated", "default"]},
+        "description_nl": {"type": "string", "minLength": 3, "maxLength": 500},
+        "required": {"type": "boolean"},
+        "default": {"type": ["string", "integer", "boolean"]},
+        "example": {"type": ["string", "integer", "boolean"]},
+        "dataset_role": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,40}$"},
+        "decision": {"type": "string", "pattern": "^D(0[1-9]|1[0-8])$"},
+        "secret": {
+          "description": "Geheime waarde (contract 1.3 §3.1 a, §9): met source generated maakt de Hub hem (vault) en geeft hem alleen in de values mee; de waarde staat nooit in het manifest.",
+          "type": "boolean"
+        }
+      }
+    },
+    "StorageDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "mount", "kind", "required_dataset_role"],
+      "properties": {
+        "name": {"$ref": "#/$defs/Name"},
+        "mount": {"type": "string", "pattern": "^/[A-Za-z0-9._/-]*$", "maxLength": 255},
+        "kind": {"enum": ["config", "data", "media", "scratch"]},
+        "required_dataset_role": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,40}$"},
+        "description_nl": {"type": "string", "maxLength": 300}
+      }
+    },
+    "Network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ports", "host_network"],
+      "properties": {
+        "ports": {
+          "description": "De enige bron voor de poorten van het Custom App-formulier (contract 1.2 §9).",
+          "type": "array",
+          "items": {"$ref": "#/$defs/PortBinding"}
+        },
+        "host_network": {"type": "boolean"},
+        "host_network_reason": {"type": ["string", "null"], "maxLength": 1000},
+        "joins_platform_network": {
+          "description": "Vervallen in contract 1.2 (§9): apps delen nooit een Docker-netwerk. false geeft deprecated_field, true de fout platform_network_not_supported.",
+          "type": "boolean"
+        }
+      }
+    },
+    "Privileges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["privileged", "cap_add", "devices", "gpu"],
+      "properties": {
+        "privileged": {"type": "boolean"},
+        "cap_add": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z_]{2,32}$"}},
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host_device", "container_device"],
+            "properties": {
+              "host_device": {"type": "string", "pattern": "^/dev/[A-Za-z0-9._/-]+$"},
+              "container_device": {"type": "string", "pattern": "^/dev/[A-Za-z0-9._/-]+$"}
+            }
+          }
+        },
+        "gpu": {
+          "description": "Het maximum dat de app mag krijgen; intel_render vereist privilege_reason en D08 in decisions_required.",
+          "enum": ["none", "intel_render"]
+        }
+      }
+    },
+    "Healthcheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["http", "tcp", "builtin"]},
+        "path": {"type": "string", "pattern": "^/[A-Za-z0-9._~/?=&-]*$"},
+        "port": {"$ref": "#/$defs/Name"},
+        "interval_s": {"type": "integer", "minimum": 5, "maximum": 3600},
+        "timeout_s": {"type": "integer", "minimum": 1, "maximum": 300},
+        "retries": {"type": "integer", "minimum": 1, "maximum": 20},
+        "start_period_s": {"type": "integer", "minimum": 0, "maximum": 3600},
+        "monitor": {"$ref": "#/$defs/Monitor"}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "http"}}}, "then": {"required": ["path", "port"]}},
+        {"if": {"properties": {"type": {"const": "tcp"}}}, "then": {"required": ["port"]}}
+      ]
+    },
+    "Backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["db_export", "snapshot_datasets", "rpo", "rto"],
+      "properties": {
+        "db_export": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method"],
+          "properties": {
+            "method": {"enum": ["pg_dump", "sqlite_backup", "app_native", "stopped_snapshot", "none"]},
+            "description_nl": {"type": "string", "maxLength": 500}
+          }
+        },
+        "snapshot_datasets": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Name"}},
+        "rpo": {"oneOf": [{"$ref": "#/$defs/Duration"}, {"$ref": "#/$defs/ParamRef"}]},
+        "rto": {"oneOf": [{"$ref": "#/$defs/Duration"}, {"$ref": "#/$defs/ParamRef"}]}
+      }
+    },
+    "Dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_id", "kind", "reason_nl"],
+      "properties": {
+        "app_id": {"$ref": "#/$defs/AppId"},
+        "kind": {"enum": ["required", "optional"]},
+        "min_version": {"type": ["string", "null"], "maxLength": 64},
+        "reason_nl": {"type": "string", "minLength": 3, "maxLength": 500}
+      }
+    },
+    "Risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install", "update", "uninstall"],
+      "properties": {
+        "install": {"$ref": "#/$defs/RiskClass"},
+        "update": {"$ref": "#/$defs/RiskClass"},
+        "uninstall": {"$ref": "#/$defs/RiskClass"}
+      }
+    },
+    "Upgrade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migrations", "tag_only_rollback_safe"],
+      "properties": {
+        "migrations": {"type": "boolean"},
+        "tag_only_rollback_safe": {"type": "boolean"},
+        "notes_nl": {"type": "string", "maxLength": 2000}
+      }
+    },
+    "Compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["truenas_min_version"],
+      "properties": {
+        "truenas_min_version": {"type": "string", "pattern": "^[0-9]{2}\\.[0-9]{1,2}(\\.[0-9]+){0,3}$"},
+        "truenas_max_version": {"type": ["string", "null"], "pattern": "^[0-9]{2}\\.[0-9]{1,2}(\\.[0-9]+){0,3}$"},
+        "ix_app_min_version": {"type": ["string", "null"], "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+      }
+    },
+    "AcceptedFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "reden_nl"],
+      "properties": {
+        "code": {"enum": ["backup_db_export_none", "secret_in_form", "digest_pending_release"]},
+        "reden_nl": {"type": "string", "minLength": 10, "maxLength": 1000}
+      }
+    },
+    "PostInstallCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "soort", "beschrijving_nl"],
+      "properties": {
+        "id": {"$ref": "#/$defs/Name"},
+        "soort": {"enum": ["http", "handmatig"]},
+        "beschrijving_nl": {"type": "string", "minLength": 10, "maxLength": 1000}
+      }
+    },
+    "Monitor": {
+      "description": "Monitorplan (contract 1.3 §9): de Hub (B09) maakt er per app een monitorplan van; de beheerder neemt het over in Uptime Kuma en bevestigt het per monitor ('handmatig bevestigd').",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pad", "verwachte_status", "timeout_s", "interval_s"],
+      "properties": {
+        "pad": {"type": "string", "pattern": "^/[A-Za-z0-9._~/?=&-]*$", "maxLength": 255},
+        "verwachte_status": {"type": "integer", "minimum": 100, "maximum": 599},
+        "timeout_s": {"type": "integer", "minimum": 1, "maximum": 300},
+        "interval_s": {"type": "integer", "minimum": 10, "maximum": 86400}
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_repo": {"type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+$"},
+        "source_commit": {"type": ["string", "null"], "pattern": "^[a-f0-9]{40}$"},
+        "upstream_repo": {"type": ["string", "null"], "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+$"},
+        "license": {"type": ["string", "null"], "maxLength": 64}
+      }
+    }
+  }
+}

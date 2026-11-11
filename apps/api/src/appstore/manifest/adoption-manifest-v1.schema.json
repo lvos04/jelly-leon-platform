@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lvos04/appstore-en-fork/schemas/adoption-manifest-v1.schema.json",
+  "title": "Adoptiemanifest v1 (bestaande app, alleen inventaris)",
+  "description": "Beschrijft een bestaande TrueNAS-app zoals de Hub hem meet, na bevestiging van de eigenaar (B08-002). Niet installeerbaar: de validator van manifest v1 weigert dit document met adoption_manifest_not_installable. Alle versies, tags, digests, poorten en opslag komen uit de gemeten readback; niets is een voorbeeldwaarde.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "kind",
+    "installable",
+    "app_id",
+    "name",
+    "owner_repo",
+    "category",
+    "description_nl",
+    "install",
+    "network",
+    "storage",
+    "dependencies",
+    "owner",
+    "adoption",
+    "docs",
+    "validation_status"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1"},
+    "kind": {"const": "adoption"},
+    "installable": {"const": false},
+    "app_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,38}[a-z0-9]$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "owner_repo": {"type": ["string", "null"], "maxLength": 160},
+    "category": {"const": "bestaande_app"},
+    "description_nl": {"type": "string", "minLength": 1},
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method"],
+      "properties": {"method": {"enum": ["custom_app", "catalog_app"]}}
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "digest"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1, "maxLength": 512},
+        "tag": {"type": "string", "minLength": 1, "maxLength": 256},
+        "digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train", "app", "version"],
+      "properties": {
+        "train": {"type": "string", "minLength": 1, "maxLength": 64},
+        "app": {"type": "string", "minLength": 1, "maxLength": 128},
+        "version": {"type": "string", "minLength": 1, "maxLength": 64}
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ports"],
+      "properties": {
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "container_port", "host_port", "host_ip", "protocol"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,62}$"},
+              "container_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+              "host_port": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+              "host_ip": {"type": ["string", "null"]},
+              "protocol": {"enum": ["tcp", "udp"]}
+            }
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "mount", "source_kind", "host_path", "dataset"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,62}$"},
+          "mount": {"type": ["string", "null"]},
+          "source_kind": {"enum": ["hostpad", "ixvolume", "overig"]},
+          "host_path": {"type": ["string", "null"]},
+          "dataset": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["app_id", "kind", "reason_nl", "source"],
+        "properties": {
+          "app_id": {"type": "string"},
+          "kind": {"enum": ["vereist", "optioneel", "te_controleren"]},
+          "reason_nl": {"type": "string"},
+          "source": {"type": "string"}
+        }
+      }
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["soort", "repo", "bron", "bevestigd_door", "bevestigd_op", "toelichting_nl"],
+      "properties": {
+        "soort": {"enum": ["derde", "bestaand", "eigen_los", "eigen"]},
+        "repo": {"type": ["string", "null"]},
+        "bron": {"type": "string"},
+        "bevestigd_door": {"type": "string"},
+        "bevestigd_op": {"type": "string"},
+        "toelichting_nl": {"type": ["string", "null"]}
+      }
+    },
+    "adoption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_name",
+        "hub_app_uuid",
+        "observed_at",
+        "source",
+        "match_basis",
+        "digest_readback",
+        "app_version",
+        "excel_id",
+        "intended_decision"
+      ],
+      "properties": {
+        "runtime_name": {"type": "string"},
+        "hub_app_uuid": {"type": ["string", "null"]},
+        "observed_at": {"type": "string"},
+        "source": {"const": "hub GET /api/v1/apps/{id}"},
+        "match_basis": {"enum": ["catalogusapp", "image", "manifest_catalogusapp", "manifest_image", "gebruiker"]},
+        "digest_readback": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["status", "reden", "digests"],
+          "properties": {
+            "status": {"type": ["string", "null"]},
+            "reden": {"type": ["string", "null"]},
+            "digests": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "app_version": {"type": ["string", "null"]},
+        "excel_id": {"type": ["string", "null"]},
+        "intended_decision": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["code", "tekst_nl"],
+          "properties": {"code": {"type": "string"}, "tekst_nl": {"type": "string"}}
+        }
+      }
+    },
+    "docs": {"type": "array", "items": {"type": "string"}},
+    "validation_status": {"const": "inventory_readback"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"install": {"properties": {"method": {"const": "custom_app"}}}}},
+      "then": {"required": ["image"], "not": {"required": ["catalog"]}}
+    },
+    {
+      "if": {"properties": {"install": {"properties": {"method": {"const": "catalog_app"}}}}},
+      "then": {"required": ["catalog"], "not": {"required": ["image"]}}
+    }
+  ]
+}

@@ -16,7 +16,8 @@ lint:
 typecheck:
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
-		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py
+		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
+		tools/validator_kopie.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
 	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
@@ -46,6 +47,7 @@ validator-venv:
 manifesten:
 	$(PY) tools/manifesten.py
 	$(PY) tools/manifest_kopie.py controleer
+	$(PY) tools/validator_kopie.py controleer
 	$(PY) tools/checklists.py
 
 # Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager
