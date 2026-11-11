@@ -18,6 +18,9 @@ Sim-getest; de echte Hub stapt in C1.3-ASM-02/03/09 over):
   met de grenzen van §7: onbekende velden, ``schema_version`` ≠ ``"1.0"``, ``event_type`` niet precies drie segmenten,
   te lange velden of een payload > 16 KiB → 422; ``source_app`` ≠ ``app_id`` van het token → 403 ``source_mismatch``.
 - ``GET /api/v1/auth/jwks`` en ``GET /api/v1/auth/key-rotations?after=n`` (§4.5, ondertekende statements).
+- ``POST /api/v1/monitoring/heartbeat`` (§6.1, Bearer service-token): strikte vorm, ``observed_at`` hooguit 5 min
+  van de klok, dedupe op ``observed_at``, hooguit één per 5 s (429), beoordeling door de Hub; ``/_sim/heartbeats``
+  toont de toestand, ook ``over_s`` seconden later (na ``3 × verwacht_interval_s`` zonder heartbeat: ``unknown``).
 - JWT's: gebruikers-JWT (``token_use: user``) en dienst-JWT (``token_use: hub_service``), met ``nbf`` en ``jti``.
 
 Fase P2 (inventaris, catalogusbeschikbaarheid, beleid/goedkeuring/ondertekening volgens §8) staat in ``hub_p2`` en
@@ -184,6 +187,84 @@ def event_problems(event: Any) -> list[str]:
     return problems
 
 
+HEARTBEAT_FIELDS = {"status", "observed_at", "verwacht_interval_s", "checks", "worker"}
+WORKER_FIELDS = {"laatste_hartslag", "wachtrij", "bezig", "laatste_job_klaar", "jobs_stil_na_s"}
+
+
+def _parse_time(value: Any) -> float | None:
+    """Tijd met tijdzone → epoch-seconden; zonder tijdzone of onleesbaar → None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.timestamp() if parsed.tzinfo is not None else None
+
+
+def _int_in(value: Any, low: int, high: int) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+
+
+def heartbeat_problems(body: Any) -> list[str]:
+    """De grenzen van ``POST /api/v1/monitoring/heartbeat`` (§6.1), eigen implementatie naar het model van de Hub."""
+    if not isinstance(body, dict):
+        return ["heartbeat moet een JSON-object zijn"]
+    problems = [f"onbekend veld: {k}" for k in sorted(set(body) - HEARTBEAT_FIELDS)]
+    if body.get("status") not in ("healthy", "degraded", "down"):
+        problems.append("status: healthy, degraded of down")
+    if _parse_time(body.get("observed_at")) is None:
+        problems.append("observed_at: tijd met tijdzone")
+    if "verwacht_interval_s" in body and not _int_in(body["verwacht_interval_s"], 10, 3600):
+        problems.append("verwacht_interval_s 10–3600")
+    checks = body.get("checks", [])
+    if not isinstance(checks, list) or len(checks) > 20:
+        problems.append("checks: hooguit 20")
+    else:
+        for i, check in enumerate(checks):
+            if (not isinstance(check, dict) or set(check) - {"name", "status", "detail"}
+                    or not re.fullmatch(r"[a-z0-9_.-]{1,64}", str(check.get("name", "")))
+                    or check.get("status") not in ("healthy", "degraded", "down", "unknown")
+                    or not isinstance(check.get("detail", ""), str) or len(check.get("detail", "")) > 200):
+                problems.append(f"checks[{i}] ongeldig")
+    worker = body.get("worker")
+    if worker is not None:
+        if not isinstance(worker, dict) or set(worker) - WORKER_FIELDS:
+            problems.append("worker ongeldig")
+        else:
+            for veld in ("laatste_hartslag", "laatste_job_klaar"):
+                if worker.get(veld) is not None and _parse_time(worker[veld]) is None:
+                    problems.append(f"worker.{veld}: tijd met tijdzone")
+            if worker.get("wachtrij") is not None and not _int_in(worker["wachtrij"], 0, 10_000_000):
+                problems.append("worker.wachtrij 0–10000000")
+            if worker.get("bezig") is not None and not _int_in(worker["bezig"], 0, 100_000):
+                problems.append("worker.bezig 0–100000")
+            if "jobs_stil_na_s" in worker and not _int_in(worker["jobs_stil_na_s"], 60, 86400):
+                problems.append("worker.jobs_stil_na_s 60–86400")
+    return problems
+
+
+def heartbeat_judge(body: dict[str, Any], now: float) -> tuple[str, str | None]:
+    """Beoordeling door de Hub zelf (zelfde volgorde en redenen als ``hub/monitoring/heartbeat.py``)."""
+    if body["status"] == "down":
+        return "down", "dienst_meldt_down"
+    worker = body.get("worker")
+    interval = int(body.get("verwacht_interval_s", 60))
+    if isinstance(worker, dict):
+        hartslag = _parse_time(worker.get("laatste_hartslag"))
+        if hartslag is not None and now - hartslag > max(180, 3 * interval):
+            return "degraded", "worker_staat_stil"
+        klaar = _parse_time(worker.get("laatste_job_klaar"))
+        if (worker.get("wachtrij") or 0) > 0 and klaar is not None and now - klaar > int(
+                worker.get("jobs_stil_na_s", 900)):
+            return "degraded", "jobs_staan_stil"
+    if body["status"] == "degraded":
+        return "degraded", "dienst_meldt_degraded"
+    if any(c.get("status") in ("down", "degraded") for c in body.get("checks", [])):
+        return "degraded", "controle_faalt"
+    return "healthy", None
+
+
 @dataclass
 class Token:
     sha: str
@@ -234,6 +315,7 @@ class HubState:
     services: dict[str, Service] = field(default_factory=dict)  # per app_id (één instantie per app_id)
     failures: defaultdict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     events: list[dict[str, Any]] = field(default_factory=list)
+    heartbeats: dict[str, dict[str, Any]] = field(default_factory=dict)  # per app_id: laatste heartbeat (§6.1)
     seen_event_ids: set[str] = field(default_factory=set)
     seen_source_ids: set[tuple[str, str]] = field(default_factory=set)
     faults: set[str] = field(default_factory=set)
@@ -589,7 +671,53 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
             state.events.append(event)
         return JSONResponse({"status": "accepted"}, status_code=202, headers=headers)
 
+    @app.post("/api/v1/monitoring/heartbeat")
+    async def heartbeat(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse:
+        """Heartbeat van een dienst (§6.1), zoals de echte Hub: strikte vorm, ``observed_at`` hooguit 5 min van de
+        klok, dedupe op ``observed_at``, hooguit één per 5 s, eigen beoordeling."""
+        state.calls["heartbeat"] += 1
+        found = state.authenticate(authorization)
+        if found is None:
+            return err(401, "unauthorized", "Onbekend of ingetrokken service-token")
+        body = await request.json()
+        if problems := heartbeat_problems(body):
+            return JSONResponse({"code": "validation_error", "message": "ongeldige heartbeat (sim)",
+                                 "details": {"fouten": problems}, "trace_id": str(uuid.uuid4())}, status_code=422)
+        now = state.clock()
+        observed = _parse_time(body["observed_at"])
+        assert observed is not None
+        if abs(observed - now) > 300:
+            return err(422, "validation_error", "observed_at wijkt meer dan 5 minuten af van de klok van de Hub.")
+        app_id = found[0].app_id
+        with state.lock:
+            vorige = state.heartbeats.get(app_id)
+            if vorige is not None and vorige["observed_ts"] == observed:
+                return JSONResponse({"status": "duplicate", "beoordeling": vorige["beoordeling"]})
+            if vorige is not None and now - vorige["ontvangen_ts"] < 5:
+                return err(429, "rate_limited", "Te veel heartbeats; minimaal 5 s ertussen.", {"Retry-After": "5"})
+            status, reden = heartbeat_judge(body, now)
+            beoordeling = {"status": status, "reden": reden}
+            state.heartbeats[app_id] = {
+                "app_id": app_id, "gemeld": body["status"], "beoordeling": beoordeling,
+                "observed_at": body["observed_at"], "observed_ts": observed, "ontvangen_ts": now,
+                "verwacht_interval_s": int(body.get("verwacht_interval_s", 60)),
+                "checks": body.get("checks", []), "worker": body.get("worker")}
+        return JSONResponse({"status": "accepted", "beoordeling": beoordeling}, status_code=202)
+
     # ------------------------------------------------------------------ testbediening
+    @app.get("/_sim/heartbeats")
+    def list_heartbeats(over_s: float = 0.0) -> list[dict[str, Any]]:
+        """Laatste heartbeat per dienst, met de toestand zoals de Hub hem ``over_s`` seconden na nu zou tonen: na
+        ``3 × verwacht_interval_s`` zonder nieuwe heartbeat is de meting verouderd en de dienst ``unknown`` (§6.1)."""
+        nu = state.clock() + max(0.0, over_s)
+        uit = []
+        for hb in state.heartbeats.values():
+            verouderd = nu - hb["observed_ts"] > 3 * hb["verwacht_interval_s"]
+            uit.append({**{k: v for k, v in hb.items() if not k.endswith("_ts")}, "verouderd": verouderd,
+                        "status": "unknown" if verouderd else hb["beoordeling"]["status"],
+                        "reason_code": "meting_verouderd" if verouderd else hb["beoordeling"]["reden"]})
+        return uit
+
     @app.post("/_sim/grants")
     async def add_grant(request: Request) -> dict[str, str]:
         body = await request.json()
