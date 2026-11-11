@@ -1,6 +1,7 @@
 # ADR-0023 — Node-RED als standaard Custom App: beveiligd via `FLOWS`, flows als gecontroleerde bundels
 
-- Status: aanvaard · Datum: 2026-11-11 · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
+- Status: aanvaard · Datum: 2026-11-11 · Bijgewerkt: 2026-11-11 (S-P2-410: besluit C-11, restpunten van de review)
+  · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
 - Manifest: `install/manifests/node-red.manifest.yaml` · Instellingen en flows: `install/node-red/`
 - Hulpmiddelen: `tools/nodered_flows.py`, `tools/nodered_rooktest.py` · Bewijs:
   `docs/platform-v2/bewijs/nodered-rooktest-p2.json` (Sim-getest; NIET GEVALIDEERD (echte NAS))
@@ -21,7 +22,8 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    Draait als 568:568 met één eigen dataset op `/data`; geen extra rechten, geen Docker-socket, geen host network.
 2. **Beveiliging via de omgevingsvariabele `FLOWS`.** Gemeten aan deze digest: de entrypoint geeft `$FLOWS`
    ongequoot door aan Node-RED, zodat `flows.json -D sleutel=waarde …` instellingen worden. Het manifest zet zo:
-   `adminAuth` (inloggen verplicht om te schrijven; **geen** gebruikers; anoniem alleen lezen), `nodesIncludes`
+   `adminAuth` precies `{"type": "credentials", "users": []}`: **geen** gebruikers en **geen** `default`, dus zonder
+   aanmelding geen enkel recht, ook niet lezen (besluit C-11, punt 4); `nodesIncludes`
    (alleen genoemde kern-nodes; exec, function, file, watch, http in, websocket, tcp, udp en mqtt worden niet
    geladen), geen installatie van nodes/modules, geen projecten, geen telemetrie, `/diagnostics` uit.
    De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
@@ -29,13 +31,26 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    (`nodesIncludes`) hebben ze nodig; veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij
    deze digest in de review van P2; ADR-0025 besluit 6).
 3. **De monitor bewaakt de beveiliging.** Dit mechanisme is gemeten gedrag van één digest, geen toezegging van
-   upstream. `healthcheck.monitor` verwacht daarom **403 op `/diagnostics`**: met de instellingen actief is dat 403,
-   zonder is het 200 (controleproef N2). Verdwijnt het gedrag bij een update, dan is de app niet gezond in plaats van
-   stil onbeveiligd. `upgrade.tag_only_rollback_safe: false`; elke nieuwe digest gaat eerst door de rooktest.
-4. **Anoniem alleen-lezen is een bewuste keuze.** Zonder beheerder kan niemand iets wijzigen. Lezen (editor,
-   `GET /flows`) blijft open op het vertrouwde netwerk, zodat flows, versies en checksums zonder inloggegevens te
-   controleren en te exporteren zijn. Flows bevatten geen geheimen: credentials staan apart, versleuteld, en komen
-   nooit terug via de API (gemeten: N4).
+   upstream. `healthcheck.monitor` verwacht daarom **401 op `/diagnostics`** zonder aanmelding: met de instellingen
+   actief is dat 401, zonder `FLOWS` 200 (controleproef N2; gemeten op 2026-11-11 bij deze digest, na besluit C-11).
+   Verdwijnt het gedrag bij een update, dan is de app niet gezond in plaats van stil onbeveiligd.
+   `upgrade.tag_only_rollback_safe: false`; elke nieuwe digest gaat eerst door de rooktest.
+   *Wat de monitor na besluit C-11 nog bewijst (eerlijk):* alleen dat `adminAuth` zonder anonieme rechten actief is.
+   Vóór C-11 gaf `/diagnostics` 403, en dat antwoord kwam van de instelling `diagnostics` (lezen mocht anoniem); dat
+   bewees ook een tweede deel van `FLOWS`. Nu stopt de aanmelding elke anonieme aanvraag eerder: dezelfde `FLOWS` met
+   `/diagnostics` aan geeft ook 401, en elk ander pad van de Admin-API ook (gemeten). Een Node-RED zonder `FLOWS` blijft
+   herkenbaar (200; N2). Een `FLOWS` die maar voor een deel aankomt (bijvoorbeeld `adminAuth` wel en `nodesIncludes`
+   niet) ziet de monitor niet. Dat de kern-nodes beperkt zijn, toont `GET /nodes`, en dat kan alleen een beheerder: de
+   controle na installatie `exec_en_function_niet_geladen` (handmatig, zodra er een beheerder is) en tot dan de rooktest
+   bij deze digest (N3, dezelfde `FLOWS` met alleen een wegwerpbeheerder).
+4. **Geen anonieme toegang (besluit C-11 van de gebruiker, 2026-11-11).** De editor en de Admin-API zijn alleen
+   bruikbaar na aanmelding van een beheerder. Gemeten (N1): anoniem `GET /flows`, `GET /nodes`, `GET /settings` en
+   `GET /diagnostics` geven 401, `POST /flows` ook; exporteren zonder aanmelding wordt geweigerd. Dezelfde paden
+   controleert home-control-hub (`anoniem_geweigerd`, 401) en de controle na installatie `anoniem_geweigerd` van dit
+   manifest. Zonder beheerder is de editor daardoor helemaal dicht, ook voor lezen; dat is de bedoelde stand (besluit
+   C-12: geen geheim en geen gebruiker in het manifest). Wanneer Node-RED bruikbaar wordt, bepaalt C-5 (zie "Wat het
+   manifest niet kan"). `tools/nodered_flows.py` weigert overrides met een andere `adminAuth` (`render`, `render
+   --check`), en `importeer` en `exporteer` vragen een beheerder (`--gebruiker`).
 5. **Flows zijn bundels in Git met een eigen controle.** Eén tabblad per bestand (`install/node-red/flows/`), vaste
    ids (`jlp-…`), versie in de beschrijving, sha256 in `flows.lock.json`. `lint` laat alleen `inject`, `change`,
    `switch`, `http request`, `debug`, `catch` en `comment` toe; een `http request` mag alleen naar een vaste
@@ -69,8 +84,11 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
 ## Wat het manifest niet kan (geblokkeerd)
 
 De manifeststandaard v1 kent geen startopdracht, geen bestanden en geen afgeleide geheimen, en de vertaling weigert
-geheimen in formulierwaarden. Daardoor levert het manifest op een NAS alleen een beveiligde, **lege, alleen-lezen**
-Node-RED. Niet leverbaar zonder uitbreiding van de standaard of een route bij de Hub:
+geheimen in formulierwaarden. Daardoor levert het manifest op een NAS alleen een beveiligde, **lege** Node-RED die
+zonder beheerder **helemaal dicht** is, ook voor lezen (besluit C-11). Contractvraag C-5 bepaalt dus wanneer Node-RED
+bruikbaar wordt; voor de beheerder en het dienstaccount is besluit C-12 genomen (een voorziening zonder geheim in de
+manifeststandaard; ontwerp S-P2-510, bouw na P2). Niet leverbaar zonder uitbreiding van de standaard of een route bij
+de Hub:
 
 - een beheerder (bcrypt-hash in `adminAuth.users`);
 - het plaatsen van de bundels en `HUB_URL`;
@@ -92,20 +110,28 @@ Verder niet gebouwd of niet af te dwingen:
   daar een incident uit ontstaat, legt het contract niet vast.
 - **Editor alleen via vertrouwd netwerk/SSO:** de netwerkindeling van de NAS (D01, D03, D16) is onbekend.
 - **Formulier op echte TrueNAS:** of de waarde van `FLOWS` (JSON met aanhalingstekens) ongewijzigd door het echte
-  formulier komt, is alleen via de vertaling van de validator en in Docker gemeten. Komt ze verminkt aan, dan faalt
-  de monitor (punt 3) en de controle na installatie.
+  formulier komt, is alleen via de vertaling van de validator en in Docker gemeten. Komt ze zo verminkt aan dat
+  `adminAuth` wegvalt, dan falen de monitor (punt 3) en de controles na installatie; valt alleen een ander deel weg,
+  dan ziet alleen een beheerder dat (controle `exec_en_function_niet_geladen`).
 
 ## Gemeten in de rooktest (Docker + Hub-simulator)
 
-N1 container en beveiliging volgens het manifest · N2 controleproef zonder `FLOWS` (monitor faalt) · N3 beheerder met
-wegwerpaccount, exec/function via de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met
-versleuteld token en checksum-readback, export gelijk aan het lock · N5 MediaGuard gestopt/hersteld/onbekend ·
+N1 container en beveiliging volgens het manifest, geen anonieme toegang (401 op `GET /flows`, `/nodes`, `/settings` en
+`/diagnostics`, `POST /flows` 401, export zonder aanmelding geweigerd) · N2 controleproef zonder `FLOWS` (alles 200,
+monitor faalt) · N3 beheerder met wegwerpaccount: alleen kern-nodes geladen (`GET /nodes` aangemeld), exec/function via
+de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met versleuteld token en checksum-readback
+(met de eigen controle over de teruggelezen tabbladen), export als beheerder gelijk aan het lock · N5 MediaGuard
+gestopt/hersteld/onbekend ·
 N6 testflow: uit = geen reactie; aan = R1 toegestaan / R2 wacht op goedkeuring, actor door de Hub gezet · N7 hartslag
 met flowvertraging · N8 andere versie zichtbaar als afwijkend, herstel uit Git · N9 herstart zonder verlies van flows
 en credentials, stoppen zichtbaar. De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
 
 ## Afgewezen
 
+- *Anoniem alleen lezen* (stand tot 2026-11-11: `adminAuth` met `default: {"permissions": "read"}`): afgewezen door
+  besluit C-11 van de gebruiker en door B11-001 ("Viewer kan editor niet bereiken"; home-control-hub controleert dat
+  met `anoniem_geweigerd`). Flows en instellingen bevatten geen geheimen, maar wel de opbouw van de automatisering en
+  de geladen nodes; die horen niet bij iedereen op het netwerk.
 - *Catalogusapp `community/node-red`:* draait als 1000, geen login, alle nodes (ook exec) geladen.
 - *Eigen image met `settings.js` ingebakken:* B08 §5 staat voor apps van derden alleen officiële images toe.
 - *`settings.js` in de dataset laten zetten door de gebruiker:* vraagt een terminal of bestandsbeheer; de

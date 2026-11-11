@@ -1,8 +1,8 @@
 {
-  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $, * of ? bevatten; [ en ] blijven nodig voor JSON-lijsten en zijn alleen veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij deze digest; ADR-0025).",
+  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $, * of ? bevatten; [ en ] blijven nodig voor JSON-lijsten en zijn alleen veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij deze digest; ADR-0025). adminAuth is precies {\"type\": \"credentials\", \"users\": []}: geen anonieme toegang, ook niet lezen (besluit C-11), en geen gebruiker of geheim in het manifest (besluit C-12); tools/nodered_flows.py weigert elke andere vorm.",
   "flows_bestand": "flows.json",
   "overrides": {
-    "adminAuth": {"type": "credentials", "users": [], "default": {"permissions": "read"}},
+    "adminAuth": {"type": "credentials", "users": []},
     "nodesIncludes": [
       "05-junction.js", "20-inject.js", "21-debug.js", "24-complete.js", "25-catch.js", "25-status.js", "60-link.js",
       "90-comment.js", "91-global-config.js", "98-unknown.js", "10-switch.js", "15-change.js", "80-template.js",

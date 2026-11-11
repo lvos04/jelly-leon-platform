@@ -7,10 +7,15 @@ proces, luisterend op het adres van de Docker-bridge zodat de container hem kan 
 
 Stappen:
 
-- N1  container en beveiliging zoals het manifest ze levert (alleen-lezen editor, alleen kern-nodes);
+- N1  container en beveiliging zoals het manifest ze levert: geen anonieme toegang (besluit C-11: anoniem
+      ``GET /flows``, ``/nodes``, ``/settings`` en ``/diagnostics`` geven 401, ``POST /flows`` ook; exporteren zonder
+      aanmelding wordt geweigerd);
 - N2  controleproef: dezelfde image **zonder** ``FLOWS`` is onbeveiligd, en de monitor uit het manifest ziet dat;
-- N3  beheerdersmodus met een wegwerpaccount; een exec-/function-node voert niets uit; geen extra nodes te installeren;
-- N4  flows importeren: token alleen als versleuteld credential, checksums gelijk aan het lock, export gelijk;
+- N3  beheerdersmodus met een wegwerpaccount (dezelfde ``FLOWS``, alleen met één gebruiker): alleen kern-nodes geladen
+      (``GET /nodes`` kan na C-11 alleen aangemeld); een exec-/function-node voert niets uit; geen extra nodes te
+      installeren;
+- N4  flows importeren: token alleen als versleuteld credential, checksums gelijk aan het lock en de teruggelezen
+      tabbladen door de eigen controle (``eigen_controle``), export (als beheerder) gelijk;
 - N5  MediaGuard gestopt → event ``flow.app_watch.down``; weer gestart → ``flow.app_watch.recovered``;
 - N6  testflow "herstart": staat standaard uit; ingeschakeld vraagt hij bij de Hub aan en beslist de Hub (R1/R2);
 - N7  hartslag met flowvertraging komt bij de Hub aan;
@@ -56,6 +61,9 @@ SCOPES = ["inventaris.lezen", "acties.voorstellen"]
 GEVAARLIJKE_TYPES = {"exec", "function", "file", "file in", "watch", "tcp in", "tcp out", "tcp request", "udp in",
                      "udp out", "http in", "http response", "websocket in", "websocket out", "mqtt in", "mqtt out"}
 GEHEIM_RE = re.compile(r"(svc_[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{10,}|\$2[aby]\$\d\d\$)")
+# Besluit C-11: zonder aanmelding geen flows, nodes of instellingen (dezelfde paden als de controle anoniem_geweigerd
+# van home-control-hub).
+ANONIEME_PADEN = ("/flows", "/nodes", "/settings")
 
 
 class HubSim:
@@ -127,9 +135,11 @@ class NoderedRooktest(UpstreamRooktest):
     def status(self, poort: int, pad: str, methode: str = "GET", **kw: Any) -> int:
         return self.http.request(methode, f"http://127.0.0.1:{poort}{pad}", **kw).status_code
 
-    def node_types(self, poort: int) -> set[str]:
-        sets = self.get(f"http://127.0.0.1:{poort}/nodes", headers={"Accept": "application/json"}).json()
-        return {str(t) for s in sets for t in s.get("types", [])}
+    def node_types(self, poort: int, kop: dict[str, str] | None = None) -> set[str]:
+        """De geladen nodetypes (``GET /nodes``). Met FLOWS kan dat na besluit C-11 alleen aangemeld (``kop``)."""
+        r = self.get(f"http://127.0.0.1:{poort}/nodes", headers={**(kop or {}), "Accept": "application/json"})
+        eis(r.status_code == 200, f"GET /nodes: HTTP {r.status_code}")
+        return {str(t) for s in r.json() for t in s.get("types", [])}
 
     def monitor_ok(self, poort: int) -> bool:
         """De monitor uit het manifest: precies de verwachte status op het monitorpad."""
@@ -163,9 +173,10 @@ class NoderedRooktest(UpstreamRooktest):
             eis("docker.sock" not in json.dumps(cfg["Mounts"]), "Docker-socket gekoppeld")
             login = self.get(f"http://127.0.0.1:{poort}/auth/login").json()
             eis(login.get("type") == "credentials", f"/auth/login meldt geen login: {login}")
+            mon = lees_manifest(APP_ID)["healthcheck"]["monitor"]
             proeven = {
-                "GET /diagnostics (monitor: 403)": self.status(poort, "/diagnostics"),
-                "GET /flows anoniem (alleen-lezen: 200)": self.status(poort, "/flows"),
+                f"GET {mon['pad']} (monitor: {mon['verwachte_status']})": self.status(poort, str(mon["pad"])),
+                **{f"GET {pad} anoniem (401)": self.status(poort, pad) for pad in ANONIEME_PADEN},
                 "POST /flows anoniem (401)": self.status(poort, "/flows", "POST", json=[]),
                 "POST /nodes anoniem (geen 200)": self.status(poort, "/nodes", "POST", json={"module": "x"}),
                 "POST /auth/token zonder beheerder (geen 200)": self.status(
@@ -173,16 +184,20 @@ class NoderedRooktest(UpstreamRooktest):
                                                         "scope": "*", "username": "admin", "password": "admin"}),
             }
             s.details["proeven"] = proeven
-            eis(proeven["GET /diagnostics (monitor: 403)"] == 403 and self.monitor_ok(poort), "monitor klopt niet")
-            eis(proeven["GET /flows anoniem (alleen-lezen: 200)"] == 200, "anoniem lezen werkt niet")
+            eis(self.monitor_ok(poort), f"monitor klopt niet: {mon['pad']} gaf niet {mon['verwachte_status']}")
+            eis(all(proeven[f"GET {pad} anoniem (401)"] == 401 for pad in ANONIEME_PADEN),
+                "een anonieme lezer krijgt toegang (besluit C-11)")
             eis(proeven["POST /flows anoniem (401)"] == 401, "anoniem schrijven is niet geweigerd")
             eis(proeven["POST /nodes anoniem (geen 200)"] not in (200, 201), "anoniem nodes installeren kan")
             eis(proeven["POST /auth/token zonder beheerder (geen 200)"] != 200, "er bestaat een standaardaccount")
-            types = self.node_types(poort)
-            s.details["node_types"] = sorted(types)
-            eis(not types & GEVAARLIJKE_TYPES, f"gevaarlijke nodes geladen: {sorted(types & GEVAARLIJKE_TYPES)}")
-            eis({"inject", "change", "switch", "http request", "debug", "catch"} <= types, "kern-nodes ontbreken")
-            s.details["flows"] = len(self.get(f"http://127.0.0.1:{poort}/flows").json())
+            s.details["anoniem_geweigerd"] = all(proeven[f"GET {pad} anoniem (401)"] == 401 for pad in ANONIEME_PADEN)
+            try:
+                nf.exporteer(nf.NodeRed(f"http://127.0.0.1:{poort}", self.http), self.werk / "export-anoniem")
+                raise Mislukt("exporteren zonder aanmelding lukt")
+            except nf.Fout as exc:
+                eis("HTTP 401" in str(exc), f"onverwachte melding: {exc}")
+                s.details["export_zonder_aanmelding"] = "geweigerd (HTTP 401)"
+            eis(not (self.werk / "export-anoniem").exists(), "export zonder aanmelding schreef bestanden")
             sh("docker", "rm", "-f", cname)
 
     def n2_controle(self) -> None:
@@ -193,6 +208,7 @@ class NoderedRooktest(UpstreamRooktest):
             types = self.node_types(poort)
             s.details.update({
                 "GET /diagnostics": self.status(poort, "/diagnostics"),
+                **{f"GET {pad} anoniem": self.status(poort, pad) for pad in ANONIEME_PADEN},
                 "/auth/login": self.get(f"http://127.0.0.1:{poort}/auth/login").json(),
                 "gevaarlijke_nodes_geladen": sorted(types & GEVAARLIJKE_TYPES),
                 "monitor_slaagt": self.monitor_ok(poort),
@@ -225,6 +241,12 @@ class NoderedRooktest(UpstreamRooktest):
             nr.login(self.gebruiker, self.wachtwoord)
             s.details["POST /flows anoniem"] = self.status(self.poort, "/flows", "POST", json=[])
             eis(s.details["POST /flows anoniem"] == 401, "anoniem schrijven is niet geweigerd")
+            s.details["GET /flows anoniem"] = self.status(self.poort, "/flows")
+            eis(s.details["GET /flows anoniem"] == 401, "een anonieme lezer krijgt flows (besluit C-11)")
+            types = self.node_types(self.poort, nr.kop)
+            s.details["node_types"] = sorted(types)
+            eis(not types & GEVAARLIJKE_TYPES, f"gevaarlijke nodes geladen: {sorted(types & GEVAARLIJKE_TYPES)}")
+            eis({"inject", "change", "switch", "http request", "debug", "catch"} <= types, "kern-nodes ontbreken")
             installeren = self.http.post(f"{nr.url}/nodes", headers=nr.kop, json={"module": "node-red-contrib-x"})
             s.details["POST /nodes als beheerder"] = installeren.status_code
             eis(installeren.status_code not in (200, 201), "een beheerder kan extra nodes installeren")
@@ -246,7 +268,7 @@ class NoderedRooktest(UpstreamRooktest):
             bestanden = self.helper_sh("ls -A /w/beheer").split()
             s.details["bestanden_na_proef"] = sorted(bestanden)
             eis("exec-liep" not in bestanden and "function-liep" not in bestanden, "een exec/function-node liep")
-            eis(not self.node_types(self.poort) & GEVAARLIJKE_TYPES, "gevaarlijke nodes geladen")
+            eis(not self.node_types(self.poort, nr.kop) & GEVAARLIJKE_TYPES, "gevaarlijke nodes geladen")
             s.details["eigen_controle"] = nf.lint(kwaad)[:3]
             eis(any(b.startswith("nodetype_niet_toegestaan") for b in nf.lint(kwaad)), "lint laat exec door")
             rev, flows = nr.flows()
@@ -276,8 +298,7 @@ class NoderedRooktest(UpstreamRooktest):
             s.details["token_in_flows_json"], s.details["token_in_flows_cred_json"] = int(regels[0]), int(regels[1])
             eis(regels[0] == "0" and regels[1] == "0", "het token staat leesbaar op schijf")
             eis("flows_cred.json" in regels and ".config.runtime.json" in regels, "credentialsbestand ontbreekt")
-            anoniem = nf.NodeRed(self.beheer().url, self.http)
-            export = nf.exporteer(anoniem, self.werk / "export")
+            export = nf.exporteer(self.beheer(), self.werk / "export")
             s.details["export"] = export
             eis(all(export[n]["vergelijking"] == "gelijk_aan_lock" for n in bundels), "export wijkt af van het lock")
             eis(self.token not in "".join(p.read_text(encoding="utf-8") for p in (self.werk / "export").iterdir()),
@@ -366,21 +387,21 @@ class NoderedRooktest(UpstreamRooktest):
         with self.stap("N8", "Andere flowversie zetten en de versie uit Git herstellen (I10-10-05)") as s:
             git = nf.bundels_in_git()["hartslag"]
             lock = nf.lees_lock()["bundels"]["hartslag"]["sha256"]
-            ander = json.loads(json.dumps(git).replace("versie 1.0.0", "versie 9.9.9").replace("elke 60 s",
-                                                                                            "proefversie"))
+            versie = nf.lees_lock()["bundels"]["hartslag"]["versie"]
+            ander = json.loads(json.dumps(git).replace(f"versie {versie}", "versie 9.9.9").replace("elke 60 s",
+                                                                                                "proefversie"))
             pad = self.werk / "hartslag-proef.json"
             pad.write_text(json.dumps(ander), encoding="utf-8")
             eis(nf.checksum(ander) != lock, "de proefversie is gelijk aan het lock")
             uit = nf.importeer(self.beheer(), {"hartslag": nf.lees_bundel(pad)}, hub_url=self.hub.url,
                                token=self.token)
-            anoniem = nf.NodeRed(self.beheer().url, self.http)
             s.details["na_wijziging"] = {"gelezen": uit["hartslag"]["gelezen"], "vergelijking": nf.exporteer(
-                anoniem, self.werk / "export2")["hartslag"]["vergelijking"]}
+                self.beheer(), self.werk / "export2")["hartslag"]["vergelijking"]}
             eis(s.details["na_wijziging"] == {"gelezen": nf.checksum(ander), "vergelijking": "afwijkend"},
                 "de afwijking is niet zichtbaar")
             uit = nf.importeer(self.beheer(), {"hartslag": git}, hub_url=self.hub.url, token=self.token)
             s.details["na_herstel"] = {"gelezen": uit["hartslag"]["gelezen"], "vergelijking": nf.exporteer(
-                anoniem, self.werk / "export3")["hartslag"]["vergelijking"]}
+                self.beheer(), self.werk / "export3")["hartslag"]["vergelijking"]}
             eis(s.details["na_herstel"] == {"gelezen": lock, "vergelijking": "gelijk_aan_lock"}, "herstel faalt")
             alles = nf.readback(self.beheer(), nf.bundels_in_git())
             eis(all(v["gelijk"] for v in alles.values()), "andere bundels zijn door het herstel geraakt")

@@ -7,8 +7,10 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
 > **Stand (eerlijk).** Alles hieronder is gemeten met de echte image (op digest, als 568:568, in Docker) tegen de
 > Hub-simulator: `tools/nodered_rooktest.py`, rapport `docs/platform-v2/bewijs/nodered-rooktest-p2.json` —
 > **Sim-getest**. Op een echte TrueNAS, met de echte Hub en de echte uitvoerder: **NIET GEVALIDEERD**.
-> Het manifest levert alleen een beveiligde, lege Node-RED die voor iedereen op het vertrouwde netwerk alleen-lezen
-> is. Een beheerder, de flows en het service-token kan de manifeststandaard v1 niet leveren (zie "Wat nog niet kan").
+> Het manifest levert alleen een beveiligde, lege Node-RED **zonder anonieme toegang**: zonder aanmelding van een
+> beheerder geeft Node-RED niets, ook niet lezen (besluit C-11 van de gebruiker, 2026-11-11). Een beheerder, de flows en
+> het service-token kan de manifeststandaard v1 niet leveren (zie "Wat nog niet kan"); tot die er zijn, is de editor
+> helemaal dicht. Dat is de bedoelde stand (besluit C-12).
 
 ## Bestanden
 
@@ -23,13 +25,18 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
 ## Beveiliging: wat waar wordt afgedwongen
 
 1. **In Node-RED zelf (via `FLOWS`).** De entrypoint van deze image geeft `$FLOWS` ongequoot door; daardoor worden
-   de `-D sleutel=waarde`-delen instellingen van Node-RED. Gezet: `adminAuth` (schrijven alleen na inloggen; zonder
-   beheerder kan niemand schrijven; anoniem alleen lezen), `nodesIncludes` (alleen de genoemde kern-nodes worden
+   de `-D sleutel=waarde`-delen instellingen van Node-RED. Gezet: `adminAuth` precies
+   `{"type": "credentials", "users": []}` (geen `default`: zonder aanmelding geen enkel recht, ook niet lezen —
+   besluit C-11; geen gebruiker in het manifest — besluit C-12), `nodesIncludes` (alleen de genoemde kern-nodes worden
    geladen — exec, function, file, watch, http in, websocket, tcp, udp en mqtt bestaan dan niet), geen installatie van
    extra nodes of modules, geen projecten, geen telemetrie, `/diagnostics` uit.
    Dit leunt op het gemeten gedrag van precies deze digest. Daarom bewaakt het manifest het zelf: de monitor
-   verwacht **403 op `/diagnostics`**. Een Node-RED zonder deze instellingen antwoordt 200 en is dan niet gezond
-   (controleproef N2 in de rooktest).
+   verwacht **401 op `/diagnostics`** zonder aanmelding. Een Node-RED zonder deze instellingen antwoordt 200 en is dan
+   niet gezond (controleproef N2 in de rooktest). Eerlijk: die 401 bewijst alleen dat `adminAuth` zonder anonieme
+   rechten actief is, niet de rest van `FLOWS` (met `/diagnostics` aan geeft Node-RED ook 401; gemeten). Dat alleen
+   kern-nodes geladen zijn, is alleen met een beheerder te zien (`GET /nodes`); tot er een beheerder is, bewijst de
+   rooktest dat bij deze digest (N3). Anoniem `GET /flows`, `/nodes` en `/settings` geven 401 (N1; dezelfde paden als de
+   controle `anoniem_geweigerd` van home-control-hub).
 2. **Bij de import (`lint`).** Een bundel uit deze repo mag alleen: `inject`, `change`, `switch`, `http request`,
    `debug`, `catch`, `comment`. Een `http request` krijgt zijn adres uitsluitend van een `change`-node met een van de
    vaste Hub-routes hieronder (`$env('HUB_URL') & '<route>'`), met een vaste methode en het token als bearer. Een
@@ -109,13 +116,15 @@ De bundel staat uit; inschakelen is een bewuste keuze bij de import (`--inschake
 ## Importeren, exporteren en herstellen (I10-10-03, -05)
 
 Dit is een hulpmiddel voor de beheerder/ontwikkelaar op een werkplek, niet voor de eindgebruiker en niet in de
-container. Geheimen staan nooit op de opdrachtregel:
+container. Importeren én exporteren vragen een beheerder (`--gebruiker`): Node-RED geeft zonder aanmelding niets
+(besluit C-11); zonder `--gebruiker` of met een leeg wachtwoord stopt het hulpmiddel met een melding, vóór het Node-RED
+aanroept. Geheimen staan nooit op de opdrachtregel:
 
 ```bash
 export NODERED_BEHEER_WACHTWOORD=…   # wachtwoord van de Node-RED-beheerder
 export NODERED_HUB_TOKEN=…           # service-token van de Hub
 python tools/nodered_flows.py importeer --url <adres van Node-RED> --gebruiker <beheerder> --hub-url <base-URL van de Hub>
-python tools/nodered_flows.py exporteer --url <adres van Node-RED> --naar <map>     # kan zonder inloggen (alleen lezen)
+python tools/nodered_flows.py exporteer --url <adres van Node-RED> --gebruiker <beheerder> --naar <map>
 python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere versie>  # herstel van een oude versie
 ```
 
@@ -139,7 +148,7 @@ python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere v
 
 | Onderdeel | Waarom | Stand |
 |---|---|---|
-| Beheerder van de editor op de NAS | de standaard kent geen afgeleid geheim (bcrypt-hash) en weigert geheimen in formulierwaarden | Geblokkeerd |
+| Beheerder van de editor op de NAS | de standaard kent geen afgeleid geheim (bcrypt-hash) en weigert geheimen in formulierwaarden; zonder beheerder is de editor helemaal dicht (besluit C-11); de voorziening zonder geheim volgt uit besluit C-12 (ontwerp S-P2-510) | Geblokkeerd |
 | Flows en `HUB_URL` op de NAS plaatsen | de standaard kent geen bestanden of startopdracht; importeren vraagt een beheerder | Geblokkeerd |
 | Service-token voor Node-RED | een flowruntime kan zich niet inschrijven (§3.3 vraagt een Ed25519-sleutel); geen andere route beschreven | Geblokkeerd |
 | Flow "my_house sensor verouderd" | geen contractroute voor sensorversheid | Geblokkeerd (`capability_unavailable`) |

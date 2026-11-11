@@ -12,7 +12,8 @@ Wat hier staat:
                  van de Hub alleen als versleuteld node-credential mee en leest terug of de checksums kloppen en of
                  de eigen tabbladen opnieuw door ``lint`` komen (zo niet: de vorige flows gaan terug). Een
                  oudere versie herstellen is hetzelfde commando met het oudere bestand (``--bundel naam=pad``);
-- ``exporteer``  schrijft de flows uit Node-RED per tabblad naar bestanden (Git-export) en vergelijkt met het lock.
+- ``exporteer``  schrijft de flows uit Node-RED per tabblad naar bestanden (Git-export) en vergelijkt met het lock
+                 (beheerder vereist: zonder aanmelding geeft Node-RED niets, besluit C-11).
 
 Geheimen komen nooit op de opdrachtregel en nooit in Git: het wachtwoord van de beheerder en het service-token worden
 uit omgevingsvariabelen gelezen (``NODERED_BEHEER_WACHTWOORD``, ``NODERED_HUB_TOKEN``). De Hub-URL wordt bij de import
@@ -70,6 +71,11 @@ GEHEIM_RE = re.compile(r"(svc_[A-Za-z0-9_-]{20,}|enr_[A-Za-z0-9_-]{20,}|eyJ[A-Za
                        r"|-----BEGIN|\$2[aby]\$\d\d\$)")
 ADRES_RE = re.compile(r"([a-z][a-z0-9+.-]*://|\b\d{1,3}(\.\d{1,3}){3}\b)")
 ONVEILIG_IN_FLOWS_ENV = re.compile(r"[\s$*?\\`'~<>|;&()]")
+# Besluit C-11 (gebruiker, 2026-11-11): geen anonieme toegang tot de editor en de Admin-API, ook niet lezen; en volgens
+# besluit C-12 geen gebruiker of geheim in het manifest. adminAuth is daarom precies dit (geen ``default``).
+ADMIN_AUTH = {"type": "credentials", "users": []}
+GEEN_BEHEERDER = ("Node-RED geeft zonder aanmelding niets (besluit C-11): geef --gebruiker op en zet het wachtwoord "
+                  "van die beheerder in NODERED_BEHEER_WACHTWOORD.")
 
 Node = dict[str, Any]
 
@@ -84,6 +90,9 @@ def lees_overrides(pad: Path = OVERRIDES) -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("overrides"), dict) \
             or not isinstance(data.get("flows_bestand"), str):
         raise Fout(f"{pad.name}: verwacht een object met 'flows_bestand' en 'overrides'")
+    if data["overrides"].get("adminAuth") != ADMIN_AUTH:
+        raise Fout(f"{pad.name}: adminAuth moet precies {json.dumps(ADMIN_AUTH)} zijn: geen 'default' (geen anonieme "
+                   "rechten, besluit C-11) en geen gebruiker of geheim in het manifest (besluit C-12)")
     return data
 
 
@@ -301,7 +310,8 @@ def lees_lock() -> dict[str, Any]:
 
 # ---------------------------------------------------------------------- Admin-API van Node-RED
 class NodeRed:
-    """Dunne client voor de Admin-API (v2). Zonder ``login`` alleen lezen (de editor is voor anoniem alleen-lezen)."""
+    """Dunne client voor de Admin-API (v2). Zonder ``login`` krijgt het hulpmiddel niets: anoniem lezen en schrijven
+    geven 401 (besluit C-11). Eerst ``login`` met een beheerder; die levert het manifest (nog) niet (ADR-0023)."""
 
     def __init__(self, url: str, http: httpx.Client | None = None) -> None:
         self.url = url.rstrip("/")
@@ -319,10 +329,18 @@ class NodeRed:
 
     def flows(self) -> tuple[str, list[Node]]:
         r = self.http.get(f"{self.url}/flows", headers=self.kop)
+        if r.status_code == 401:
+            raise Fout(f"Flows lezen vraagt een aanmelding (HTTP 401). {GEEN_BEHEERDER}")
         if r.status_code != 200:
             raise Fout(f"Flows lezen mislukt (HTTP {r.status_code}).")
-        body = r.json()
-        return str(body["rev"]), list(body["flows"])
+        try:
+            body = r.json()
+            rev, flows = body["rev"], body["flows"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise Fout("Node-RED gaf geen leesbare flows terug (verwacht een object met 'rev' en 'flows').") from exc
+        if not isinstance(flows, list) or not all(isinstance(n, dict) for n in flows):
+            raise Fout("Node-RED gaf geen leesbare flows terug (verwacht een lijst van nodes).")
+        return str(rev), flows
 
     def zet_flows(self, rev: str, flows: list[Node]) -> str:
         r = self.http.post(f"{self.url}/flows", headers={**self.kop, "Node-RED-Deployment-Type": "full"},
@@ -504,7 +522,8 @@ def main(argv: list[str] | None = None) -> int:
     for naam in ("importeer", "exporteer"):
         s = sub.add_parser(naam)
         s.add_argument("--url", required=True, help="adres van Node-RED (Admin-API)")
-        s.add_argument("--gebruiker", default=None)
+        s.add_argument("--gebruiker", default=None,
+                       help="beheerder van Node-RED (verplicht; wachtwoord uit NODERED_BEHEER_WACHTWOORD)")
         if naam == "importeer":
             s.add_argument("--hub-url", required=True)
             s.add_argument("--bundel", action="append", default=[], help="naam of naam=pad (herhaalbaar)")
@@ -534,9 +553,14 @@ def main(argv: list[str] | None = None) -> int:
                 LOCK.write_text(inhoud, encoding="utf-8")
             print("lock in orde" if args.check else f"geschreven: {LOCK.relative_to(ROOT)}")
         else:
+            if not args.gebruiker:
+                raise Fout(f"{args.cmd.capitalize()} kan alleen met een beheerder. {GEEN_BEHEERDER}")
+            wachtwoord = os.environ.get("NODERED_BEHEER_WACHTWOORD", "")
+            if not wachtwoord:
+                raise Fout("NODERED_BEHEER_WACHTWOORD is leeg: zet daarin het wachtwoord van de beheerder "
+                           f"'{args.gebruiker}' (nooit op de opdrachtregel).")
             nr = NodeRed(args.url)
-            if args.gebruiker:
-                nr.login(args.gebruiker, os.environ.get("NODERED_BEHEER_WACHTWOORD", ""))
+            nr.login(args.gebruiker, wachtwoord)
             if args.cmd == "importeer":
                 uitkomst = importeer(nr, _kies_bundels(args.bundel), hub_url=args.hub_url,
                                      token=os.environ.get("NODERED_HUB_TOKEN", ""),

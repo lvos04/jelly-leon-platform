@@ -3,12 +3,14 @@
 # Versie en digest gecontroleerd op 2026-11-11: git ls-remote --tags node-red/node-red-docker (v5.0.9) en
 # docker buildx imagetools inspect nodered/node-red:5.0.9-24 (dezelfde app_version als de catalogusapp
 # community/node-red 1.4.35). De catalogusapp draait als 1000:1000 en kent geen beheerder-login of nodebeperking;
-# deze Custom App draait als 568:568 en zet de beveiliging via FLOWS (ADR-0023): de editor is voor iedereen op het
-# vertrouwde netwerk alleen-lezen, er is nog GEEN beheerder, alleen kern-nodes zonder exec/function/bestand, geen
-# installatie van extra nodes. FLOWS wordt gemaakt uit install/node-red/settings-overrides.json
+# deze Custom App draait als 568:568 en zet de beveiliging via FLOWS (ADR-0023): geen anonieme toegang tot de editor
+# en de Admin-API, ook niet lezen (besluit C-11, gebruiker 2026-11-11), er is nog GEEN beheerder, alleen kern-nodes
+# zonder exec/function/bestand, geen installatie van extra nodes. Zonder beheerder is Node-RED dus helemaal dicht;
+# dat is de bedoelde stand (besluit C-12). FLOWS wordt gemaakt uit install/node-red/settings-overrides.json
 # (tools/nodered_flows.py render --check). Op een echte NAS: NIET GEVALIDEERD.
-# Wat dit manifest NIET kan (contractvraag, ADR-0023): een beheerder aanmaken, de flows uit install/node-red/flows
-# plaatsen en het service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden.
+# Wat dit manifest NIET kan (contractvraag C-5, ADR-0023): een beheerder aanmaken, de flows uit install/node-red/flows
+# plaatsen en het service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden. De
+# beheerder en het dienstaccount komen volgens besluit C-12 via een voorziening zonder geheim (ontwerp S-P2-510).
 manifest_version: "1"
 app_id: node-red
 name: Node-RED
@@ -16,8 +18,10 @@ owner_repo: lvos04/jelly-leon-platform
 category: infrastructure
 description_nl: >-
   Flow-automatisering (I10): leest de toestand bij de Hub, meldt gebeurtenissen en vraagt acties aan bij de Hub; voert
-  zelf nooit iets uit op de NAS of in een app. Eén container, draait als 568:568, zonder Docker-socket. De editor is
-  alleen-lezen tot er een beheerder is; alleen kern-nodes zonder exec, function of bestandstoegang.
+  zelf nooit iets uit op de NAS of in een app. Eén container, draait als 568:568, zonder Docker-socket; alleen
+  kern-nodes zonder exec, function of bestandstoegang. Geen anonieme toegang: de editor en de Admin-API werken alleen
+  na aanmelding van een beheerder. Dit manifest levert nog geen beheerder, geen flows en geen Hub-token; tot die er
+  zijn, is Node-RED dicht en doet het niets.
 version: "5.0.9-24"
 install:
   method: custom_app
@@ -33,7 +37,7 @@ custom_app:
       read_only: false
   env:
     - name: FLOWS
-      value: 'flows.json -D adminAuth={"type":"credentials","users":[],"default":{"permissions":"read"}} -D nodesIncludes=["05-junction.js","20-inject.js","21-debug.js","24-complete.js","25-catch.js","25-status.js","60-link.js","90-comment.js","91-global-config.js","98-unknown.js","10-switch.js","15-change.js","80-template.js","89-delay.js","89-trigger.js","rbe.js","05-tls.js","21-httprequest.js","70-JSON.js","17-split.js"] -D externalModules={"autoInstall":false,"palette":{"allowInstall":false,"allowUpdate":false,"allowUpload":false},"modules":{"allowInstall":false}} -D functionExternalModules=false -D editorTheme.projects.enabled=false -D editorTheme.tours=false -D telemetry={"enabled":false,"updateNotification":false} -D diagnostics={"enabled":false,"ui":false}'
+      value: 'flows.json -D adminAuth={"type":"credentials","users":[]} -D nodesIncludes=["05-junction.js","20-inject.js","21-debug.js","24-complete.js","25-catch.js","25-status.js","60-link.js","90-comment.js","91-global-config.js","98-unknown.js","10-switch.js","15-change.js","80-template.js","89-delay.js","89-trigger.js","rbe.js","05-tls.js","21-httprequest.js","70-JSON.js","17-split.js"] -D externalModules={"autoInstall":false,"palette":{"allowInstall":false,"allowUpdate":false,"allowUpload":false},"modules":{"allowInstall":false}} -D functionExternalModules=false -D editorTheme.projects.enabled=false -D editorTheme.tours=false -D telemetry={"enabled":false,"updateNotification":false} -D diagnostics={"enabled":false,"ui":false}'
   resources:
     cpus: 1
     memory_mib: 512
@@ -85,7 +89,7 @@ network:
       container_port: 1880
       host_port: {param: host_port}
       protocol: tcp
-      purpose_nl: Editor en Admin-API (alleen vertrouwd netwerk; anoniem alleen-lezen, wijzigen alleen na login)
+      purpose_nl: Editor en Admin-API (alleen vertrouwd netwerk; zonder aanmelding van een beheerder geen toegang, ook niet lezen)
   host_network: false
   host_network_reason: null
 privileges:
@@ -103,7 +107,7 @@ healthcheck:
   timeout_s: 10
   retries: 5
   start_period_s: 120
-  monitor: {pad: /diagnostics, verwachte_status: 403, timeout_s: 10, interval_s: 60}
+  monitor: {pad: /diagnostics, verwachte_status: 401, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
     method: stopped_snapshot
@@ -136,19 +140,36 @@ post_install_checks:
   - id: beveiliging_actief
     soort: http
     beschrijving_nl: >-
-      GET /diagnostics moet 403 geven. Dat antwoord komt alleen als de instellingen uit FLOWS zijn toegepast; 200
-      betekent dat Node-RED zonder beveiliging draait en direct gestopt moet worden. De monitor bewaakt hetzelfde.
+      GET /diagnostics zonder aanmelding moet 401 geven (gemeten bij deze digest). Dat antwoord komt alleen als
+      adminAuth uit FLOWS actief is zonder anonieme rechten; 200 betekent dat Node-RED zonder beveiliging draait en
+      direct gestopt moet worden. De monitor bewaakt hetzelfde. Eerlijk: dit bewijst alleen adminAuth, niet de rest van
+      FLOWS (alleen kern-nodes, geen installatie van nodes); dat dekken de rooktest bij deze digest en de controle
+      exec_en_function_niet_geladen.
+  - id: anoniem_geweigerd
+    soort: http
+    beschrijving_nl: >-
+      GET /flows, GET /nodes en GET /settings zonder aanmelding moeten elk 401 geven: een anonieme aanvraag krijgt geen
+      flows, nodes of instellingen (besluit C-11; dezelfde paden als de controle anoniem_geweigerd van
+      home-control-hub).
   - id: schrijven_vraagt_login
     soort: http
     beschrijving_nl: >-
-      POST /flows zonder login moet 401 geven en GET /auth/login moet het type credentials melden. Zo is aangetoond
-      dat niemand zonder beheerder-login flows kan wijzigen.
+      POST /flows zonder aanmelding moet 401 geven en GET /auth/login moet het type credentials melden. Zo is
+      aangetoond dat niemand zonder beheerder-login flows kan wijzigen.
+  - id: exec_en_function_niet_geladen
+    soort: handmatig
+    beschrijving_nl: >-
+      Met een beheerder: GET /nodes (aangemeld) toont geen exec, function, file, watch, http in, websocket, tcp, udp of
+      mqtt. Zonder aanmelding geeft GET /nodes 401 (besluit C-11), dus pas te controleren zodra er een beheerder is;
+      tot dan aangetoond door de rooktest bij deze digest (stap N3, zelfde FLOWS met een wegwerpbeheerder).
   - id: beheerder_en_flows
     soort: handmatig
     beschrijving_nl: >-
-      Dit manifest levert geen beheerder en geen flows: de editor is alleen-lezen en leeg. De beheerder, de flows uit
-      install/node-red/flows en het service-token van de Hub wachten op een contractuitbreiding (ADR-0023); tot dan
-      doet Node-RED niets en is dat de bedoeling.
+      Dit manifest levert geen beheerder en geen flows: zonder beheerder is de editor helemaal dicht, ook voor lezen
+      (besluit C-11), en Node-RED is leeg. De beheerder en het dienstaccount komen volgens besluit C-12 via een
+      voorziening zonder geheim in de manifeststandaard (ontwerp S-P2-510); de flows uit install/node-red/flows, HUB_URL
+      en het service-token van de Hub wachten op dezelfde uitbreiding (C-5, ADR-0023). Tot dan doet Node-RED niets en
+      is dat de bedoeling.
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10.2.2"

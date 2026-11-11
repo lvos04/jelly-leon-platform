@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 import yaml
 
@@ -48,7 +49,8 @@ def test_manifest_flows_is_exactly_the_rendered_overrides() -> None:
 
 def test_overrides_harden_the_editor_and_the_palette() -> None:
     o = nf.lees_overrides()["overrides"]
-    assert o["adminAuth"] == {"type": "credentials", "users": [], "default": {"permissions": "read"}}
+    # Besluit C-11 (gebruiker, 2026-11-11): geen anonieme toegang; geen gebruiker of geheim in het manifest (C-12)
+    assert o["adminAuth"] == {"type": "credentials", "users": []}
     assert not set(o["nodesIncludes"]) & GEVAARLIJKE_NODEBESTANDEN
     assert {"20-inject.js", "15-change.js", "10-switch.js", "21-httprequest.js", "21-debug.js", "25-catch.js",
             "91-global-config.js"} <= set(o["nodesIncludes"])
@@ -56,7 +58,50 @@ def test_overrides_harden_the_editor_and_the_palette() -> None:
                                                                      "allowUpload": False},
                                     "modules": {"allowInstall": False}}
     assert o["functionExternalModules"] is False and o["editorTheme.projects.enabled"] is False
-    assert o["diagnostics"] == {"enabled": False, "ui": False}  # de monitor (403 op /diagnostics) leunt hierop
+    assert o["diagnostics"] == {"enabled": False, "ui": False}
+
+
+ANONIEME_RECHTEN = {
+    "default-read": {"type": "credentials", "users": [], "default": {"permissions": "read"}},
+    "default-alles": {"type": "credentials", "users": [], "default": {"permissions": "*"}},
+    "default-lijst": {"type": "credentials", "users": [], "default": {"permissions": ["flows.read"]}},
+    "default-leeg-object": {"type": "credentials", "users": [], "default": {}},
+    "default-leeg": {"type": "credentials", "users": [], "default": None},
+    "default-tekst": {"type": "credentials", "users": [], "default": "read"},
+}
+NIET_C11 = {
+    **ANONIEME_RECHTEN,
+    "gebruiker-in-manifest": {"type": "credentials", "users": [
+        {"username": "beheer", "password": "x", "permissions": "*"}]},
+    "geen-adminauth": None,
+    "ander-type": {"type": "strategy", "users": []},
+    "extra-sleutel": {"type": "credentials", "users": [], "tokens": "x"},
+}
+
+
+@pytest.mark.parametrize("geval", sorted(NIET_C11))
+def test_admin_auth_without_anonymous_rights_or_users_is_enforced(geval: str, tmp_path: Path) -> None:
+    """Besluit C-11 (negatief, V-086): elke ``default`` in ``adminAuth`` (welke rechten ook), een gebruiker in het
+    manifest, of een andere vorm dan precies ``{"type": "credentials", "users": []}``: ``lees_overrides`` weigert het
+    bestand, dus ``render``, ``render --check`` en de repotests hierboven falen."""
+    data = copy.deepcopy(nf.lees_overrides())
+    if NIET_C11[geval] is None:
+        del data["overrides"]["adminAuth"]
+    else:
+        data["overrides"]["adminAuth"] = NIET_C11[geval]
+    pad = tmp_path / "settings-overrides.json"
+    pad.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(nf.Fout, match="adminAuth"):
+        nf.lees_overrides(pad)
+    assert nf.main(["render"]) == 0  # het echte bestand blijft in orde
+
+
+def test_the_manifest_gives_no_anonymous_rights() -> None:
+    """Besluit C-11 in het manifest zelf: FLOWS zet ``adminAuth`` zonder ``default`` en zonder gebruikers."""
+    flows = nf.manifest_flows_env() or ""
+    assert '-D adminAuth={"type":"credentials","users":[]} ' in flows
+    assert '"default"' not in flows and "permissions" not in flows
+    assert nf.render_flows_env(nf.lees_overrides()) == flows
 
 
 @pytest.mark.parametrize("waarde", ["met spatie", "$(id)", "a;b", "`x`", "a|b", "~root", "a*"])
@@ -87,12 +132,57 @@ def test_manifest_is_a_standard_custom_app_without_extra_rights_or_secrets() -> 
     assert [e["name"] for e in m["custom_app"]["env"]] == ["FLOWS"]  # geen geheimen, geen HUB_* in het formulier
     assert [s["mount"] for s in m["storage"]] == ["/data"]
     monitor = m["healthcheck"]["monitor"]
-    assert monitor["pad"] == "/diagnostics" and monitor["verwachte_status"] == 403
+    # Gemeten in de rooktest (N1/N2, 2026-11-11, deze digest): met FLOWS zonder anonieme rechten 401, zonder FLOWS 200
+    assert monitor["pad"] == "/diagnostics" and monitor["verwachte_status"] == 401
     assert {d["app_id"] for d in m["dependencies"]} == {"ai-server-manager"}
     assert m["validation_status"] == "unvalidated"
     tekst = nf.MANIFEST.read_text(encoding="utf-8")
     assert not nf.GEHEIM_RE.search(tekst)
     assert "NODE_RED_CREDENTIAL_SECRET" not in tekst and "credentialSecret" not in tekst
+
+
+def test_post_install_checks_follow_decision_c11() -> None:
+    """Besluit C-11: na de installatie controleert de Hub dat een anonieme aanvraag niets krijgt (401 op dezelfde paden
+    als de controle ``anoniem_geweigerd`` van home-control-hub). "Exec en function niet geladen" (ADR-0025) kan alleen
+    met een beheerder (``GET /nodes``) en is daarom een handmatige controle (tekst)."""
+    checks = {c["id"]: c for c in _manifest()["post_install_checks"]}
+    assert list(checks) == ["beveiliging_actief", "anoniem_geweigerd", "schrijven_vraagt_login",
+                            "exec_en_function_niet_geladen", "beheerder_en_flows"]
+    assert checks["beveiliging_actief"]["soort"] == "http"
+    assert "GET /diagnostics" in checks["beveiliging_actief"]["beschrijving_nl"]
+    assert "401" in checks["beveiliging_actief"]["beschrijving_nl"]
+    anoniem = checks["anoniem_geweigerd"]
+    assert anoniem["soort"] == "http" and "401" in anoniem["beschrijving_nl"] and "C-11" in anoniem["beschrijving_nl"]
+    for pad in ("/flows", "/nodes", "/settings"):
+        assert f"GET {pad}" in anoniem["beschrijving_nl"], pad
+    assert "POST /flows" in checks["schrijven_vraagt_login"]["beschrijving_nl"]
+    exec_check = checks["exec_en_function_niet_geladen"]
+    assert exec_check["soort"] == "handmatig"
+    for woord in ("GET /nodes", "beheerder", "exec", "function", "N3"):
+        assert woord in exec_check["beschrijving_nl"], woord
+    assert checks["beheerder_en_flows"]["soort"] == "handmatig"
+    assert "dicht" in checks["beheerder_en_flows"]["beschrijving_nl"]
+
+
+def test_no_text_promises_anonymous_reading_or_403() -> None:
+    """Besluit C-11: geen tekst belooft nog anoniem lezen of 403 (manifest, README van Node-RED, het hulpmiddel, en de
+    Node-RED-regels van ``install/manifests/README.md``). R-MANIFEST-2: ``description_nl`` zegt wat het manifest
+    (nog) niet levert."""
+    m = _manifest()
+    for pad in (nf.MANIFEST, nf.NR_DIR / "README.md", ROOT / "tools" / "nodered_flows.py",
+                ROOT / "tools" / "nodered_rooktest.py"):
+        tekst = pad.read_text(encoding="utf-8")
+        for fout in ("alleen-lezen", "anoniem alleen", "verwacht 403", "403 op", "(403)"):
+            assert fout not in tekst, (pad.name, fout)
+    regels = [r for r in (ROOT / "install/manifests/README.md").read_text(encoding="utf-8").splitlines()
+              if "Node-RED" in r or "node-red" in r]
+    assert len(regels) >= 4
+    for regel in regels:
+        assert "alleen-lezen" not in regel and "403" not in regel, regel
+    beschrijving = " ".join(m["description_nl"].split())
+    for woord in ("beheerder", "flows", "Hub-token", "aanmelding"):
+        assert woord in beschrijving, woord
+    assert "aanmelding" in m["network"]["ports"][0]["purpose_nl"]
 
 
 # ---------------------------------------------------------------------- bundels en lock
@@ -369,6 +459,33 @@ def test_readback_runs_the_own_check_on_the_tabs_it_reads() -> None:
     with pytest.raises(nf.Fout, match="change_regel"):
         nf.readback(kwaad, {"hartslag": _bundel("hartslag")})
     assert nf.readback(_NepNodeRed(_bundel("hartslag")), {"hartslag": _bundel("hartslag")})["hartslag"]["gelijk"]
+
+
+@pytest.mark.parametrize("opdracht", ["exporteer", "importeer"])
+def test_cli_asks_for_an_administrator_with_a_clear_message(opdracht: str, tmp_path: Path,
+                                                            capsys: pytest.CaptureFixture[str],
+                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """Besluit C-11: Node-RED geeft zonder aanmelding niets. ``exporteer`` en ``importeer`` vragen daarom een beheerder
+    (``--gebruiker``, wachtwoord uit ``NODERED_BEHEER_WACHTWOORD``); zonder: een Nederlandse melding en exitcode 1,
+    geen traceback en geen netwerkverkeer (het adres bestaat niet)."""
+    extra = ["--naar", str(tmp_path / "x")] if opdracht == "exporteer" else ["--hub-url", "https://hub.example"]
+    basis = [opdracht, "--url", "http://ongebruikt.invalid", *extra]
+    monkeypatch.setenv("NODERED_BEHEER_WACHTWOORD", "")
+    assert nf.main(basis) == 1
+    fout = capsys.readouterr().err
+    assert "--gebruiker" in fout and "C-11" in fout and "Traceback" not in fout
+    assert nf.main([*basis, "--gebruiker", "beheer"]) == 1  # gebruiker zonder wachtwoord: ook vóór het netwerk
+    fout = capsys.readouterr().err
+    assert "NODERED_BEHEER_WACHTWOORD" in fout and "Traceback" not in fout
+    assert not (tmp_path / "x").exists()
+
+
+def test_reading_without_login_gives_a_clear_error() -> None:
+    """Krijgt het hulpmiddel toch een 401 (bijvoorbeeld een verlopen sessie), dan zegt de melding wat er nodig is."""
+    nr = nf.NodeRed("http://nodered.invalid", httpx.Client(transport=httpx.MockTransport(
+        lambda verzoek: httpx.Response(401, json={"error": "unauthorized"}))))
+    with pytest.raises(nf.Fout, match="aanmelding"):
+        nr.flows()
 
 
 @pytest.mark.parametrize("tab_id", ["../../buiten/ontsnapt", "a/b", "<absoluut>", "..", "C:\\x", "jlp-x/../../y"])

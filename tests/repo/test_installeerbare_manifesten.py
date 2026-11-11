@@ -114,8 +114,9 @@ def test_contract_1_3_fields(bestand: str) -> None:
     assert m["post_install_checks"] and all(c["beschrijving_nl"].strip() for c in m["post_install_checks"])
     if bestand != "beszel-agent.manifest.yaml":
         mon = m["healthcheck"]["monitor"]
-        # Node-RED: de monitor bewaakt de beveiliging zelf — /diagnostics is 403 zolang die actief is (ADR-0023).
-        assert mon["pad"].startswith("/") and mon["verwachte_status"] == (403 if m["app_id"] == "node-red" else 200)
+        # Node-RED: de monitor bewaakt de beveiliging zelf — /diagnostics is 401 zolang adminAuth zonder anonieme
+        # rechten actief is (besluit C-11, gemeten in de rooktest; ADR-0023).
+        assert mon["pad"].startswith("/") and mon["verwachte_status"] == (401 if m["app_id"] == "node-red" else 200)
     if m["install"]["method"] == "custom_app":
         assert "no-new-privileges" in m["privilege_reason"]
     else:
@@ -225,6 +226,32 @@ def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: st
     vaste_env = {e["name"]: e["value"] for e in m["custom_app"]["env"] if "value" in e}
     assert vaste_env.items() <= {e["name"]: e["value"] for e in values["envs"]}.items()
     assert values["entrypoint"] == [] and values["command"] == []
+
+
+@pytest.mark.parametrize("variant", ["privileged", "cap_add", "docker_socket"])
+def test_node_red_variants_with_extra_rights_are_refused_by_the_validator(variant: str, tmp_path: Path) -> None:
+    """Negatief (S-P2-410): dezelfde Node-RED-installatie met extra rechten wordt door de validator van de eigenaar van
+    de standaard geweigerd (``--strict``), niet alleen door de eigen controles."""
+    validator = _validator()
+    tekst = (mf.MANIFEST_DIR / "node-red.manifest.yaml").read_text(encoding="utf-8")
+    vervang = {
+        "privileged": ("  privileged: false\n", "  privileged: true\n"),
+        "cap_add": ("  cap_add: []\n", "  cap_add: [SYS_ADMIN]\n"),
+        "docker_socket": ("      read_only: false\n",
+                          "      read_only: false\n    - name: sock\n      type: host_path\n"
+                          "      host_path: /var/run/docker.sock\n      read_only: false\n"),
+    }[variant]
+    assert tekst.count(vervang[0]) == 1, vervang[0]
+    pad = tmp_path / "node-red.manifest.yaml"
+    pad.write_text(tekst.replace(vervang[0], vervang[1]), encoding="utf-8")
+    res = subprocess.run([str(validator), "validate", "--strict", "--format", "json", str(pad)],
+                         capture_output=True, text=True, check=False)
+    assert res.returncode != 0, res.stdout
+    goed = subprocess.run([str(validator), "validate", "--strict", str(mf.MANIFEST_DIR / "node-red.manifest.yaml")],
+                          capture_output=True, text=True, check=False)
+    assert goed.returncode == 0, goed.stdout  # alleen de wijziging maakt het verschil
+    if variant == "privileged":
+        assert "privileged_forbidden" in res.stdout
 
 
 def test_authentik_translation_is_blocked_until_the_executor_fills_secrets(tmp_path: Path) -> None:

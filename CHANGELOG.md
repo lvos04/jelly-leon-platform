@@ -250,9 +250,10 @@
   Scenario's onder andere: poortconflict en ontbrekende afhankelijkheid blokkeren; migratiefout in de testkopie laat
   de oude app met data intact. TrueNAS-simulator: datasetinhoud bij snapshot en kloon, storing `migratie_mislukt`.
 - **Node-RED (I10-10-01…06, ADR-0023):** manifest `install/manifests/node-red.manifest.yaml` (standaard Custom App,
-  officiële image op digest, 568:568, alleen `/data`). Beveiligd via de omgevingsvariabele `FLOWS`: schrijven alleen
-  na inloggen, geen exec-, function- of bestandsnodes geladen, geen installatie van extra nodes; de monitor verwacht
-  403 op `/diagnostics` en bewaakt zo of die beveiliging actief is. Flowbundels in `install/node-red/flows/` met
+  officiële image op digest, 568:568, alleen `/data`). Beveiligd via de omgevingsvariabele `FLOWS`: inloggen
+  verplicht, geen exec-, function- of bestandsnodes geladen, geen installatie van extra nodes; de monitor bewaakt of die
+  beveiliging actief is (sinds besluit C-11: geen anonieme toegang en 401 op `/diagnostics`; zie "Node-RED na besluit
+  C-11"). Flowbundels in `install/node-red/flows/` met
   eigen controle, versies en sha256-lock: `hartslag` (heartbeat §6.1 met flowvertraging), `mediaguard-offline`
   (leest de inventaris van de Hub, meldt `flow.app_watch.down`/`recovered`), `testflow-herstart` (vraagt een herstart
   aan bij de Hub; staat uit). `tools/nodered_flows.py` (render, lint, lock, importeer, exporteer) en
@@ -262,8 +263,8 @@
   - uitvoeren op een NAS: de echte Hub heeft nog geen route voor voorstellen en catalogusbeschikbaarheid (stand
     S-P2-400: in het bewijs **Bezig**, niet Geblokkeerd; open: S-P2-050, S-P2-080, S-P2-420, daarna de test op een
     echte NAS in P6);
-  - Node-RED op een NAS is na installatie leeg en alleen-lezen: beheerder, flows, `HUB_URL` en service-token kan de
-    manifeststandaard v1 niet leveren;
+  - Node-RED op een NAS is na installatie leeg en zonder beheerder helemaal dicht (besluit C-11): beheerder, flows,
+    `HUB_URL` en service-token kan de manifeststandaard v1 niet leveren;
   - de flow "my_house sensor verouderd → melding": geen contractroute (`capability_unavailable`), niet nagebootst;
   - installatieplan van een app met geheime parameters (bijvoorbeeld Authentik): altijd geblokkeerd tot de standaard
     kluisverwijzingen kent (stand na de review: de standaard kent ze sinds `1967069`, maar het plan blijft geblokkeerd
@@ -309,3 +310,17 @@
   niet gewijzigd; een karakteriseringstest legt het vast
   (`test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`).
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.
+
+### Node-RED na besluit C-11 (S-P2-410)
+
+- **Geen anonieme toegang (besluit C-11 van de gebruiker, 2026-11-11):** `adminAuth` is precies
+  `{"type": "credentials", "users": []}`, zonder `default`. Anoniem `GET /flows`, `/nodes`, `/settings` en
+  `/diagnostics` en `POST /flows` geven 401 (gemeten in de rooktest, N1). Zonder beheerder is de editor helemaal dicht,
+  ook voor lezen; dat is de bedoelde stand (besluit C-12: geen gebruiker of geheim in het manifest).
+  `tools/nodered_flows.py` weigert overrides met een andere `adminAuth`; `importeer` en `exporteer` vragen een beheerder
+  (`--gebruiker`) en melden dat duidelijk.
+- **Monitor en controles na installatie:** de monitor verwacht nu 401 op `/diagnostics` (gemeten; zonder `FLOWS` 200).
+  Eerlijk: dat bewijst alleen `adminAuth` zonder anonieme rechten, niet de rest van `FLOWS` (ADR-0023 punt 3). Nieuw:
+  `anoniem_geweigerd` (401 op `GET /flows`, `/nodes`, `/settings`) en `exec_en_function_niet_geladen` (handmatig: kan
+  alleen met een beheerder).
+- Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.

@@ -22,8 +22,9 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 > Node-RED (P2) heeft een eigen proef met de echte image tegen de Hub-simulator (`tools/nodered_rooktest.py`,
 > `make nodered-rooktest`, dezelfde CI-job): beveiliging volgens het manifest, controleproef zonder de instellingen,
 > import van de flowbundels, melding, actieaanvraag, hartslag, herstel van een flowversie, herstart en stoppen —
-> **Sim-getest**. Het manifest levert op een NAS alleen een beveiligde, lege, alleen-lezen Node-RED; beheerder,
-> flows en service-token zijn **Geblokkeerd** (`../node-red/README.md`, ADR-0023).
+> **Sim-getest**. Het manifest levert op een NAS alleen een beveiligde, lege Node-RED zonder anonieme toegang (besluit
+> C-11: zonder beheerder helemaal dicht, ook lezen); beheerder, flows en service-token zijn **Geblokkeerd**
+> (`../node-red/README.md`, ADR-0023).
 
 ## Wat er nu is (P1 en P2)
 
@@ -35,7 +36,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
-| I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; monitor verwacht 403 op `/diagnostics`; flowbundels in `../node-red/` |
+| I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
 
@@ -62,7 +63,7 @@ make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator:
 | Beszel | eerste account aanmaken (tot dan kan iedereen op het LAN dat) | `GET /api/beszel/first-run` → `firstRun: false` |
 | Uptime Kuma | eerste beheerder aanmaken; API-sleutel voor de Hub (alleen `/metrics`) | alleen via Socket.IO controleerbaar → bevestiging door de gebruiker |
 | Authentik | initiële setup (`akadmin`) met MFA; API-token voor home-control-hub | `/-/health/ready/`; beheer via home-control-hub (B13) |
-| Node-RED | niets in te stellen: de editor is alleen-lezen tot er een route is om een beheerder en flows te leveren (Geblokkeerd) | `/diagnostics` → 403, `POST /flows` zonder login → 401, `/auth/login` → type `credentials` |
+| Node-RED | niets in te stellen: zonder beheerder is de editor helemaal dicht, ook lezen (besluit C-11), tot er een voorziening is om een beheerder en flows te leveren (besluit C-12; Geblokkeerd) | zonder aanmelding: `/diagnostics` → 401, `GET /flows`, `/nodes` en `/settings` → 401, `POST /flows` → 401; `/auth/login` → type `credentials`; "exec en function niet geladen" alleen met een beheerder (handmatig) |
 
 Tokens en sleutels die de gebruiker zo maakt, gaan alleen in de vault van de Hub (nooit in een manifest of formulier).
 
