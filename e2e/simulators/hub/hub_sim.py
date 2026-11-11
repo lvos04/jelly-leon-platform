@@ -20,6 +20,9 @@ Sim-getest; de echte Hub stapt in C1.3-ASM-02/03/09 over):
 - ``GET /api/v1/auth/jwks`` en ``GET /api/v1/auth/key-rotations?after=n`` (§4.5, ondertekende statements).
 - JWT's: gebruikers-JWT (``token_use: user``) en dienst-JWT (``token_use: hub_service``), met ``nbf`` en ``jti``.
 
+Fase P2 (inventaris, catalogusbeschikbaarheid, beleid/goedkeuring/ondertekening volgens §8) staat in ``hub_p2`` en
+``contract8``; de toestand is bereikbaar als ``HubState.p2``.
+
 De sleutelset-vingerafdruk is hier **eigen code** (niet die van de dienst); beide volgen de testvectoren van §4.5.
 Testbediening: Python-methoden op ``HubState`` en een paar ``/_sim/…``-routes (compose/handmatig).
 """
@@ -48,6 +51,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
+from hub_p2 import P2State
+from hub_p2 import attach as attach_p2
 
 CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 ENROLL_FIELDS = {"app_id", "enrollment_token", "pairing_code", "version", "base_url", "public_key_jwk"}
@@ -236,6 +241,14 @@ class HubState:
     rotations: list[dict[str, Any]] = field(default_factory=list)
     calls: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
     lock: threading.RLock = field(default_factory=threading.RLock)
+    p2: P2State = field(init=False)  # fase P2: inventaris, catalogusbeschikbaarheid, beleid/goedkeuring (hub_p2)
+
+    def __post_init__(self) -> None:
+        self.p2 = P2State(clock=lambda: self.clock())
+
+    def execution_request(self, request_id: str, **kw: Any) -> dict[str, Any]:
+        """Ondertekend ``ExecutionRequest`` (§8) met de nieuwste policy-sleutel."""
+        return self.p2.execution_request(request_id, self.policy_keys[-1][1], **kw)
 
     # ------------------------------------------------------------------ sleutels
     @property
@@ -607,6 +620,7 @@ def create_hub_app(state: HubState | None = None) -> FastAPI:
         (state.faults.add if on else state.faults.discard)(name)
         return {"faults": sorted(state.faults)}
 
+    attach_p2(app, state)
     return app
 
 
