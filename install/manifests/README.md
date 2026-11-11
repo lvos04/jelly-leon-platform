@@ -18,8 +18,14 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 > processen als 568, de healthcheck-route, de kernroutes in dezelfde vorm als de simulators in `e2e/simulators/`,
 > herstart zonder dataverlies, en Beszel-agent ↔ hub in SSH-modus met alleen de publieke sleutel. Ook dat is
 > **Sim-getest**, geen NAS-validatie.
+>
+> Node-RED (P2) heeft een eigen proef met de echte image tegen de Hub-simulator (`tools/nodered_rooktest.py`,
+> `make nodered-rooktest`, dezelfde CI-job): beveiliging volgens het manifest, controleproef zonder de instellingen,
+> import van de flowbundels, melding, actieaanvraag, hartslag, herstel van een flowversie, herstart en stoppen —
+> **Sim-getest**. Het manifest levert op een NAS alleen een beveiligde, lege, alleen-lezen Node-RED; beheerder,
+> flows en service-token zijn **Geblokkeerd** (`../node-red/README.md`, ADR-0023).
 
-## Wat er nu is (P1)
+## Wat er nu is (P1 en P2)
 
 | I-doc | Bestand | Methode | Versie · image of catalogus | Bijzonderheden |
 |---|---|---|---|---|
@@ -29,12 +35,14 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
+| I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; monitor verwacht 403 op `/diagnostics`; flowbundels in `../node-red/` |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
 
 Keuze Custom App of catalogusapp en digests: `docs/adr/ADR-0014-manifesten-p1.md`; contract 1.3 (monitorplan,
 `post_install_checks`, `stopped_snapshot` voor Gotify en Uptime Kuma, `install.reason` en `same_as_host` voor Authentik,
-restrisico zonder no-new-privileges, `accepted_findings`): `docs/adr/ADR-0019-contract-1-3.md`.
+restrisico zonder no-new-privileges, `accepted_findings`): `docs/adr/ADR-0019-contract-1-3.md`. Node-RED als Custom
+App in plaats van de catalogusapp, de beveiliging via `FLOWS` en de grenzen daarvan: `docs/adr/ADR-0023-node-red-als-custom-app.md`.
 
 ### Controleren
 
@@ -42,6 +50,8 @@ restrisico zonder no-new-privileges, `accepted_findings`): `docs/adr/ADR-0019-co
 make validator-venv     # validator van appstore-en-fork in .venv-validator (gecommitte inhoud, alleen lezen)
 make manifesten         # jl-manifest validate --strict (accepted_findings; overgang-1.3.yaml exact), I23-kopie, controlelijsten
 make upstream-rooktest  # upstream-images op digest als 568:568 met lege map: health, API-vorm, herstart (Docker)
+make nodered            # Node-RED: FLOWS in het manifest = settings-overrides.json, flowbundels en lock in orde
+make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator: stappen N1–N9 (Docker)
 ```
 
 ### Na de installatie (verplicht; `post_install_checks` in het manifest, de Hub toont ze als taak en de app is tot de bevestiging niet gezond)
@@ -52,6 +62,7 @@ make upstream-rooktest  # upstream-images op digest als 568:568 met lege map: he
 | Beszel | eerste account aanmaken (tot dan kan iedereen op het LAN dat) | `GET /api/beszel/first-run` → `firstRun: false` |
 | Uptime Kuma | eerste beheerder aanmaken; API-sleutel voor de Hub (alleen `/metrics`) | alleen via Socket.IO controleerbaar → bevestiging door de gebruiker |
 | Authentik | initiële setup (`akadmin`) met MFA; API-token voor home-control-hub | `/-/health/ready/`; beheer via home-control-hub (B13) |
+| Node-RED | niets in te stellen: de editor is alleen-lezen tot er een route is om een beheerder en flows te leveren (Geblokkeerd) | `/diagnostics` → 403, `POST /flows` zonder login → 401, `/auth/login` → type `credentials` |
 
 Tokens en sleutels die de gebruiker zo maakt, gaan alleen in de vault van de Hub (nooit in een manifest of formulier).
 
@@ -71,7 +82,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I07 | Beszel | nieuw | Custom App (hub + agent) | (community `beszel-hub` · 1.1.22 · 0.21.1 bestaat) | **P1** |
 | I08 | Uptime Kuma | nieuw | Custom App | (community · 1.2.25 · 2.5.9 bestaat) | **P1** |
 | I09 | Authentik | nieuw | catalogusapp (meerdere containers) | community · 1.3.64 · 2026.8.5 | **P1** |
-| I10 | Node-RED | nieuw | catalogusapp | community · 1.4.35 · 5.0.9-24 | P2 |
+| I10 | Node-RED | nieuw | Custom App (ADR-0023) | (community · 1.4.35 · 5.0.9-24 bestaat) | **P2** |
 | I11 | NetAlertX | nieuw | Custom App met één gepinde upstream-image (geen catalogusapp gevonden) | — | P5 |
 | I12 | AdGuard Home | nieuw met fail-safe | catalogusapp | community · 1.3.21 · v0.107.80 | P5 |
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |

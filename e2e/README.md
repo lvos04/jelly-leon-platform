@@ -18,6 +18,8 @@ is hier toegestaan (contract §1: alleen ontwikkeling, CI en deze E2E-omgeving) 
 | Dienst-E2E jelly-leon-platform (alles-in-één image + Hub-simulator) | `../tests/e2e/` | gebouwd (Sim-getest) |
 | Simulators Beszel, Uptime Kuma, Gotify en Authentik (OIDC + beheer-API), met foutinjectie (P1) | `simulators/{beszel,uptime_kuma,gotify,authentik}/`, gedeeld `simulators/simkit/` | gebouwd + eigen tests (Sim-getest); protocol per README, overzicht `simulators/README.md` |
 | Installatie-rooktest zonder YAML: Hub + executor als twee "Custom Apps" (`docker run`, één volume + één poort), wizard tegen de TrueNAS-simulator, plan/preview van een app (P1) | `../tests/rooktest/`, `tools/rooktest.py` | gebouwd; lokaal gedraaid (zie EVIDENCE.json I23-23-02) |
+| Hub-stand-in fase P2 (inventaris, catalogusbeschikbaarheid, voorstel → beleid → goedkeuring → ondertekend verzoek), uitvoerder-stand-in en heartbeat-route §6.1 | `simulators/hub/{hub_p2,contract8,executor_sim}.py`, `simulators/hub/hub_sim.py` | gebouwd; ketentest `../apps/api/tests/integration/test_keten_plan_hub_executor_nas.py` (Sim-getest); voorlopige routes, zie `simulators/README.md` |
+| Node-RED-proef: echte image op digest als 568:568 tegen de Hub-simulator (beveiliging, flowbundels, melding, actieaanvraag, hartslag, herstel, stoppen) | `../tools/nodered_rooktest.py` | gebouwd; lokaal gedraaid: `../docs/platform-v2/bewijs/nodered-rooktest-p2.json` (Sim-getest) |
 | Integrale compose + scenariorunner | `integral/` (P6) | **nog niet gebouwd** |
 
 ## Conformiteit met contract 1.2 (JP10)

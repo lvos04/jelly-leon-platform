@@ -1,0 +1,105 @@
+# ADR-0023 — Node-RED als standaard Custom App: beveiligd via `FLOWS`, flows als gecontroleerde bundels
+
+- Status: aanvaard · Datum: 2026-11-11 · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
+- Manifest: `install/manifests/node-red.manifest.yaml` · Instellingen en flows: `install/node-red/`
+- Hulpmiddelen: `tools/nodered_flows.py`, `tools/nodered_rooktest.py` · Bewijs:
+  `docs/platform-v2/bewijs/nodered-rooktest-p2.json` (Sim-getest; NIET GEVALIDEERD (echte NAS))
+
+## Aanleiding
+
+I10 vraagt Node-RED "non-root met /data, credentials secret en admin-auth, geen Docker-socket", zonder exec-node en
+zonder onbeheerde contrib-packages, met flows die alleen lezen en melden en acties uitsluitend bij de Hub aanvragen.
+De installatieregel van het platform laat alleen het standaard Custom App-formulier toe (image, poort, opslag,
+omgevingsvariabelen): geen YAML/compose, geen eigen startopdracht, geen bestanden, geen terminal. Node-RED wordt
+normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulier niet leveren.
+
+## Besluit
+
+1. **Custom App met de officiële image op digest, niet de catalogusapp.** `nodered/node-red:5.0.9-24` op sha256
+   (dezelfde app-versie als catalogusapp `community/node-red`). De catalogusapp draait als 1000:1000 en biedt geen
+   van de instellingen hieronder; het is één container, dus de regel "catalogus voor meerdere containers" geldt niet.
+   Draait als 568:568 met één eigen dataset op `/data`; geen extra rechten, geen Docker-socket, geen host network.
+2. **Beveiliging via de omgevingsvariabele `FLOWS`.** Gemeten aan deze digest: de entrypoint geeft `$FLOWS`
+   ongequoot door aan Node-RED, zodat `flows.json -D sleutel=waarde …` instellingen worden. Het manifest zet zo:
+   `adminAuth` (inloggen verplicht om te schrijven; **geen** gebruikers; anoniem alleen lezen), `nodesIncludes`
+   (alleen genoemde kern-nodes; exec, function, file, watch, http in, websocket, tcp, udp en mqtt worden niet
+   geladen), geen installatie van nodes/modules, geen projecten, geen telemetrie, `/diagnostics` uit.
+   De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
+   geen spaties of tekens bevatten die de shell uitbreidt.
+3. **De monitor bewaakt de beveiliging.** Dit mechanisme is gemeten gedrag van één digest, geen toezegging van
+   upstream. `healthcheck.monitor` verwacht daarom **403 op `/diagnostics`**: met de instellingen actief is dat 403,
+   zonder is het 200 (controleproef N2). Verdwijnt het gedrag bij een update, dan is de app niet gezond in plaats van
+   stil onbeveiligd. `upgrade.tag_only_rollback_safe: false`; elke nieuwe digest gaat eerst door de rooktest.
+4. **Anoniem alleen-lezen is een bewuste keuze.** Zonder beheerder kan niemand iets wijzigen. Lezen (editor,
+   `GET /flows`) blijft open op het vertrouwde netwerk, zodat flows, versies en checksums zonder inloggegevens te
+   controleren en te exporteren zijn. Flows bevatten geen geheimen: credentials staan apart, versleuteld, en komen
+   nooit terug via de API (gemeten: N4).
+5. **Flows zijn bundels in Git met een eigen controle.** Eén tabblad per bestand (`install/node-red/flows/`), vaste
+   ids (`jlp-…`), versie in de beschrijving, sha256 in `flows.lock.json`. `lint` laat alleen `inject`, `change`,
+   `switch`, `http request`, `debug`, `catch` en `comment` toe; een `http request` mag alleen naar een vaste
+   Hub-route (`$env('HUB_URL') & '<route>'`) met vaste methode en bearer; geen adressen, tokens of credentials in
+   Git. Een flow die een actie aanvraagt staat in Git uitgeschakeld. De import weigert bij één bevinding.
+6. **Geheimen alleen bij de import.** De Hub-URL wordt de globale omgevingsvariabele `HUB_URL` van Node-RED; het
+   service-token wordt een credential van de `http request`-nodes. Beide komen uit omgevingsvariabelen van het
+   hulpmiddel, nooit van de opdrachtregel en nooit in Git. Eerlijk: de sleutel waarmee Node-RED credentials
+   versleutelt staat in dezelfde `/data`; wie de dataset kan lezen, kan het token lezen. Bescherming is dus de
+   eigenaar (568) en de toegang tot dataset en snapshots, niet de versleuteling.
+7. **Acties alleen als voorstel bij de Hub (I10-10-04).** Er is geen node die een app of de NAS kan wijzigen. De
+   testflow dient een `ActionProposal` in; de Hub zet de actor (`flow`), classificeert (R1/R2) en vraagt zo nodig
+   goedkeuring; uitvoeren doet alleen de uitvoerder.
+8. **Monitoring (I10-10-06).** De bundel `hartslag` stuurt elke 60 s een heartbeat (§6.1) met de check
+   `flow_vertraging` (wachtrijvertraging in ms). Stopt Node-RED, dan faalt de monitor en veroudert de heartbeat
+   (`unknown` na 3 × het interval). Een eigen Uptime Kuma-koppeling is niet gebouwd: Uptime Kuma krijgt zijn monitors
+   van de Hub uit het monitorplan van het manifest.
+9. **Versies en herstel (I10-10-05).** Git + lock zijn de historie; `exporteer` schrijft per tabblad een bestand en
+   vergelijkt met het lock; een oude versie herstellen is een import van het oudere bestand met checksum-readback.
+   `/data` gaat mee in de `stopped_snapshot`.
+
+## Wat het manifest niet kan (geblokkeerd)
+
+De manifeststandaard v1 kent geen startopdracht, geen bestanden en geen afgeleide geheimen, en de vertaling weigert
+geheimen in formulierwaarden. Daardoor levert het manifest op een NAS alleen een beveiligde, **lege, alleen-lezen**
+Node-RED. Niet leverbaar zonder uitbreiding van de standaard of een route bij de Hub:
+
+- een beheerder (bcrypt-hash in `adminAuth.users`);
+- het plaatsen van de bundels en `HUB_URL`;
+- een service-token: een flowruntime kan zich niet inschrijven (§3.3 vraagt een Ed25519-sleutel) en §3.1 verbiedt
+  een langlevend token in het formulier.
+
+De rooktest zet het beheerdersaccount daarom zelf met een wegwerpwaarde in `FLOWS` en registreert de dienst bij de
+simulator. Dat is een proefopstelling, geen installatiepad. Het importhulpmiddel is voor beheerder/ontwikkelaar; de
+eindgebruiker heeft geen terminal.
+
+Verder niet gebouwd of niet af te dwingen:
+
+- **Uitgaand verkeer:** het formulier kent geen egressregels. Beperkt zijn de bundels uit deze repo (lint) en wat de
+  Hub een service-token toestaat; een beheerder kan in de editor zelf een `http request` naar elk adres maken.
+- **Flow "my_house sensor verouderd → melding":** geen contractroute voor sensorversheid → `capability_unavailable`;
+  er is geen nagebootste flow.
+- **Incident bij stoppen:** in de simulator zichtbaar als verouderde heartbeat; in de echte Hub en Uptime Kuma
+  NIET GEVALIDEERD. Events van het domein `flow` uit deze bron zijn voor de Hub "algemene informatie"; of en hoe
+  daar een incident uit ontstaat, legt het contract niet vast.
+- **Editor alleen via vertrouwd netwerk/SSO:** de netwerkindeling van de NAS (D01, D03, D16) is onbekend.
+- **Formulier op echte TrueNAS:** of de waarde van `FLOWS` (JSON met aanhalingstekens) ongewijzigd door het echte
+  formulier komt, is alleen via de vertaling van de validator en in Docker gemeten. Komt ze verminkt aan, dan faalt
+  de monitor (punt 3) en de controle na installatie.
+
+## Gemeten in de rooktest (Docker + Hub-simulator)
+
+N1 container en beveiliging volgens het manifest · N2 controleproef zonder `FLOWS` (monitor faalt) · N3 beheerder met
+wegwerpaccount, exec/function via de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met
+versleuteld token en checksum-readback, export gelijk aan het lock · N5 MediaGuard gestopt/hersteld/onbekend ·
+N6 testflow: uit = geen reactie; aan = R1 toegestaan / R2 wacht op goedkeuring, actor door de Hub gezet · N7 hartslag
+met flowvertraging · N8 andere versie zichtbaar als afwijkend, herstel uit Git · N9 herstart zonder verlies van flows
+en credentials, stoppen zichtbaar. De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
+
+## Afgewezen
+
+- *Catalogusapp `community/node-red`:* draait als 1000, geen login, alle nodes (ook exec) geladen.
+- *Eigen image met `settings.js` ingebakken:* B08 §5 staat voor apps van derden alleen officiële images toe.
+- *`settings.js` in de dataset laten zetten door de gebruiker:* vraagt een terminal of bestandsbeheer; de
+  installatieregel sluit dat uit.
+- *Function-nodes toestaan "in een sandbox":* de sandbox van Node-RED is geen veiligheidsgrens; JSONata in
+  `change`-nodes is genoeg voor lezen, beoordelen en melden.
+- *Het token als omgevingsvariabele in het formulier:* verboden door §3.1 en zichtbaar in de TrueNAS-UI.
+- *Een nagebootste my_house-flow tegen een verzonnen route:* zou succes suggereren voor iets dat niet bestaat.

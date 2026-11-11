@@ -223,3 +223,48 @@
   de oude code falen.
 - `CUSTOM_APP.md`: de probleemregel noemt de code van 1.3 (`koppelstatus_onleesbaar`, was `hub_link_onleesbaar`).
 - Op een echte TrueNAS, met echte accounts of hardware: **NIET GEVALIDEERD**.
+
+## Fase P2 — plannen voor installatie/update/terugzetten, ketentest en Node-RED (ADR-0021…0023)
+
+- **Plannen (B08-003, B08-004):** `POST /lifecycle/v1/plans/{install|update|rollback}/preview`, `GET …/plans/{id}`
+  en het melden van een stapresultaat. Een plan bevat de diff (image + digest, datasets, privileges, poorten, uitgaand
+  verkeer, geheimen, afhankelijkheden), de blokkades en een expliciete volgorde van stappen; elke stap is een
+  sjabloon voor één `ActionProposal` (contract §8) met een vaste `idempotency_key`. De dienst voert zelf niets uit en
+  heeft geen TrueNAS-sleutel. Eén blokkade (poort in gebruik, afhankelijkheid ontbreekt, naam of pad bezet, versie
+  niet beschikbaar of niet te meten) en er komt geen enkele stap vrij. Migratie `0003_lifecycle_plans`.
+- **Veilige update:** stoppen → herstelpunt (snapshot) → starten → kloon → de nieuwe image als testkopie op de kloon
+  → pas daarna bijwerken met digest-readback. Mislukt de migratie in de testkopie, dan wordt de draaiende app niet
+  aangeraakt. Terugzetten van een Custom App = `app.update` met de vorige waarden; een catalogusversie die niet
+  meer **gemeten** aanwezig is geeft `version_unavailable`. Data uit een herstelpunt terugzetten is geen stap in een
+  plan (eigenaarshandeling; er wordt nooit automatisch data overschreven of verwijderd).
+- **Gemeten bij de Hub (C1.3-JLP-14):** inventaris (`inventaris.lezen`) en catalogusbeschikbaarheid
+  (`catalogus.lezen`). Zonder scope of route → `capability_unavailable`; onbereikbaar, verouderd of onleesbaar →
+  `unknown`; beide blokkeren. Het contract noemt voor de catalogus geen pad en de Hub heeft de route nog niet:
+  voorlopig `GET /api/v1/catalog/availability` (op één plek in `hubread.py`).
+- **Manifeststandaard als gepinde kopie** in de dienst (`apps/api/src/appstore/`, byte-gelijk aan
+  `appstore-en-fork@7b3159d`; `tools/validator_kopie.py`, ADR-0021).
+- **Ketentest** plan → Hub → uitvoerder → TrueNAS-simulator met stand-ins in `e2e/simulators/hub/`
+  (`hub_p2.py`, `contract8.py`, `executor_sim.py`): R0/R1 automatisch, R2/R3 pas na een goedkeuring die aan de diff
+  gebonden is, ondertekend `ExecutionRequest` (Ed25519), de uitvoerder controleert alles opnieuw en leest terug.
+  Scenario's onder andere: poortconflict en ontbrekende afhankelijkheid blokkeren; migratiefout in de testkopie laat
+  de oude app met data intact. TrueNAS-simulator: datasetinhoud bij snapshot en kloon, storing `migratie_mislukt`.
+- **Node-RED (I10-10-01…06, ADR-0023):** manifest `install/manifests/node-red.manifest.yaml` (standaard Custom App,
+  officiële image op digest, 568:568, alleen `/data`). Beveiligd via de omgevingsvariabele `FLOWS`: schrijven alleen
+  na inloggen, geen exec-, function- of bestandsnodes geladen, geen installatie van extra nodes; de monitor verwacht
+  403 op `/diagnostics` en bewaakt zo of die beveiliging actief is. Flowbundels in `install/node-red/flows/` met
+  eigen controle, versies en sha256-lock: `hartslag` (heartbeat §6.1 met flowvertraging), `mediaguard-offline`
+  (leest de inventaris van de Hub, meldt `flow.app_watch.down`/`recovered`), `testflow-herstart` (vraagt een herstart
+  aan bij de Hub; staat uit). `tools/nodered_flows.py` (render, lint, lock, importeer, exporteer) en
+  `tools/nodered_rooktest.py` (stappen N1–N9 met de echte image tegen de Hub-simulator; CI-job `rooktest`).
+- Hub-simulator: heartbeat-route van contract 1.3 §6.1.
+- **Geblokkeerd / niet gebouwd (eerlijk):**
+  - uitvoeren op een NAS: de echte Hub heeft nog geen route voor voorstellen en catalogusbeschikbaarheid;
+  - Node-RED op een NAS is na installatie leeg en alleen-lezen: beheerder, flows, `HUB_URL` en service-token kan de
+    manifeststandaard v1 niet leveren;
+  - de flow "my_house sensor verouderd → melding": geen contractroute (`capability_unavailable`), niet nagebootst;
+  - installatieplan van een app met geheime parameters (bijvoorbeeld Authentik): altijd geblokkeerd tot de standaard
+    kluisverwijzingen kent;
+  - schaduwtest voor catalogusapps; verwijderen en verhuizen (B08-006) geven `capability_unavailable`;
+  - uitgaand verkeer beperken: het Custom App-formulier kent geen egressregels.
+- Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor, echte accounts of hardware:
+  **NIET GEVALIDEERD**.

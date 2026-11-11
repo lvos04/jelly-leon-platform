@@ -166,10 +166,12 @@ tweede weg en werkt alleen zolang die app nog nooit gekoppeld is:
   15 minuten per apparaat en 20 voor de hele app; ook een geweigerde poging telt mee.
 - Na de eerste koppeling verdwijnt het formulier voorgoed; opnieuw koppelen of ontkoppelen gaat via de Hub.
 
-> **Stand P1:** de manifesten per app staan in `install/manifests/` (Beszel, Uptime Kuma, Gotify, Authentik; overzicht
-> en verplichte stappen na installatie in `install/manifests/README.md`). Het plan/de preview (formulierwaarden met
-> tag `<versie>@sha256:…`, conflictcontrole) is tegen de TrueNAS-simulator getest; **uitvoeren** via de lifecycle en
-> de executor bestaat pas in P2: `jelly-leon-platform` antwoordt tot dan `capability_unavailable` en voert niets uit.
+> **Stand P2:** de manifesten per app staan in `install/manifests/` (Beszel, Uptime Kuma, Gotify, Authentik, Node-RED;
+> overzicht en verplichte stappen na installatie in `install/manifests/README.md`). `jelly-leon-platform` maakt voor
+> installatie, update en terugzetten een **plan** (formulierwaarden met tag `<versie>@sha256:…`, conflictcontrole,
+> afhankelijkheden, volgorde van stappen) en voert zelf niets uit. Uitvoeren doet de executor na beleid en goedkeuring
+> in de Hub. Die keten is alleen met stand-ins en de TrueNAS-simulator getest (**Sim-getest**); de echte Hub heeft de
+> route voor voorstellen nog niet, dus installeren van deze apps via de Hub is op een NAS nog **Geblokkeerd**.
 
 ## Rooktest van deze stappen (zonder NAS)
 

@@ -3,12 +3,19 @@
 Installatie, updates, terugzetten en verwijderen/verhuizen van het **TrueNAS Home Platform V2** (B08-003, B08-004,
 B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integrale E2E-omgeving.
 
-> **Fase P1.** P0 leverde de lifecycle-dienst (datamodel, API, connectorcontract), de alles-in-één image, de
-> installatiedocumentatie zonder YAML, het TrueNAS-API-onderzoek en de TrueNAS-simulator. P1 voegt de installeerbare
+> **Fase P2.** P0 leverde de lifecycle-dienst (datamodel, API, connectorcontract), de alles-in-één image, de
+> installatiedocumentatie zonder YAML, het TrueNAS-API-onderzoek en de TrueNAS-simulator. P1 voegde de installeerbare
 > manifesten (I07, I08, I09, I13, I23), de controlelijsten I01/I02, simulators van Beszel, Uptime Kuma, Gotify en
-> Authentik en een installatie-rooktest zonder YAML toe (ADR-0014…0016). Er wordt nog **niets** op een NAS
-> uitgevoerd: uitvoering volgt in P2 en loopt dan uitsluitend via de executor van de Hub. Op een echte TrueNAS is
-> niets gevalideerd (**NIET GEVALIDEERD**).
+> Authentik en een installatie-rooktest zonder YAML toe (ADR-0014…0016). P2 voegt toe: **plannen** voor installatie,
+> update en terugzetten (diff, blokkades en een expliciete volgorde van stappen; gemeten bij de Hub: inventaris en
+> catalogusbeschikbaarheid — ADR-0021, ADR-0022) en **Node-RED** als standaard Custom App met gecontroleerde
+> flowbundels (ADR-0023).
+>
+> Deze dienst voert zelf **niets** uit op een NAS en heeft geen TrueNAS-sleutel: een plan is een voorstel; beleid,
+> goedkeuring en ondertekening doet de Hub, uitvoeren doet alleen de executor (contract §8). De keten plan → Hub →
+> executor → TrueNAS is getest met stand-ins en de TrueNAS-simulator (**Sim-getest**). De echte Hub heeft nog geen
+> route om voorstellen te ontvangen en geen route voor catalogusbeschikbaarheid; daardoor is uitvoeren op een NAS
+> **Geblokkeerd** en is er op een echte TrueNAS niets gevalideerd (**NIET GEVALIDEERD**).
 
 ## Voor de gebruiker
 
@@ -16,7 +23,8 @@ B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integr
 |---|---|
 | Eerste installatie van het platform (twee Custom Apps via de TrueNAS-web-UI, geen terminal, geen YAML) | [`install/truenas/INSTALLATIE.md`](install/truenas/INSTALLATIE.md) |
 | Deze dienst als standaard Custom App (formuliervelden) | [`deploy/truenas/CUSTOM_APP.md`](deploy/truenas/CUSTOM_APP.md) |
-| Overzicht installatiemethode per I-document (I01–I26) en de manifesten van P1 (Beszel, Uptime Kuma, Gotify, Authentik, Hub/executor) | [`install/manifests/README.md`](install/manifests/README.md) |
+| Overzicht installatiemethode per I-document (I01–I26) en de manifesten (Beszel, Uptime Kuma, Gotify, Authentik, Node-RED, Hub/executor) | [`install/manifests/README.md`](install/manifests/README.md) |
+| Node-RED: beveiliging, flowbundels (hartslag, MediaGuard offline → melding, testflow) en wat nog niet kan | [`install/node-red/README.md`](install/node-red/README.md) |
 | Controlelijsten I01 (TrueNAS-basis) en I02 (back-up en herstel) | [`install/checklists/`](install/checklists/) |
 
 De dienst heeft alleen een kleine Nederlandse statuspagina op `http://<NAS-adres>:30440/` in de ontwerptaal **Peil**
@@ -30,14 +38,17 @@ apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-mig
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
 deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
-docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0019
+docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0023
 design/ontwerptaal/       gepinde kopie Peil 1.1.1-statuspagina (HERKOMST.md)    tools/peil_kopie.py  kopie maken/controleren
 tests/ui/                 browsercontrole statuspagina (Playwright + axe-core)   docs/screenshots/peil/  schermafdrukken
 docs/platform-v2/         contract 1.3 + conformiteitslijst (gepind, CONTRACT_KOPIE.json; tools/contract_kopie.py),
                           pakketdocs, TRUENAS_APP_API.md, EVIDENCE.json
-e2e/                      integrale E2E-opzet (README), simulators (truenas, hub, beszel, uptime_kuma, gotify,
-                          authentik + simkit), conformance/echte_hub.py
+e2e/                      integrale E2E-opzet (README), simulators (truenas, hub incl. stand-ins voor beleid,
+                          goedkeuring en uitvoerder, beszel, uptime_kuma, gotify, authentik + simkit),
+                          conformance/echte_hub.py
 install/manifests/        manifesten per I-document (+ validatie-uitzonderingen)   install/checklists/  I01/I02
+install/node-red/         instellingen (bron van FLOWS in het manifest), flowbundels, lock     apps/api/src/appstore/
+                          gepinde kopie van de manifeststandaard (ADR-0021; tools/validator_kopie.py)
 schemas/                  checklist-v1.schema.json         tools/               manifesten, controlelijsten, rooktest
 tests/e2e/                image-E2E (Docker)               tests/repo/       repo-regels (manifest, docs, evidence)
 tests/conformance/        Hub ↔ dienst volgens contract 1.3 (simulator in CI; lokaal ook tegen de echte Hub)
@@ -47,6 +58,7 @@ tests/conformance/        Hub ↔ dienst volgens contract 1.3 (simulator in CI; 
 make venv && make lint typecheck test test-sim test-repo test-conformance   # PostgreSQL op 127.0.0.1:5432
 make validator-venv manifesten                             # manifesten met jl-manifest --strict (appstore-en-fork)
 make rooktest                                              # Hub + executor + lifecycle als Custom Apps (Docker)
+make nodered nodered-rooktest                              # Node-RED: manifest/bundels/lock; proef N1–N9 (Docker)
 make test-e2e                                              # bouwt de image en draait de Docker-E2E
 make test-ui                                               # statuspagina per toestand in Chromium (axe, 320–1440 px)
 make statuspagina-shots                                    # idem + schermafdrukken naar docs/screenshots/peil/
@@ -63,6 +75,12 @@ gecontroleerd, en de Hub meldt zich bij deze dienst met een door hem ondertekend
 Koppelen via de statuspagina kan alleen via het IP-adres van de NAS of een lokale naam (bescherming tegen
 DNS-rebinding); aanbevolen is het eenmalige koppeltoken in het formulier van de app. Elk proces in de image, ook PID 1,
 draait als 568 zonder capabilities, met *no_new_privs* en (bij een start als root) een lege bounding set.
+
+Plannen (P2): `POST /lifecycle/v1/plans/{install|update|rollback}/preview` legt een plan vast en meet daarvoor de
+inventaris (`inventaris.lezen`) en de catalogusbeschikbaarheid (`catalogus.lezen`) bij de Hub. Eén blokkade (poort in
+gebruik, afhankelijkheid ontbreekt, versie niet beschikbaar of niet te meten) en er komt geen enkele stap vrij. Een
+update met databasemigraties loopt eerst als testkopie op een kloon; mislukt die, dan wordt de draaiende app niet
+aangeraakt. Verwijderen en verhuizen (B08-006) geven nog `capability_unavailable`.
 
 Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.3`; werklijst `CONTRACT_1.3_CONFORMITEIT.md` §4,
 uitgewerkt in ADR-0019).
