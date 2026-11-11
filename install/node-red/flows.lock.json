@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "bundels": {
+    "hartslag": {
+      "bestand": "flows/hartslag.json",
+      "tab": "jlp-hartslag",
+      "label": "JLP · Hartslag naar de Hub",
+      "versie": "1.0.0",
+      "sha256": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+      "soort": "alleen_lezen_en_melden",
+      "standaard_aan": true,
+      "routes": [
+        "POST /api/v1/monitoring/heartbeat"
+      ],
+      "event_types": []
+    },
+    "mediaguard-offline": {
+      "bestand": "flows/mediaguard-offline.json",
+      "tab": "jlp-mediaguard-offline",
+      "label": "JLP · MediaGuard offline → melding",
+      "versie": "1.0.0",
+      "sha256": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+      "soort": "alleen_lezen_en_melden",
+      "standaard_aan": true,
+      "routes": [
+        "GET /api/v1/apps",
+        "POST /api/v1/events/inbox"
+      ],
+      "event_types": [
+        "flow.app_watch.down",
+        "flow.app_watch.recovered"
+      ]
+    },
+    "testflow-herstart": {
+      "bestand": "flows/testflow-herstart.json",
+      "tab": "jlp-testflow-herstart",
+      "label": "JLP · Testflow: herstart aanvragen",
+      "versie": "1.0.0",
+      "sha256": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+      "soort": "actie_aanvragen",
+      "standaard_aan": false,
+      "routes": [
+        "POST /api/v1/actions/proposals"
+      ],
+      "event_types": []
+    }
+  }
+}
