@@ -3,6 +3,8 @@
 - Status: aangenomen · Datum: 2026-11-11 · Contract: `contracts 1.3` §2.2, §4.4, §6.2, §8
 - Bouwplan: B08-003, B08-004, C1.3-JLP-14, I10-10-01…06
 - Vult aan: ADR-0022 (plannen) · Nagelopen zonder wijziging: ADR-0023 (Node-RED)
+- Gewijzigd door: ADR-0025 (herstel na de tweede, volledige review van P2): besluit 3 (terugzetten zonder herstelpunt
+  of zonder "alleen de image is veilig" is wél geblokkeerd) en "Bekende beperkingen" (eigenaars, vervaltijd)
 - Herstelcommit: `35fc44d` (code en tests); deze ADR beschrijft alleen wat in de stand van `35fc44d` of later staat
 
 ## Aanleiding (bevindingen van de onafhankelijke review van fase P2)
@@ -57,9 +59,14 @@ pip-audit), `statuspagina`, `image` (image-E2E) en `rooktest` (rooktest, upstrea
    In de laatste twee gevallen krijgt het terugzetplan de waarschuwing `vorige_digest_onbekend`. Die zegt dat niet
    bewezen is welke versie er dan draait (met `digest_niet`) of dat de vorige versie terug is (zonder digest). Een
    updateplan voor een Custom App waarvan de geïnstalleerde digest niet gemeten is, waarschuwt vooraf met
-   `huidige_digest_onbekend`. Het terugzetplan wordt hierdoor **niet** geblokkeerd: terugzetten is de herstelactie en
-   moet mogelijk blijven; het plan is alleen eerlijk over wat het kan aantonen. Terugzetten naar een catalogusversie
-   controleert de `versie` in de readback; daar gelden de digest-regels en de waarschuwing niet.
+   `huidige_digest_onbekend`. Het terugzetplan wordt door deze digest-regels **niet** geblokkeerd: het plan is alleen
+   eerlijk over wat het kan aantonen. Terugzetten naar een catalogusversie controleert de `versie` in de readback; daar
+   gelden de digest-regels en de waarschuwing niet.
+   *Gewijzigd door ADR-0025 besluit 1:* het terugzetplan zet alleen de image terug en is daarom geblokkeerd zonder
+   bekend herstelpunt van vóór de update (`herstelpunt_onbekend`; ook de route met alleen `herstel_van` en het
+   terugzetten naar een catalogusversie) en als het manifest van de update niet zegt dat alleen de image terugzetten
+   veilig is (`terugzetten_vraagt_data`; contract §2.3 regel 7a). De digest-regels hierboven gelden voor de plannen die
+   wel vrijkomen.
 4. **Een vervallen plan noemt geen vrijgegeven stappen.** `vrijgegeven_stappen` is leeg zodra `vervallen` waar is
    (`api_plans.plan_view`).
 
@@ -78,27 +85,35 @@ pip-audit), `statuspagina`, `image` (image-E2E) en `rooktest` (rooktest, upstrea
 
 ## Bekende beperkingen (niet opgelost; elk een open contractvraag of vervolgpunt)
 
-- **Vorm van het resultaat van de echte executor** (contractvraag). De executor in `ai-server-manager` (stand
-  `0001116`) antwoordt op `POST /api/v1/execute` met `status: "uitgevoerd"`, een `request_id` en een readback per
+Eigenaars aangevuld in ADR-0025 (review P2, R-TECH-4). "Contracteigenaar" is ai-server-manager (contract 1.3).
+
+- **Vorm van het resultaat van de echte executor** (contractvraag; eigenaar: contracteigenaar ai-server-manager, en in
+  deze repo S-P2-420 bouwpunt 2: de stand-ins naast de echte Hub- en executorcode). De executor in `ai-server-manager`
+  (stand `0001116`) antwoordt op `POST /api/v1/execute` met `status: "uitgevoerd"`, een `request_id` en een readback per
   soort doel (app: `staat`, `versie`, `images`, `digests` en meer; snapshot en kloon: `aanwezig`). Het plan van deze
-  dienst vraagt `status: voltooid|mislukt`, een `execution_id` en een readback met alleen `staat`, `versie`,
-  `digests`, `images`, `etag`. `herstel_van` is bij de echte executor het `request_id` van de update. Wie het
-  resultaat doorgeeft (Hub of flow) moet dit vertalen; het contract legt de vorm nog niet vast. Tegen de echte
-  executor: NIET GEVALIDEERD.
-- **Snapshot- en kloonstappen hebben geen verwachte readback** (contractvraag). Ze tellen op de melding `voltooid` met
+  dienst vraagt `status: voltooid|mislukt`, een `execution_id` en een readback met alleen `staat`, `versie`, `digests`,
+  `images`, `etag`. `herstel_van` is bij de echte executor het `request_id` van de update. Wie het resultaat doorgeeft
+  (Hub of flow) moet dit vertalen; het contract legt de vorm nog niet vast. Tegen de echte executor: NIET GEVALIDEERD.
+- **Snapshot- en kloonstappen hebben geen verwachte readback** (contractvraag; eigenaar: contracteigenaar
+  ai-server-manager, §8; in deze repo S-P2-420 bouwpunt 2). Ze tellen op de melding `voltooid` met
   een `execution_id`; de vorm van hun readback staat niet in het contract. In de ketentest weigert de
   uitvoerder-stand-in een `app.update` waarvan het `backup_checkpoint_id` niet als snapshot bestaat
   (`backup_checkpoint_ontbreekt`).
-- **De testkopie slaagt op `RUNNING` + digest** (vervolgpunt). De `post_install_checks` uit het manifest staan alleen
-  in het installatieplan (`controles_na_installatie`) en zijn nergens een eigen stap die `bijwerken` tegenhoudt. Een
-  migratiefout die de app laat crashen wordt gevonden; een fout die de app laat draaien met een kapotte database niet.
-- **Een gestart plan vervalt niet** (vervolgpunt). De vervaltijd (1 uur, `api_plans.PLAN_TTL`) geldt voor plannen
-  waarvan nog geen stap is gemeld. Bij een plan in uitvoering kan `bijwerken` lang na het herstelpunt worden
-  aangeboden; de Hub en de executor toetsen dan opnieuw, het plan zelf niet.
-- **CI-proef tegen de Hub** (`rooktest`, vervolgpunt) gebruikt de vastgezette Hub-stand `5e21775` (`ASM_COMMIT` in
-  `.github/workflows/ci.yml`), van vóór de executor met acties; de keten plan → Hub → executor is daarom alleen met
-  de stand-ins getest.
-- **`max_age` van de Hub wordt niet gelezen** (vervolgpunt, met de contractvraag uit besluit 2). De grens is vast
+- **De testkopie slaagt op `RUNNING` + digest** (vervolgpunt; eigenaar: aan Hub-kant S-P2-080 bouwpunt 3
+  (`post_install_checks` als poort), in deze repo de regisseur: nog geen stap gepland). De `post_install_checks` uit het
+  manifest staan alleen in het installatieplan (`controles_na_installatie`) en zijn nergens een eigen stap die
+  `bijwerken` tegenhoudt. Een migratiefout die de app laat crashen wordt gevonden; een fout die de app laat draaien met
+  een kapotte database niet.
+- **Een gestart plan vervalt niet** (vervolgpunt; eigenaar: de regisseur, nog geen stap gepland; voor P4 bij de
+  mediaserver: een laatste snapshot direct vóór `bijwerken` of een toets op het RPO). De vervaltijd geldt voor plannen
+  waarvan nog geen stap is gemeld: het vroegste van 1 uur (`api_plans.PLAN_TTL`) en de oudste gebruikte meting + 900 s
+  (ADR-0025 besluit 4). Bij een plan in uitvoering kan `bijwerken` lang na het herstelpunt worden aangeboden; de Hub en
+  de executor toetsen dan opnieuw, het plan zelf niet.
+- **CI-proef tegen de Hub** (`rooktest`, vervolgpunt; eigenaar: S-P2-420 bouwpunt 6) gebruikt de vastgezette Hub-stand
+  `5e21775` (`ASM_COMMIT` in `.github/workflows/ci.yml`), van vóór de executor met acties; de keten plan → Hub →
+  executor is daarom alleen met de stand-ins getest.
+- **`max_age` van de Hub wordt niet gelezen** (vervolgpunt, met de contractvraag uit besluit 2; eigenaar:
+  contracteigenaar ai-server-manager voor §4.4/§6.2, daarna de regisseur voor deze repo). De grens is vast
   900 s; een `max_age` van de Hub voor de inventaris of de catalogusmeting telt nog niet mee.
 
 ## Tests
@@ -113,7 +128,9 @@ pip-audit), `statuspagina`, `image` (image-E2E) en `rooktest` (rooktest, upstrea
 - Ook in `test_planner.py`: `test_terugzetten_zonder_gemeten_vorige_digest_eist_dat_de_nieuwe_digest_weg_is` (readback
   met de nieuwe digest, zonder digest, met een andere repository of gestopt: `mislukt`; met de oude digest:
   `voltooid`), `test_terugzetten_met_alleen_herstel_van_bewijst_minstens_dat_de_huidige_digest_weg_is` (ook "niets
-  gemeten": alleen `RUNNING`) en `test_terugzetten_met_gemeten_vorige_digest_waarschuwt_niet`.
+  gemeten": alleen `RUNNING`) en `test_terugzetten_met_gemeten_vorige_digest_waarschuwt_niet`. (Sinds ADR-0025 heet de
+  tweede `test_terugzetten_met_alleen_herstel_van_kent_geen_herstelpunt_en_geeft_niets_vrij`; de andere twee draaien op
+  een testvariant van het Gotify-manifest zonder migraties.)
 - `apps/api/tests/integration/test_plans_api.py`: `test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij`
   (over HTTP met de Hub-simulator: een inventaris van twintig minuten oud bij een update- en een terugzetplan, een
   catalogusmeting van twintig minuten oud bij installeren); `test_update_en_terugzetten_via_het_updateplan` (met

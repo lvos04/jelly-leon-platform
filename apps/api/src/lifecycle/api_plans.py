@@ -110,7 +110,9 @@ class RollbackPlanIn(_Strikt):
 
 
 class ReadbackIn(_Strikt):
-    """De teruggelezen toestand van het doel na de stap (van de executor, via de Hub). Geen vrije configuratie."""
+    """De teruggelezen toestand van het doel na de stap, zoals de melder die doorgeeft (bedoeld: de readback van de
+    executor, via de Hub). Deze dienst kan haar niet zelf nagaan; de Hub toetst elk volgend voorstel opnieuw met een
+    eigen readback (ADR-0025). Geen vrije configuratie."""
 
     staat: str = Field(max_length=32)
     versie: str | None = Field(default=None, max_length=128)

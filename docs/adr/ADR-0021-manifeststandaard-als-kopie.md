@@ -43,3 +43,15 @@ conflictanalyse al gebouwd en getest. Tot nu toe gebruikte deze repo de validato
   planner niet ongemerkt.
 - De CI-stap "Installeerbare manifesten" blijft de validator uit de bron-repo zelf draaien (`jl-manifest --strict`);
   de kopie in de dienst wordt daarnaast door de eigen tests gebruikt. Beide moeten hetzelfde oordelen.
+
+## Stand na de review van P2 (S-P2-395, ADR-0025 besluit 7)
+
+- De validator in CI en in `make validator-venv` staat vast op appstore-en-fork `cbf4fd2`
+  (`ASF_COMMIT` in `.github/workflows/ci.yml` en in de `Makefile`). Die commit vertaalt een geheim als
+  `vault://app/<app_id>/<parameter>` (C1.3-ASF-14).
+- De kopie in de dienst blijft **bewust** op `7b3159d`. Tussen beide commits verschillen alleen
+  `manifest/translate.py` en `manifest/findings.py`: de validatieregels en schema's zijn gelijk, dus over een manifest
+  oordelen CI en de planner hetzelfde. Over geheimen niet: de kopie weigert elk geheim, zodat een installatieplan met
+  geheimen geblokkeerd blijft. Overnemen zou zo'n plan vrijgeven met vault-verwijzingen in `app.install`, terwijl in
+  deze stap niet is vastgesteld dat de Hub en de executor die invullen (S-P2-070, ai-server-manager). Dat is
+  ONBEKEND, dus de veiligste stand geldt. Overnemen blijft een eigen stap (besluit 2), samen met ADR-0022 besluit 11.

@@ -33,8 +33,9 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
 2. **Bij de import (`lint`).** Een bundel uit deze repo mag alleen: `inject`, `change`, `switch`, `http request`,
    `debug`, `catch`, `comment`. Een `http request` krijgt zijn adres uitsluitend van een `change`-node met een van de
    vaste Hub-routes hieronder (`$env('HUB_URL') & '<route>'`), met een vaste methode en het token als bearer. Geen
-   adressen, tokens of `credentials` in Git; geen globale context; een flow die een actie aanvraagt staat in Git
-   **uitgeschakeld**. Eén bevinding en er verandert niets in Node-RED.
+   adressen, tokens of `credentials` in Git; geen globale context; geen eigen `env` of groep op een tabblad of node
+   (Node-RED leest `$env('HUB_URL')` daar eerst); een flow die een actie aanvraagt staat in Git **uitgeschakeld**. Eén
+   bevinding en er verandert niets in Node-RED.
 3. **Bij de Hub.** Het token is een service-token met alleen de scopes die nodig zijn (`inventaris.lezen`,
    en voor de testflow de scope om voorstellen in te dienen). De Hub zet de actor van een voorstel zelf op `flow` en
    bepaalt de risicoklasse; een `risk_claim` van de flow telt niet.
@@ -118,10 +119,13 @@ python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere v
 
 - **Import:** eerst `lint`; dan één `POST /flows` met de bundels, de Hub-URL als globale omgevingsvariabele `HUB_URL`
   van Node-RED en het token als credential van de `http request`-nodes. Node-RED versleutelt credentials op schijf en
-  geeft ze nooit terug; de import leest terug en vergelijkt per bundel de sha256 met de verwachting. Tabbladen die
-  niet uit deze repo komen blijven staan.
+  geeft ze nooit terug; de import leest terug en vergelijkt per bundel de sha256 met de verwachting, en controleert
+  dat op de eigen tabbladen geen `env` staat en dat de globale `HUB_URL` precies de opgegeven Hub-URL is. Tabbladen
+  die niet uit deze repo komen blijven staan.
 - **Export (Git-export):** één bestand per tabblad plus de vergelijking met `flows.lock.json`:
-  `gelijk_aan_lock`, `afwijkend` of `onbekend` (tabblad dat niet uit deze repo komt).
+  `gelijk_aan_lock`, `afwijkend` of `onbekend` (tabblad dat niet uit deze repo komt). Een tabblad-id is nooit een
+  pad: een tabblad dat niet in het lock staat en geen eigen id (`jlp-…`) heeft, krijgt de bestandsnaam
+  `tab-<sha256[:16]>`.
 - **Herstel:** een oudere versie terugzetten is dezelfde import met het oudere bestand (uit Git); daarna toont de
   export weer `gelijk_aan_lock` zodra de versie uit het lock terugstaat.
 - **Back-up:** `/data` (flows, versleutelde credentials en de sleutel daarvan) gaat mee in de `stopped_snapshot` van

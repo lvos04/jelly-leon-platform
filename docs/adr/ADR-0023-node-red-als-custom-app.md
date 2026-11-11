@@ -25,7 +25,9 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    (alleen genoemde kern-nodes; exec, function, file, watch, http in, websocket, tcp, udp en mqtt worden niet
    geladen), geen installatie van nodes/modules, geen projecten, geen telemetrie, `/diagnostics` uit.
    De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
-   geen spaties of tekens bevatten die de shell uitbreidt.
+   geen spaties, `$`, `*`, `?` of andere shelltekens bevatten. `[` en `]` zijn ook jokertekens, maar de JSON-lijsten
+   (`nodesIncludes`) hebben ze nodig; veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij
+   deze digest in de review van P2; ADR-0025 besluit 6).
 3. **De monitor bewaakt de beveiliging.** Dit mechanisme is gemeten gedrag van één digest, geen toezegging van
    upstream. `healthcheck.monitor` verwacht daarom **403 op `/diagnostics`**: met de instellingen actief is dat 403,
    zonder is het 200 (controleproef N2). Verdwijnt het gedrag bij een update, dan is de app niet gezond in plaats van
@@ -39,6 +41,10 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    `switch`, `http request`, `debug`, `catch` en `comment` toe; een `http request` mag alleen naar een vaste
    Hub-route (`$env('HUB_URL') & '<route>'`) met vaste methode en bearer; geen adressen, tokens of credentials in
    Git. Een flow die een actie aanvraagt staat in Git uitgeschakeld. De import weigert bij één bevinding.
+   Sinds ADR-0025 (review P2): Node-RED zoekt `$env('HUB_URL')` eerst in de env van groep en tabblad. Daarom heeft
+   een tabblad alleen `id`, `type`, `label`, `disabled` en `info`, en heeft geen node een `env` of groep
+   (`veld_niet_toegestaan`). Na de import leest het hulpmiddel terug dat alleen de globale `HUB_URL` telt en dat die
+   precies de opgegeven Hub-URL is.
 6. **Geheimen alleen bij de import.** De Hub-URL wordt de globale omgevingsvariabele `HUB_URL` van Node-RED; het
    service-token wordt een credential van de `http request`-nodes. Beide komen uit omgevingsvariabelen van het
    hulpmiddel, nooit van de opdrachtregel en nooit in Git. Eerlijk: de sleutel waarmee Node-RED credentials
@@ -53,6 +59,8 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    van de Hub uit het monitorplan van het manifest.
 9. **Versies en herstel (I10-10-05).** Git + lock zijn de historie; `exporteer` schrijft per tabblad een bestand en
    vergelijkt met het lock; een oude versie herstellen is een import van het oudere bestand met checksum-readback.
+   Een tabblad-id is nooit een pad: alleen een lock-naam of een eigen id (`jlp-…`) wordt een bestandsnaam, elk ander
+   id `tab-<sha256[:16]>` (ADR-0025 besluit 6).
    `/data` gaat mee in de `stopped_snapshot`.
 
 ## Wat het manifest niet kan (geblokkeerd)

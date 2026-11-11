@@ -268,3 +268,22 @@
   - uitgaand verkeer beperken: het Custom App-formulier kent geen egressregels.
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor, echte accounts of hardware:
   **NIET GEVALIDEERD**.
+
+### Review P2 (onafhankelijke QA, ADR-0024 en ADR-0025)
+
+- **Plannen op verse metingen (ADR-0024):** een meting ouder dan 900 s (of zonder leesbaar tijdstip) is onbekend
+  voor elk soort plan; terugzetten is pas bewezen met de digest; een vervallen plan noemt geen vrijgegeven stappen.
+- **Terugzetten nooit alleen de image als dat niet veilig is (HARDE EIS, ADR-0025):** zonder bekend herstelpunt van
+  vóór de update (`herstelpunt_onbekend`) of als het manifest migraties meldt of alleen de tag terugzetten niet veilig
+  noemt (`terugzetten_vraagt_data`), geeft het terugzetplan niets vrij en noemt het de herstelpunten voor de eigenaar.
+- **Beschermde apps:** de planner volgt de regels `beschermd` van het Hub-beleid (gepinde kopie van
+  `policy/apps.yaml`, `tools/beleid_kopie.py`): geen enkele stap voor Emby; geen update, terugzetting of verwijdering
+  van de mediaserver of MediaGuard. De Hub-stand-in weigert zo'n voorstel ook.
+- **Volledig herstelpunt:** opslag met configuratie of gegevens buiten `backup.snapshot_datasets` blokkeert de update
+  (`herstelpunt_onvolledig`).
+- **Plan vervalt met zijn meting:** uiterlijk 900 s na de oudste gebruikte meting.
+- **Node-RED-hulpmiddel:** geen eigen `env` of groep op een tabblad of node in een bundel; na de import wordt
+  teruggelezen dat alleen de globale `HUB_URL` telt; `exporteer` schrijft nooit buiten de exportmap.
+- **CI:** de validator van appstore-en-fork staat vast op `cbf4fd2` (`ASF_COMMIT`), ook in `make validator-venv`. De
+  kopie van de standaard in de dienst blijft bewust op `7b3159d` (ADR-0021).
+- Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.

@@ -38,7 +38,7 @@ apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-mig
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
 deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
-docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0023
+docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0025
 design/ontwerptaal/       gepinde kopie Peil 1.1.1-statuspagina (HERKOMST.md)    tools/peil_kopie.py  kopie maken/controleren
 tests/ui/                 browsercontrole statuspagina (Playwright + axe-core)   docs/screenshots/peil/  schermafdrukken
 docs/platform-v2/         contract 1.3 + conformiteitslijst (gepind, CONTRACT_KOPIE.json; tools/contract_kopie.py),
@@ -80,7 +80,10 @@ Plannen (P2): `POST /lifecycle/v1/plans/{install|update|rollback}/preview` legt 
 inventaris (`inventaris.lezen`) en de catalogusbeschikbaarheid (`catalogus.lezen`) bij de Hub. Eén blokkade (poort in
 gebruik, afhankelijkheid ontbreekt, versie niet beschikbaar of niet te meten) en er komt geen enkele stap vrij. Een
 update met databasemigraties loopt eerst als testkopie op een kloon; mislukt die, dan wordt de draaiende app niet
-aangeraakt. Verwijderen en verhuizen (B08-006) geven nog `capability_unavailable`.
+aangeraakt. Terugzetten zet alleen de image terug en komt dus alleen vrij met een herstelpunt van vóór de update en
+als het manifest zegt dat dat veilig is; anders zet de eigenaar image en data samen terug. Voor Emby komt nooit een
+stap vrij, en voor de mediaserver en MediaGuard geen update, terugzetting of verwijdering (beleid van de Hub; ADR-0024,
+ADR-0025). Verwijderen en verhuizen (B08-006) geven nog `capability_unavailable`.
 
 Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.3`; werklijst `CONTRACT_1.3_CONFORMITEIT.md` §4,
 uitgewerkt in ADR-0019).

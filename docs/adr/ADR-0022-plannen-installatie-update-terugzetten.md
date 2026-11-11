@@ -5,6 +5,8 @@
 - Test-stand-ins (géén productiecode): `e2e/simulators/hub/contract8.py`, `e2e/simulators/hub/hub_p2.py`,
   `e2e/simulators/hub/executor_sim.py`
 - Aangevuld door ADR-0024 (review P2): versheidsgrens van 900 s voor elk plan, bewijs van terugzetten met de digest
+- Aangevuld door ADR-0025 (herstel na de review van P2): terugzetten nooit alleen de image als dat niet veilig is,
+  beschermde apps volgens het Hub-beleid, volledig herstelpunt, plan vervalt met zijn meting, validator vast in CI
 
 ## Aanleiding
 
@@ -52,9 +54,11 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    de testkopie, dan komt `bijwerken` nooit vrij: de oude app draait door op onaangeroerde data. Zonder migraties
    vervalt de schaduwtest; het herstelpunt blijft. Voor een catalogusapp bestaat (nog) geen schaduwtest
    (`schaduwtest_niet_beschikbaar`, waarschuwing) en is de export een handmatige stap.
-7. **Readback telt, niet de melding.** `…/steps/{id}/result` vraagt `execution_id` + readback. Bij `bijwerken` en
-   `installeren` moet de teruggelezen digest gelijk zijn aan de gepinde digest; anders is de stap `mislukt`
-   (`readback_afwijking`), ook als de melder "voltooid" zegt.
+7. **Readback telt, niet alleen het woord "voltooid".** `…/steps/{id}/result` vraagt `execution_id` + readback. Bij
+   `bijwerken` en `installeren` moet de teruggelezen digest gelijk zijn aan de gepinde digest; anders is de stap
+   `mislukt` (`readback_afwijking`), ook als de melder "voltooid" zegt. De readback is wat de melder doorgeeft (rol
+   `admin`, `operator` of de Hub als `service`); deze dienst kan haar niet zelf nagaan. Waarom een mens mag melden en
+   wat ertegen beschermt: ADR-0025 besluit 5.
 8. **Terugzetten.** Custom App: `app.rollback` met `herstel_van` = de `execution_id` van de update (de executor zet de
    vorige waarden terug met `app.update`). De stap is pas `voltooid` als de readback de digest van vóór de update
    toont (`diff.image.van` van het updateplan). Is die nooit gemeten, dan moet de readback een digest van dezelfde
@@ -65,6 +69,10 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    die versie tonen. Het terugzetten van **data** uit het herstelpunt is geen stap in het plan: dat is een
    eigenaarshandeling (`eigenaar_herstel`), omdat de allowlist van §8 bewust geen `zfs rollback`/`destroy` kent en
    data nooit automatisch wordt overschreven of verwijderd.
+   Omdat het plan alleen de image terugzet, is het geblokkeerd zonder bekend herstelpunt van vóór de update
+   (`herstelpunt_onbekend`) en als het manifest van de update niet zegt dat alleen de image terugzetten veilig is
+   (`terugzetten_vraagt_data`; contract §2.3 regel 7a, EX15). Dan zet de eigenaar image en data samen terug
+   (ADR-0025 besluit 1).
 9. **Image downloaden.** "Download unavailable image only after auth set" is gelezen als: er wordt niets opgehaald
    voordat er een goedgekeurd, ondertekend verzoek is; het ophalen doet TrueNAS zelf bij `app.create`/`app.update`.
    Deze dienst haalt nooit een image op en beheert geen registry-inloggegevens (`image_download.toelichting_nl`).
@@ -73,6 +81,9 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
 11. **Geheimen.** Een plan bevat nooit geheime waarden; de standaard weigert geheime parameters in formulierwaarden
     (`parameter_value_not_allowed`). Gevolg: het installatieplan van een app met geheime parameters (bijvoorbeeld
     authentik) is nu altijd geblokkeerd tot de standaard kluisverwijzingen kent (zie "Open punten").
+    Stand na ADR-0025 besluit 7: de standaard kent ze sinds appstore-en-fork `cbf4fd2` (`vault://app/<app_id>/<naam>`),
+    en de validator in CI staat op die commit. De kopie in deze dienst blijft bewust op `7b3159d`; de planner blokkeert
+    dus nog elk geheim, tot de Hub de verwijzingen invult (S-P2-070) en de kopie wordt overgenomen.
 
 ## Test-stand-ins
 
@@ -107,7 +118,10 @@ Alles wat hiermee is aangetoond heet **Sim-getest**; tegen de echte Hub/executor
   terugkrijgt; het voorbeeld `parameters: {"grace_seconds": 30}` in het contract past niet op het lege schema van
   `app.restart` in het beleid van de Hub.
 - TrueNAS-versie en `ix-app`-versie in de inventaris van de Hub (nu: `doel` van de aanvrager).
-- Geheimen: het Hub-beleid voorziet `vault://app/…`-verwijzingen, de manifeststandaard v1 nog niet.
+- Geheimen: het Hub-beleid voorziet `vault://app/…`-verwijzingen; de manifeststandaard sinds `cbf4fd2` ook, de kopie
+  in deze dienst nog niet (ADR-0025 besluit 7).
+- In welke vorm het platform "vorige image én snapshot samen" terugzet (§2.3 regel 7a); tot dan is dat een handeling
+  van de eigenaar (ADR-0025 besluit 1).
 - Wat het `backup_checkpoint_id` van een `app.rollback` is (nu: de naam van het herstelpunt van vóór de update).
 - De vorm van het resultaat van `POST /api/v1/execute` (status, `execution_id`, readback) en of een goedkeuring
   verbruikt is wanneer de precondities van de executor niet kloppen.
