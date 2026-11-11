@@ -130,14 +130,16 @@ def etag_of(plan: LifecyclePlan) -> str:
 
 
 def plan_view(plan: LifecyclePlan) -> dict[str, Any]:
-    nu = utcnow()
+    # Een vervallen plan biedt geen stap meer aan: de meting eronder is te oud om nog een voorstel op te bouwen.
+    vervallen = plan.status == "klaar_voor_voorstel" and plan.expires_at <= utcnow()
     return {
         "id": str(plan.id), "soort": plan.soort, "app_id": plan.app_id, "app_name": plan.app_name,
         "status": plan.status,
-        "vervallen": plan.status == "klaar_voor_voorstel" and plan.expires_at <= nu,
+        "vervallen": vervallen,
         "preview_hash": plan.preview_hash, "manifest_sha256": plan.manifest_sha256,
         "plan": plan.document, "voortgang": plan.stappen,
-        "vrijgegeven_stappen": [s["id"] for s in plan.stappen if s.get("status") == "vrijgegeven"],
+        "vrijgegeven_stappen": [] if vervallen else [s["id"] for s in plan.stappen
+                                                     if s.get("status") == "vrijgegeven"],
         "created_by": {"type": plan.created_by_type, "id": plan.created_by_id},
         "etag": etag_of(plan), "created_at": iso_z(plan.created_at), "updated_at": iso_z(plan.updated_at),
         "expires_at": iso_z(plan.expires_at),

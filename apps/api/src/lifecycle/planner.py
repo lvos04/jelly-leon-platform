@@ -10,8 +10,11 @@ goedkeuring per gebonden diff en ondertekent het ``ExecutionRequest``; de execut
   vertalen naar formulierwaarden en conflictanalyse. Hier staan geen eigen manifestregels.
 - Eén fout uit validatie, vertaling of conflictanalyse (poort in gebruik, vereiste afhankelijkheid ontbreekt, versie
   niet in de catalogus) of een eigen blokkade → het plan is ``geblokkeerd`` en geeft **geen enkele stap vrij**.
-- Onbekend is niet goed: zonder gemeten inventaris of catalogusbeschikbaarheid wordt niets vrijgegeven.
+- Onbekend is niet goed: zonder gemeten inventaris of catalogusbeschikbaarheid wordt niets vrijgegeven. Een meting
+  ouder dan 900 s (§6.2) is onbekend, voor elk soort plan — ook een update of terugzetplan zonder conflictanalyse.
 - Een stap telt pas als ``voltooid`` wanneer de teruggelezen toestand en digest kloppen met wat het plan verwacht.
+  Terugzetten: de digest van vóór de update moet terug zijn; is die niet gemeten, dan mag in elk geval de digest van
+  vóór het terugzetten er niet meer staan en zegt het plan dat de vorige versie niet bewezen is.
 """
 
 from __future__ import annotations
@@ -37,7 +40,7 @@ from lifecycle.custom_app import (
     form_tag,
     split_form_tag,
 )
-from lifecycle.hubread import Beschikbaarheid, Inventaris
+from lifecycle.hubread import Beschikbaarheid, Inventaris, verse_inventaris, verse_meting
 
 SCHEMA = "jlp-plan/1"
 SANDBOX = "asm-sandbox"  # vaste sandbox-dataset van de policy: <pool>/asm-sandbox/<naam>
@@ -157,18 +160,19 @@ def _bron_blokkade(b: _Bouw, inventaris: Inventaris) -> None:
                    bron="inventaris", reden=inventaris.reden, retry_after_s=inventaris.retry_after_s)
 
 
-def _meet(b: _Bouw, manifest: Manifest, doel: Doel, beschikbaar: Beschikbaar, *, verplicht: bool
+def _meet(b: _Bouw, manifest: Manifest, doel: Doel, beschikbaar: Beschikbaar, now: datetime, *, verplicht: bool
           ) -> Beschikbaarheid | None:
     """Vraagt de gemeten beschikbaarheid van de vastgezette catalogusversie (§2.2): voor een catalogusapp de versie uit
     het manifest, voor een nieuwe Custom App de ``ix-app``-versie. ``nee`` → ``version_unavailable``; ``onbekend``
-    blokkeert als de versie voor dit plan nodig is (nooit stil een nieuwere versie of ``latest``)."""
+    blokkeert als de versie voor dit plan nodig is (nooit stil een nieuwere versie of ``latest``). Een verouderde
+    meting (§6.2) is ``onbekend``, ook als ze ``ja`` zei."""
     if manifest.install.method == "catalog_app" and manifest.catalog is not None:
         train, app, version = manifest.catalog.train, manifest.catalog.app, manifest.catalog.version
     elif doel.ix_app_version:
         train, app, version = "stable", IX_APP, doel.ix_app_version
     else:
         return None
-    meting = beschikbaar(train, app, version)
+    meting = verse_meting(beschikbaar(train, app, version), now)
     if not verplicht:
         return meting
     if meting.beschikbaar == "nee":
@@ -182,7 +186,7 @@ def _meet(b: _Bouw, manifest: Manifest, doel: Doel, beschikbaar: Beschikbaar, *,
                          f"({meting.reden or 'niet gemeten'}).",
                    "Wacht op een meting van de Hub (scope catalogus.lezen); zonder meting wordt niets geïnstalleerd en "
                    "nooit stil een nieuwere versie gekozen.", bron="catalogus", reden=meting.reden,
-                   catalog_app=app, train=train, pinned_version=version)
+                   gemeten_op=meting.gemeten_op, catalog_app=app, train=train, pinned_version=version)
     return meting
 
 
@@ -321,6 +325,7 @@ def _document(b: _Bouw, *, app_id: str | None, app_name: str | None, manifest: d
 def plan_installatie(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[str, Any], app_name: str | None,
                      doel: Doel, inventaris: Inventaris, beschikbaar: Beschikbaar, now: datetime) -> dict[str, Any]:
     b = _Bouw("install", plan_id)
+    inventaris = verse_inventaris(inventaris, now)
     gelezen = _lees_manifest(b, manifest_yaml)
     _bron_blokkade(b, inventaris)
     if gelezen is None:
@@ -331,7 +336,7 @@ def plan_installatie(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapp
     if any(x["code"] == "app_naam_ongeldig" for x in b.blokkades):  # met een ongeldige naam valt niets te vertalen
         return _document(b, app_id=manifest.app_id, app_name=None, manifest=_manifest_view(report, manifest),
                          inventaris=inventaris, meting=None, doel=doel, diff=_diff(manifest, None, inventaris))
-    meting = _meet(b, manifest, doel, beschikbaar, verplicht=True)
+    meting = _meet(b, manifest, doel, beschikbaar, now, verplicht=True)
     res = _vertaal(b, report, manifest, parameters, doel, meting, naam)
     payload = res.payload.model_dump(mode="json") if res.payload is not None else None
     if res.payload is not None and res.ready_for_install:
@@ -425,6 +430,7 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
                 doel: Doel, schaduw_parameters: Mapping[str, Any] | None, inventaris: Inventaris,
                 beschikbaar: Beschikbaar, now: datetime) -> dict[str, Any]:
     b = _Bouw("update", plan_id)
+    inventaris = verse_inventaris(inventaris, now)
     gelezen = _lees_manifest(b, manifest_yaml)
     _bron_blokkade(b, inventaris)
     if gelezen is None:
@@ -436,7 +442,7 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
     migraties = bool(manifest.upgrade.migrations)
     # §2.2: voor app.update van een geïnstalleerde Custom App speelt de ix-app-versie niet; wel voor de testkopie
     # (een nieuwe app) en voor de catalogusversie van een catalogusapp.
-    meting = _meet(b, manifest, doel, beschikbaar, verplicht=(not custom) or migraties)
+    meting = _meet(b, manifest, doel, beschikbaar, now, verplicht=(not custom) or migraties)
     record = inventaris.records.get(naam) if inventaris.inventory is not None else None
     extra: dict[str, Any] = {"vastgepind": None}
     if inventaris.inventory is not None and record is None:
@@ -460,6 +466,9 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
                        geinstalleerd=huidig_image.get("repository"), manifest=manifest.image.repository)
         if huidig_image.get("digest") == manifest.image.digest:
             b.waarschuw("al_op_deze_versie", "De geïnstalleerde digest is al gelijk aan die van het manifest.", "image")
+        elif not DIGEST_RE.fullmatch(str(huidig_image.get("digest") or "")):
+            b.waarschuw("huidige_digest_onbekend", "De digest van de geïnstalleerde versie is niet gemeten. Een later "
+                        "terugzetplan kan dan niet controleren of precies die versie terug is.", "image")
         b.waarschuw("alleen_image_wijzigt", "app.update wijzigt alleen de image (tag + digest); poorten, opslag en "
                     "overige formulierwaarden blijven zoals ze geïnstalleerd zijn.", "custom_app")
 
@@ -544,8 +553,8 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
     """Terugzetten. Custom App: ``app.rollback {herstel_van}`` = ``app.update`` met de vorige waarden die de executor
     vóór de update bewaarde. Catalogusapp: ``{catalog_version}``, alleen als die versie gemeten nog in de catalogus
     staat (anders ``version_unavailable``). Data herstellen blijft een stap van de eigenaar (R3)."""
-    del now
     b = _Bouw("rollback", plan_id)
+    inventaris = verse_inventaris(inventaris, now)
     _bron_blokkade(b, inventaris)
     naam = app_name
     verwacht: dict[str, Any] = {"staat": "RUNNING"}
@@ -563,9 +572,13 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
         elif herstel_van is None:
             b.blokkeer("niets_om_terug_te_zetten", "De update uit dit plan is niet uitgevoerd; de bestaande app is "
                        "niet gewijzigd.", "Er is niets terug te zetten.")
-        van = ((update_plan.get("diff") or {}).get("image") or {}).get("van") or {}
+        image = _map(_map(update_plan.get("diff")).get("image"))
+        van, naar = _map(image.get("van")), _map(image.get("naar"))
         if van.get("repository") and DIGEST_RE.fullmatch(str(van.get("digest") or "")):
             verwacht["digest"] = {"repository": van["repository"], "expected": van["digest"]}
+        elif naar.get("repository") and DIGEST_RE.fullmatch(str(naar.get("digest") or "")):
+            # De vorige digest is niet gemeten: dan minstens niet meer de digest waar de update naartoe ging.
+            verwacht["digest_niet"] = {"repository": naar["repository"], "digest": naar["digest"]}
         vast = update_plan.get("vastgepind") or {}
         herstelpunt = str(vast["snapshot_naam"]) if vast.get("herstelpunten") and vast.get("snapshot_naam") else None
         eigenaar = {**(update_plan.get("eigenaar_herstel") or {}), "herstelpunten": vast.get("herstelpunten") or []}
@@ -578,7 +591,7 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
     params: dict[str, Any] | None = None
     if catalog is not None and update_plan is None:
         train, app, version = str(catalog.get("train")), str(catalog.get("app")), str(catalog.get("version"))
-        meting = beschikbaar(train, app, version)
+        meting = verse_meting(beschikbaar(train, app, version), now)
         if record is not None and (record.get("catalogus") or {}).get("app") != app:
             b.blokkeer("catalogusapp_verschilt", "De geïnstalleerde app is niet deze catalogusapp.", catalog_app=app)
         if meting.beschikbaar == "nee":
@@ -590,13 +603,19 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
             b.blokkeer("capability_unavailable" if meting.status == "capability_unavailable"
                        else "version_availability_unknown",
                        f"Onbekend of versie {version} van '{app}' nog in de catalogus staat.",
-                       "Zonder meting wordt niet teruggezet naar een catalogusversie.", reden=meting.reden)
+                       "Zonder verse meting wordt niet teruggezet naar een catalogusversie.", reden=meting.reden,
+                       gemeten_op=meting.gemeten_op)
         params, verwacht["versie"] = {"catalog_version": version}, version
     elif herstel_van is not None:
         if not UUID_RE.fullmatch(herstel_van):
             b.blokkeer("herstel_van_ongeldig", "herstel_van moet het UUID van een eerdere uitvoering zijn.")
         if record is not None and record.get("installatiewijze") != "custom_app":
             b.blokkeer("installatiewijze_verschilt", "Terugzetten met vorige waarden kan alleen voor een Custom App.")
+        nu_image = _map(record.get("image")) if record is not None else {}
+        if update_plan is None and nu_image.get("repository") \
+                and DIGEST_RE.fullmatch(str(nu_image.get("digest") or "")):
+            # Zonder updateplan kent het plan de vorige digest niet: dan minstens niet meer de digest van nu.
+            verwacht["digest_niet"] = {"repository": nu_image["repository"], "digest": nu_image["digest"]}
         params = {"herstel_van": herstel_van}
     elif update_plan is None:
         b.blokkeer("bron_ontbreekt", "Geef een updateplan, herstel_van of een catalogusversie op.")
@@ -605,6 +624,14 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
             b.waarschuw("herstelpunt_onbekend", "Dit plan kent geen herstelpunt. De Hub eist voor app.rollback een "
                         "backup_checkpoint_id in de goedkeuring; zonder herstelpunt weigert de executor.",
                         "herstelpunt")
+        if "digest" not in verwacht and "versie" not in verwacht:
+            b.waarschuw("vorige_digest_onbekend", (
+                "De digest van de vorige versie is niet gemeten. Na het terugzetten controleert het plan dat de app "
+                "draait en dat de digest van vóór het terugzetten er niet meer staat; welke versie er dan draait, is "
+                "daarmee niet bewezen." if "digest_niet" in verwacht else
+                "Het plan kent geen digest van de vorige of de huidige versie. Na het terugzetten kan alleen worden "
+                "gecontroleerd dat de app draait; dat de vorige versie terug is, is daarmee niet bewezen."),
+                "terugzetten")
         b.stap("terugzetten", f"'{naam}' terugzetten naar de vorige versie", actie="app.rollback",
                target={"app_id": naam}, parameters=params, verwacht=verwacht, herstelpunt=herstelpunt,
                uitleg="Custom App: de executor zet de vóór de update bewaarde formulierwaarden (tag + digest) terug. "
@@ -692,6 +719,13 @@ def _afwijking(verwacht: Mapping[str, Any], readback: Mapping[str, Any]) -> str 
             return str(exc)
         if not terug.ok:
             return f"digest wijkt af of ontbreekt (verwacht {digest['repository']}@{digest['expected']})"
+    niet = verwacht.get("digest_niet")
+    if isinstance(niet, Mapping):
+        gezien = {str(d) for d in readback.get("digests") or [] if str(d).startswith(f"{niet['repository']}@")}
+        if not gezien:
+            return f"digest ontbreekt in de readback (van {niet['repository']})"
+        if f"{niet['repository']}@{niet['digest']}" in gezien:
+            return f"digest is nog {niet['digest']}: de vorige versie is niet teruggezet"
     return None
 
 

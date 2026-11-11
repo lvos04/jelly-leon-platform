@@ -12,8 +12,8 @@ leest hier nooit geheimen en schrijft niets; hij heeft geen TrueNAS-sleutel.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -27,6 +27,13 @@ CATALOG_AVAILABILITY_PATH = "/api/v1/catalog/availability"
 PAGE_SIZE = 100
 MAX_HERSTART = 3
 MAX_APPS = 2000
+# Versheid (contract 1.3 §6.2): een meting ouder dan ``max_age`` is ``unknown`` met ``meting_verouderd`` en telt nooit
+# als actueel. Het contract noemt voor ``inventaris.lezen`` en ``catalogus.lezen`` geen eigen ``max_age``; hier geldt
+# de standaard van 900 s (een afnemer mag strenger zijn dan de bron, nooit soepeler). Een meting "uit de toekomst"
+# (klokverschil) is evenmin te vertrouwen; de marge is die van de conflictanalyse van de manifeststandaard.
+MAX_METING_LEEFTIJD = timedelta(seconds=900)
+MAX_METING_TOEKOMST = timedelta(minutes=2)
+VEROUDERD = "meting_verouderd"
 
 
 @dataclass(frozen=True)
@@ -76,6 +83,33 @@ def _parse_ts(value: Any) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _te_oud(gemeten: datetime, now: datetime) -> bool:
+    gemeten = gemeten if gemeten.tzinfo else gemeten.replace(tzinfo=UTC)
+    return now - gemeten > MAX_METING_LEEFTIJD or gemeten - now > MAX_METING_TOEKOMST
+
+
+def verse_inventaris(inventaris: Inventaris, now: datetime) -> Inventaris:
+    """De inventaris zoals de planner hem mag gebruiken: ouder dan ``MAX_METING_LEEFTIJD`` (of uit de toekomst) →
+    ``unknown`` met ``meting_verouderd`` en **zonder** apps, met het tijdstip van de laatste meting. Zo bouwt geen
+    enkel plan (ook geen update of terugzetplan, die geen conflictanalyse doen) op een oude meting."""
+    if inventaris.inventory is None or not _te_oud(inventaris.inventory.observed_at, now):
+        return inventaris
+    return Inventaris("unknown", VEROUDERD, gemeten_op=inventaris.gemeten_op, snapshot_id=inventaris.snapshot_id)
+
+
+def verse_meting(meting: Beschikbaarheid, now: datetime) -> Beschikbaarheid:
+    """De catalogusmeting zoals de planner haar mag gebruiken: ``ja``/``nee`` zonder leesbaar tijdstip of ouder dan
+    ``MAX_METING_LEEFTIJD`` (of uit de toekomst) → ``onbekend`` (``unknown``); het tijdstip blijft zichtbaar."""
+    if meting.beschikbaar not in ("ja", "nee"):
+        return meting
+    gemeten = _parse_ts(meting.gemeten_op)
+    if gemeten is None:
+        return replace(meting, beschikbaar="onbekend", status="unknown", reden="meting_zonder_tijdstip")
+    if _te_oud(gemeten, now):
+        return replace(meting, beschikbaar="onbekend", status="unknown", reden=VEROUDERD)
+    return meting
 
 
 def _int(value: Any) -> int | None:

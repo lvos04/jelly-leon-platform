@@ -154,6 +154,39 @@ def test_zonder_gemeten_inventaris_is_het_plan_geblokkeerd(client: Any, auth: An
     assert view["plan"]["bronnen"]["inventaris"]["reden"] == reden
 
 
+def test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij(client: Any, auth: Any, hub: Any) -> None:
+    """Contract §6.2: een meting ouder dan 900 s is onbekend, ook als de bron haar zelf niet als verouderd markeert en
+    ook voor een update of terugzetplan (die doen geen conflictanalyse). Het tijdstip van de meting blijft zichtbaar."""
+    p2 = meetbaar(hub, h.gotify_record(tag="3.1.1", digest=h.GOTIFY_DIGEST))
+    p2.gemeten_op = p2.clock() - 1200  # twintig minuten oud; 'verouderd' staat uit
+    for soort, verzoek in (("update", body(schaduw={"parameters": h.SCHADUW})),
+                           ("rollback", {"app_name": "gotify", "herstel_van": EXEC})):
+        r = client.post(PREVIEW.format(soort), json=verzoek, headers=auth("operator", idem=True))
+        assert r.status_code == 201, r.text
+        view = r.json()
+        assert view["status"] == "geblokkeerd" and view["vrijgegeven_stappen"] == [], soort
+        assert "inventaris_onbekend" in blokkades(view), soort
+        bron = view["plan"]["bronnen"]["inventaris"]
+        assert (bron["status"], bron["reden"], bron["aantal_apps"]) == ("unknown", "meting_verouderd", None), soort
+        assert bron["gemeten_op"] == p2._iso(p2.gemeten_op), soort
+    # dezelfde verzoeken op een verse meting worden wél een plan: de blokkade kwam alleen door de leeftijd
+    p2.gemeten_op = None
+    vers = client.post(PREVIEW.format("rollback"), json={"app_name": "gotify", "herstel_van": EXEC},
+                       headers=auth("operator", idem=True)).json()
+    assert vers["status"] == "klaar_voor_voorstel" and vers["vrijgegeven_stappen"] == ["terugzetten"]
+
+    p2.zet_apps()
+    p2.catalogus_gemeten_op = p2.clock() - 1200  # de Hub zegt 'ja', maar op een meting van twintig minuten oud
+    r = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True))
+    assert r.status_code == 201, r.text
+    view = r.json()
+    assert view["status"] == "geblokkeerd" and view["vrijgegeven_stappen"] == []
+    assert blokkades(view) == {"version_availability_unknown"}
+    catalogus = view["plan"]["bronnen"]["catalogus"]
+    assert (catalogus["beschikbaar"], catalogus["reden"]) == ("onbekend", "meting_verouderd")
+    assert catalogus["gemeten_op"] == p2._iso(p2.catalogus_gemeten_op)
+
+
 def test_rollen_idempotency_en_invoergrenzen(client: Any, auth: Any, hub: Any) -> None:
     meetbaar(hub)
     assert client.post(PREVIEW.format("install"), json=body()).status_code == 401
@@ -266,6 +299,16 @@ def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: A
     voorstel = next(s["voorstel"] for s in stappen.values() if s["voorstel"] and
                     s["voorstel"]["action_id"] == "app.rollback")
     assert voorstel["parameters"] == {"herstel_van": update_exec} and voorstel["target"] == {"app_id": "gotify"}
+    # terugzetten is pas bewezen als de digest van vóór de update terug is — 'de app draait' is niet genoeg
+    nog_nieuw = _meld(client, auth, tv["id"], "terugzetten", readback=goed)
+    assert nog_nieuw.status_code == 200, nog_nieuw.text
+    assert nog_nieuw.json()["status"] == "mislukt"
+    assert nog_nieuw.json()["voortgang"][0]["reden"].startswith("readback_afwijking")
+    opnieuw = client.post(PREVIEW.format("rollback"), json={"update_plan_id": pid},
+                          headers=auth("operator", idem=True)).json()
+    terug_gelezen = _meld(client, auth, opnieuw["id"], "terugzetten",
+                          readback={"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.OUDE_DIGEST}"]})
+    assert terug_gelezen.status_code == 200 and terug_gelezen.json()["status"] == "voltooid", terug_gelezen.text
 
     onbekend = client.post(PREVIEW.format("rollback"), json={"update_plan_id": str(uuid.uuid4())},
                            headers=auth("operator", idem=True))
@@ -283,6 +326,9 @@ def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: s
     with engine.begin() as conn:
         conn.execute(text("UPDATE lifecycle_plans SET expires_at = now() - interval '1 minute'"))
     engine.dispose()
-    assert client.get(f"/lifecycle/v1/plans/{view['id']}", headers=auth("viewer")).json()["vervallen"] is True
+    assert view["vrijgegeven_stappen"] == ["installeren"]
+    gelezen = client.get(f"/lifecycle/v1/plans/{view['id']}", headers=auth("viewer")).json()
+    assert gelezen["vervallen"] is True
+    assert gelezen["vrijgegeven_stappen"] == []  # een vervallen plan biedt geen stap meer aan
     r = _meld(client, auth, view["id"], "installeren", readback={"staat": "RUNNING"})
     assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import replace
+from datetime import timedelta
 from typing import Any
 
 import contract8
@@ -28,7 +30,7 @@ from planhulp import (
 )
 
 from lifecycle import planner
-from lifecycle.hubread import Inventaris
+from lifecycle.hubread import Beschikbaarheid, Inventaris
 
 PLAN = uuid.UUID("11111111-2222-4333-8444-555555555555")
 EXEC = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -278,6 +280,102 @@ def test_update_van_catalogusapp_gebruikt_de_gemeten_catalogusversie() -> None:
     assert any(b["code"] == "schaduwtest_niet_beschikbaar" for b in doc["bevindingen"])
 
 
+# ------------------------------------------------------------------ versheid van de metingen (contract 1.3 §6.2)
+NODE_RED = app_record("node-red", repository="nodered/node-red", tag="5.0.8-24", digest=OUDE_DIGEST,
+                      app_id="node-red", poorten=[(1880, 31880, "tcp")],
+                      opslag=[("/mnt/pool-x/apps/node-red", "/data", "pool-x/apps/node-red")])
+
+
+def verschoven(bron: Inventaris, verschil: timedelta) -> Inventaris:
+    """Dezelfde inventaris, maar gemeten op ``NU + verschil`` — de Hub noemt haar zelf niet verouderd."""
+    assert bron.inventory is not None
+    moment = NU + verschil
+    return replace(bron, inventory=bron.inventory.model_copy(update={"observed_at": moment}),
+                   gemeten_op=moment.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
+def meting_van(gemeten_op: str | None, waarde: str = "ja") -> Any:
+    def lees(train: str, app: str, version: str) -> Beschikbaarheid:
+        return Beschikbaarheid(waarde, "ok", None, gemeten_op, train, app, version)
+
+    return lees
+
+
+def elk_soort_plan(bron_gotify: Inventaris, bron_node_red: Inventaris) -> dict[str, dict[str, Any]]:
+    """Elk soort plan op een meting van hetzelfde moment. Alleen installeren en de testkopie doen een conflictanalyse;
+    een update zonder migraties en terugzetten doen dat niet en mogen daarom evenmin op een oude meting leunen."""
+    assert bron_gotify.inventory is not None
+    leeg = replace(bron_gotify, inventory=bron_gotify.inventory.model_copy(update={"apps": []}), records={})
+    bijgewerkt_plan, voortgang = bijgewerkt()
+    return {
+        "installeren": installatie(inventaris=leeg),
+        "update met testkopie": update(inventaris=bron_gotify),
+        "update zonder testkopie": update(manifest_yaml=manifest("node-red"), parameters={}, schaduw_parameters=None,
+                                          inventaris=bron_node_red),
+        "terugzetten (herstel_van)": terug(app_name="gotify", herstel_van=EXEC, inventaris=bron_gotify),
+        "terugzetten (updateplan)": terug(update_plan=bijgewerkt_plan, update_stappen=voortgang,
+                                          inventaris=bron_gotify),
+    }
+
+
+@pytest.mark.parametrize("verschil", [timedelta(seconds=-901), timedelta(days=-2), timedelta(seconds=121)])
+def test_verouderde_inventaris_geeft_voor_geen_enkel_soort_plan_een_stap_vrij(verschil: timedelta) -> None:
+    gotify = verschoven(inventaris(gotify_record(tag="3.1.1", digest=GOTIFY_DIGEST)), verschil)
+    node_red = verschoven(inventaris(NODE_RED), verschil)
+    for naam, doc in elk_soort_plan(gotify, node_red).items():
+        assert "inventaris_onbekend" in codes(doc), naam
+        bron = doc["bronnen"]["inventaris"]
+        assert (bron["status"], bron["reden"], bron["aantal_apps"]) == ("unknown", "meting_verouderd", None), naam
+        assert bron["gemeten_op"] == gotify.gemeten_op, naam  # het tijdstip van de laatste meting blijft zichtbaar
+        geen_stap_vrij(doc)
+
+
+@pytest.mark.parametrize("verschil", [timedelta(seconds=-900), timedelta(0), timedelta(seconds=120)])
+def test_verse_inventaris_binnen_de_grens_geeft_wel_vrij(verschil: timedelta) -> None:
+    gotify = verschoven(inventaris(gotify_record(tag="3.1.1", digest=GOTIFY_DIGEST)), verschil)
+    node_red = verschoven(inventaris(NODE_RED), verschil)
+    for naam, doc in elk_soort_plan(gotify, node_red).items():
+        assert doc["blokkades"] == [], naam
+        assert "vrijgegeven" in status(planner.begin(doc)).values(), naam
+
+
+@pytest.mark.parametrize(("gemeten_op", "reden"), [
+    ("2026-11-11T11:44:59Z", "meting_verouderd"),  # 901 s oud
+    ("2026-11-09T12:00:00Z", "meting_verouderd"),
+    ("2026-11-11T12:02:01Z", "meting_verouderd"),  # uit de toekomst (klokverschil)
+    (None, "meting_zonder_tijdstip"),
+    ("geen-tijdstip", "meting_zonder_tijdstip"),
+])
+def test_verouderde_catalogusmeting_is_onbekend_ook_als_ze_ja_zei(gemeten_op: str | None, reden: str) -> None:
+    authentik = {**app_record("authentik", repository="ghcr.io/goauthentik/server", tag="2025.1.1",
+                              app_id="authentik", catalogus_app="authentik", trein="community", versie="1.3.64"),
+                 "installatiewijze": "catalog_app"}
+    catalog = {"train": "community", "app": "authentik", "version": "1.3.60"}
+    plannen = {
+        "installeren": installatie(beschikbaar=meting_van(gemeten_op)),
+        "update met testkopie": update(beschikbaar=meting_van(gemeten_op)),
+        "terugzetten naar catalogusversie": terug(app_name="authentik", catalog=catalog,
+                                                  inventaris=inventaris(authentik),
+                                                  beschikbaar=meting_van(gemeten_op)),
+    }
+    for naam, doc in plannen.items():
+        assert codes(doc) == {"version_availability_unknown"}, naam
+        details = doc["blokkades"][0]["details"]
+        assert (details["reden"], details["gemeten_op"]) == (reden, gemeten_op), naam
+        geen_stap_vrij(doc)
+    bron = plannen["installeren"]["bronnen"]["catalogus"]
+    assert (bron["beschikbaar"], bron["status"], bron["reden"], bron["gemeten_op"]) == (
+        "onbekend", "unknown", reden, gemeten_op)
+    # ook een oude 'nee' is geen meting meer: version_unavailable mag alleen op een verse meting (§2.2)
+    assert codes(installatie(beschikbaar=meting_van(gemeten_op, "nee"))) == {"version_availability_unknown"}
+
+
+@pytest.mark.parametrize("gemeten_op", ["2026-11-11T11:45:00Z", "2026-11-11T12:00:00Z", "2026-11-11T12:02:00Z"])
+def test_verse_catalogusmeting_binnen_de_grens_telt(gemeten_op: str) -> None:
+    assert installatie(beschikbaar=meting_van(gemeten_op))["blokkades"] == []
+    assert codes(installatie(beschikbaar=meting_van(gemeten_op, "nee"))) == {"version_unavailable"}
+
+
 # ------------------------------------------------------------------ stappen: vrijgeven en resultaten
 def tot_schaduw(doc: dict[str, Any]) -> list[dict[str, Any]]:
     v = planner.begin(doc)
@@ -442,3 +540,59 @@ def test_terugzetten_vraagt_een_bron_en_een_geinstalleerde_app() -> None:
     assert "inventaris_onbekend" in codes(terug(app_name="gotify", herstel_van=EXEC,
                                                 inventaris=Inventaris("unknown", "hub_onbereikbaar")))
     assert terug(app_name="gotify", herstel_van=EXEC)["blokkades"] == []
+
+
+def test_terugzetten_zonder_gemeten_vorige_digest_eist_dat_de_nieuwe_digest_weg_is() -> None:
+    """Is de digest van vóór de update nooit gemeten, dan bewijst 'de app draait' niets: de update-digest moet weg."""
+    bron = update(inventaris=inventaris(gotify_record(digest=None)))
+    assert bron["blokkades"] == [] and bron["diff"]["image"]["van"]["digest"] is None
+    assert "huidige_digest_onbekend" in {b["code"] for b in bron["bevindingen"]}
+    v = tot_schaduw(bron)
+    v = meld(bron, v, "schaduw-installeren", readback=GOED)
+    v = meld(bron, v, "bijwerken", readback={"staat": "CRASHED", "digests": GOED["digests"]})
+    doc = terug(update_plan=bron, update_stappen=v)
+    assert doc["blokkades"] == []  # terugzetten blijft mogelijk: het is de herstelactie
+    assert "vorige_digest_onbekend" in {b["code"] for b in doc["bevindingen"]}
+    s = stap(doc, "terugzetten")
+    assert s["verwacht"] == {"staat": "RUNNING", "digest_niet": {"repository": GOTIFY_REPO, "digest": GOTIFY_DIGEST}}
+    begin = planner.begin(doc)
+    nog_nieuw = meld(doc, begin, "terugzetten", readback=GOED)
+    assert status(nog_nieuw) == {"terugzetten": "mislukt"}
+    assert nog_nieuw[0]["reden"].startswith("readback_afwijking") and "niet teruggezet" in nog_nieuw[0]["reden"]
+    zonder = meld(doc, begin, "terugzetten", readback={"staat": "RUNNING"})
+    assert status(zonder) == {"terugzetten": "mislukt"} and "digest ontbreekt" in zonder[0]["reden"]
+    andere_app = meld(doc, begin, "terugzetten", readback={"staat": "RUNNING",
+                                                           "digests": [f"docker.io/library/postgres@{OUDE_DIGEST}"]})
+    assert status(andere_app) == {"terugzetten": "mislukt"}
+    gestopt = meld(doc, begin, "terugzetten", readback={"staat": "STOPPED",
+                                                        "digests": [f"{GOTIFY_REPO}@{OUDE_DIGEST}"]})
+    assert status(gestopt) == {"terugzetten": "mislukt"}
+    terug_ = meld(doc, begin, "terugzetten", readback={"staat": "RUNNING", "digests": [f"{GOTIFY_REPO}@{OUDE_DIGEST}"]})
+    assert status(terug_) == {"terugzetten": "voltooid"}
+
+
+def test_terugzetten_met_alleen_herstel_van_bewijst_minstens_dat_de_huidige_digest_weg_is() -> None:
+    doc = terug(app_name="gotify", herstel_van=EXEC)
+    assert doc["blokkades"] == []
+    assert {b["code"] for b in doc["bevindingen"]} >= {"vorige_digest_onbekend", "herstelpunt_onbekend"}
+    assert stap(doc, "terugzetten")["verwacht"] == {
+        "staat": "RUNNING", "digest_niet": {"repository": GOTIFY_REPO, "digest": GOTIFY_DIGEST}}
+    begin = planner.begin(doc)
+    assert status(meld(doc, begin, "terugzetten", readback=GOED)) == {"terugzetten": "mislukt"}
+    oud = {"staat": "RUNNING", "digests": [f"{GOTIFY_REPO}@{OUDE_DIGEST}"]}
+    assert status(meld(doc, begin, "terugzetten", readback=oud)) == {"terugzetten": "voltooid"}
+
+    # niets gemeten: het plan zegt eerlijk dat alleen 'draait' te controleren is, en belooft niet meer
+    blind = terug(app_name="gotify", herstel_van=EXEC,
+                  inventaris=inventaris(gotify_record(tag="3.1.1", digest=None)))
+    assert stap(blind, "terugzetten")["verwacht"] == {"staat": "RUNNING"}
+    melding = next(b["melding"] for b in blind["bevindingen"] if b["code"] == "vorige_digest_onbekend")
+    assert "is daarmee niet bewezen" in melding and "alleen" in melding
+
+
+def test_terugzetten_met_gemeten_vorige_digest_waarschuwt_niet() -> None:
+    bron, voortgang = bijgewerkt()
+    doc = terug(update_plan=bron, update_stappen=voortgang)
+    assert "vorige_digest_onbekend" not in {b["code"] for b in doc["bevindingen"]}
+    assert "huidige_digest_onbekend" not in {b["code"] for b in bron["bevindingen"]}
+    assert "digest_niet" not in stap(doc, "terugzetten")["verwacht"]
