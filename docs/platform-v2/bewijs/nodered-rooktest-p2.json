@@ -1,7 +1,7 @@
 {
   "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
-  "gestart": "2026-11-11T07:56:59Z",
-  "klaar": "2026-11-11T07:57:58Z",
+  "gestart": "2026-11-11T18:15:27Z",
+  "klaar": "2026-11-11T18:16:49Z",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
   "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map op /data, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges; Hub = simulator op het adres van de Docker-bridge",
   "images": {
@@ -11,7 +11,8 @@
     "beheerder, flows en service-token op een echte NAS (het manifest kan ze niet leveren; ADR-0023)",
     "flow 'my_house sensor verouderd → melding' (geen contractroute voor sensorversheid)",
     "incident in de echte Hub of Uptime Kuma na het stoppen van Node-RED",
-    "uitvoering van een goedgekeurde herstart door de echte uitvoerder"
+    "uitvoering van een goedgekeurde herstart door de echte uitvoerder",
+    "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = false volgt Node-RED een doorverwijzing met het token (controleproef N10)"
   ],
   "uitkomst": "geslaagd",
   "stappen": [
@@ -26,38 +27,16 @@
           "568"
         ],
         "proeven": {
-          "GET /diagnostics (monitor: 403)": 403,
-          "GET /flows anoniem (alleen-lezen: 200)": 200,
+          "GET /diagnostics (monitor: 401)": 401,
+          "GET /flows anoniem (401)": 401,
+          "GET /nodes anoniem (401)": 401,
+          "GET /settings anoniem (401)": 401,
           "POST /flows anoniem (401)": 401,
           "POST /nodes anoniem (geen 200)": 404,
           "POST /auth/token zonder beheerder (geen 200)": 403
         },
-        "node_types": [
-          "catch",
-          "change",
-          "comment",
-          "complete",
-          "debug",
-          "delay",
-          "global-config",
-          "http request",
-          "inject",
-          "join",
-          "json",
-          "junction",
-          "link call",
-          "link in",
-          "link out",
-          "rbe",
-          "split",
-          "status",
-          "switch",
-          "template",
-          "tls-config",
-          "trigger",
-          "unknown"
-        ],
-        "flows": 0
+        "anoniem_geweigerd": true,
+        "export_zonder_aanmelding": "geweigerd (HTTP 401)"
       }
     },
     {
@@ -66,6 +45,9 @@
       "uitkomst": "geslaagd",
       "details": {
         "GET /diagnostics": 200,
+        "GET /flows anoniem": 200,
+        "GET /nodes anoniem": 200,
+        "GET /settings anoniem": 200,
         "/auth/login": {},
         "gevaarlijke_nodes_geladen": [
           "exec",
@@ -95,6 +77,32 @@
       "details": {
         "fout_wachtwoord": "geweigerd",
         "POST /flows anoniem": 401,
+        "GET /flows anoniem": 401,
+        "node_types": [
+          "catch",
+          "change",
+          "comment",
+          "complete",
+          "debug",
+          "delay",
+          "global-config",
+          "http request",
+          "inject",
+          "join",
+          "json",
+          "junction",
+          "link call",
+          "link in",
+          "link out",
+          "rbe",
+          "split",
+          "status",
+          "switch",
+          "template",
+          "tls-config",
+          "trigger",
+          "unknown"
+        ],
         "POST /nodes als beheerder": 404,
         "bestanden_na_proef": [
           ".config.nodes.json",
@@ -123,24 +131,27 @@
         "readback": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "verwacht": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
-            "gelezen": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+            "verwacht": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
+            "gelezen": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
             "gelijk": true,
-            "ingeschakeld": true
+            "ingeschakeld": true,
+            "eigen_controle": []
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "verwacht": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
-            "gelezen": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+            "verwacht": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
+            "gelezen": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
             "gelijk": true,
-            "ingeschakeld": true
+            "ingeschakeld": true,
+            "eigen_controle": []
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "verwacht": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
-            "gelezen": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+            "verwacht": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
+            "gelezen": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
             "gelijk": true,
-            "ingeschakeld": false
+            "ingeschakeld": false,
+            "eigen_controle": []
           }
         },
         "token_in_flows_json": 0,
@@ -148,19 +159,19 @@
         "export": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "sha256": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+            "sha256": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "sha256": "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+            "sha256": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "sha256": "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+            "sha256": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
             "ingeschakeld": false,
             "vergelijking": "gelijk_aan_lock"
           }
@@ -207,7 +218,7 @@
             "runtime_staat": "STOPPED",
             "aanwezig": true,
             "bron": "hub_inventaris",
-            "flow_versie": "1.0.0"
+            "flow_versie": "1.1.0"
           }
         }
       }
@@ -275,11 +286,11 @@
       "uitkomst": "geslaagd",
       "details": {
         "na_wijziging": {
-          "gelezen": "sha256:3b7f95e952e7842363046f424612751a701339e56f11b97ddfa1e9600e4330bd",
+          "gelezen": "sha256:f1234495d0df1fa54512277fd8d7f543c00a0e1a5b19077a1df7fd596216c75b",
           "vergelijking": "afwijkend"
         },
         "na_herstel": {
-          "gelezen": "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",
+          "gelezen": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
           "vergelijking": "gelijk_aan_lock"
         }
       }
@@ -315,6 +326,68 @@
         },
         "tijd": "3 × het interval is niet gewacht maar gevraagd aan de simulator (over_s=181)",
         "incident_in_echte_hub_of_uptime_kuma": "NIET GEVALIDEERD"
+      }
+    },
+    {
+      "id": "N10",
+      "titel": "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing (ADR-0025; I10-10-02)",
+      "uitkomst": "geslaagd",
+      "details": {
+        "weigering": {
+          "env_op_tabblad": {
+            "geweigerd": true,
+            "codes": [
+              "veld_niet_toegestaan"
+            ],
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "tweede_regel_op_msg_url": {
+            "geweigerd": true,
+            "codes": [
+              "change_regel"
+            ],
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "hub_kreeg_de_heartbeat": true,
+          "luisteraar_ontving": 0
+        },
+        "doorverwijzing_flow_uit_git": {
+          "307 naar zelfde_host_andere_poort": {
+            "doorstuurder_kreeg_bearer": true,
+            "doel_ontving": 0
+          },
+          "302 naar zelfde_host_andere_poort": {
+            "doorstuurder_kreeg_bearer": true,
+            "doel_ontving": 0
+          },
+          "307 naar andere_host": {
+            "doorstuurder_kreeg_bearer": true,
+            "doel_ontving": 0
+          },
+          "302 naar andere_host": {
+            "doorstuurder_kreeg_bearer": true,
+            "doel_ontving": 0
+          }
+        },
+        "controleproef_zonder_regel": {
+          "doorverwijzing_gevolgd": true,
+          "bearer_meegestuurd_naar_andere_host": true,
+          "readback_ziet_het": "redirect_niet_uit"
+        },
+        "na_herstel": {
+          "hartslag": {
+            "gelijk": true,
+            "eigen_controle": []
+          },
+          "mediaguard-offline": {
+            "gelijk": true,
+            "eigen_controle": []
+          },
+          "testflow-herstart": {
+            "gelijk": true,
+            "eigen_controle": []
+          }
+        }
       }
     }
   ]

@@ -155,7 +155,8 @@ upstream-rooktest:
 # Node-RED (I10, ADR-0023). nodered: manifest-FLOWS gelijk aan install/node-red/settings-overrides.json, flowbundels
 #   door de eigen controle en het lock (checksums) actueel — zonder Docker.
 # nodered-rooktest: de gepinde image als 568 met het manifest tegen de Hub-simulator (beveiliging, flows importeren,
-#   melding, aanvraag via de Hub, hartslag, herstel, stop zichtbaar). Alleen Docker en de simulator; geen NAS.
+#   melding, aanvraag via de Hub, hartslag, herstel, stop zichtbaar, token alleen naar de Hub). Alleen Docker en de
+#   simulator; geen NAS.
 nodered:
 	$(PY) tools/nodered_flows.py render --check
 	$(PY) tools/nodered_flows.py lint

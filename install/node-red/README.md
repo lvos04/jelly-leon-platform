@@ -42,25 +42,32 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
    vaste Hub-routes hieronder (`$env('HUB_URL') & '<route>'`), met een vaste methode en het token als bearer. Een
    eigenschap in een `change`-regel is alleen een eenvoudige naam (letters, cijfers, `_` en punten, nooit `msg…`):
    Node-RED leest `msg.url`, `'url'`, `"url"` en `msg['url']` als `msg.url`, dus elke andere schrijfwijze wordt
-   geweigerd (`change_regel`). Geen adressen, tokens of `credentials` in Git; geen globale context; geen eigen `env`
-   of groep op een tabblad of node (Node-RED leest `$env('HUB_URL')` daar eerst); een flow die een actie aanvraagt
-   staat in Git **uitgeschakeld**. Eén bevinding en er verandert niets in Node-RED.
+   geweigerd (`change_regel`). Ook geweigerd (`change_regel`): de segmenten `__proto__`, `constructor` en `prototype`
+   in een eigenschap of in een bron uit msg, flow of global (die leiden naar het prototype van elk object), een regel
+   die geen object is, en de oude vorm van de `change`-node zonder lijst `rules` (Node-RED maakt die zelf tot een
+   regel). Elke `http request` krijgt van zijn route-node `msg.followRedirects = false` (`redirect_niet_uit` als het
+   ontbreekt; een andere waarde is `verzoek_overschreven`): gemeten bij deze digest stuurt Node-RED bij een
+   doorverwijzing naar een andere host of poort de bearer-kop met het token mee. Geen adressen, tokens of
+   `credentials` in Git; geen globale context; geen eigen `env` of groep op een tabblad of node (Node-RED leest
+   `$env('HUB_URL')` daar eerst); een flow die een actie aanvraagt staat in Git **uitgeschakeld**. Eén bevinding en er
+   verandert niets in Node-RED.
 3. **Bij de Hub.** Het token is een service-token met alleen de scopes die nodig zijn (`inventaris.lezen`,
    en voor de testflow de scope om voorstellen in te dienen). De Hub zet de actor van een voorstel zelf op `flow` en
    bepaalt de risicoklasse; een `risk_claim` van de flow telt niet.
 
 **Niet af te dwingen:** het Custom App-formulier kent geen regels voor uitgaand verkeer. Een beheerder kan in de
-editor een eigen `http request` naar elk adres maken. Beperkt is dus wat deze repo levert (punt 2) en wat de Hub
-toestaat (punt 3), niet het netwerk van de container. Een flow met een nodetype dat niet geladen is (bijvoorbeeld
+editor een eigen `http request` naar elk adres maken, en een eigen flow zonder `msg.followRedirects = false` volgt een
+doorverwijzing met het token (gemeten: controleproef in stap N10). Beperkt is dus wat deze repo levert (punt 2) en wat
+de Hub toestaat (punt 3), niet het netwerk van de container. Een flow met een nodetype dat niet geladen is (bijvoorbeeld
 exec of function), voert niets uit — ook niet als hij buiten `lint` om via de Admin-API is gezet (stap N3).
 
 ## Bundels
 
 | Bundel | Versie | Soort | Standaard | Routes bij de Hub |
 |---|---|---|---|---|
-| `flows/hartslag.json` | 1.0.0 | alleen lezen en melden | aan | `POST /api/v1/monitoring/heartbeat` |
-| `flows/mediaguard-offline.json` | 1.0.0 | alleen lezen en melden | aan | `GET /api/v1/apps`, `POST /api/v1/events/inbox` |
-| `flows/testflow-herstart.json` | 1.0.0 | actie aanvragen | **uit** | `POST /api/v1/actions/proposals` (voorlopige route) |
+| `flows/hartslag.json` | 1.1.0 | alleen lezen en melden | aan | `POST /api/v1/monitoring/heartbeat` |
+| `flows/mediaguard-offline.json` | 1.1.0 | alleen lezen en melden | aan | `GET /api/v1/apps`, `POST /api/v1/events/inbox` |
+| `flows/testflow-herstart.json` | 1.1.0 | actie aanvragen | **uit** | `POST /api/v1/actions/proposals` (voorlopige route) |
 
 De versie staat op de eerste regel van de beschrijving van het tabblad (`versie x.y.z`). Een wijziging = versie
 ophogen, `python tools/nodered_flows.py lock`, committen. `make nodered` controleert manifest, bundels en lock.
@@ -94,7 +101,7 @@ Eventschema (envelop van contract 1.3 §7, `schema_version "1.0"`):
   "actor": {"type": "flow", "id": "mediaguard-offline"},
   "classification": "internal",
   "payload": {"staat": "down", "runtime_staat": "STOPPED", "aanwezig": true, "bron": "hub_inventaris",
-              "flow_versie": "1.0.0"}
+              "flow_versie": "1.1.0"}
 }
 ```
 
@@ -132,9 +139,9 @@ python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere v
   van Node-RED en het token als credential van de `http request`-nodes. Node-RED versleutelt credentials op schijf en
   geeft ze nooit terug; de import leest terug en vergelijkt per bundel de sha256 met de verwachting, laat de
   teruggelezen nodes van elk eigen tabblad opnieuw door `lint` gaan, en controleert dat op de eigen tabbladen geen
-  `env` staat en dat de globale `HUB_URL` precies de opgegeven Hub-URL is. Vindt het teruglezen iets, dan zet de
-  import de flows van vóór de import terug (lukt dat niet, dan zegt de melding dat) en geeft een fout. Tabbladen
-  die niet uit deze repo komen blijven staan.
+  `env` staat en dat de globale `HUB_URL` precies de opgegeven Hub-URL is. Vindt het teruglezen iets, of faalt het
+  teruglezen zelf (bijvoorbeeld een netwerkfout), dan zet de import de flows van vóór de import terug (lukt dat niet,
+  dan zegt de melding dat) en geeft een fout. Tabbladen die niet uit deze repo komen blijven staan.
 - **Export (Git-export):** één bestand per tabblad plus de vergelijking met `flows.lock.json`:
   `gelijk_aan_lock`, `afwijkend` of `onbekend` (tabblad dat niet uit deze repo komt). Een tabblad-id is nooit een
   pad: een tabblad dat niet in het lock staat en geen eigen id (`jlp-…`) heeft, krijgt de bestandsnaam

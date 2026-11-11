@@ -253,7 +253,7 @@
   officiële image op digest, 568:568, alleen `/data`). Beveiligd via de omgevingsvariabele `FLOWS`: inloggen
   verplicht, geen exec-, function- of bestandsnodes geladen, geen installatie van extra nodes; de monitor bewaakt of die
   beveiliging actief is (sinds besluit C-11: geen anonieme toegang en 401 op `/diagnostics`; zie "Node-RED na besluit
-  C-11"). Flowbundels in `install/node-red/flows/` met
+  C-11 en de restpunten van de review"). Flowbundels in `install/node-red/flows/` met
   eigen controle, versies en sha256-lock: `hartslag` (heartbeat §6.1 met flowvertraging), `mediaguard-offline`
   (leest de inventaris van de Hub, meldt `flow.app_watch.down`/`recovered`), `testflow-herstart` (vraagt een herstart
   aan bij de Hub; staat uit). `tools/nodered_flows.py` (render, lint, lock, importeer, exporteer) en
@@ -311,7 +311,7 @@
   (`test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`).
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.
 
-### Node-RED na besluit C-11 (S-P2-410)
+### Node-RED na besluit C-11 en de restpunten van de review (S-P2-410)
 
 - **Geen anonieme toegang (besluit C-11 van de gebruiker, 2026-11-11):** `adminAuth` is precies
   `{"type": "credentials", "users": []}`, zonder `default`. Anoniem `GET /flows`, `/nodes`, `/settings` en
@@ -323,4 +323,14 @@
   Eerlijk: dat bewijst alleen `adminAuth` zonder anonieme rechten, niet de rest van `FLOWS` (ADR-0023 punt 3). Nieuw:
   `anoniem_geweigerd` (401 op `GET /flows`, `/nodes`, `/settings`) en `exec_en_function_niet_geladen` (handmatig: kan
   alleen met een beheerder).
+- **Restpunten van de review van P2 (S-P2-395) in het hulpmiddel:** `importeer` zet de vorige flows ook terug als het
+  teruglezen zelf faalt (netwerkfout, onverwachte gegevens; R-VEILIG-5), en `lint` crasht niet meer op `rules`,
+  `wires` of `props` van een verkeerde vorm. `lint` weigert `__proto__`, `constructor` en `prototype` in een eigenschap
+  en in een bron uit msg, flow of global, en de oude vorm van de `change`-node zonder lijst `rules`.
+- **Doorverwijzingen (gemeten):** bij deze digest stuurde de `http request`-node bij een doorverwijzing (307/302) naar
+  een andere poort of host de bearer-kop met het service-token mee. Elke route-node zet nu
+  `msg.followRedirects = false` (verplicht in `lint`: `redirect_niet_uit`); de drie bundels staan op versie 1.1.0.
+- **Rooktest:** nieuwe stap N10 (weigering van een bundel met `env` op het tabblad of een tweede regel op `msg.url`,
+  geen doorverwijzing met het token, controleproef zonder de regel); het bewaarde rapport
+  `docs/platform-v2/bewijs/nodered-rooktest-p2.json` is opnieuw gemaakt (met `eigen_controle` in de readback).
 - Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.

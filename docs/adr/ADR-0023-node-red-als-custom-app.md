@@ -63,6 +63,24 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    zijn `msg.url` (`change_regel`; ADR-0025 besluit 6). Na de import leest het hulpmiddel terug dat alleen de
    globale `HUB_URL` telt en dat die precies de opgegeven Hub-URL is, en laat het de teruggelezen nodes van elk
    eigen tabblad opnieuw door `lint` gaan; bij een bevinding gaan de flows van vóór de import terug.
+   Sinds S-P2-410 (restpunten van de review van P2):
+   - *Prototype:* de segmenten `__proto__`, `constructor` en `prototype` worden geweigerd in een eigenschap (`p`) en in
+     een bron (`to`) uit msg, flow of global (`change_regel`); daarmee was op de echte image `Object.prototype` te
+     vervuilen. Een bron in JSONata (`$$.__proto__`, `$lookup($$, '__pro' & 'to__')`) geeft bij deze digest
+     `undefined`, geen prototype (gemeten met de JSONata uit de image).
+   - *Oude vorm van de `change`-node:* een `change`-node zonder lijst `rules` (met `action`/`property`/`to`, die
+     Node-RED zelf tot een regel maakt) wordt geweigerd (`change_regel`), net als een regel die geen object is.
+   - *Doorverwijzingen:* gemeten bij deze digest stuurt de `http request`-node bij een doorverwijzing (307 en 302)
+     naar een andere poort of een andere host de bearer-kop met het service-token mee. Node-RED zet de kop vóór elk
+     verzoek terug als `Authorization`, zodat got hem bij een andere herkomst niet meer weghaalt (`got` 14.6.6 haalt
+     alleen de kleine letters `authorization` weg). Elke `http request` krijgt daarom van zijn route-node
+     `msg.followRedirects = false` (bool); ontbreekt dat, dan `redirect_niet_uit`, en elke andere regel op
+     `msg.followRedirects` is `verzoek_overschreven`. De bundels staan daarvoor op versie 1.1.0. Rooktest N10 meet het
+     bij elke digest opnieuw, met een controleproef zonder de regel.
+   - *Teruglezen faalt zelf* (netwerkfout, of teruggelezen gegevens die geen lijst van objecten zijn): `importeer`
+     zet ook dan de flows van vóór de import terug en geeft een Nederlandse melding (R-VEILIG-5); `lint` geeft bij
+     `rules`, `wires` of `props` van een verkeerde vorm een bevinding (`change_regel`, `draad_ongeldig`,
+     `inject_velden`) in plaats van te crashen.
 6. **Geheimen alleen bij de import.** De Hub-URL wordt de globale omgevingsvariabele `HUB_URL` van Node-RED; het
    service-token wordt een credential van de `http request`-nodes. Beide komen uit omgevingsvariabelen van het
    hulpmiddel, nooit van de opdrachtregel en nooit in Git. Eerlijk: de sleutel waarmee Node-RED credentials
@@ -102,7 +120,8 @@ eindgebruiker heeft geen terminal.
 Verder niet gebouwd of niet af te dwingen:
 
 - **Uitgaand verkeer:** het formulier kent geen egressregels. Beperkt zijn de bundels uit deze repo (lint) en wat de
-  Hub een service-token toestaat; een beheerder kan in de editor zelf een `http request` naar elk adres maken.
+  Hub een service-token toestaat; een beheerder kan in de editor zelf een `http request` naar elk adres maken, en een
+  eigen flow zonder `msg.followRedirects = false` volgt een doorverwijzing met het token (gemeten, N10).
 - **Flow "my_house sensor verouderd → melding":** geen contractroute voor sensorversheid → `capability_unavailable`;
   er is geen nagebootste flow.
 - **Incident bij stoppen:** in de simulator zichtbaar als verouderde heartbeat; in de echte Hub en Uptime Kuma
@@ -124,7 +143,11 @@ de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met 
 gestopt/hersteld/onbekend ·
 N6 testflow: uit = geen reactie; aan = R1 toegestaan / R2 wacht op goedkeuring, actor door de Hub gezet · N7 hartslag
 met flowvertraging · N8 andere versie zichtbaar als afwijkend, herstel uit Git · N9 herstart zonder verlies van flows
-en credentials, stoppen zichtbaar. De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
+en credentials, stoppen zichtbaar · N10 het token gaat alleen naar de Hub: een bundel met `env` op het tabblad of met
+een tweede regel op `msg.url` wordt geweigerd vóór Node-RED iets verandert (een luisteraar ontvangt niets); een
+doorverwijzing (307/302) van de "Hub" naar een andere poort of host volgt de flow uit Git niet; controleproef zonder
+`msg.followRedirects = false`: Node-RED volgt de doorverwijzing en stuurt de bearer-kop mee, en het teruglezen ziet de
+ontbrekende regel (`redirect_niet_uit`). De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
 
 ## Afgewezen
 

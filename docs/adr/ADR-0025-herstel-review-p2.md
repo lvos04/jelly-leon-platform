@@ -173,6 +173,11 @@
   een luisteraar niets ontvangt. Die weigering gebeurt al vóór het hulpmiddel Node-RED aanroept (in herstelpoging 2
   met een losse proef op de echte image aangetoond), en het bewaarde rooktestrapport
   (`docs/platform-v2/bewijs/nodered-rooktest-p2.json`) zou dan opnieuw gemaakt moeten worden.
+  *Stand S-P2-410:* gebouwd. De controle na installatie `exec_en_function_niet_geladen` staat in het manifest
+  (handmatig: na besluit C-11 kan `GET /nodes` alleen met een beheerder), `description_nl` is bijgewerkt, rooktest N10
+  toont de weigering en dat een luisteraar niets ontvangt, en het rapport is opnieuw gemaakt. Ook R-VEILIG-5
+  (terugzetten bij elke fout van het teruglezen), de prototypesegmenten, de oude vorm van de `change`-node en de
+  doorverwijzing (de bearer-kop ging mee; nu `msg.followRedirects = false`) zijn afgehandeld; zie ADR-0023 punt 5.
 - **Melden door de Hub alleen.** Zodra de Hub de resultaten van de executor zelf doorgeeft (contractvraag over de vorm
   van dat resultaat, ADR-0024), kan `…/result` voor actiestappen alleen voor `service` open. Eigenaar: de
   contracteigenaar (ai-server-manager) voor de resultaatvorm, daarna de regisseur (nog niet gepland).

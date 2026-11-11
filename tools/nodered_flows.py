@@ -64,6 +64,16 @@ VERBODEN_MSG_VELDEN = frozenset({"method", "headers", "cookies", "requestTimeout
 # haken (msg['url'], 'url', "url"); elke andere schrijfwijze dan de eenvoudige naam wordt daarom geweigerd, vóór de
 # url- en VERBODEN-controles (herreview P2, R-VEILIG-1, herstelpoging 2).
 EIGENSCHAP_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+# Segmenten die in JavaScript naar het prototype van elk object leiden. Op de gepinde image vervuilt een bundel daarmee
+# Object.prototype (a = msg.__proto__; a.env.http_proxy = …): geweigerd in de eigenschap (p) en in de bron (to) bij
+# een bron uit msg, flow of global (S-P2-410 bouwpunt 9b; R-VEILIG-3 van S-P2-395).
+VERBODEN_SEGMENTEN = frozenset({"__proto__", "constructor", "prototype"})
+CONTEXT_BRONNEN = frozenset({"msg", "flow", "global"})
+# De enige toegestane regel op msg.followRedirects, en verplicht in de route-node van elke http request: gemeten op de
+# gepinde image stuurt de http request-node bij een doorverwijzing (307/302) naar een andere host of poort de
+# bearer-kop met het service-token mee (Node-RED zet de kop terug als 'Authorization', zodat got hem bij een andere
+# herkomst niet meer weghaalt). Zonder doorverwijzingen gaat het token alleen naar HUB_URL (S-P2-410 bouwpunt 9d).
+REDIRECT_UIT = {"t": "set", "p": "followRedirects", "pt": "msg", "to": "false", "tot": "bool"}
 ID_RE = re.compile(r"^jlp-[a-z0-9-]{1,60}$")
 VERSIE_RE = re.compile(r"^versie (\d+\.\d+\.\d+)\n")
 EVENT_RE = re.compile(r'"(flow\.[a-z0-9_]+\.[a-z0-9_]+)"')
@@ -160,12 +170,22 @@ def tab_van(nodes: list[Node]) -> Node | None:
     return tabs[0] if len(tabs) == 1 else None
 
 
+def _regels(node: Node) -> list[Node]:
+    """De regels van een change-node die objecten zijn (zonder te crashen op andere vormen; die meldt ``lint``)."""
+    regels = node.get("rules")
+    return [r for r in regels if isinstance(r, dict)] if isinstance(regels, list) else []
+
+
+def _redirect_uit(regel: Node) -> bool:
+    return all(regel.get(k) == v for k, v in REDIRECT_UIT.items())
+
+
 def routes_van(nodes: list[Node]) -> list[str]:
     uit = set()
     for node in nodes:
         if node.get("type") == "change":
-            for regel in node.get("rules") or []:
-                if isinstance(regel, dict) and regel.get("p") == "url" and regel.get("to") in HUB_ROUTES:
+            for regel in _regels(node):
+                if regel.get("p") == "url" and regel.get("to") in HUB_ROUTES:
                     methode, pad = HUB_ROUTES[str(regel["to"])]
                     uit.add(f"{methode} {pad}")
     return sorted(uit)
@@ -205,11 +225,16 @@ def lint(nodes: list[Node]) -> list[str]:
             if node is not tab and veld in node:
                 uit.append(f"veld_niet_toegestaan: {node.get('id')} heeft '{veld}' (geen eigen env of groep: "
                            "HUB_URL komt alleen uit de globale instellingen)")
-        for uitgang in node.get("wires") or []:
+        draden = node.get("wires", [])
+        if not isinstance(draden, list) or not all(isinstance(u, list) and all(isinstance(d, str) for d in u)
+                                                   for u in draden):
+            uit.append(f"draad_ongeldig: {node.get('id')} — 'wires' is een lijst van lijsten met node-ids")
+            draden = []
+        for uitgang in draden:
             for doel in uitgang:
-                if str(doel) not in per_id:
+                if doel not in per_id:
                     uit.append(f"draad_naar_buiten: {node.get('id')} → {doel} bestaat niet in deze bundel")
-                naar.setdefault(str(doel), []).append(node)
+                naar.setdefault(doel, []).append(node)
     for tekst in _teksten(nodes):
         if GEHEIM_RE.search(tekst):
             uit.append("geheim_in_bundel: een waarde lijkt op een token, sleutel of wachtwoordhash")
@@ -222,8 +247,10 @@ def lint(nodes: list[Node]) -> list[str]:
         if ntype == "change":
             uit += _lint_change(node)
         elif ntype == "inject":
-            if [p.get("p") for p in node.get("props") or [] if isinstance(p, dict)] not in (["payload"], [
-                    "payload", "topic"]):
+            props = node.get("props")
+            velden = [p.get("p") for p in props] if isinstance(props, list) and all(
+                isinstance(p, dict) for p in props) else None
+            if velden not in (["payload"], ["payload", "topic"]):
                 uit.append(f"inject_velden: {node.get('id')} mag alleen payload (en topic) zetten")
         elif ntype == "debug":
             if node.get("console") or node.get("tostatus"):
@@ -235,23 +262,47 @@ def lint(nodes: list[Node]) -> list[str]:
     return uit
 
 
+def _segment_fout(naam: str) -> str | None:
+    """Waarom ``naam`` geen eenvoudige, veilige eigenschapsnaam is (None = in orde)."""
+    if not EIGENSCHAP_RE.fullmatch(naam):
+        return "is geen eenvoudige naam (alleen letters, cijfers, _ en punten; geen aanhalingstekens of haken)"
+    if verboden := VERBODEN_SEGMENTEN & set(naam.split(".")):
+        return f"bevat {', '.join(sorted(verboden))} (leidt naar het prototype van elk object)"
+    return None
+
+
 def _lint_change(node: Node) -> list[str]:
+    nid = node.get("id")
+    regels = node.get("rules")
+    if not isinstance(regels, list):
+        # Zonder lijst 'rules' maakt Node-RED (15-change.js) zelf een regel uit action/property/to: die oude vorm
+        # wordt niet gecontroleerd en dus geweigerd (S-P2-410 bouwpunt 9c).
+        return [f"change_regel: {nid} — alleen de vorm met een lijst 'rules' (de oude vorm met action/property/to "
+                "wordt geweigerd)"]
     uit = []
-    for regel in node.get("rules") or []:
-        veld, soort, bak = str(regel.get("p", "")), regel.get("t"), regel.get("pt")
+    for regel in regels:
+        if not isinstance(regel, dict):
+            uit.append(f"change_regel: {nid} — een regel is geen object")
+            continue
+        veld, soort, bak, bron = str(regel.get("p", "")), regel.get("t"), regel.get("pt"), regel.get("tot")
         wortel = veld.split(".", 1)[0]
         if soort not in ("set", "delete") or bak not in ("msg", "flow"):
-            uit.append(f"change_regel: {node.get('id')} — alleen set/delete op msg of de eigen flowcontext")
-        elif not EIGENSCHAP_RE.fullmatch(veld) or wortel == "msg":
-            uit.append(f"change_regel: {node.get('id')} — eigenschap '{veld[:40]}' is geen eenvoudige naam (alleen "
-                       "letters, cijfers, _ en punten; niet 'msg…', geen aanhalingstekens of haken: Node-RED leest "
-                       "die als msg.url of msg.headers)")
+            uit.append(f"change_regel: {nid} — alleen set/delete op msg of de eigen flowcontext")
+        elif (reden := _segment_fout(veld)) is not None or wortel == "msg":
+            uit.append(f"change_regel: {nid} — eigenschap '{veld[:40]}' "
+                       f"{reden or 'begint met msg (Node-RED haalt msg. er zelf af)'}; Node-RED leest andere "
+                       "schrijfwijzen als msg.url of msg.headers")
+        elif soort == "set" and bron in CONTEXT_BRONNEN and (reden := _segment_fout(str(regel.get("to", "")))):
+            uit.append(f"change_regel: {nid} — bron '{str(regel.get('to', ''))[:40]}' ({bron}) {reden}")
         elif bak == "msg" and wortel == "url":
-            if soort != "set" or regel.get("tot") != "jsonata" or regel.get("to") not in HUB_ROUTES or veld != "url":
-                uit.append(f"url_niet_toegestaan: {node.get('id')} zet msg.url op iets anders dan een vaste "
-                           "Hub-route")
+            if soort != "set" or bron != "jsonata" or regel.get("to") not in HUB_ROUTES or veld != "url":
+                uit.append(f"url_niet_toegestaan: {nid} zet msg.url op iets anders dan een vaste Hub-route")
+        elif bak == "msg" and wortel == "followRedirects":
+            if not _redirect_uit(regel):
+                uit.append(f"verzoek_overschreven: {nid} — msg.followRedirects mag alleen op false (bool): een "
+                           "doorverwijzing neemt het token mee naar een ander adres")
         elif bak == "msg" and wortel in VERBODEN_MSG_VELDEN and soort != "delete":
-            uit.append(f"verzoek_overschreven: {node.get('id')} zet msg.{wortel} (methode en koppen liggen vast)")
+            uit.append(f"verzoek_overschreven: {nid} zet msg.{wortel} (methode en koppen liggen vast)")
     return uit
 
 
@@ -271,13 +322,16 @@ def _lint_http(node: Node, voorgangers: list[Node]) -> list[str]:
     if not voorgangers:
         uit.append(f"http_zonder_route: {nid} heeft geen voorganger die de Hub-route zet")
     for voor in voorgangers:
-        routes = [str(r.get("to")) for r in voor.get("rules") or [] if isinstance(r, dict)
-                  and r.get("p") == "url" and r.get("pt") == "msg" and r.get("t") == "set"]
+        routes = [str(r.get("to")) for r in _regels(voor)
+                  if r.get("p") == "url" and r.get("pt") == "msg" and r.get("t") == "set"]
         if voor.get("type") != "change" or len(routes) != 1 or routes[0] not in HUB_ROUTES:
             uit.append(f"http_zonder_route: {nid} wordt gevoed door {voor.get('id')} zonder vaste Hub-route")
         elif HUB_ROUTES[routes[0]][0] != methode:
             uit.append(f"http_methode: {nid} is {methode}, de route van {voor.get('id')} vraagt "
                        f"{HUB_ROUTES[routes[0]][0]}")
+        if voor.get("type") == "change" and not any(_redirect_uit(r) for r in _regels(voor)):
+            uit.append(f"redirect_niet_uit: {nid} — {voor.get('id')} zet msg.followRedirects niet op false (bool); "
+                       "bij een doorverwijzing gaat het token anders mee naar een ander adres")
     return uit
 
 
@@ -403,15 +457,22 @@ def importeer(nr: NodeRed, bundels: dict[str, list[Node]], *, hub_url: str, toke
     nieuwe_rev = nr.zet_flows(rev, nieuw)
     try:
         return readback(nr, bundels, verboden=(token,), hub_url=hub_url)
-    except Fout as exc:
-        # Wat teruggelezen is, mag niet blijven draaien met het token: de flows van vóór de import gaan terug. De
-        # credentials van nodes die daarin al stonden bewaart Node-RED apart; ``huidig`` (uit GET /flows) bevat er geen.
+    except Exception as exc:  # fail-closed: elke fout bij het teruglezen zet de vorige flows terug
+        # Wat teruggelezen is, mag niet blijven draaien met het token: de flows van vóór de import gaan terug, ook bij
+        # een netwerkfout of onverwachte teruggelezen gegevens (R-VEILIG-5 van S-P2-395). De credentials van nodes die
+        # daarin al stonden bewaart Node-RED apart; ``huidig`` (uit GET /flows) bevat er geen.
+        reden = str(exc) if isinstance(exc, Fout) else f"Het teruglezen na de import is mislukt ({_kort(exc)})."
         try:
             nr.zet_flows(nieuwe_rev or nr.flows()[0], vorige)
-        except Fout as terug:
-            raise Fout(f"{exc} De vorige flows zijn NIET teruggezet ({terug}); zet ze zelf terug of schakel de "
-                       "eigen tabbladen uit.") from exc
-        raise Fout(f"{exc} De flows van vóór de import zijn teruggezet.") from exc
+        except Exception as terug:
+            raise Fout(f"{reden} De vorige flows zijn NIET teruggezet ({_kort(terug)}); zet ze zelf terug of schakel "
+                       "de eigen tabbladen uit.") from exc
+        raise Fout(f"{reden} De flows van vóór de import zijn teruggezet.") from exc
+
+
+def _kort(exc: BaseException) -> str:
+    """Een fout als korte tekst voor een melding (soort en eerste 200 tekens), zonder traceback."""
+    return str(exc)[:200] if isinstance(exc, Fout) else f"{type(exc).__name__}: {str(exc)[:200]}"
 
 
 def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[str]:

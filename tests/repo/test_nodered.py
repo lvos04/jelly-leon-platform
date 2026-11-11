@@ -307,7 +307,63 @@ AFGEWEZEN = {
     "change-eigenschap-met-spatie": (lambda: _regel("jlp-hs-bouw", " url"), "change_regel"),
     "change-eigenschap-niet-ascii": (lambda: _regel("jlp-hs-bouw", "urÄ±"), "change_regel"),
     "change-wortel-msg": (lambda: _regel("jlp-hs-bouw", "msg", to="{}", tot="json"), "change_regel"),
+    # S-P2-410 bouwpunt 9b (R-VEILIG-3, vervolgpunt): via __proto__, constructor of prototype vervuilt een bundel
+    # Object.prototype op de echte image (a = msg.__proto__; a.env.http_proxy = …). Geweigerd in p en in to (bij een
+    # bron msg, flow of global), per segment.
+    "proto-in-p": (lambda: _regel("jlp-hs-bouw", "__proto__.env"), "change_regel"),
+    "proto-diep-in-p": (lambda: _regel("jlp-hs-bouw", "a.__proto__.headers"), "change_regel"),
+    "constructor-in-p": (lambda: _regel("jlp-hs-bouw", "constructor.x"), "change_regel"),
+    "prototype-in-p": (lambda: _regel("jlp-hs-bouw", "a.prototype"), "change_regel"),
+    "proto-in-p-flow": (lambda: _regel("jlp-hs-bouw", "__proto__.x", pt="flow"), "change_regel"),
+    "constructor-in-p-flow": (lambda: _regel("jlp-hs-bouw", "a.constructor", pt="flow"), "change_regel"),
+    "proto-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="__proto__", tot="msg"), "change_regel"),
+    "constructor-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="payload.constructor", tot="msg"),
+                              "change_regel"),
+    "prototype-in-to-flow": (lambda: _regel("jlp-hs-bouw", "a", to="x.prototype", tot="flow"), "change_regel"),
+    "proto-in-to-global": (lambda: _regel("jlp-hs-bouw", "a", to="__proto__", tot="global"), "change_regel"),
+    "constructor-in-to-global": (lambda: _regel("jlp-hs-bouw", "a", to="constructor", tot="global"), "change_regel"),
+    "prototype-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="prototype", tot="msg"), "change_regel"),
+    "proto-haken-in-to": (lambda: _regel("jlp-hs-bouw", "a", to="payload['__proto__']", tot="msg"), "change_regel"),
+    # S-P2-410 bouwpunt 9c: de oude vorm van de change-node (zonder rules, met action/property/to) maakt Node-RED zelf
+    # tot een regel (15-change.js); zo kwamen msg.rejectUnauthorized, msg.followRedirects en msg.requestTimeout langs
+    # verzoek_overschreven. Die vorm wordt geweigerd.
+    "oude-vorm-rejectUnauthorized": (lambda: _met("oud", type="change", action="replace", property="rejectUnauthorized",
+                                                  to="false", reg=False), "change_regel"),
+    "oude-vorm-followRedirects": (lambda: _met("oud", type="change", action="replace", property="followRedirects",
+                                               to="true", reg=False), "change_regel"),
+    "oude-vorm-requestTimeout": (lambda: _met("oud", type="change", action="replace", property="requestTimeout",
+                                              to="1", reg=False), "change_regel"),
+    "oude-vorm-rules-null": (lambda: _wijzig("hartslag", "jlp-hs-bouw", rules=None, action="replace",
+                                             property="headers", to="{}"), "change_regel"),
+    # S-P2-410 bouwpunt 9a (R-VEILIG-5): gegevens die geen lijst van objecten zijn geven een bevinding, geen crash.
+    "regel-geen-object": (lambda: _wijzig("hartslag", "jlp-hs-bouw", rules=["url"]), "change_regel"),
+    "rules-als-object": (lambda: _wijzig("hartslag", "jlp-hs-bouw", rules={"p": "url"}), "change_regel"),
+    "wires-geen-lijst": (lambda: _wijzig("hartslag", "jlp-hs-tik", wires="jlp-hs-bouw"), "draad_ongeldig"),
+    "wires-uitgang-geen-lijst": (lambda: _wijzig("hartslag", "jlp-hs-tik", wires=["jlp-hs-bouw"]), "draad_ongeldig"),
+    "wires-doel-geen-tekst": (lambda: _wijzig("hartslag", "jlp-hs-tik", wires=[[{"id": "jlp-hs-bouw"}]]),
+                              "draad_ongeldig"),
+    "props-als-object": (lambda: _wijzig("hartslag", "jlp-hs-tik", props={"p": "payload"}), "inject_velden"),
+    "props-als-getal": (lambda: _wijzig("hartslag", "jlp-hs-tik", props=3), "inject_velden"),
+    # S-P2-410 bouwpunt 9d: gemeten op de gepinde image: bij een doorverwijzing (307/302) naar een andere host of poort
+    # stuurt de http request-node de bearer-kop mee (Node-RED zet de kop terug in hoofdletters, waardoor got hem niet
+    # weghaalt). Elke http request krijgt daarom van zijn route-node msg.followRedirects = false, en alleen die waarde.
+    "zonder-redirect-uit": (lambda: _zonder_redirect_uit("hartslag", "jlp-hs-bouw"), "redirect_niet_uit"),
+    "redirect-aan": (lambda: _regel("jlp-hs-bouw", "followRedirects", to="true", tot="bool"), "verzoek_overschreven"),
+    "redirect-als-tekst": (lambda: _regel("jlp-hs-bouw", "followRedirects", to="false", tot="str"),
+                           "verzoek_overschreven"),
+    "redirect-weg": (lambda: _regel("jlp-hs-bouw", "followRedirects", t="delete"), "verzoek_overschreven"),
+    "redirect-deel": (lambda: _regel("jlp-hs-bouw", "followRedirects.x", to="false", tot="bool"),
+                      "verzoek_overschreven"),
 }
+
+
+def _zonder_redirect_uit(naam: str, node_id: str) -> list[dict[str, Any]]:
+    nodes = _bundel(naam)
+    (node,) = [n for n in nodes if n["id"] == node_id]
+    voor = len(node["rules"])
+    node["rules"] = [r for r in node["rules"] if r.get("p") != "followRedirects"]
+    assert len(node["rules"]) == voor - 1
+    return nodes
 
 
 def test_property_names_in_change_rules_are_plain_or_refused() -> None:
@@ -329,6 +385,35 @@ def test_property_names_in_change_rules_are_plain_or_refused() -> None:
 def test_own_check_refuses(geval: str) -> None:
     maak, code = AFGEWEZEN[geval]
     assert code in _codes(maak()), nf.lint(maak())
+
+
+def test_prototype_segments_are_refused_but_plain_sources_stay_allowed() -> None:
+    """Bouwpunt 9b zonder te veel te weigeren: een gewone bron (``tot`` msg/flow met een eenvoudige naam) blijft
+    toegestaan, ook met een deel dat op een verboden woord lijkt."""
+    for to, tot in (("payload", "msg"), ("payload.items", "msg"), ("mediaguard_staat", "flow"),
+                    ("proto_type", "msg"), ("constructor_naam", "msg")):
+        assert not {"change_regel"} & _codes(_regel("jlp-hs-bouw", "kopie", to=to, tot=tot)), (to, tot)
+    assert frozenset({"__proto__", "constructor", "prototype"}) == nf.VERBODEN_SEGMENTEN
+    for geval in ("proto-in-p", "proto-in-to-msg", "constructor-in-to-global", "prototype-in-to-flow"):
+        assert any("__proto__" in b or "constructor" in b or "prototype" in b
+                   for b in nf.lint(AFGEWEZEN[geval][0]())), geval
+
+
+def test_every_http_request_in_git_gets_redirects_off_from_its_route_node() -> None:
+    """Bouwpunt 9d: elke http request-node in de bundels uit Git wordt gevoed door één change-node met een vaste
+    Hub-route én ``msg.followRedirects = false`` (bool)."""
+    gezien = 0
+    for naam, nodes in nf.bundels_in_git().items():
+        per_id = {n["id"]: n for n in nodes}
+        for node in nodes:
+            if node["type"] != "http request":
+                continue
+            voor = [n for n in nodes if node["id"] in [d for u in n.get("wires", []) for d in u]]
+            assert len(voor) == 1 and voor[0]["type"] == "change", (naam, node["id"])
+            regels = per_id[voor[0]["id"]]["rules"]
+            assert {"t": "set", "p": "followRedirects", "pt": "msg", "to": "false", "tot": "bool"} in regels, naam
+            gezien += 1
+    assert gezien == 4  # hartslag, mediaguard-offline (2), testflow-herstart
 
 
 def test_import_refuses_before_touching_node_red() -> None:
@@ -436,6 +521,59 @@ def test_import_checks_after_reading_back_that_only_the_global_hub_url_counts() 
         assert "t" * 30 not in json.dumps(nep.geschreven[1])
 
 
+class _NepNodeRedValtUit(_NepNodeRed):
+    """Node-RED die de import aanneemt, maar bij het teruglezen onbereikbaar is (``httpx.ConnectError``)."""
+
+    def __init__(self, flows: list[dict[str, Any]]) -> None:
+        super().__init__(flows)
+        self.gelezen = 0
+
+    def flows(self) -> tuple[str, list[dict[str, Any]]]:
+        self.gelezen += 1
+        if self.gelezen == 2:
+            raise httpx.ConnectError("verbinding verbroken")
+        return super().flows()
+
+
+def _regel_als_tekst(flows: list[dict[str, Any]]) -> None:
+    """Na de import bewaart Node-RED (of iemand met schrijfrecht) in de route-node een regel die geen object is."""
+    next(n for n in flows if n["id"] == "jlp-hs-bouw")["rules"].append("url")
+
+
+def test_import_restores_the_previous_flows_whatever_breaks_the_readback() -> None:
+    """R-VEILIG-5 (S-P2-395, bouwpunt 9a): faalt het teruglezen met iets anders dan een ``Fout`` (een netwerkfout, of
+    teruggelezen gegevens waarop de eigen controle vroeger crashte), dan zet ``importeer`` de vorige flows toch terug
+    en geeft een Nederlandse ``Fout`` met de reden (fail-closed; geen traceback, de flows met het token blijven niet
+    staan)."""
+    bundels = {"hartslag": _bundel("hartslag")}
+    valt_uit = _NepNodeRedValtUit(VORIGE_FLOWS)
+    with pytest.raises(nf.Fout, match="teruggezet") as fout:
+        nf.importeer(valt_uit, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert "ConnectError" in str(fout.value) or "verbinding" in str(fout.value)
+    assert len(valt_uit.geschreven) == 2 and valt_uit.staat == VORIGE_FLOWS
+    tekst = _NepNodeRed(VORIGE_FLOWS, _regel_als_tekst)
+    with pytest.raises(nf.Fout, match="teruggezet") as fout:
+        nf.importeer(tekst, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert "change_regel" in str(fout.value)
+    assert len(tekst.geschreven) == 2 and tekst.staat == VORIGE_FLOWS
+    assert "t" * 30 not in json.dumps(tekst.geschreven[1])
+
+
+def test_import_says_so_when_restoring_fails_with_any_error() -> None:
+    """Ook als het terugzetten zelf met een netwerkfout faalt: een ``Fout`` die zegt dat de flows NIET zijn
+    teruggezet."""
+
+    class Weg(_NepNodeRedValtUit):
+        def zet_flows(self, rev: str, flows: list[dict[str, Any]]) -> str:
+            if self.geschreven:
+                raise httpx.ConnectError("weg")
+            return super().zet_flows(rev, flows)
+
+    with pytest.raises(nf.Fout, match="NIET teruggezet"):
+        nf.importeer(Weg(VORIGE_FLOWS), {"hartslag": _bundel("hartslag")}, hub_url="https://hub.example",
+                     token="t" * 30)
+
+
 def test_import_reports_when_restoring_the_previous_flows_fails_too() -> None:
     class Dicht(_NepNodeRed):
         def zet_flows(self, rev: str, flows: list[dict[str, Any]]) -> str:
@@ -526,22 +664,37 @@ def test_readme_documents_bundles_event_schema_and_limits() -> None:
 
 
 def test_saved_report_is_complete_and_honest() -> None:
-    """Bewaard rapport is bewijs in EVIDENCE.json; het hoort bij precies deze image en deze bundels."""
+    """Bewaard rapport is bewijs in EVIDENCE.json; het hoort bij precies deze image en deze bundels, en toont besluit
+    C-11 (anoniem 401), de eigen controle bij het teruglezen en de weigering en doorverwijzing van N10 (S-P2-410)."""
     tekst = RAPPORT.read_text(encoding="utf-8")
     r = json.loads(tekst)
     m = _manifest()
     assert r["uitkomst"] == "geslaagd" and r["validatie"] == "Sim-getest; NIET GEVALIDEERD (echte NAS)"
-    assert "geen TrueNAS" in r["omgeving"] and len(r["niet_gedekt"]) >= 4
+    assert "geen TrueNAS" in r["omgeving"] and len(r["niet_gedekt"]) >= 5
     assert r["images"] == {"node-red": f"{m['image']['repository']}:{m['image']['tag']}@{m['image']['digest']}"}
     stappen = {s["id"]: s for s in r["stappen"]}
-    assert list(stappen) == [f"N{i}" for i in range(1, 10)]
+    assert list(stappen) == [f"N{i}" for i in range(1, 11)]
     assert {s["uitkomst"] for s in stappen.values()} == {"geslaagd"}
-    assert stappen["N1"]["details"]["readback_klopt"] is True and stappen["N1"]["details"]["uids"] == ["568"]
-    assert not {"exec", "function", "file", "http in"} & set(stappen["N1"]["details"]["node_types"])
-    assert stappen["N2"]["details"]["monitor_slaagt"] is False  # de controleproef onderscheidt echt
+    n1 = stappen["N1"]["details"]
+    assert n1["readback_klopt"] is True and n1["uids"] == ["568"]
+    mon = m["healthcheck"]["monitor"]
+    assert n1["proeven"][f"GET {mon['pad']} (monitor: {mon['verwachte_status']})"] == mon["verwachte_status"] == 401
+    for pad in ("/flows", "/nodes", "/settings"):  # besluit C-11
+        assert n1["proeven"][f"GET {pad} anoniem (401)"] == 401, pad
+    assert n1["proeven"]["POST /flows anoniem (401)"] == 401 and n1["anoniem_geweigerd"] is True
+    assert n1["export_zonder_aanmelding"] == "geweigerd (HTTP 401)"
+    n2 = stappen["N2"]["details"]
+    assert n2["monitor_slaagt"] is False and n2["GET /diagnostics"] == 200  # de controleproef onderscheidt echt
+    assert all(n2[f"GET {pad} anoniem"] == 200 for pad in ("/flows", "/nodes", "/settings"))
+    n3 = stappen["N3"]["details"]
+    assert not {"exec", "function", "file", "http in"} & set(n3["node_types"])
+    assert {"inject", "change", "http request"} <= set(n3["node_types"]) and n3["GET /flows anoniem"] == 401
     lock = nf.lees_lock()["bundels"]
-    for naam, rij in stappen["N4"]["details"]["readback"].items():
+    readback = stappen["N4"]["details"]["readback"]
+    assert set(readback) == set(lock)
+    for naam, rij in readback.items():
         assert rij["gelezen"] == lock[naam]["sha256"], f"{naam}: rapport hoort bij een andere bundelversie"
+        assert rij["eigen_controle"] == [], naam
     assert stappen["N4"]["details"]["token_in_flows_json"] == 0
     besluiten = stappen["N6"]["details"]["besluiten"]
     assert besluiten["node-red"]["risk_class"] == "R1" and besluiten["authentik"]["status"] == "wacht_op_goedkeuring"
@@ -549,4 +702,20 @@ def test_saved_report_is_complete_and_honest() -> None:
     assert stappen["N9"]["details"]["meldingen_rond_herstart"] == [["flow.app_watch.down", "mediaguard"]] * 2
     assert stappen["N9"]["details"]["hub_na_3x_interval"]["status"] == "unknown"
     assert stappen["N9"]["details"]["incident_in_echte_hub_of_uptime_kuma"] == "NIET GEVALIDEERD"
+    n10 = stappen["N10"]["details"]
+    weigering = n10["weigering"]
+    assert "veld_niet_toegestaan" in weigering["env_op_tabblad"]["codes"]
+    assert "change_regel" in weigering["tweede_regel_op_msg_url"]["codes"]
+    for naam in ("env_op_tabblad", "tweede_regel_op_msg_url"):
+        assert weigering[naam]["geweigerd"] is True and weigering[naam]["flows_in_node_red_ongewijzigd"] is True
+    assert weigering["hub_kreeg_de_heartbeat"] is True and weigering["luisteraar_ontving"] == 0
+    proeven = n10["doorverwijzing_flow_uit_git"]
+    assert set(proeven) == {f"{s} naar {w}" for s in (307, 302) for w in ("zelfde_host_andere_poort", "andere_host")}
+    assert all(p["doorstuurder_kreeg_bearer"] is True and p["doel_ontving"] == 0 for p in proeven.values())
+    controle = n10["controleproef_zonder_regel"]
+    assert controle["doorverwijzing_gevolgd"] is True and controle["readback_ziet_het"] == "redirect_niet_uit"
+    assert isinstance(controle["bearer_meegestuurd_naar_andere_host"], bool)
+    assert all(v == {"gelijk": True, "eigen_controle": []} for v in n10["na_herstel"].values())
     assert not nf.GEHEIM_RE.search(tekst) and "Gereed" not in tekst
+    assert set(re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", tekst)) <= {"127.0.0.1"}, "adres in het rapport (V-097)"
+    assert "/home/" not in tekst and "/tmp/" not in tekst

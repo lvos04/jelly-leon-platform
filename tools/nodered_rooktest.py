@@ -20,7 +20,12 @@ Stappen:
 - N6  testflow "herstart": staat standaard uit; ingeschakeld vraagt hij bij de Hub aan en beslist de Hub (R1/R2);
 - N7  hartslag met flowvertraging komt bij de Hub aan;
 - N8  een andere flowversie zetten en de versie uit Git herstellen (checksum);
-- N9  herstart zonder verlies; stoppen is zichtbaar (monitor faalt, heartbeat verouderd → ``unknown``).
+- N9  herstart zonder verlies; stoppen is zichtbaar (monitor faalt, heartbeat verouderd → ``unknown``);
+- N10 het service-token gaat alleen naar de Hub (ADR-0025, S-P2-410 bouwpunt 9d): een bundel met een ``env`` op het
+      tabblad of met een tweede regel op ``msg.url`` wordt geweigerd vóór Node-RED iets verandert, en een luisteraar
+      ontvangt niets; stuurt de "Hub" door (307/302) naar een andere poort of een andere host, dan volgt de flow uit Git
+      dat niet (``msg.followRedirects = false``). Controleproef: zonder die regel volgt Node-RED de doorverwijzing wel,
+      en het rapport noemt of de bearer-kop daarbij meegaat (bij deze digest: ja).
 
 Wat dit **niet** is: een installatie op TrueNAS, de echte Hub of de echte uitvoerder. Het beheerdersaccount van N3–N9
 kan het manifest (nog) niet leveren; de rooktest zet het met een wegwerpwaarde in ``FLOWS``. Uitkomst: **Sim-getest;
@@ -36,6 +41,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime as dt
+import ipaddress
 import json
 import re
 import secrets
@@ -43,6 +49,8 @@ import socket
 import sys
 import threading
 import time
+from collections.abc import Callable
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -109,6 +117,56 @@ class HubSim:
             return [(str(e["event_type"]), str(e["entity"]["id"])) for e in self.state.events]
 
 
+class Luisteraar:
+    """Een HTTP-luisteraar op een adres dat de container kan bereiken. Noteert per verzoek alleen methode, pad en of er
+    een bearer-kop was (en of dat het service-token was; het token zelf nooit). Met ``doorverwijzing`` antwoordt hij
+    met die status en ``Location: <doel><pad>`` (de doorstuurder in N10)."""
+
+    def __init__(self, host: str, token: Callable[[], str]) -> None:
+        self.ontvangen: list[dict[str, Any]] = []
+        self.doorverwijzing: tuple[int, str] | None = None
+        luisteraar = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def _vang(self) -> None:
+                lengte = int(self.headers.get("Content-Length") or 0)
+                if lengte:
+                    self.rfile.read(lengte)
+                kop = self.headers.get("Authorization") or ""
+                geheim = token()
+                luisteraar.ontvangen.append({"methode": self.command, "pad": self.path.split("?", 1)[0],
+                                             "bearer": kop.startswith("Bearer "),
+                                             "is_het_service_token": bool(geheim) and kop == f"Bearer {geheim}"})
+                if luisteraar.doorverwijzing is not None:
+                    status, doel = luisteraar.doorverwijzing
+                    self.send_response(status)
+                    self.send_header("Location", doel + self.path)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            do_GET = do_POST = _vang
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer((host, 0), Handler)
+        self.url = f"http://{host}:{int(self.server.server_address[1])}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def hartslagen(self) -> list[dict[str, Any]]:
+        return [v for v in list(self.ontvangen) if v["pad"] == "/api/v1/monitoring/heartbeat"]
+
+    def stop(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
 class NoderedRooktest(UpstreamRooktest):
     def __init__(self, houd: bool) -> None:
         super().__init__(houd)
@@ -124,6 +182,9 @@ class NoderedRooktest(UpstreamRooktest):
         self.poort = 0
         self.cname = ""
         self.nr: nf.NodeRed | None = None
+        self.netwerken: list[str] = []
+        self.luisteraars: list[Luisteraar] = []
+        self.adressen: list[str] = [self.bridge]  # komen nooit in het rapport (V-097)
 
     # ------------------------------------------------------------------ hulpmiddelen
     def variant(self, naam: str, flows: str) -> App:
@@ -157,6 +218,22 @@ class NoderedRooktest(UpstreamRooktest):
     def tik(self, node_id: str, props: list[dict[str, Any]] | None = None) -> None:
         code = self.beheer().inject(node_id, props)
         eis(code == 200, f"inject {node_id}: HTTP {code}")
+
+    def luisteraar(self, host: str) -> Luisteraar:
+        luisteraar = Luisteraar(host, lambda: self.token)
+        self.luisteraars.append(luisteraar)
+        return luisteraar
+
+    def andere_host(self) -> str:
+        """Een tweede adres van deze machine dat de container kan bereiken: de gateway van een eigen, leeg
+        Docker-netwerk (een andere host voor de http request-node; het adres komt niet in het rapport)."""
+        naam = f"jlp-upstream-nodered-{self.tag}"
+        sh("docker", "network", "create", naam)
+        self.netwerken.append(naam)
+        adres = sh("docker", "network", "inspect", naam, "--format", "{{(index .IPAM.Config 0).Gateway}}").strip()
+        eis(bool(adres) and adres != self.bridge, "geen tweede adres voor de proef met een andere host")
+        self.adressen.append(adres)
+        return adres
 
     # ------------------------------------------------------------------ stappen
     def n1_manifest(self) -> None:
@@ -442,6 +519,100 @@ class NoderedRooktest(UpstreamRooktest):
                 "na 3 × het interval zonder heartbeat is de dienst niet 'unknown'")
             s.details["incident_in_echte_hub_of_uptime_kuma"] = "NIET GEVALIDEERD"
 
+    def n10_alleen_naar_de_hub(self) -> None:
+        with self.stap("N10", "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing "
+                              "(ADR-0025; I10-10-02)") as s:
+            sh("docker", "start", self.cname)
+            wacht("Node-RED (beheer) weer gestart", lambda: self.klaar(self.poort), 180)
+            nr = self.beheer()
+            nr.login(self.gebruiker, self.wachtwoord)
+            hb = self.hub.state.heartbeats
+            git = nf.bundels_in_git()["hartslag"]
+            buur = self.luisteraar(self.bridge)  # zelfde host, andere poort
+            elders = self.luisteraar(self.andere_host())  # andere host
+            doorstuurder = self.luisteraar(self.bridge)  # speelt de Hub die doorverwijst
+
+            # a. een bundel die het token naar de buur zou sturen, wordt geweigerd vóór Node-RED iets verandert
+            als_getal = f"{int(ipaddress.IPv4Address(self.bridge))}:{buur.url.rsplit(':', 1)[1]}"  # zoals de review
+            env_op_tab = json.loads(json.dumps(git))
+            next(n for n in env_op_tab if n["type"] == "tab")["env"] = [
+                {"name": "HUB_URL", "value": als_getal, "type": "str"}]
+            tweede_url = json.loads(json.dumps(git))
+            next(n for n in tweede_url if n["id"] == "jlp-hs-bouw")["rules"].append(
+                {"t": "set", "p": "msg.url", "pt": "msg", "to": f"{als_getal}/api/v1/monitoring/heartbeat",
+                 "tot": "str"})
+            weigering: dict[str, Any] = {}
+            for naam, nodes in (("env_op_tabblad", env_op_tab), ("tweede_regel_op_msg_url", tweede_url)):
+                voor = nr.flows()[1]
+                try:
+                    nf.importeer(nr, {"hartslag": nodes}, hub_url=self.hub.url, token=self.token)
+                    raise Mislukt(f"{naam}: de import nam de bundel aan")
+                except nf.Fout as exc:
+                    eis("geweigerd" in str(exc), f"{naam}: onverwachte melding")
+                weigering[naam] = {"geweigerd": True, "codes": sorted({b.split(":", 1)[0] for b in nf.lint(nodes)}),
+                                   "flows_in_node_red_ongewijzigd": nr.flows()[1] == voor}
+                eis(weigering[naam]["flows_in_node_red_ongewijzigd"], f"{naam}: Node-RED is toch veranderd")
+            vorige = (hb.get(APP_ID) or {}).get("observed_at")
+            self.tik("jlp-hs-tik")
+            wacht("heartbeat bij de Hub na de weigering", lambda: hb[APP_ID]["observed_at"] != vorige, 30, 0.3)
+            time.sleep(2)
+            weigering["hub_kreeg_de_heartbeat"] = True
+            weigering["luisteraar_ontving"] = len(buur.ontvangen)
+            eis(not buur.ontvangen, "de luisteraar kreeg een verzoek na een geweigerde bundel")
+            s.details["weigering"] = weigering
+
+            # b. de "Hub" stuurt door naar een andere poort of host: de flow uit Git volgt dat niet
+            uit = nf.importeer(nr, {"hartslag": git}, hub_url=doorstuurder.url, token=self.token)
+            eis(uit["hartslag"]["gelijk"] and uit["hartslag"]["eigen_controle"] == [], "import met doorstuurder")
+            time.sleep(7)  # de automatische eerste tik na het zetten van de flows (5 s)
+            doelen = {"zelfde_host_andere_poort": buur, "andere_host": elders}
+            proeven: dict[str, Any] = {}
+            for status, waar in ((307, "zelfde_host_andere_poort"), (302, "zelfde_host_andere_poort"),
+                                 (307, "andere_host"), (302, "andere_host")):
+                for luisteraar in (buur, elders, doorstuurder):
+                    luisteraar.ontvangen.clear()
+                doorstuurder.doorverwijzing = (status, doelen[waar].url)
+                self.tik("jlp-hs-tik")
+                wacht("heartbeat bij de doorstuurder", lambda: bool(doorstuurder.hartslagen()), 20, 0.3)
+                time.sleep(2)
+                (bij_hub, *_rest) = doorstuurder.hartslagen()
+                proeven[f"{status} naar {waar}"] = {
+                    "doorstuurder_kreeg_bearer": bool(bij_hub["is_het_service_token"]),
+                    "doel_ontving": len(buur.ontvangen) + len(elders.ontvangen)}
+                eis(bij_hub["is_het_service_token"], "de doorstuurder (de Hub) kreeg het token niet")
+                eis(not buur.ontvangen and not elders.ontvangen, f"{status} naar {waar}: het doel kreeg een verzoek")
+            s.details["doorverwijzing_flow_uit_git"] = proeven
+
+            # c. controleproef: zonder msg.followRedirects = false (rauwe Admin-API, buiten de eigen controle om)
+            for luisteraar in (buur, elders, doorstuurder):
+                luisteraar.ontvangen.clear()
+            doorstuurder.doorverwijzing = (307, elders.url)
+            rev, flows = nr.flows()
+            bouw = next(n for n in flows if n.get("id") == "jlp-hs-bouw")
+            bouw["rules"] = [r for r in bouw["rules"] if r != nf.REDIRECT_UIT]
+            nr.zet_flows(rev, flows)
+            time.sleep(1)
+            self.tik("jlp-hs-tik")
+            wacht("controleproef: verzoek bij de andere host", lambda: bool(elders.hartslagen()), 20, 0.3)
+            doorstuurder.doorverwijzing = None
+            try:
+                nf.readback(nr, {"hartslag": git})
+                gezien = "niets"
+            except nf.Fout as exc:
+                gezien = "redirect_niet_uit" if "redirect_niet_uit" in str(exc) else "andere bevinding"
+            s.details["controleproef_zonder_regel"] = {
+                "doorverwijzing_gevolgd": True,
+                "bearer_meegestuurd_naar_andere_host": any(v["is_het_service_token"] for v in elders.hartslagen()),
+                "readback_ziet_het": gezien}
+            eis(gezien == "redirect_niet_uit", "het teruglezen ziet de ontbrekende regel niet")
+
+            # d. terug naar de bundels uit Git, met de Hub
+            nf.importeer(nr, {"hartslag": git}, hub_url=self.hub.url, token=self.token)
+            alles = nf.readback(nr, nf.bundels_in_git(), hub_url=self.hub.url)
+            s.details["na_herstel"] = {n: {"gelijk": v["gelijk"], "eigen_controle": v["eigen_controle"]}
+                                       for n, v in alles.items()}
+            eis(all(v["gelijk"] and not v["eigen_controle"] for v in alles.values()), "herstel naar Git faalt")
+
     # ------------------------------------------------------------------ draaien
     def draai(self) -> dict[str, Any]:
         sh("docker", "pull", "-q", self.app.image)
@@ -455,10 +626,15 @@ class NoderedRooktest(UpstreamRooktest):
             self.n7_hartslag()
             self.n8_herstel()
             self.n9_herstart_en_stop()
+            self.n10_alleen_naar_de_hub()
         finally:
+            for luisteraar in self.luisteraars:
+                luisteraar.stop()
             if self.hub.thread.is_alive():
                 self.hub.stop()
             self.opruimen()
+            for netwerk in self.netwerken:
+                sh("docker", "network", "rm", netwerk, check=False)
         geslaagd = bool(self.stappen) and all(s.uitkomst == "geslaagd" for s in self.stappen)
         rapport = {
             "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
@@ -473,6 +649,8 @@ class NoderedRooktest(UpstreamRooktest):
                 "flow 'my_house sensor verouderd → melding' (geen contractroute voor sensorversheid)",
                 "incident in de echte Hub of Uptime Kuma na het stoppen van Node-RED",
                 "uitvoering van een goedgekeurde herstart door de echte uitvoerder",
+                "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = "
+                "false volgt Node-RED een doorverwijzing met het token (controleproef N10)",
             ],
             "uitkomst": "geslaagd" if geslaagd else "mislukt",
             "stappen": [s.__dict__ for s in self.stappen],
@@ -480,6 +658,9 @@ class NoderedRooktest(UpstreamRooktest):
         tekst = json.dumps(rapport, ensure_ascii=False)
         if GEHEIM_RE.search(tekst) or (self.token and self.token in tekst) or self.wachtwoord in tekst:
             raise RuntimeError("rapport bevat iets dat op een geheim lijkt; niet opgeslagen")
+        getallen = [str(int(ipaddress.IPv4Address(a))) for a in self.adressen if a]
+        if any(a and a in tekst for a in [*self.adressen, *getallen]):
+            raise RuntimeError("rapport bevat een adres van deze machine; niet opgeslagen (V-097)")
         return rapport
 
 

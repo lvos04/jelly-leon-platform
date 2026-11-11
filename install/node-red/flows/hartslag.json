@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "JLP · Hartslag naar de Hub",
     "disabled": false,
-    "info": "versie 1.0.0\n\nMeldt elke 60 s een heartbeat bij de Hub (contract 1.3 §6.1) met de vertraging tussen het tikken van de klok en de verwerking in de flow (flow_vertraging). Blijft de heartbeat uit, dan maakt de Hub de dienst na 3 × 60 s 'unknown'. Alleen lezen/melden: deze flow wijzigt niets."
+    "info": "versie 1.1.0\n\nMeldt elke 60 s een heartbeat bij de Hub (contract 1.3 §6.1) met de vertraging tussen het tikken van de klok en de verwerking in de flow (flow_vertraging). Blijft de heartbeat uit, dan maakt de Hub de dienst na 3 × 60 s 'unknown'. Alleen lezen/melden: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false): het token gaat alleen naar HUB_URL."
   },
   {
     "id": "jlp-hs-tik",
@@ -50,6 +50,13 @@
         "pt": "msg",
         "to": "$env('HUB_URL') & '/api/v1/monitoring/heartbeat'",
         "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "followRedirects",
+        "pt": "msg",
+        "to": "false",
+        "tot": "bool"
       }
     ],
     "action": "",

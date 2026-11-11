@@ -59,7 +59,7 @@ tests/conformance/        Hub ↔ dienst volgens contract 1.3 (simulator in CI; 
 make venv && make lint typecheck test test-sim test-repo test-conformance   # PostgreSQL op 127.0.0.1:5432
 make validator-venv manifesten                             # manifesten met jl-manifest --strict (appstore-en-fork)
 make rooktest                                              # Hub + executor + lifecycle als Custom Apps (Docker)
-make nodered nodered-rooktest                              # Node-RED: manifest/bundels/lock; proef N1–N9 (Docker)
+make nodered nodered-rooktest                              # Node-RED: manifest/bundels/lock; proef N1–N10 (Docker)
 make test-e2e                                              # bouwt de image en draait de Docker-E2E
 make test-ui                                               # statuspagina per toestand in Chromium (axe, 320–1440 px)
 make statuspagina-shots                                    # idem + schermafdrukken naar docs/screenshots/peil/

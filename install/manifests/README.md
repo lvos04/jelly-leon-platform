@@ -52,7 +52,7 @@ make validator-venv     # validator van appstore-en-fork in .venv-validator (gec
 make manifesten         # jl-manifest validate --strict (accepted_findings; overgang-1.3.yaml exact), I23-kopie, controlelijsten
 make upstream-rooktest  # upstream-images op digest als 568:568 met lege map: health, API-vorm, herstart (Docker)
 make nodered            # Node-RED: FLOWS in het manifest = settings-overrides.json, flowbundels en lock in orde
-make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator: stappen N1–N9 (Docker)
+make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator: stappen N1–N10 (Docker)
 ```
 
 ### Na de installatie (verplicht; `post_install_checks` in het manifest, de Hub toont ze als taak en de app is tot de bevestiging niet gezond)
