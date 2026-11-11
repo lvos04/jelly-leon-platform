@@ -14,8 +14,9 @@ B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integr
 > Deze dienst voert zelf **niets** uit op een NAS en heeft geen TrueNAS-sleutel: een plan is een voorstel; beleid,
 > goedkeuring en ondertekening doet de Hub, uitvoeren doet alleen de executor (contract §8). De keten plan → Hub →
 > executor → TrueNAS is getest met stand-ins en de TrueNAS-simulator (**Sim-getest**). De echte Hub heeft nog geen
-> route om voorstellen te ontvangen en geen route voor catalogusbeschikbaarheid; daardoor is uitvoeren op een NAS
-> **Geblokkeerd** en is er op een echte TrueNAS niets gevalideerd (**NIET GEVALIDEERD**).
+> route om voorstellen te ontvangen en geen route voor catalogusbeschikbaarheid (S-P2-050, S-P2-080); de proef tegen
+> de echte Hub-code is S-P2-420. Tot dan kan een plan niet via de echte Hub worden uitgevoerd en is er op een echte
+> TrueNAS niets gevalideerd (**NIET GEVALIDEERD**). In het bewijs staan de plannen op **Bezig**.
 
 ## Voor de gebruiker
 

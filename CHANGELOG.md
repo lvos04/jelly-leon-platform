@@ -242,7 +242,8 @@
   `unknown`; beide blokkeren. Het contract noemt voor de catalogus geen pad en de Hub heeft de route nog niet:
   voorlopig `GET /api/v1/catalog/availability` (op één plek in `hubread.py`).
 - **Manifeststandaard als gepinde kopie** in de dienst (`apps/api/src/appstore/`, byte-gelijk aan
-  `appstore-en-fork@7b3159d`; `tools/validator_kopie.py`, ADR-0021).
+  `appstore-en-fork@7b3159d`; `tools/validator_kopie.py`, ADR-0021). Bijgewerkt in de review: nu `1967069` (zie
+  "Review P2").
 - **Ketentest** plan → Hub → uitvoerder → TrueNAS-simulator met stand-ins in `e2e/simulators/hub/`
   (`hub_p2.py`, `contract8.py`, `executor_sim.py`): R0/R1 automatisch, R2/R3 pas na een goedkeuring die aan de diff
   gebonden is, ondertekend `ExecutionRequest` (Ed25519), de uitvoerder controleert alles opnieuw en leest terug.
@@ -263,7 +264,8 @@
     manifeststandaard v1 niet leveren;
   - de flow "my_house sensor verouderd → melding": geen contractroute (`capability_unavailable`), niet nagebootst;
   - installatieplan van een app met geheime parameters (bijvoorbeeld Authentik): altijd geblokkeerd tot de standaard
-    kluisverwijzingen kent;
+    kluisverwijzingen kent (stand na de review: de standaard kent ze sinds `1967069`, maar het plan blijft geblokkeerd
+    zolang de `app_id` van het manifest niet vastligt; ADR-0025 besluit 7);
   - schaduwtest voor catalogusapps; verwijderen en verhuizen (B08-006) geven `capability_unavailable`;
   - uitgaand verkeer beperken: het Custom App-formulier kent geen egressregels.
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor, echte accounts of hardware:
@@ -289,4 +291,17 @@
   bevinding de flows van vóór de import terug.
 - **CI:** de validator van appstore-en-fork staat vast op `1967069` (`ASF_COMMIT`), ook in `make validator-venv`; de
   kopie van de standaard in de dienst staat op dezelfde commit (ADR-0021). Een plan met geheimen blijft geblokkeerd.
+- Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.
+
+### Controle P2 en bijgewerkt bewijs (S-P2-400)
+
+- **Bewijs bijgewerkt:** B08-003, B08-004 en C1.3-JLP-14 staan op **Bezig** (Unit-getest; Sim-getest; NIET
+  GEVALIDEERD (echte NAS)). Open voor alle drie: de routes van de echte Hub (S-P2-050, S-P2-080), de proef tegen de
+  echte Hub-code (S-P2-420) en de test op een echte NAS (P6). De planroutes
+  `POST /lifecycle/v1/plans/{install|update|rollback}/preview` bestaan; alleen verwijderen en verhuizen (B08-006)
+  geven nog 501 `capability_unavailable`.
+- **Bekende beperking vastgelegd (ADR-0025):** een melding van `stoppen` die pas na het vervallen van een updateplan
+  binnenkomt, wordt geweigerd (409 `plan_vervallen`), en dan geeft het plan ook `starten` niet vrij. Het gedrag is
+  niet gewijzigd; een karakteriseringstest legt het vast
+  (`test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`).
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.
