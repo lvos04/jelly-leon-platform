@@ -198,6 +198,9 @@ def _vertaal(b: _Bouw, report: Any, manifest: Manifest, parameters: Mapping[str,
              meting: Beschikbaarheid | None, app_name: str, voorvoegsel: str = "") -> Any:
     target = Target(truenas_version=doel.truenas_version, ix_app_version=doel.ix_app_version,
                     available_versions=meting.available_versions if meting else None)
+    # Bewust zonder trusted_app_id (ADR-0021, ADR-0022 besluit 11): het manifest van een plan komt van de aanvrager,
+    # niet uit een geldige catalogusversie, dus de app_id staat niet vast. Een geheim krijgt dan geen vault-verwijzing
+    # maar parameter_value_not_allowed: het plan blijft geblokkeerd (fail-closed).
     res = translate(manifest, dict(parameters), target, app_name=app_name, manifest_sha256=report.manifest_sha256)
     fout = b.vind(res.findings, "vertaling", voorvoegsel)
     if (not res.ready_for_install or res.payload is None) and not fout:

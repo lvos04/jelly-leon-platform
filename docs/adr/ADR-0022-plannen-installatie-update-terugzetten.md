@@ -82,9 +82,12 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
     (`parameter_value_not_allowed`). Gevolg: het installatieplan van een app met geheime parameters (bijvoorbeeld
     authentik) is nu altijd geblokkeerd tot de standaard kluisverwijzingen kent (zie "Open punten").
     Stand na ADR-0025 besluit 7: de standaard kent ze sinds appstore-en-fork `1967069` (`vault://app/<app_id>/<naam>`),
-    alleen als de `app_id` vaststaat. Validator in CI en kopie in deze dienst staan op die commit. Het manifest van een
-    plan komt van de aanvrager, dus de planner blokkeert nog elk geheim, tot de `app_id` vastligt en de Hub de
-    verwijzingen invult (S-P2-070).
+    alleen als de `app_id` vaststaat. Validator in CI en kopie in deze dienst staan op die commit. **Bewuste keuze:** de
+    planner roept `translate` aan zonder `trusted_app_id`, want het manifest van een plan komt als tekst van de
+    aanvrager (`manifest_yaml` in het verzoek) en niet uit een geldige catalogusversie; de `app_id` ervan kan die van
+    een andere app zijn. Een geheim krijgt daarom `parameter_value_not_allowed` in plaats van een vault-verwijzing en
+    het plan blijft geblokkeerd (fail-closed; `test_geheime_waarden_komen_nooit_in_een_plan`). Dat verandert pas als de
+    planner zijn manifest uit een vertrouwde catalogusversie haalt en de Hub de verwijzingen invult (S-P2-070).
 
 ## Test-stand-ins
 
