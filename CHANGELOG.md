@@ -259,7 +259,9 @@
   `tools/nodered_rooktest.py` (stappen N1–N9 met de echte image tegen de Hub-simulator; CI-job `rooktest`).
 - Hub-simulator: heartbeat-route van contract 1.3 §6.1.
 - **Geblokkeerd / niet gebouwd (eerlijk):**
-  - uitvoeren op een NAS: de echte Hub heeft nog geen route voor voorstellen en catalogusbeschikbaarheid;
+  - uitvoeren op een NAS: de echte Hub heeft nog geen route voor voorstellen en catalogusbeschikbaarheid (stand
+    S-P2-400: in het bewijs **Bezig**, niet Geblokkeerd; open: S-P2-050, S-P2-080, S-P2-420, daarna de test op een
+    echte NAS in P6);
   - Node-RED op een NAS is na installatie leeg en alleen-lezen: beheerder, flows, `HUB_URL` en service-token kan de
     manifeststandaard v1 niet leveren;
   - de flow "my_house sensor verouderd → melding": geen contractroute (`capability_unavailable`), niet nagebootst;
@@ -296,8 +298,10 @@
 ### Controle P2 en bijgewerkt bewijs (S-P2-400)
 
 - **Bewijs bijgewerkt:** B08-003, B08-004 en C1.3-JLP-14 staan op **Bezig** (Unit-getest; Sim-getest; NIET
-  GEVALIDEERD (echte NAS)). Open voor alle drie: de routes van de echte Hub (S-P2-050, S-P2-080), de proef tegen de
-  echte Hub-code (S-P2-420) en de test op een echte NAS (P6). De planroutes
+  GEVALIDEERD (echte NAS)). Open voor B08-003 en B08-004: de routes van de echte Hub voor voorstellen en
+  catalogusbeschikbaarheid (S-P2-050, S-P2-080), de proef tegen de echte Hub-code (S-P2-420) en de test op een echte
+  NAS (P6). Open voor C1.3-JLP-14: de route voor catalogusbeschikbaarheid in de echte Hub (S-P2-080), de proef tegen
+  de echte Hub-code (S-P2-420) en de test op een echte NAS (P6). De planroutes
   `POST /lifecycle/v1/plans/{install|update|rollback}/preview` bestaan; alleen verwijderen en verhuizen (B08-006)
   geven nog 501 `capability_unavailable`.
 - **Bekende beperking vastgelegd (ADR-0025):** een melding van `stoppen` die pas na het vervallen van een updateplan
