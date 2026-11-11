@@ -105,6 +105,102 @@ def test_failed_migration_leaves_old_schema_and_data(fresh_db: str, tmp_path: Pa
     engine.dispose()
 
 
+def _vul(url: str, per_tabel: int = 3) -> None:
+    """Vult elke tabel (behalve alembic_version) met ``per_tabel`` rijen: elke verplichte kolom zonder standaard krijgt
+    een waarde naar zijn type (geldig voor de check-constraints); lifecycle_transitions wijst naar een bestaande run."""
+    geldig = {("lifecycle_runs", "kind"): "update", ("lifecycle_runs", "state"): "discovered",
+              ("lifecycle_transitions", "to_state"): "discovered"}
+    engine = sa.create_engine(url)
+    meta = sa.MetaData()
+    meta.reflect(engine)
+    nu = sa.func.now()
+    runs: list[uuid.UUID] = []
+    with engine.begin() as conn:
+        for tabel in meta.sorted_tables:
+            if tabel.name == "alembic_version":
+                continue
+            for i in range(per_tabel):
+                rij: dict[str, Any] = {}
+                for kolom in tabel.columns:
+                    if kolom.nullable or kolom.server_default is not None:
+                        continue
+                    soort = type(kolom.type).__name__.upper()
+                    if (tabel.name, kolom.name) in geldig:
+                        rij[kolom.name] = geldig[(tabel.name, kolom.name)]
+                    elif tabel.name == "lifecycle_transitions" and kolom.name == "run_id":
+                        rij[kolom.name] = runs[i % len(runs)]
+                    elif "UUID" in soort:
+                        rij[kolom.name] = uuid.uuid4()
+                    elif "TIMESTAMP" in soort or "DATETIME" in soort:
+                        rij[kolom.name] = nu
+                    elif "JSON" in soort:
+                        rij[kolom.name] = {"rij": i, "tabel": tabel.name}
+                    elif "INT" in soort:
+                        rij[kolom.name] = i + 1
+                    elif "BOOL" in soort:
+                        rij[kolom.name] = False
+                    else:
+                        rij[kolom.name] = f"{kolom.name[:6]}-{i}"
+                if tabel.name == "lifecycle_runs":
+                    runs.append(rij["id"])
+                conn.execute(sa.insert(tabel).values(**rij))
+    engine.dispose()
+
+
+def _inhoud(url: str) -> dict[str, tuple[int, str]]:
+    """Per tabel: aantal rijen en een sha256 over de gesorteerde inhoud (alle kolommen)."""
+    import hashlib
+    import json
+
+    engine = sa.create_engine(url)
+    meta = sa.MetaData()
+    meta.reflect(engine)
+    uit: dict[str, tuple[int, str]] = {}
+    with engine.connect() as conn:
+        for tabel in meta.sorted_tables:
+            if tabel.name == "alembic_version":
+                continue
+            rijen = sorted(json.dumps({k: str(v) for k, v in r._mapping.items()}, sort_keys=True)
+                           for r in conn.execute(sa.select(tabel)))
+            uit[tabel.name] = (len(rijen), hashlib.sha256("\n".join(rijen).encode()).hexdigest())
+    engine.dispose()
+    return uit
+
+
+def test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie(fresh_db: str, tmp_path: Path) -> None:
+    """HARDE EIS (review P2, R-HARDE-EIS-4): een gevulde database van de vorige revisie (0002) verliest bij de
+    upgrade naar de kop (0003) niets, en heen en terug ook niet; elke tabel van 0002 heeft rijen. De vergelijking
+    kan falen: een revisie die één rij wist, wordt gezien."""
+    upgrade(fresh_db, "0002")
+    _vul(fresh_db)
+    voor = _inhoud(fresh_db)
+    assert len(voor) >= 7 and all(aantal == 3 for aantal, _ in voor.values()), voor
+    upgrade(fresh_db)
+    assert _rev(fresh_db) == head_revision() == "0003"
+    na = _inhoud(fresh_db)
+    assert {t: na[t] for t in voor} == voor
+    assert set(na) - set(voor) == {"lifecycle_plans"}
+    downgrade(fresh_db, "0002")
+    assert _inhoud(fresh_db) == voor
+    upgrade(fresh_db)
+    assert {t: v for t, v in _inhoud(fresh_db).items() if t in voor} == voor
+
+    # tegenproef: een revisie na de kop die één rij wist, maakt de vergelijking rood
+    scripts = tmp_path / "migrations"
+    shutil.copytree(MIGRATIONS_DIR, scripts, ignore=shutil.ignore_patterns("__pycache__"))
+    (scripts / "versions" / "9001_wist.py").write_text(
+        'revision = "9001"\ndown_revision = "0003"\nbranch_labels = None\ndepends_on = None\n'
+        "from alembic import op\n"
+        "def upgrade():\n    op.execute('DELETE FROM audit_log WHERE id = (SELECT id FROM audit_log LIMIT 1)')\n"
+        "def downgrade():\n    pass\n"
+    )
+    cfg = alembic_config(fresh_db)
+    cfg.set_main_option("script_location", str(scripts))
+    command.upgrade(cfg, "head")
+    gewist = _inhoud(fresh_db)
+    assert gewist["audit_log"][0] == 2 and {t: gewist[t] for t in voor} != voor
+
+
 def _p0_row(url: str, vault_dir: Path, **values: Any) -> None:
     """Een rij in de oude tabel ``hub_link`` zoals P0 (0.1.0 vóór 1.2) die schreef."""
     from lifecycle.secrets_store import Vault
