@@ -67,6 +67,18 @@ def test_render_refuses_values_the_shell_would_expand(waarde: str) -> None:
         nf.render_flows_env({"flows_bestand": "flows.json", "overrides": {"sleutel met spatie": 1}})
 
 
+def test_render_keeps_brackets_only_because_json_lists_need_them() -> None:
+    """R-VEILIG-3 (review P2): ``[`` en ``]`` zijn jokertekens voor de shell, maar ``nodesIncludes`` is een JSON-lijst.
+    Ze blijven daarom toegestaan; veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij de
+    gepinde digest; zie ``render_flows_env``). Elk ander jokerteken blijft geweigerd."""
+    waarde = nf.render_flows_env({"flows_bestand": "flows.json", "overrides": {"lijst": ["a", "b"]}})
+    assert waarde == 'flows.json -D lijst=["a","b"]'
+    assert "[" in (nf.manifest_flows_env() or "")  # het manifest heeft ze echt nodig (nodesIncludes)
+    for teken in "*?":
+        with pytest.raises(nf.Fout):
+            nf.render_flows_env({"flows_bestand": "flows.json", "overrides": {"sleutel": f"a{teken}"}})
+
+
 def test_manifest_is_a_standard_custom_app_without_extra_rights_or_secrets() -> None:
     m = _manifest()
     assert m["install"]["method"] == "custom_app" and m["version"] == m["image"]["tag"]

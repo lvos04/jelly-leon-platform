@@ -1,5 +1,5 @@
 {
-  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $ of jokertekens bevatten.",
+  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $, * of ? bevatten; [ en ] blijven nodig voor JSON-lijsten en zijn alleen veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij deze digest; ADR-0025).",
   "flows_bestand": "flows.json",
   "overrides": {
     "adminAuth": {"type": "credentials", "users": [], "default": {"permissions": "read"}},

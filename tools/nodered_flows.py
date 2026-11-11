@@ -83,8 +83,13 @@ def lees_overrides(pad: Path = OVERRIDES) -> dict[str, Any]:
 
 def render_flows_env(data: dict[str, Any]) -> str:
     """De waarde van ``FLOWS``: de entrypoint van de image geeft ``$FLOWS`` ongequoot door aan Node-RED, dus elk
-    woord wordt een eigen argument (``flows.json -D sleutel=waarde …``). Daarom: compacte JSON, geen spaties, geen
-    tekens die de shell uitbreidt."""
+    woord wordt een eigen argument (``flows.json -D sleutel=waarde …``). Daarom: compacte JSON, geen spaties en geen
+    ``$``, ``*``, ``?``, aanhalingstekens of andere shelltekens.
+
+    Eerlijk (review P2, R-VEILIG-3): ``[`` en ``]`` zijn ook jokertekens, maar blijven toegestaan omdat de JSON-lijsten
+    (``nodesIncludes``) ze nodig hebben. De shell vervangt zo'n woord alleen als er in de werkmap van de entrypoint
+    (``/usr/src/node-red``) een bestand met precies die naam staat; bij deze digest kan 568 daar niet schrijven
+    (gemeten in de review). Het restrisico hangt dus aan de digest: elke nieuwe digest gaat eerst door de rooktest."""
     delen = [str(data["flows_bestand"])]
     for sleutel, waarde in data["overrides"].items():
         if not re.fullmatch(r"[A-Za-z][A-Za-z0-9.]*", sleutel):
