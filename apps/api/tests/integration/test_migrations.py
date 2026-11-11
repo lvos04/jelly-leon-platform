@@ -106,8 +106,10 @@ def test_failed_migration_leaves_old_schema_and_data(fresh_db: str, tmp_path: Pa
 
 
 def _vul(url: str, per_tabel: int = 3) -> None:
-    """Vult elke tabel (behalve alembic_version) met ``per_tabel`` rijen: elke verplichte kolom zonder standaard krijgt
-    een waarde naar zijn type (geldig voor de check-constraints); lifecycle_transitions wijst naar een bestaande run."""
+    """Vult elke tabel (behalve alembic_version) met ``per_tabel`` rijen: elke kolom zonder databasestandaard krijgt
+    een waarde naar zijn type (geldig voor de check-constraints), ook de kolommen die NULL mogen zijn (herreview
+    R-HARDE-EIS-5: anders ziet de vergelijking verlies in zulke kolommen niet); lifecycle_transitions wijst naar een
+    bestaande run."""
     geldig = {("lifecycle_runs", "kind"): "update", ("lifecycle_runs", "state"): "discovered",
               ("lifecycle_transitions", "to_state"): "discovered"}
     engine = sa.create_engine(url)
@@ -122,7 +124,7 @@ def _vul(url: str, per_tabel: int = 3) -> None:
             for i in range(per_tabel):
                 rij: dict[str, Any] = {}
                 for kolom in tabel.columns:
-                    if kolom.nullable or kolom.server_default is not None:
+                    if kolom.server_default is not None:
                         continue
                     soort = type(kolom.type).__name__.upper()
                     if (tabel.name, kolom.name) in geldig:
@@ -167,14 +169,52 @@ def _inhoud(url: str) -> dict[str, tuple[int, str]]:
     return uit
 
 
+def _waarden(url: str) -> tuple[int, int, int]:
+    """(aantal waarden, waarvan NULL, aantal kolommen die NULL mogen zijn) over alle tabellen behalve
+    alembic_version."""
+    engine = sa.create_engine(url)
+    meta = sa.MetaData()
+    meta.reflect(engine)
+    totaal = leeg = mag_leeg = 0
+    with engine.connect() as conn:
+        for tabel in meta.sorted_tables:
+            if tabel.name == "alembic_version":
+                continue
+            mag_leeg += sum(1 for k in tabel.columns if k.nullable)
+            for rij in conn.execute(sa.select(tabel)):
+                for waarde in rij._mapping.values():
+                    totaal += 1
+                    leeg += waarde is None
+    engine.dispose()
+    return totaal, leeg, mag_leeg
+
+
+def _revisie_na_de_kop(fresh_db: str, tmp_path: Path, naam: str, sql: str) -> Any:
+    """Past een extra revisie na de kop toe die ``sql`` uitvoert (tegenproef: de vergelijking moet dat zien). Geeft de
+    alembic-configuratie met die revisie terug (nodig om de database daarna weer naar ``base`` te brengen)."""
+    scripts = tmp_path / f"migrations-{naam}"
+    shutil.copytree(MIGRATIONS_DIR, scripts, ignore=shutil.ignore_patterns("__pycache__"))
+    (scripts / "versions" / f"9001_{naam}.py").write_text(
+        'revision = "9001"\ndown_revision = "0003"\nbranch_labels = None\ndepends_on = None\n'
+        f"from alembic import op\ndef upgrade():\n    op.execute({sql!r})\ndef downgrade():\n    pass\n"
+    )
+    cfg = alembic_config(fresh_db)
+    cfg.set_main_option("script_location", str(scripts))
+    command.upgrade(cfg, "head")
+    return cfg
+
+
 def test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie(fresh_db: str, tmp_path: Path) -> None:
     """HARDE EIS (review P2, R-HARDE-EIS-4): een gevulde database van de vorige revisie (0002) verliest bij de
-    upgrade naar de kop (0003) niets, en heen en terug ook niet; elke tabel van 0002 heeft rijen. De vergelijking
-    kan falen: een revisie die één rij wist, wordt gezien."""
+    upgrade naar de kop (0003) niets, en heen en terug ook niet; elke tabel van 0002 heeft rijen en elke kolom een
+    waarde, ook de kolommen die NULL mogen zijn (herreview R-HARDE-EIS-5). De vergelijking kan falen: een revisie die
+    één rij wist, en een revisie die alleen zulke kolommen op NULL zet, worden allebei gezien."""
     upgrade(fresh_db, "0002")
     _vul(fresh_db)
     voor = _inhoud(fresh_db)
     assert len(voor) >= 7 and all(aantal == 3 for aantal, _ in voor.values()), voor
+    totaal, leeg, mag_leeg = _waarden(fresh_db)
+    assert totaal >= 200 and leeg == 0 and mag_leeg >= 13, (totaal, leeg, mag_leeg)  # niets leeg, ook niet waar het mag
     upgrade(fresh_db)
     assert _rev(fresh_db) == head_revision() == "0003"
     na = _inhoud(fresh_db)
@@ -185,18 +225,26 @@ def test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie(fresh_db: str, 
     upgrade(fresh_db)
     assert {t: v for t, v in _inhoud(fresh_db).items() if t in voor} == voor
 
-    # tegenproef: een revisie na de kop die één rij wist, maakt de vergelijking rood
-    scripts = tmp_path / "migrations"
-    shutil.copytree(MIGRATIONS_DIR, scripts, ignore=shutil.ignore_patterns("__pycache__"))
-    (scripts / "versions" / "9001_wist.py").write_text(
-        'revision = "9001"\ndown_revision = "0003"\nbranch_labels = None\ndepends_on = None\n'
-        "from alembic import op\n"
-        "def upgrade():\n    op.execute('DELETE FROM audit_log WHERE id = (SELECT id FROM audit_log LIMIT 1)')\n"
-        "def downgrade():\n    pass\n"
-    )
-    cfg = alembic_config(fresh_db)
-    cfg.set_main_option("script_location", str(scripts))
-    command.upgrade(cfg, "head")
+    # tegenproef 1: een revisie na de kop die alleen waarden in kolommen die NULL mogen zijn wist (de rijen blijven),
+    # maakt de vergelijking rood
+    cfg = _revisie_na_de_kop(fresh_db, tmp_path, "nult", "UPDATE lifecycle_runs SET reason = NULL; "
+                                                         "UPDATE idempotency_records SET response_body = NULL")
+    genuld = _inhoud(fresh_db)
+    assert {t: genuld[t][0] for t in voor} == {t: voor[t][0] for t in voor}  # geen rij weg …
+    assert genuld["lifecycle_runs"] != voor["lifecycle_runs"]
+    assert genuld["idempotency_records"] != voor["idempotency_records"]
+    assert {t: genuld[t] for t in voor} != voor  # … en toch rood
+    assert _waarden(fresh_db)[1] == 6  # precies de zes gewiste waarden (3 rijen × 2 kolommen) zijn NULL
+
+    # tegenproef 2: een revisie die één rij wist, maakt de vergelijking rood (op een opnieuw gevulde database)
+    command.downgrade(cfg, "base")
+    assert _rev(fresh_db) is None
+    upgrade(fresh_db, "0002")
+    _vul(fresh_db)
+    voor = _inhoud(fresh_db)
+    upgrade(fresh_db)
+    _revisie_na_de_kop(fresh_db, tmp_path, "wist",
+                       "DELETE FROM audit_log WHERE id = (SELECT id FROM audit_log LIMIT 1)")
     gewist = _inhoud(fresh_db)
     assert gewist["audit_log"][0] == 2 and {t: gewist[t] for t in voor} != voor
 
