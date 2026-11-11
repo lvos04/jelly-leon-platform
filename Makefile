@@ -20,7 +20,7 @@ typecheck:
 		tools/validator_kopie.py
 	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
 		--exclude '/tests/'
-	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
+	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
 
 test:
 	cd apps/api && ../../$(PY) -m pytest -q

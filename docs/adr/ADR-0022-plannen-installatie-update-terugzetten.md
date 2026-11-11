@@ -2,7 +2,8 @@
 
 - Status: aanvaard · Datum: 2026-11-11 · Contract: 1.3 §2.2, §4.4, §8, §9 · Bouwplan: B08-003, B08-004, C1.3-JLP-14
 - Code: `apps/api/src/lifecycle/planner.py`, `hubread.py`, `api_plans.py`, migratie `0003_lifecycle_plans`
-- Test-stand-ins (géén productiecode): `e2e/simulators/hub/contract8.py`, `e2e/simulators/hub/hub_p2.py`
+- Test-stand-ins (géén productiecode): `e2e/simulators/hub/contract8.py`, `e2e/simulators/hub/hub_p2.py`,
+  `e2e/simulators/hub/executor_sim.py`
 
 ## Aanleiding
 
@@ -67,10 +68,27 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
 ## Test-stand-ins
 
 De echte Hub heeft nog geen routes voor voorstellen/goedkeuring en de echte executor weigert nog elke actie
-(allowlist leeg tot P2 daar klaar is). Voor de ketentest staan er daarom twee stand-ins **alleen in de testmap**:
-`contract8.py` (canonieke JSON, ETag, allowlist met risicoklassen, parametergrenzen, Ed25519) en `hub_p2.py`
-(inventaris en catalogus in de vorm van de echte Hub, `propose` → `approve` → ondertekend `ExecutionRequest`).
+(allowlist leeg tot P2 daar klaar is). Voor de ketentest staan er daarom drie stand-ins **alleen in de testmap**:
+`contract8.py` (canonieke JSON, ETag, allowlist met risicoklassen, parametergrenzen, Ed25519), `hub_p2.py`
+(inventaris en catalogus in de vorm van de echte Hub, `propose` → `approve` → ondertekend `ExecutionRequest`) en
+`executor_sim.py` (de uitvoerder: controleert het ondertekende verzoek opnieuw in de volgorde en met de codes van
+`docs/EXECUTION_REQUEST.md` van de Hub, voert de vaste acties uit via JSON-RPC tegen de TrueNAS-simulator, bewaart
+de vorige waarden voor terugzetten en leest terug).
 De voorlopige route `POST /api/v1/actions/proposals` dwingt voor een dienst-token de actor `flow` af.
+
+Eigen keuzes in de uitvoerder-stand-in, omdat het contract ze niet vastlegt (veiligste lezing):
+
+- het antwoord van `POST /api/v1/execute` is `{status: voltooid|mislukt, execution_id, readback{staat, versie,
+  images, digests, etag}, reden}`; `voltooid` alleen als de teruggelezen toestand klopt, een NAS-fout is `mislukt`;
+- een goedkeuring is **verbruikt zodra ze is gecontroleerd**, ook als daarna een preconditie niet klopt
+  (`doel_gewijzigd`, `pool_niet_gezond`): er is dan toch een nieuwe preview en een nieuwe goedkeuring nodig;
+- een herhaald voorstel zonder goedkeuring (R0/R1, zelfde `idempotency_key`, nieuw verzoek) wordt niet nog eens
+  uitgevoerd maar krijgt het bewaarde resultaat; een andere inhoud onder dezelfde sleutel is `idempotency_conflict`;
+- `app.rollback` met een onbekende `herstel_van` is `herstelbron_onbekend`; het `backup_checkpoint_id` moet als
+  snapshot op de NAS bestaan, anders `backup_checkpoint_ontbreekt`.
+
+De ketentest (`apps/api/tests/integration/test_keten_plan_hub_executor_nas.py`) laat de vier delen samen draaien:
+plan bij deze dienst → Hub-stand-in → uitvoerder-stand-in → TrueNAS-simulator, en terug via de readback.
 Alles wat hiermee is aangetoond heet **Sim-getest**; tegen de echte Hub/executor en een echte NAS: NIET GEVALIDEERD.
 
 ## Open punten (gemeld als contractvragen)
@@ -82,6 +100,8 @@ Alles wat hiermee is aangetoond heet **Sim-getest**; tegen de echte Hub/executor
 - TrueNAS-versie en `ix-app`-versie in de inventaris van de Hub (nu: `doel` van de aanvrager).
 - Geheimen: het Hub-beleid voorziet `vault://app/…`-verwijzingen, de manifeststandaard v1 nog niet.
 - Wat het `backup_checkpoint_id` van een `app.rollback` is (nu: de naam van het herstelpunt van vóór de update).
+- De vorm van het resultaat van `POST /api/v1/execute` (status, `execution_id`, readback) en of een goedkeuring
+  verbruikt is wanneer de precondities van de executor niet kloppen.
 
 ## Afgewezen
 

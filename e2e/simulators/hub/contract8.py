@@ -108,11 +108,10 @@ def _repo(ref: str) -> str:
     return name.rsplit(":", 1)[0] if ":" in last else name
 
 
-def app_etag(app: Mapping[str, Any] | None, images: Iterable[Mapping[str, Any]] = ()) -> str:
-    """ETag van een app uit ruwe readback (``app.query`` + ``app.image.query``): naam, staat, catalogusapp, trein,
-    versie, ``custom_app``, images en digests. De app-configuratie telt niet mee (kan geheimen bevatten)."""
-    if app is None:
-        return "absent"
+def app_beeld(app: Mapping[str, Any], images: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
+    """Wat van een app meetelt in de ETag, uit ruwe readback (``app.query`` + ``app.image.query``): naam, staat,
+    catalogusapp, trein, versie, ``custom_app``, images en digests. De app-configuratie telt niet mee (kan geheimen
+    bevatten)."""
     wl_raw, meta_raw = app.get("active_workloads"), app.get("metadata")
     wl: Mapping[str, Any] = wl_raw if isinstance(wl_raw, Mapping) else {}
     meta: Mapping[str, Any] = meta_raw if isinstance(meta_raw, Mapping) else {}
@@ -123,10 +122,15 @@ def app_etag(app: Mapping[str, Any] | None, images: Iterable[Mapping[str, Any]] 
     for img in images:
         if isinstance(img, Mapping) and {str(t) for t in img.get("repo_tags") or []} & set(refs):
             digests.update(str(d) for d in img.get("repo_digests") or [] if d)
-    return sha({"naam": str(app.get("name") or app.get("id") or ""), "staat": str(app.get("state") or ""),
-                "catalogus_app": str(meta.get("name") or ""), "trein": str(meta.get("train") or ""),
-                "versie": str(app.get("version") or ""), "custom_app": bool(app.get("custom_app")),
-                "images": refs, "digests": sorted(digests)})
+    return {"naam": str(app.get("name") or app.get("id") or ""), "staat": str(app.get("state") or ""),
+            "catalogus_app": str(meta.get("name") or ""), "trein": str(meta.get("train") or ""),
+            "versie": str(app.get("version") or ""), "custom_app": bool(app.get("custom_app")),
+            "images": refs, "digests": sorted(digests)}
+
+
+def app_etag(app: Mapping[str, Any] | None, images: Iterable[Mapping[str, Any]] = ()) -> str:
+    """ETag van een app: ``absent`` of de hash over :func:`app_beeld`."""
+    return "absent" if app is None else sha(app_beeld(app, images))
 
 
 def doel_etag(doel: str, target: Mapping[str, Any]) -> str | None:

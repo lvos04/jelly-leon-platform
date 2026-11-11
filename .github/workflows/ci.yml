@@ -56,7 +56,7 @@ jobs:
             tools/validator_kopie.py
           (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
             --exclude '/tests/')
-          MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py
+          MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
       - name: Tests lifecycle-dienst (unit + integratie, incl. migraties up/down/up en drift)
         working-directory: apps/api
         run: python -m pytest -q
