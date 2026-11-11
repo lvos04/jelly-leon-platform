@@ -228,19 +228,35 @@ def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: st
 
 
 def test_authentik_translation_is_blocked_until_the_executor_fills_secrets(tmp_path: Path) -> None:
-    """Eerlijk: de vertaling van appstore-en-fork geeft geheimen nooit via app.create-waarden door; vullen vanuit de
-    vault door de executor bestaat nog niet (P2) → niet installeerbaar, met capability_unavailable in de melding.
-    Er wordt nooit een voorbeeldgeheim gebruikt."""
+    """Eerlijk: de vertaling van appstore-en-fork geeft geheimen nooit via app.create-waarden door. Sinds de vaste
+    validatorcommit (``ASF_COMMIT``, C1.3-ASF-14, ADR-0015 van appstore-en-fork) zet de vertaling op de plek van een
+    geheim alleen de verwijzing ``vault://app/authentik/<parameter>``; de executor vult de waarde in. Een opgegeven
+    waarde voor een geheim wordt geweigerd (``parameter_value_not_allowed``, met het pad). Getoetst op codes en paden,
+    niet op de meldtekst; een geheime waarde komt nooit in de uitvoer terug. Er wordt nooit een voorbeeldgeheim
+    gebruikt (de waarden in ``SIM_PARAMS`` zijn herkenbare simulatorwaarden)."""
     validator = _validator()
     m = _load("authentik.manifest.yaml")
+    geheim = {p["name"] for p in m["parameters"] if p.get("secret") or p.get("source") in ("generated", "secret")
+              or p["type"] == "secret_ref"}
+    assert geheim == {"db_password", "secret_key"}
     params = {k: v for k, v in SIM_PARAMS.items() if k in {p["name"] for p in m["parameters"]}}
     for p in m["parameters"]:
         if p["type"] == "path":
             params[p["name"]] = f"/mnt/simpool/apps/authentik/{p['name'].removesuffix('_path')}"
+    # 1. met een waarde voor een geheim: geweigerd, en de waarde staat nergens in de uitvoer
     out = _translate(validator, "authentik.manifest.yaml", params, tmp_path)
     assert out["ready_for_install"] is False and out["payload"] is None
     errors = {(f["code"], f["path"]) for f in out["findings"] if f["severity"] == "error"}
     assert errors == {("parameter_value_not_allowed", "values.authentik.db_password"),
                       ("parameter_value_not_allowed", "values.authentik.secret_key")}
-    assert all("capability_unavailable" in f["message"] for f in out["findings"] if f["severity"] == "error")
     assert "sim-gegenereerd" not in json.dumps(out)  # het geheim komt niet in de uitvoer terug
+    # 2. zonder waarde: op de plek van elk geheim alleen de eigen vault-verwijzing, nooit een waarde
+    zonder = {k: v for k, v in params.items() if k not in geheim}
+    out = _translate(validator, "authentik.manifest.yaml", zonder, tmp_path)
+    assert not [f for f in out["findings"] if f["severity"] == "error"], out["findings"]
+    assert out["ready_for_install"] is True and out["payload"] is not None
+    refs = {(r["path"], r["parameter"], r["ref"]) for r in out["vault_refs"]}
+    assert refs == {(f"values.authentik.{n}", n, f"vault://app/authentik/{n}") for n in geheim}
+    for naam in geheim:
+        assert out["payload"]["values"]["authentik"][naam] == f"vault://app/authentik/{naam}"
+    assert "sim-gegenereerd" not in json.dumps(out)

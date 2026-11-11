@@ -36,15 +36,17 @@ test-repo:
 
 # Installeerbare manifesten (install/manifests, ADR-0014): validator van appstore-en-fork in een eigen venv
 # (gecommitte inhoud via git archive, alleen lezen; APPSTORE=<checkout> om een andere bron te kiezen).
+# ASF_COMMIT: dezelfde vaste commit als env.ASF_COMMIT in .github/workflows/ci.yml (P-INSTALLATIE punt 1).
 APPSTORE ?= ../appstore-en-fork
+ASF_COMMIT ?= cbf4fd22bcf2ceefad55c241ceaeb4deba48339b
 VALIDATOR_SRC ?= /tmp/jlp-appstore-validator
 validator-venv:
 	rm -rf $(VALIDATOR_SRC) && mkdir -p $(VALIDATOR_SRC)
-	git -C $(APPSTORE) archive HEAD apps/api | tar -x -C $(VALIDATOR_SRC)
+	git -C $(APPSTORE) archive $(ASF_COMMIT) apps/api | tar -x -C $(VALIDATOR_SRC)
 	python3.12 -m venv .venv-validator
 	.venv-validator/bin/pip install -q --require-hashes -r $(VALIDATOR_SRC)/apps/api/requirements.lock
 	.venv-validator/bin/pip install -q --no-deps $(VALIDATOR_SRC)/apps/api
-	@echo "validator: appstore-en-fork@$$(git -C $(APPSTORE) rev-parse HEAD)"
+	@echo "validator: appstore-en-fork@$$(git -C $(APPSTORE) rev-parse $(ASF_COMMIT)^{commit})"
 
 manifesten:
 	$(PY) tools/manifesten.py
@@ -141,7 +143,7 @@ rooktest: validator-venv
 	$(PY) tools/rooktest.py --hub-image jlp-rooktest/ai-server-manager:$$cs \
 		--executor-image jlp-rooktest/ai-server-manager-executor:$$cs \
 		--lifecycle-image jlp-rooktest/jelly-leon-platform:$$es --hub-commit $$c --eigen-commit $$e \
-		--validator-commit $$(git -C $(APPSTORE) rev-parse HEAD) --rapport /tmp/jlp-rooktest-rapport.json
+		--validator-commit $(ASF_COMMIT) --rapport /tmp/jlp-rooktest-rapport.json
 
 # Upstream-images uit install/manifests (Beszel hub + agent, Gotify, Uptime Kuma) op digest, als 568:568 met een lege
 # map zoals een standaard Custom App: digest-readback, health, kernroutes zoals de simulators, herstart zonder

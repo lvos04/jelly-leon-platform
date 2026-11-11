@@ -177,6 +177,28 @@ def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> No
     assert ":latest" not in text and "ca-bundle" not in text
 
 
+def test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make() -> None:
+    """Review P2 (S-P2-395, R-TECH-1/R-MANIFEST-1; P-INSTALLATIE punt 1): CI en ``make validator-venv`` haalden de
+    validator ongepind van de branch-HEAD van appstore-en-fork; een nieuwe commit daar brak dan stil deze CI. Nu één
+    vaste commit (``ASF_COMMIT``) voor beide CI-jobs, ``make validator-venv`` en de rooktest."""
+    text = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    doc = yaml.safe_load(text)
+    pin = str((doc.get("env") or {}).get("ASF_COMMIT", ""))
+    assert re.fullmatch(r"[0-9a-f]{40}", pin), "ci.yml: env.ASF_COMMIT ontbreekt of is geen volledige commit-SHA"
+    klonen = [str(st.get("run", "")) for job in doc["jobs"].values() for st in job.get("steps", [])
+              if "appstore-en-fork.git" in str(st.get("run", ""))]
+    assert len(klonen) == 2, "verwacht: de validator in job test en in job rooktest"
+    for run in klonen:
+        assert "--depth" not in run, "met --depth bestaat de vaste commit misschien niet in de kloon"
+        assert re.search(r'git -C "\$RUNNER_TEMP/appstore" checkout --quiet "\$ASF_COMMIT"', run), run
+        assert run.index('checkout --quiet "$ASF_COMMIT"') < run.index("pip"), "eerst vastzetten, dan installeren"
+    assert '--validator-commit "$ASF_COMMIT"' in text and "rev-parse HEAD)" not in text
+    make = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert re.search(rf"^ASF_COMMIT \?= {pin}$", make, re.M), "Makefile: ASF_COMMIT wijkt af van ci.yml"
+    assert "archive $(ASF_COMMIT) apps/api" in make and "archive HEAD apps/api" not in make
+    assert "--validator-commit $(ASF_COMMIT)" in make
+
+
 def test_release_publishes_only_on_tags_and_never_overwrites() -> None:
     """Review P0-afronding: workflow_dispatch op een branch pushte de versie-tag naar GHCR (en kon een bestaande
     release overschrijven). Publiceren alleen bij een tag; een bestaande versie-tag in GHCR breekt de run af."""

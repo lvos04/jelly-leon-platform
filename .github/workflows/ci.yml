@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # Validator van appstore-en-fork op één vaste commit voor beide jobs en `make validator-venv` (P-INSTALLATIE punt 1;
+  # review P2, S-P2-395). cbf4fd2 = vertaling met vault-verwijzingen (C1.3-ASF-14); verzetten is een eigen, gemelde
+  # wijziging. Eerder: ongepind de branch-HEAD (laatste groene run met 7b3159d).
+  ASF_COMMIT: cbf4fd22bcf2ceefad55c241ceaeb4deba48339b
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -78,6 +84,7 @@ jobs:
         run: |
           git clone --quiet --filter=blob:none --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/appstore-en-fork.git "$RUNNER_TEMP/appstore"
+          git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"
           git -C "$RUNNER_TEMP/appstore" log -1 --format='Validator: appstore-en-fork %H %s'
           python -m venv "$RUNNER_TEMP/validator"
           "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --require-hashes \
@@ -238,8 +245,10 @@ jobs:
           git clone --quiet --filter=blob:none --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/ai-server-manager.git "$RUNNER_TEMP/asm"
           git -C "$RUNNER_TEMP/asm" checkout --quiet "$ASM_COMMIT"
-          git clone --quiet --depth 1 --single-branch --branch ccr-c133d7a0-kuz1cv \
+          git clone --quiet --filter=blob:none --single-branch --branch ccr-c133d7a0-kuz1cv \
             https://github.com/lvos04/appstore-en-fork.git "$RUNNER_TEMP/appstore"
+          git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"
+          git -C "$RUNNER_TEMP/appstore" log -1 --format='Validator: appstore-en-fork %H %s'
           python -m venv "$RUNNER_TEMP/validator"
           "$RUNNER_TEMP/validator/bin/pip" install --disable-pip-version-check -q --require-hashes \
             -r "$RUNNER_TEMP/appstore/apps/api/requirements.lock"
@@ -257,7 +266,7 @@ jobs:
           python tools/rooktest.py --hub-image jlp-rooktest/ai-server-manager:ci \
             --executor-image jlp-rooktest/ai-server-manager-executor:ci --lifecycle-image jlp-rooktest/jelly-leon-platform:ci \
             --validator "$RUNNER_TEMP/validator/bin/jl-manifest" --hub-commit "$ASM_COMMIT" --eigen-commit "$GITHUB_SHA" \
-            --validator-commit "$(git -C "$RUNNER_TEMP/appstore" rev-parse HEAD)" --rapport "$RUNNER_TEMP/rooktest.json"
+            --validator-commit "$ASF_COMMIT" --rapport "$RUNNER_TEMP/rooktest.json"
       - name: Upstream-images als 568 met lege map (Beszel, Gotify, Uptime Kuma; digest, health, herstart)
         run: python tools/upstream_rooktest.py --rapport "$RUNNER_TEMP/upstream-rooktest.json"
       - name: Node-RED volgens het manifest tegen de Hub-simulator (beveiliging, flows, melding, aanvraag, hartslag, herstel)
