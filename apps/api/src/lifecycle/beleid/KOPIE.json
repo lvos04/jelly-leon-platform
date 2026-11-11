@@ -1,0 +1,7 @@
+{
+ "uitleg": "Herkomst van de byte-gelijke kopie van de app-regels van het Hub-beleid (herkenning en beschermd; ADR-0025). Niet met de hand wijzigen: python tools/beleid_kopie.py bijwerken --bron <ai-server-manager> [--ref <commit>].",
+ "bron_repo": "lvos04/ai-server-manager",
+ "bron_commit": "7d3a8ce8c34dc3b093d362f5a5f505f0054f6b37",
+ "bron_pad": "policy/apps.yaml",
+ "sha256": "4ad26951f34957655b391750de467d661d0c6b194d4c32c8a4e31111d2c2f281"
+}

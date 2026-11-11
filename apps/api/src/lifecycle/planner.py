@@ -10,6 +10,9 @@ goedkeuring per gebonden diff en ondertekent het ``ExecutionRequest``; de execut
   vertalen naar formulierwaarden en conflictanalyse. Hier staan geen eigen manifestregels.
 - Eén fout uit validatie, vertaling of conflictanalyse (poort in gebruik, vereiste afhankelijkheid ontbreekt, versie
   niet in de catalogus) of een eigen blokkade → het plan is ``geblokkeerd`` en geeft **geen enkele stap vrij**.
+- Beschermde apps (Emby; de mediaserver en MediaGuard bij update, terugzetten en verwijderen; contract §2.3 regels 3
+  en 7) krijgen nooit een vrijgegeven stap: de regels 'beschermd' en de herkenning komen uit een gepinde kopie van het
+  Hub-beleid (``lifecycle.beschermd``, ADR-0025). Onleesbaar beleid → ``beleid_onbekend``.
 - Onbekend is niet goed: zonder gemeten inventaris of catalogusbeschikbaarheid wordt niets vrijgegeven. Een meting
   ouder dan 900 s (§6.2) is onbekend, voor elk soort plan — ook een update of terugzetplan zonder conflictanalyse.
 - Een stap telt pas als ``voltooid`` wanneer de teruggelezen toestand en digest kloppen met wat het plan verwacht.
@@ -34,6 +37,7 @@ from appstore.manifest import Finding, Severity, validate_text
 from appstore.manifest.conflicts import analyse
 from appstore.manifest.model import Manifest, ParamRef
 from appstore.manifest.translate import Target, translate
+from lifecycle import beschermd
 from lifecycle.custom_app import (
     DIGEST_RE,
     IX_APP,
@@ -301,9 +305,33 @@ def _diff(manifest: Manifest, payload: Mapping[str, Any] | None, inventaris: Inv
     }
 
 
+def _beschermd(b: _Bouw, images: Iterable[str]) -> None:
+    """Elke app-actie in het plan langs de regels 'beschermd' van het Hub-beleid; één blokkade per regel. Zonder
+    leesbaar beleid is niet uit te sluiten dat het een beschermde app is: dan geeft het plan niets vrij."""
+    acties = [(str(s["voorstel"]["action_id"]), s["voorstel"]["target"].get("app_id")) for s in b.stappen
+              if s["voorstel"] and str(s["voorstel"]["action_id"]).startswith("app.")]
+    if not acties:
+        return
+    try:
+        beleid = beschermd.beleid()
+    except beschermd.BeleidFout as exc:
+        b.blokkeer("beleid_onbekend", "Het beleid van de Hub (welke apps beschermd zijn) is niet leesbaar; zonder dat "
+                   "beleid geeft het plan niets vrij.", None, bron="hub_beleid", reden=str(exc))
+        return
+    beelden = list(images)
+    gezien: set[str] = set()
+    for actie, naam in acties:
+        for regel in beschermd.regels(beleid, actie, str(naam) if naam else None, beelden):
+            if regel.id not in gezien:
+                gezien.add(regel.id)
+                b.blokkeer(regel.code, regel.reden_nl, "Dit loopt niet via een plan van het platform (beleid van de "
+                           "Hub, ook met goedkeuring geweigerd).", **beschermd.details(regel, actie, naam))
+
+
 def _document(b: _Bouw, *, app_id: str | None, app_name: str | None, manifest: dict[str, Any] | None,
               inventaris: Inventaris, meting: Beschikbaarheid | None, doel: Doel | None, diff: dict[str, Any],
-              extra: dict[str, Any] | None = None) -> dict[str, Any]:
+              extra: dict[str, Any] | None = None, images: Iterable[str] = ()) -> dict[str, Any]:
+    _beschermd(b, images)
     if b.blokkades:  # een geblokkeerd plan toont de stappen wel, maar geeft er geen vrij
         for s in b.stappen:
             s["geblokkeerd"] = True
@@ -350,6 +378,7 @@ def plan_installatie(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapp
                expected_version="absent", verwacht=_verwacht(manifest))
     return _document(b, app_id=manifest.app_id, app_name=naam, manifest=_manifest_view(report, manifest),
                      inventaris=inventaris, meting=meting, doel=doel, diff=_diff(manifest, payload, inventaris),
+                     images=[manifest.image.repository] if manifest.image else [],
                      extra={"vastgepind": {"preview_hash": res.preview_hash,
                                            "digest_readback": res.digest_readback.model_dump(mode="json")
                                            if res.digest_readback else None},
@@ -545,9 +574,11 @@ def plan_update(*, plan_id: uuid.UUID, manifest_yaml: str, parameters: Mapping[s
                           "automatisch en verwijdert nooit datasets of media.",
         "tag_only_rollback_safe": manifest.upgrade.tag_only_rollback_safe, "migrations": migraties,
         "notities_nl": manifest.upgrade.notes_nl}
+    beelden = [str(r) for r in (huidig_image.get("repository"), manifest.image.repository if manifest.image else None)
+               if r]
     return _document(b, app_id=manifest.app_id, app_name=naam, manifest=_manifest_view(report, manifest),
                      inventaris=inventaris, meting=meting, doel=doel,
-                     diff=_diff(manifest, None, inventaris, record), extra=extra)
+                     diff=_diff(manifest, None, inventaris, record), extra=extra, images=beelden)
 
 
 # ------------------------------------------------------------------ terugzetten (B08-004)
@@ -663,8 +694,9 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
                uitleg="Custom App: de executor zet de vóór de update bewaarde formulierwaarden (tag + digest) terug. "
                       "Het herstelpunt van vóór de update blijft staan.")
     huidig = {"image": {"van": dict((record or {}).get("image") or {})}} if record else {}
+    beelden = [str(r) for r in (_map((record or {}).get("image")).get("repository"),) if r]
     return _document(b, app_id=(record or {}).get("app_id") if record else None, app_name=naam, manifest=None,
-                     inventaris=inventaris, meting=meting, doel=None, diff=huidig,
+                     inventaris=inventaris, meting=meting, doel=None, diff=huidig, images=beelden,
                      extra={"bron": bron, "eigenaar_herstel": eigenaar or {
                          "toelichting_nl": "Data terugzetten uit een snapshot (R3) doet alleen de eigenaar."}})
 

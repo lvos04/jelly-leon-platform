@@ -52,6 +52,7 @@ manifesten:
 	$(PY) tools/manifesten.py
 	$(PY) tools/manifest_kopie.py controleer
 	$(PY) tools/validator_kopie.py controleer
+	$(PY) tools/beleid_kopie.py controleer
 	$(PY) tools/checklists.py
 
 # Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager

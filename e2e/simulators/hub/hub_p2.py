@@ -11,7 +11,9 @@ Wat de levenscyclusdienst en de flows in fase P2 van de Hub nodig hebben:
   niet; ``GET /api/v1/catalog/availability`` is hier een **voorlopige** keuze (ADR-0022). ``catalogus_route = False``
   geeft 404, precies zoals de echte Hub nu.
 - **Beleid, goedkeuring en ondertekening** (§8) als stand-in: ``propose`` → risicoklasse volgens de contracttabel
-  (``risk_claim`` telt nooit mee), ``approve`` → ``Approval`` gebonden aan de diff, ``execution_request`` → ondertekend
+  (``risk_claim`` telt nooit mee) en de regels ``beschermd`` van het Hub-beleid (Emby nooit; mediaserver en
+  MediaGuard niet bijwerken, terugzetten of verwijderen; gepinde kopie van ``policy/apps.yaml``, ADR-0025: 403 met de
+  code van de Hub), ``approve`` → ``Approval`` gebonden aan de diff, ``execution_request`` → ondertekend
   met de policy-sleutel. De echte Hub heeft hiervoor nog geen routes; ``POST /api/v1/actions/proposals`` is
   **voorlopig** en dwingt voor een dienst-token de actor ``flow`` af (een flow kiest nooit zelf wie hij is).
 
@@ -33,6 +35,8 @@ import contract8 as c8
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI, Header, Request
 from fastapi.responses import JSONResponse, Response
+
+from lifecycle import beschermd
 
 if TYPE_CHECKING:
     from hub_sim import HubState
@@ -181,6 +185,12 @@ class P2State:
         if besluit is None:
             raise P2Error(403, "actie_niet_toegestaan", "Deze actie staat niet op de allowlist.",
                           {"action_id": p["action_id"]})
+        doel = p["target"] if isinstance(p["target"], Mapping) else {}
+        naam = str(doel.get("app_id") or "") or None
+        record = self.apps.get(naam or "") or {}
+        images = [str(r) for r in ((record.get("image") or {}).get("repository"),) if r]
+        for regel in beschermd.regels(beschermd.beleid(), str(p["action_id"]), naam, images):
+            raise P2Error(403, regel.code, regel.reden_nl, {"regel": regel.id, "action_id": p["action_id"]})
         fouten = c8.parameter_fouten(str(p["action_id"]), p["target"], p["parameters"])
         if fouten:
             raise P2Error(422, "parameters_ongeldig", "Doel of parameters vallen buiten de grenzen.",

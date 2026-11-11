@@ -249,3 +249,28 @@ def test_gewijzigde_app_na_goedkeuring_wordt_niet_bijgewerkt(keten: k.Keten) -> 
     productie = keten.app("gotify")
     assert productie is not None and productie["active_workloads"]["images"] == [OUD]
     assert c8.app_etag(productie, keten.rpc.call("app.image.query")) != verzoek.proposal["expected_version"]
+
+
+@pytest.mark.parametrize(("naam", "actie", "code"), [
+    ("emby", "app.stop", "emby_nooit_door_platform"),
+    ("emby", "app.start", "emby_nooit_door_platform"),
+    ("jelly-leon", "app.update", "mediaserver_migratie_vraagt_rapport"),
+    ("mediaguard", "app.uninstall", "mediaguard_upgradebewijs_ontbreekt"),
+])
+def test_hub_stand_in_weigert_een_voorstel_voor_een_beschermde_app(keten: k.Keten, naam: str, actie: str,
+                                                                    code: str) -> None:
+    """R-HARDE-EIS-2 (V-001): de Hub-stand-in volgt de regels 'beschermd' van het Hub-beleid, net als de echte Hub;
+    ook een voorstel dat niet uit een plan komt, bereikt de NAS dan nooit."""
+    versie = keten.doel()["ix_app_version"]
+    keten.nas.post("/_sim/fixtures", json={"apps": [{"app_name": naam, "version": versie,
+                                                     "values": k.formulier(f"3.0.0@{h.OUDE_DIGEST}")}]})
+    keten.meet()
+    voorstel = keten.p2.vul_expected_version({
+        "idempotency_key": str(uuid.uuid4()), "action_id": actie, "target": {"app_id": naam},
+        "parameters": {"image": {"repository": h.GOTIFY_REPO, "tag": f"3.1.1@{h.GOTIFY_DIGEST}"},
+                       "manifest_sha256": "0" * 64} if actie == "app.update" else {},
+        "expected_version": None, "reason": "proef", "actor": k.EIGENAAR})
+    with pytest.raises(P2Error) as fout:
+        keten.p2.propose(voorstel)
+    assert (fout.value.status, fout.value.code) == (403, code)
+    assert muterend(keten) == [] and keten.overtredingen() == []

@@ -1,0 +1,70 @@
+# Risicobeleid — regels per app (platformcontract 1.3 §2.3, §8; 03_RISICO_AUTONOMIE; ADR-0030). Read-only ingebakken
+# in de Hub- én de executor-image; telt mee in de policy_hash.
+#
+# herkenning: een app wordt herkend op de exacte TrueNAS-appnaam of de basisnaam van een image (zonder registry, tag
+#   of digest); anders het langste voorvoegsel gevolgd door '-' of '_'. Herkenning wordt alleen gebruikt om strenger
+#   te zijn (kritiek, beschermd), nooit om iets toe te staan.
+# kritiek: herstarten/stoppen/starten wordt R2 (netwerk, DNS, auth en het platform zelf).
+# beschermd: acties die voor deze app altijd geweigerd worden, ook met goedkeuring.
+schema: asm-policy/1
+herkenning:
+  ai-server-manager-executor: {namen: [ai-server-manager-executor]}
+  ai-server-manager: {namen: [ai-server-manager]}
+  home-control-hub: {namen: [home-control-hub]}
+  appstore-en-fork: {namen: [appstore-en-fork]}
+  jelly-leon-platform: {namen: [jelly-leon-platform]}
+  jelly-leon: {namen: [jelly-leon]}
+  jellyfin: {namen: [jellyfin]}
+  emby: {namen: [emby, embyserver, emby-server]}
+  mediaguard: {namen: [mediaguard, mediaguard-core]}
+  media-source-optimizer: {namen: [media-source-optimizer, mso]}
+  my_house: {namen: [my_house, my-house, myhouse, smart-home]}
+  authentik: {namen: [authentik]}
+  adguard-home: {namen: [adguard-home, adguardhome, adguard]}
+  tailscale: {namen: [tailscale]}
+  cloudflared: {namen: [cloudflared]}
+  uptime-kuma: {namen: [uptime-kuma, uptimekuma]}
+  gotify: {namen: [gotify]}
+  immich: {namen: [immich, immich-server]}
+kritiek:
+  - ai-server-manager
+  - ai-server-manager-executor
+  - home-control-hub
+  - authentik
+  - adguard-home
+  - tailscale
+  - cloudflared
+beschermd:
+  - id: APP-EMBY
+    app: emby
+    acties: '*'
+    code: emby_nooit_door_platform
+    reden_nl: Het platform stopt, updatet of verwijdert Emby nooit (contract §2.3 regel 3); de gebruiker verwijdert Emby zelf na de controlelijst "Emby verwijderen".
+  - id: APP-PLATFORM
+    app: ai-server-manager
+    acties: [app.stop, app.uninstall, app.rollback]
+    code: platform_niet_stoppen
+    reden_nl: De Hub stopt of verwijdert zichzelf niet via een actie (lock-out); gebruik de TrueNAS-web-UI.
+  - id: APP-EXECUTOR
+    app: ai-server-manager-executor
+    acties: [app.stop, app.uninstall, app.update, app.rollback]
+    code: executor_niet_zelf
+    reden_nl: De executor wijzigt, stopt of verwijdert zichzelf niet; gebruik de TrueNAS-web-UI.
+  - id: APP-MEDIAGUARD
+    app: mediaguard
+    acties: [app.update, app.rollback, app.uninstall]
+    code: mediaguard_upgradebewijs_ontbreekt
+    reden_nl: Geen MediaGuard-update, -terugzetting of -verwijdering via de Hub zonder upgradebewijs op een gevulde database van de vorige versie (contract §2.3 regel 7b; ADR in P3).
+  - id: APP-MEDIASERVER-JL
+    app: jelly-leon
+    acties: [app.update, app.rollback, app.uninstall]
+    code: mediaserver_migratie_vraagt_rapport
+    reden_nl: Een update of terugzetting van de mediaserver vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (HARDE EIS, contract §2.3 regel 7a); dat loopt in P4 via jelly-leon-platform.
+  - id: APP-MEDIASERVER-JF
+    app: jellyfin
+    acties: [app.update, app.rollback, app.uninstall]
+    code: mediaserver_migratie_vraagt_rapport
+    reden_nl: Een update of terugzetting van de mediaserver vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (HARDE EIS, contract §2.3 regel 7a).
+sandbox:
+  # zfs.snapshot.clone_to_sandbox klont alleen naar <pool>/asm-sandbox/<naam>; de ouderdataset maakt de beheerder.
+  dataset_naam: asm-sandbox

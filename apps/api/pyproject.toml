@@ -42,7 +42,8 @@ lifecycle = "lifecycle.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed", "peil/statuspagina.html"]
+lifecycle = ["migrations/*.mako", "migrations/versions/*.py", "py.typed", "peil/statuspagina.html", "beleid/apps.yaml",
+             "beleid/KOPIE.json"]
 appstore = ["KOPIE.json", "manifest/*.json"]
 
 [tool.pytest.ini_options]

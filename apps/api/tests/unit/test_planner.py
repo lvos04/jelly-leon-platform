@@ -651,3 +651,56 @@ def test_terugzetten_met_gemeten_vorige_digest_waarschuwt_niet() -> None:
     assert "vorige_digest_onbekend" not in {b["code"] for b in doc["bevindingen"]}
     assert "huidige_digest_onbekend" not in {b["code"] for b in bron["bevindingen"]}
     assert "digest_niet" not in stap(doc, "terugzetten")["verwacht"]
+
+
+# ------------------------------------------------------------------ beschermde apps (HARDE EIS; contract §2.3)
+@pytest.mark.parametrize(("naam", "code"), [
+    ("emby", "emby_nooit_door_platform"),
+    ("embyserver", "emby_nooit_door_platform"),
+    ("emby-server-2", "emby_nooit_door_platform"),  # langste voorvoegsel + '-', zoals de Hub
+    ("jelly-leon", "mediaserver_migratie_vraagt_rapport"),
+    ("jellyfin", "mediaserver_migratie_vraagt_rapport"),
+    ("mediaguard", "mediaguard_upgradebewijs_ontbreekt"),
+])
+def test_update_van_een_beschermde_app_geeft_niets_vrij(naam: str, code: str) -> None:
+    """R-HARDE-EIS-2: het platform stopt, updatet of verwijdert Emby nooit (§2.3 regel 3) en een update of terugzetting
+    van de mediaserver of MediaGuard vraagt eerst een vóór/na-rapport en akkoord (§2.3 regel 7). De planner volgt de
+    regels 'beschermd' van het Hub-beleid (gepinde kopie van ai-server-manager policy/apps.yaml) en geeft dan niets
+    vrij, ook geen 'stoppen'."""
+    doc = update(app_name=naam, manifest_yaml=gotify_alleen_image_veilig(), schaduw_parameters=None,
+                 inventaris=inventaris(gotify_record(naam=naam)))
+    assert codes(doc) == {code}, doc["blokkades"]
+    geen_stap_vrij(doc)
+    blokkade = doc["blokkades"][0]
+    assert blokkade["details"]["bron"] == "hub_beleid" and blokkade["details"]["app_name"] == naam
+    assert blokkade["details"]["regel"].startswith("APP-")
+
+
+def test_beschermde_app_wordt_ook_aan_de_image_herkend() -> None:
+    """Een andere appnaam met de image van Emby: de Hub herkent de app aan de basisnaam van de image; de planner ook."""
+    record = {**app_record("kijkdoos", repository="docker.io/emby/embyserver", tag="4.9.1",
+                           digest=GOTIFY_DIGEST, app_id=None), "installatiewijze": "custom_app"}
+    doc = terug(app_name="kijkdoos", herstel_van=EXEC, inventaris=inventaris(record))
+    assert "emby_nooit_door_platform" in codes(doc)
+    geen_stap_vrij(doc)
+
+
+def test_beschermd_maakt_alleen_strenger_en_herkent_niet_te_ruim() -> None:
+    # jelly-leon-platform is een eigen app (exacte naam), niet 'jelly-leon' + voorvoegsel
+    doc = update(app_name="jelly-leon-platform", manifest_yaml=gotify_alleen_image_veilig(), schaduw_parameters=None,
+                 inventaris=inventaris(gotify_record(naam="jelly-leon-platform")))
+    assert doc["blokkades"] == []
+    # installeren van de mediaserver staat niet in de regel (alleen update, terugzetten en verwijderen)
+    assert installatie(app_name="jelly-leon")["blokkades"] == []
+
+
+def test_zonder_leesbaar_beleid_geeft_geen_plan_iets_vrij(monkeypatch: pytest.MonkeyPatch) -> None:
+    from lifecycle import beschermd
+
+    def kapot() -> beschermd.Beleid:
+        raise beschermd.BeleidFout("apps.yaml ontbreekt")
+
+    monkeypatch.setattr(beschermd, "beleid", kapot)
+    doc = installatie()
+    assert codes(doc) == {"beleid_onbekend"}
+    geen_stap_vrij(doc)
