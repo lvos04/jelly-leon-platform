@@ -22,6 +22,7 @@ def _mutating_paths(client: Any) -> list[tuple[str, str]]:
     out = []
     for template, operations in client.app.openapi()["paths"].items():
         path = template.replace("{run_id}", str(uuid.uuid4())).replace("{evidence_id}", str(uuid.uuid4()))
+        path = path.replace("{plan_id}", str(uuid.uuid4())).replace("{step_id}", "installeren")
         out += [(m.upper(), path) for m in operations if m in MUTATING]
     assert len(out) >= 10
     return out
@@ -57,9 +58,14 @@ def test_every_mutation_without_key_gets_400_after_authentication(client: Any, a
     """§5 dynamisch: zonder ``Idempotency-Key`` → 400 ``idempotency_key_required`` (pas ná de authenticatie); alleen de
     501-routes van de connector zijn uitgezonderd (zolang ze niets uitvoeren). Met een geldige body, zodat de
     schemacontrole (ook ná de authenticatie) niet eerst antwoordt."""
-    bodies = {"/lifecycle/v1/runs": {"app_id": "gotify", "kind": "install"}}
+    plan = {"manifest_yaml": "app_id: voorbeeld"}
+    bodies = {"/lifecycle/v1/runs": {"app_id": "gotify", "kind": "install"},
+              "/lifecycle/v1/plans/install/preview": plan, "/lifecycle/v1/plans/update/preview": plan,
+              "/lifecycle/v1/plans/rollback/preview": {"update_plan_id": str(uuid.uuid4())}}
     for method, path in _mutating_paths(client):
         body = bodies.get(path, {"to_state": "aborted", "reason": "test"} if path.endswith("/transitions") else {})
+        if path.endswith("/result"):
+            body = {"status": "mislukt"}
         r = client.request(method, path, json=body, headers=auth("admin"))
         if path in EXEMPT_501:
             assert r.status_code == 501 and r.json()["code"] == "capability_unavailable", (path, r.text)

@@ -57,8 +57,8 @@ def clean_db(pg_url: str) -> Iterator[str]:
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE lifecycle_transitions, lifecycle_runs, idempotency_records, jwt_replay, outbox_events, "
-                "audit_log, worker_heartbeats RESTART IDENTITY CASCADE"
+                "TRUNCATE lifecycle_plans, lifecycle_transitions, lifecycle_runs, idempotency_records, jwt_replay, "
+                "outbox_events, audit_log, worker_heartbeats RESTART IDENTITY CASCADE"
             )
         )
     engine.dispose()

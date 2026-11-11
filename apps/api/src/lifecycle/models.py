@@ -183,6 +183,41 @@ class AuditEntry(Base):
     trace_id: Mapped[uuid.UUID] = mapped_column(Uuid)
 
 
+PLAN_SOORTEN = ["install", "update", "rollback"]
+PLAN_STATUSSEN = ["geblokkeerd", "klaar_voor_voorstel", "in_uitvoering", "voltooid", "mislukt"]
+
+
+class LifecyclePlan(Base):
+    """Eén plan voor installeren, bijwerken of terugzetten (B08-003/B08-004). ``document`` is het onveranderlijke
+    plandocument (diff, blokkades, stappen-DAG; nooit geheimen); ``stappen`` is de voortgang per stap zoals de Hub die
+    terugmeldt. Het plan voert zelf niets uit: elke stap is een voorstel voor de Hub (contract §8)."""
+
+    __tablename__ = "lifecycle_plans"
+    __table_args__ = (
+        CheckConstraint(f"soort IN ({_in(PLAN_SOORTEN)})", name="soort_valid"),
+        CheckConstraint(f"status IN ({_in(PLAN_STATUSSEN)})", name="status_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    soort: Mapped[str] = mapped_column(String(16))
+    app_id: Mapped[str | None] = mapped_column(String(40), index=True)
+    app_name: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(24))
+    preview_hash: Mapped[str | None] = mapped_column(String(80))
+    manifest_sha256: Mapped[str | None] = mapped_column(String(80))
+    document: Mapped[dict[str, Any]] = mapped_column(default=dict)
+    stappen: Mapped[list[Any]] = mapped_column(default=list)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by_type: Mapped[str] = mapped_column(String(16))
+    created_by_id: Mapped[str] = mapped_column(String(128))
+    trace_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __mapper_args__ = {"version_id_col": version}  # noqa: RUF012 - SQLAlchemy-conventie
+
+
 class WorkerHeartbeat(Base):
     """Laatste teken van leven van de worker (één rij per procesnaam); gebruikt door de connector-health."""
 

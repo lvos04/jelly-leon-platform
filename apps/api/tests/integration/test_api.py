@@ -164,7 +164,7 @@ def test_transitions_needing_engine_are_capability_unavailable(client: Any, auth
     assert client.get(f"/lifecycle/v1/runs/{run['id']}", headers=auth("viewer")).json()["state"] == "discovered"
 
 
-@pytest.mark.parametrize("path", ["install", "update", "rollback", "uninstall", "move"])
+@pytest.mark.parametrize("path", ["uninstall", "move"])  # install/update/rollback: tests/integration/test_plans_api.py
 def test_p2_plans_are_honest_501(client: Any, auth: Any, path: str) -> None:
     r = client.post(f"/lifecycle/v1/plans/{path}/preview", json={}, headers=auth("admin", idem=True))
     assert r.status_code == 501 and r.json()["code"] == "capability_unavailable"

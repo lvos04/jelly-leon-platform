@@ -398,9 +398,6 @@ def transition_run(
 
 
 _P2 = {
-    "/plans/install/preview": ("installatieplan met dry-run, poortconflicten en afhankelijkheden (B08-003)", "P2"),
-    "/plans/update/preview": ("veilige update met snapshot en migratietest (B08-004)", "P2"),
-    "/plans/rollback/preview": ("terugzetten naar vorige waarden + snapshot via eigenaar (B08-004)", "P2"),
     "/plans/uninstall/preview": ("verwijderen zonder data (B08-006)", "P2"),
     "/plans/move/preview": ("verhuizen naar andere host via export (B08-006)", "P2"),
 }

@@ -15,6 +15,7 @@ from sqlalchemy import Engine
 from lifecycle import APP_ID, __version__
 from lifecycle.api_connector import router as connector_router
 from lifecycle.api_lifecycle import router as lifecycle_router
+from lifecycle.api_plans import router as plans_router
 from lifecycle.auth import Authenticator
 from lifecycle.config import Settings, load_settings
 from lifecycle.db import make_engine, make_session_factory
@@ -139,5 +140,6 @@ def create_app(
 
     app.include_router(status_router)
     app.include_router(lifecycle_router)
+    app.include_router(plans_router)
     app.include_router(connector_router)
     return app

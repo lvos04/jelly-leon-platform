@@ -83,3 +83,13 @@ def test_kopie_is_de_bron_op_de_gepinde_commit() -> None:
                       f"({pin.commit[:12]}); overnemen is een bewuste stap (tools/validator_kopie.py bijwerken)",
                       UserWarning, stacklevel=1)
 
+
+
+
+
+def test_dienst_gebruikt_de_kopie_en_geen_eigen_regels() -> None:
+    """De planner importeert de standaard uit ``appstore.manifest``; in ``lifecycle`` staat geen tweede validator."""
+    bron = (ROOT / "apps" / "api" / "src" / "lifecycle" / "planner.py").read_text(encoding="utf-8")
+    assert "from appstore.manifest" in bron
+    lifecycle = ROOT / "apps" / "api" / "src" / "lifecycle"
+    assert not list(lifecycle.rglob("*.schema.json")), "het manifestschema hoort alleen in de kopie"

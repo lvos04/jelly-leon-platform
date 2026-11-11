@@ -19,6 +19,34 @@
         "title": "Actor",
         "type": "object"
       },
+      "CatalogIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "maxLength": 40,
+            "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+            "title": "App",
+            "type": "string"
+          },
+          "train": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+            "title": "Train",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^\\d{1,6}(\\.\\d{1,6}){1,3}$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "train",
+          "app",
+          "version"
+        ],
+        "title": "CatalogIn",
+        "type": "object"
+      },
       "Discover": {
         "properties": {
           "app_id": {
@@ -75,6 +103,38 @@
           "timestamp_utc"
         ],
         "title": "Discover",
+        "type": "object"
+      },
+      "DoelIn": {
+        "additionalProperties": false,
+        "description": "Versies van de NAS waarvoor het plan geldt. De Hub-inventaris levert ze nog niet; de aanvrager geeft ze op.",
+        "properties": {
+          "ix_app_version": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{1,6}(\\.\\d{1,6}){1,3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ix App Version"
+          },
+          "truenas_version": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9A-Za-z][0-9A-Za-z._-]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Truenas Version"
+          }
+        },
+        "title": "DoelIn",
         "type": "object"
       },
       "EventPage": {
@@ -333,6 +393,45 @@
         "title": "HubLinkOut",
         "type": "object"
       },
+      "InstallPlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Name"
+          },
+          "doel": {
+            "$ref": "#/components/schemas/DoelIn"
+          },
+          "manifest_yaml": {
+            "description": "Het manifest (YAML-tekst).",
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Manifest Yaml",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "description": "Waarden voor de manifestparameters. Nooit geheimen: de standaard weigert geheime parameters in formulierwaarden.",
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "manifest_yaml"
+        ],
+        "title": "InstallPlanIn",
+        "type": "object"
+      },
       "LifecycleState": {
         "enum": [
           "discovered",
@@ -396,6 +495,117 @@
           "policy"
         ],
         "title": "PinnedKids",
+        "type": "object"
+      },
+      "ReadbackIn": {
+        "additionalProperties": false,
+        "description": "De teruggelezen toestand van het doel na de stap (van de executor, via de Hub). Geen vrije configuratie.",
+        "properties": {
+          "digests": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Digests",
+            "type": "array"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Images",
+            "type": "array"
+          },
+          "staat": {
+            "maxLength": 32,
+            "title": "Staat",
+            "type": "string"
+          },
+          "versie": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versie"
+          }
+        },
+        "required": [
+          "staat"
+        ],
+        "title": "ReadbackIn",
+        "type": "object"
+      },
+      "RollbackPlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Name"
+          },
+          "catalog": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "herstel_van": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "execution_id van de update die wordt teruggedraaid (Custom App).",
+            "title": "Herstel Van"
+          },
+          "update_plan_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Plan Id"
+          }
+        },
+        "title": "RollbackPlanIn",
         "type": "object"
       },
       "RunCreate": {
@@ -630,6 +840,71 @@
         "title": "RunPage",
         "type": "object"
       },
+      "SchaduwIn": {
+        "additionalProperties": false,
+        "properties": {
+          "parameters": {
+            "additionalProperties": true,
+            "description": "Afwijkende waarden voor de testkopie (minstens een vrije hostpoort); het datapad wijst het plan zelf naar de kloon.",
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "title": "SchaduwIn",
+        "type": "object"
+      },
+      "StepResultIn": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id"
+          },
+          "readback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReadbackIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reden": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reden"
+          },
+          "status": {
+            "enum": [
+              "voltooid",
+              "mislukt"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StepResultIn",
+        "type": "object"
+      },
       "TransitionIn": {
         "properties": {
           "evidence": {
@@ -710,6 +985,55 @@
           "at"
         ],
         "title": "TransitionOut",
+        "type": "object"
+      },
+      "UpdatePlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Name"
+          },
+          "doel": {
+            "$ref": "#/components/schemas/DoelIn"
+          },
+          "manifest_yaml": {
+            "description": "Het manifest (YAML-tekst).",
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Manifest Yaml",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "description": "Waarden voor de manifestparameters. Nooit geheimen: de standaard weigert geheime parameters in formulierwaarden.",
+            "title": "Parameters",
+            "type": "object"
+          },
+          "schaduw": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchaduwIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "manifest_yaml"
+        ],
+        "title": "UpdatePlanIn",
         "type": "object"
       },
       "ValidationError": {
@@ -1148,7 +1472,7 @@
     },
     "/lifecycle/v1/plans/install/preview": {
       "post": {
-        "operationId": "placeholder_lifecycle_v1_plans_install_preview_post",
+        "operationId": "preview_install_lifecycle_v1_plans_install_preview_post",
         "parameters": [
           {
             "in": "header",
@@ -1167,7 +1491,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallPlanIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Het plan is vastgelegd. `status: geblokkeerd` betekent: geen enkele stap vrijgegeven."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1177,19 +1519,11 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "capability_unavailable — er is niets uitgevoerd"
           }
         },
-        "summary": "Nog niet gebouwd: installatieplan met dry-run, poortconflicten en afhankelijkheden (B08-003)",
+        "summary": "Installatieplan: dry-run, diff, poortconflicten en afhankelijkheden (voert niets uit)",
         "tags": [
-          "lifecycle"
+          "plannen"
         ]
       }
     },
@@ -1242,7 +1576,7 @@
     },
     "/lifecycle/v1/plans/rollback/preview": {
       "post": {
-        "operationId": "placeholder_lifecycle_v1_plans_rollback_preview_post",
+        "operationId": "preview_rollback_lifecycle_v1_plans_rollback_preview_post",
         "parameters": [
           {
             "in": "header",
@@ -1261,7 +1595,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackPlanIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Het plan is vastgelegd. `status: geblokkeerd` betekent: geen enkele stap vrijgegeven."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1271,19 +1623,11 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "capability_unavailable — er is niets uitgevoerd"
           }
         },
-        "summary": "Nog niet gebouwd: terugzetten naar vorige waarden + snapshot via eigenaar (B08-004)",
+        "summary": "Terugzetplan: vorige waarden (Custom App) of gemeten catalogusversie (voert niets uit)",
         "tags": [
-          "lifecycle"
+          "plannen"
         ]
       }
     },
@@ -1336,7 +1680,7 @@
     },
     "/lifecycle/v1/plans/update/preview": {
       "post": {
-        "operationId": "placeholder_lifecycle_v1_plans_update_preview_post",
+        "operationId": "preview_update_lifecycle_v1_plans_update_preview_post",
         "parameters": [
           {
             "in": "header",
@@ -1355,7 +1699,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlanIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Het plan is vastgelegd. `status: geblokkeerd` betekent: geen enkele stap vrijgegeven."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1365,19 +1727,129 @@
               }
             },
             "description": "Validation Error"
-          },
-          "501": {
+          }
+        },
+        "summary": "Updateplan: herstelpunt, schaduwtest bij migraties, update met digest-readback (voert niets uit)",
+        "tags": [
+          "plannen"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/{plan_id}": {
+      "get": {
+        "operationId": "get_plan_lifecycle_v1_plans__plan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {}
               }
             },
-            "description": "capability_unavailable — er is niets uitgevoerd"
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "summary": "Nog niet gebouwd: veilige update met snapshot en migratietest (B08-004)",
+        "summary": "Eén plan: diff, blokkades, stappen en voortgang (met ETag)",
         "tags": [
-          "lifecycle"
+          "plannen"
+        ]
+      }
+    },
+    "/lifecycle/v1/plans/{plan_id}/steps/{step_id}/result": {
+      "post": {
+        "operationId": "report_step_lifecycle_v1_plans__plan_id__steps__step_id__result_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step_id",
+            "required": true,
+            "schema": {
+              "title": "Step Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "stap_niet_vrijgegeven, plan_geblokkeerd of plan_vervallen"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resultaat van één vrijgegeven stap melden (execution_id + readback); geeft de volgende stap vrij",
+        "tags": [
+          "plannen"
         ]
       }
     },
