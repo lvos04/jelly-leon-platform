@@ -5,12 +5,16 @@ De inventaris en de catalogusbeschikbaarheid komen hier écht over HTTP van de (
 
 from __future__ import annotations
 
+import time
 import uuid
+from datetime import datetime, timedelta
 from typing import Any
 
 import planhulp as h
 import pytest
 from sqlalchemy import create_engine, text
+
+from lifecycle.timeutil import iso_z
 
 PREVIEW = "/lifecycle/v1/plans/{}/preview"
 EXEC = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -356,6 +360,36 @@ def test_terugzetten_na_update_met_migraties_is_geblokkeerd(client: Any, auth: A
     r = _meld(client, auth, tv["id"], "terugzetten",
               readback={"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.OUDE_DIGEST}"]})
     assert (r.status_code, r.json()["code"]) == (409, "plan_geblokkeerd")
+
+
+def test_plan_vervalt_zodra_de_meting_eronder_te_oud_is(client: Any, auth: Any, hub: Any, clean_db: str) -> None:
+    """Contract §6.2, review P2 (R-TECH-2): een niet-gestart plan vervalt op het vroegste van (aanmaken + 1 uur) en
+    (tijdstip van de oudste gebruikte meting + 900 s). Daarna biedt het geen stap meer aan en weigert het een melding:
+    een voorstel op een meting die intussen ``meting_verouderd`` is, wordt nooit als actueel doorgegeven."""
+    p2 = meetbaar(hub)
+    nu = p2.clock()
+    p2.gemeten_op, p2.catalogus_gemeten_op = nu - 600, nu - 300
+    view = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    assert view["status"] == "klaar_voor_voorstel", view["plan"]["blokkades"]
+    inventaris = datetime.fromisoformat(p2._iso(p2.gemeten_op).replace("Z", "+00:00"))
+    assert view["expires_at"] == iso_z(inventaris + timedelta(seconds=900))  # de inventaris is de oudste meting
+
+    p2.gemeten_op, p2.catalogus_gemeten_op = p2.clock() - 897, None  # nog net vers bij het maken van het plan
+    view = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    assert view["vrijgegeven_stappen"] == ["installeren"] and view["vervallen"] is False
+    time.sleep(4)
+    gelezen = client.get(f"/lifecycle/v1/plans/{view['id']}", headers=auth("viewer")).json()
+    assert gelezen["vervallen"] is True and gelezen["vrijgegeven_stappen"] == []
+    r = _meld(client, auth, view["id"], "installeren",
+              readback={"staat": "RUNNING", "digests": [f"{h.GOTIFY_REPO}@{h.GOTIFY_DIGEST}"]})
+    assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")
+
+    p2.gemeten_op = None  # ook een meting van nu is maar 900 s vers: dat is korter dan het uur van PLAN_TTL
+    vers = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    gemeten = datetime.fromisoformat(vers["plan"]["bronnen"]["inventaris"]["gemeten_op"].replace("Z", "+00:00"))
+    gemaakt = datetime.fromisoformat(vers["created_at"].replace("Z", "+00:00"))
+    assert vers["expires_at"] == iso_z(gemeten + timedelta(seconds=900))
+    assert gemeten + timedelta(seconds=900) < gemaakt + timedelta(hours=1)
 
 
 def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: str) -> None:

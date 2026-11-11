@@ -99,6 +99,13 @@ def verse_inventaris(inventaris: Inventaris, now: datetime) -> Inventaris:
     return Inventaris("unknown", VEROUDERD, gemeten_op=inventaris.gemeten_op, snapshot_id=inventaris.snapshot_id)
 
 
+def geldig_tot(gemeten_op: str | None) -> datetime | None:
+    """Tot wanneer een meting met dit tijdstip vers is (``gemeten_op`` + ``MAX_METING_LEEFTIJD``); ``None`` zonder
+    leesbaar tijdstip. Een plan op deze meting vervalt uiterlijk dan (review P2, R-TECH-2)."""
+    gemeten = _parse_ts(gemeten_op)
+    return None if gemeten is None else gemeten + MAX_METING_LEEFTIJD
+
+
 def verse_meting(meting: Beschikbaarheid, now: datetime) -> Beschikbaarheid:
     """De catalogusmeting zoals de planner haar mag gebruiken: ``ja``/``nee`` zonder leesbaar tijdstip of ouder dan
     ``MAX_METING_LEEFTIJD`` (of uit de toekomst) → ``onbekend`` (``unknown``); het tijdstip blijft zichtbaar."""

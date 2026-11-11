@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Callable
-from datetime import timedelta
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Request
@@ -28,7 +28,7 @@ from lifecycle import planner
 from lifecycle.audit import audit
 from lifecycle.auth import Principal, require_read, require_write
 from lifecycle.errors import ApiError, trace_id_of
-from lifecycle.hubread import Beschikbaarheid, HubLezer, Inventaris
+from lifecycle.hubread import Beschikbaarheid, HubLezer, Inventaris, geldig_tot
 from lifecycle.models import LifecyclePlan
 from lifecycle.outbox import emit
 from lifecycle.redact import redact_text
@@ -36,7 +36,9 @@ from lifecycle.timeutil import iso_z, utcnow
 
 router = APIRouter(prefix="/lifecycle/v1", tags=["plannen"])
 
-PLAN_TTL = timedelta(hours=1)  # een niet-gestart plan vervalt: de meting eronder is dan te oud om op te bouwen
+# Een niet-gestart plan vervalt op het vroegste van (aanmaken + PLAN_TTL) en (de oudste gebruikte meting + 900 s,
+# contract §6.2): daarna is de meting eronder te oud om nog een voorstel op te bouwen (review P2, R-TECH-2).
+PLAN_TTL = timedelta(hours=1)
 MAX_MANIFEST_BYTES = 200_000
 MAX_PARAMETERS_BYTES = 16_384
 APP_NAME = r"^[a-z]([-a-z0-9]*[a-z0-9])?$"
@@ -124,6 +126,19 @@ class StepResultIn(_Strikt):
     reden: str | None = Field(default=None, max_length=500)
 
 
+def vervaltijd(document: Mapping[str, Any], now: datetime) -> datetime:
+    """Het vroegste van ``now + PLAN_TTL`` en het einde van de versheid van elke gebruikte meting (inventaris en
+    catalogus met status ``ok``) uit het plan."""
+    grens = now + PLAN_TTL
+    bronnen = document.get("bronnen") or {}
+    for bron in (bronnen.get("inventaris"), bronnen.get("catalogus")):
+        if isinstance(bron, Mapping) and bron.get("status") == "ok":
+            tot = geldig_tot(bron.get("gemeten_op"))
+            if tot is not None and tot < grens:
+                grens = tot
+    return grens
+
+
 # ------------------------------------------------------------------ weergave
 def etag_of(plan: LifecyclePlan) -> str:
     return f'"plan-{plan.id}-v{plan.version}"'
@@ -187,7 +202,7 @@ def _bewaar(request: Request, principal: Principal, idempotency_key: str | None,
             status=planner.plan_status(document, stappen), preview_hash=vast.get("preview_hash"),
             manifest_sha256=manifest.get("manifest_sha256"), document=document, stappen=stappen,
             created_by_type=principal.actor["type"], created_by_id=principal.subject, trace_id=uuid.UUID(trace),
-            created_at=now, updated_at=now, expires_at=now + PLAN_TTL,
+            created_at=now, updated_at=now, expires_at=vervaltijd(document, now),
         )
         session.add(plan)
         session.flush()
