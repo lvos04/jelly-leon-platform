@@ -113,10 +113,15 @@ versie in de trein, de vorige verdwijnt). Community-apps zijn pas zichtbaar in `
 | `POST /_sim/reboot {"downtime_ms": 500}` | herstart: verbindingen dicht, jobs weg, nieuw boot-ID |
 | `POST /_sim/fixtures {apps, datasets, cloudsync_tasks, replication_tasks, snapshot_tasks, extra_alerts, gpus}` | scenario-opbouw (bijv. bestaande Jellyfin/MediaGuard als geïnstalleerde apps) |
 | `POST /_sim/faults/<naam>` / `DELETE /_sim/faults/<naam>` | storing aan/uit |
+| `GET /_sim/inhoud` · `POST /_sim/inhoud {"dataset", "inhoud": {…}}` | gesimuleerde inhoud van datasets en snapshots (bv. een database met `schema` en `gegevens`); snapshot bewaart een kopie, een kloon begint ermee, `*.snapshot.rollback` zet hem terug. Nooit via de JSON-RPC-API zichtbaar |
 
 Storingen: `pool_degraded {"pool","status"}`, `api_unreachable`, `key_revoked {"key_id"}`, `slow {"delay_ms"}`,
 `job_fail {"method","count","error"}`, `reboot_during_apply {"method","downtime_ms"}` (de wijziging is half
-toegepast: app blijft `CRASHED`, job verdwijnt), `smart_fail {"disk"}`, `insecure_transport`.
+toegepast: app blijft `CRASHED`, job verdwijnt), `smart_fail {"disk"}`, `insecure_transport`, `digest_mismatch`
+(`app.image.query` meldt een andere digest dan de tag), `migratie_mislukt {"image": "<repository>:<tag>"}` (de job van
+`app.create`/`app.update` met die image slaagt, daarna crasht de app (`CRASHED`) en zijn schrijfbare hostpaden zijn
+half gemigreerd: inhoud `schema` = `half-gemigreerd:<tag>`, `beschadigd: true`; een kloon of andere app blijft
+ongemoeid — B08-004, schaduwtest).
 
 ## Tests
 

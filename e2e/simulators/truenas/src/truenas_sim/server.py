@@ -412,7 +412,7 @@ def create_app(server: SimServer | None = None) -> FastAPI:
         return {"boot_id": sim.state.boot_id}
 
     fault_names = {"pool_degraded", "api_unreachable", "key_revoked", "slow", "job_fail", "reboot_during_apply",
-                   "smart_fail", "insecure_transport", "digest_mismatch"}
+                   "smart_fail", "insecure_transport", "digest_mismatch", "migratie_mislukt"}
 
     @app.post("/_sim/faults/{name}")
     async def set_fault(name: str, request: Request) -> dict[str, Any]:
@@ -461,6 +461,22 @@ def create_app(server: SimServer | None = None) -> FastAPI:
                              "status_detail": None})
                 pool["topology"]["data"][0]["status"] = "ONLINE"
         return {"faults": s.faults}
+
+    @app.get("/_sim/inhoud")
+    def sim_inhoud() -> dict[str, Any]:
+        """Gesimuleerde inhoud van datasets en snapshots (alleen testbediening; de API toont die nooit)."""
+        return {"datasets": copy.deepcopy(sim.state.inhoud), "snapshots": copy.deepcopy(sim.state.snapshot_inhoud)}
+
+    @app.post("/_sim/inhoud")
+    async def zet_inhoud(request: Request) -> dict[str, Any]:
+        """``{"dataset": "<naam>", "inhoud": {...}}``: inhoud van een bestaande dataset zetten (bv. een database met
+        schema 1 en gegevens), zodat een test na een update kan aantonen dat de data intact is."""
+        body = await _json(request)
+        dataset = str(body.get("dataset", ""))
+        if dataset not in sim.state.datasets or not isinstance(body.get("inhoud"), dict):
+            raise HTTPException(404, "dataset onbekend of inhoud geen object")
+        sim.state.inhoud[dataset] = copy.deepcopy(body["inhoud"])
+        return sim_inhoud()
 
     @app.post("/_sim/catalog/publish")
     async def catalog_publish(request: Request) -> dict[str, Any]:

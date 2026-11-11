@@ -132,6 +132,10 @@ class SimState:
     catalog: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: copy.deepcopy(CATALOG))
     # (trein, catalogusapp, versie) → app_version van ooit lokaal geïnstalleerde versies (blijven na catalogwissel)
     installed_versions: dict[tuple[str, str, str], str] = field(default_factory=dict)
+    # Gesimuleerde inhoud van datasets en snapshots (alleen testbediening, nooit via de API zichtbaar): zo is "data
+    # intact" na een mislukte migratie meetbaar. Een snapshot bewaart een kopie, een kloon begint met die kopie.
+    inhoud: dict[str, dict[str, Any]] = field(default_factory=dict)
+    snapshot_inhoud: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def app_version_of(self, train: str, catalog_app: str, version: str) -> str | None:
         versions = self.catalog.get(train, {}).get(catalog_app, {}).get("versions", {})

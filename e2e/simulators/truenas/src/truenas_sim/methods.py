@@ -217,6 +217,8 @@ async def _snapshot_create(ctx: Ctx, data: dict[str, Any]) -> dict[str, Any]:
         raise call_error(EEXIST, f"Snapshot {dataset}@{name} already exists")
     for ds in targets:
         ctx.state.snapshots[f"{ds}@{name}"] = _snap_entry(ctx, ds, name)
+        if ds in ctx.state.inhoud:
+            ctx.state.snapshot_inhoud[f"{ds}@{name}"] = copy.deepcopy(ctx.state.inhoud[ds])
     return copy.deepcopy(ctx.state.snapshots[f"{dataset}@{name}"])
 
 
@@ -230,6 +232,8 @@ async def _snapshot_clone(ctx: Ctx, data: dict[str, Any]) -> bool:
     if dst.rsplit("/", 1)[0] not in ctx.state.datasets:
         raise validation_error([("snapshot_clone.dataset_dst", "Parent dataset does not exist")])
     ctx.state.add_dataset(dst, origin=snap)
+    if snap in ctx.state.snapshot_inhoud:
+        ctx.state.inhoud[dst] = copy.deepcopy(ctx.state.snapshot_inhoud[snap])
     return True
 
 
@@ -237,6 +241,8 @@ async def _snapshot_rollback(ctx: Ctx, snap_id: str, options: dict[str, Any] | N
     if str(snap_id) not in ctx.state.snapshots:
         raise call_error(ENOENT, f"Snapshot {snap_id} not found")
     ctx.state.violation("snapshot_rollback", f"snapshot {snap_id} teruggezet (destructief; alleen via eigenaar)")
+    if str(snap_id) in ctx.state.snapshot_inhoud:
+        ctx.state.inhoud[str(snap_id).split("@", 1)[0]] = copy.deepcopy(ctx.state.snapshot_inhoud[str(snap_id)])
 
 
 # 25.04: zfs.snapshot.* publiek; 25.10: pool.snapshot.* publiek en zfs.snapshot.* privé (hier: afwezig).
@@ -410,6 +416,30 @@ def _image_of(catalog_app: str, values: dict[str, Any], app_version: str) -> str
     return f"sim/{catalog_app}:{app_version}"
 
 
+def _migratie_mislukt(sim: SimState, app: dict[str, Any]) -> bool:
+    """Storing ``migratie_mislukt {"image": "<repository>:<tag>"}``: de nieuwe image start, de databasemigratie faalt
+    halverwege. Gevolg zoals bij een echte mislukte migratie: de app crasht (``CRASHED``) en de schrijfbare hostpaden
+    van de app zijn half gemigreerd (gesimuleerde inhoud ``schema`` = ``half-gemigreerd:<tag>``). Een kloon of een
+    andere app met dezelfde data blijft onaangetast."""
+    fault = sim.faults.get("migratie_mislukt")
+    if not isinstance(fault, dict):
+        return False
+    image = app["active_workloads"]["images"][0].split("@", 1)[0]
+    if image != str(fault.get("image", "")):
+        return False
+    app["state"] = "CRASHED"
+    app["active_workloads"]["containers"] = 0
+    for c in app["active_workloads"]["container_details"]:
+        c["state"] = "exited"
+    for st in app["config"].get("storage", []) or []:
+        if st.get("type") == "host_path" and not st.get("read_only"):
+            ds = str((st.get("host_path_config") or {}).get("path", "")).removeprefix("/mnt/")
+            if ds in sim.inhoud:
+                sim.inhoud[ds]["schema"] = "half-gemigreerd:" + image.rsplit(":", 1)[-1]
+                sim.inhoud[ds]["beschadigd"] = True
+    return True
+
+
 def _app_entry(sim: SimState, name: str, train: str, catalog_app: str, version: str, values: dict[str, Any],
                state: str = "RUNNING") -> dict[str, Any]:
     app_version = sim.app_version_of(train, catalog_app, version)
@@ -531,6 +561,7 @@ async def _create_runner(ctx: Ctx, job: JobHandle, data: dict[str, Any]) -> dict
         await ctx.server.emit("app.query", "removed", name, None)
         raise
     app["state"] = "RUNNING"
+    _migratie_mislukt(ctx.state, app)  # de job slaagt; de container crasht daarna (zoals echt)
     await ctx.server.emit("app.query", "changed", name, _public(app, False))
     await job.progress(100, f"{name!r} installed successfully")
     return _public(app, False)
@@ -619,6 +650,8 @@ async def _update_runner(ctx: Ctx, job: JobHandle, app_name: str, data: dict[str
     fresh = _app_entry(ctx.state, app_name, meta["train"], meta["name"], app["version"], new_values,
                        state="RUNNING" if before["state"] != "STOPPED" else "STOPPED")
     fresh["_history"] = before["_history"]
+    if fresh["state"] == "RUNNING":
+        _migratie_mislukt(ctx.state, fresh)  # de job slaagt; de container crasht daarna (zoals echt)
     ctx.state.apps[app_name] = fresh
     await ctx.server.emit("app.query", "changed", app_name, _public(fresh, False))
     await job.progress(100, f"Update completed for {app_name!r}")
