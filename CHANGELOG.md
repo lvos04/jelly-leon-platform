@@ -283,7 +283,10 @@
   (`herstelpunt_onvolledig`).
 - **Plan vervalt met zijn meting:** uiterlijk 900 s na de oudste gebruikte meting.
 - **Node-RED-hulpmiddel:** geen eigen `env` of groep op een tabblad of node in een bundel; na de import wordt
-  teruggelezen dat alleen de globale `HUB_URL` telt; `exporteer` schrijft nooit buiten de exportmap.
+  teruggelezen dat alleen de globale `HUB_URL` telt; `exporteer` schrijft nooit buiten de exportmap. Herreview: een
+  eigenschap in een `change`-regel is alleen een eenvoudige naam en nooit `msg…` (Node-RED las `msg.url`, `'url'` en
+  `msg['url']` als `msg.url`); het teruglezen laat de eigen tabbladen opnieuw door `lint` gaan en zet bij een
+  bevinding de flows van vóór de import terug.
 - **CI:** de validator van appstore-en-fork staat vast op `1967069` (`ASF_COMMIT`), ook in `make validator-venv`; de
   kopie van de standaard in de dienst staat op dezelfde commit (ADR-0021). Een plan met geheimen blijft geblokkeerd.
 - Alles hierboven is **Sim-getest**. Op een echte TrueNAS, met de echte Hub/executor: **NIET GEVALIDEERD**.

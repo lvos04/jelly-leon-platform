@@ -9,7 +9,8 @@ Wat hier staat:
                  een flow die een actie aanvraagt staat standaard uit;
 - ``lock``       legt per bundel versie en sha256 vast in ``install/node-red/flows.lock.json`` (``--check``);
 - ``importeer``  zet bundels via de Admin-API in een draaiende Node-RED (beheerder vereist), geeft het service-token
-                 van de Hub alleen als versleuteld node-credential mee en leest terug of de checksums kloppen. Een
+                 van de Hub alleen als versleuteld node-credential mee en leest terug of de checksums kloppen en of
+                 de eigen tabbladen opnieuw door ``lint`` komen (zo niet: de vorige flows gaan terug). Een
                  oudere versie herstellen is hetzelfde commando met het oudere bestand (``--bundel naam=pad``);
 - ``exporteer``  schrijft de flows uit Node-RED per tabblad naar bestanden (Git-export) en vergelijkt met het lock.
 
@@ -57,6 +58,11 @@ HUB_ROUTES: dict[str, tuple[str, str]] = {
 ACTIE_ROUTE = "/api/v1/actions/proposals"
 VERBODEN_MSG_VELDEN = frozenset({"method", "headers", "cookies", "requestTimeout", "rejectUnauthorized",
                                  "followRedirects", "responseUrl", "redirectList"})
+# Een eigenschapsnaam in een change-regel is alleen een eenvoudige naam: ASCII-letters, cijfers, _ en punten, en nooit
+# met de wortel 'msg'. Node-RED (RED.util.setMessageProperty) haalt 'msg.' er zelf af en verstaat aanhalingstekens en
+# haken (msg['url'], 'url', "url"); elke andere schrijfwijze dan de eenvoudige naam wordt daarom geweigerd, vóór de
+# url- en VERBODEN-controles (herreview P2, R-VEILIG-1, herstelpoging 2).
+EIGENSCHAP_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 ID_RE = re.compile(r"^jlp-[a-z0-9-]{1,60}$")
 VERSIE_RE = re.compile(r"^versie (\d+\.\d+\.\d+)\n")
 EVENT_RE = re.compile(r'"(flow\.[a-z0-9_]+\.[a-z0-9_]+)"')
@@ -224,9 +230,13 @@ def _lint_change(node: Node) -> list[str]:
     uit = []
     for regel in node.get("rules") or []:
         veld, soort, bak = str(regel.get("p", "")), regel.get("t"), regel.get("pt")
-        wortel = re.split(r"[.\[]", veld, maxsplit=1)[0]
+        wortel = veld.split(".", 1)[0]
         if soort not in ("set", "delete") or bak not in ("msg", "flow"):
             uit.append(f"change_regel: {node.get('id')} — alleen set/delete op msg of de eigen flowcontext")
+        elif not EIGENSCHAP_RE.fullmatch(veld) or wortel == "msg":
+            uit.append(f"change_regel: {node.get('id')} — eigenschap '{veld[:40]}' is geen eenvoudige naam (alleen "
+                       "letters, cijfers, _ en punten; niet 'msg…', geen aanhalingstekens of haken: Node-RED leest "
+                       "die als msg.url of msg.headers)")
         elif bak == "msg" and wortel == "url":
             if soort != "set" or regel.get("tot") != "jsonata" or regel.get("to") not in HUB_ROUTES or veld != "url":
                 uit.append(f"url_niet_toegestaan: {node.get('id')} zet msg.url op iets anders dan een vaste "
@@ -355,6 +365,7 @@ def importeer(nr: NodeRed, bundels: dict[str, list[Node]], *, hub_url: str, toke
         if bevindingen:
             raise Fout(f"Bundel '{naam}' is geweigerd: " + "; ".join(bevindingen))
     rev, huidig = nr.flows()
+    vorige = copy.deepcopy(huidig)  # om terug te zetten als het teruglezen na de import iets vindt
     eigen_tabs = {str((tab_van(n) or {})["id"]) for n in bundels.values()}
     blijft = [n for n in huidig if str(n.get("id")) not in eigen_tabs and str(n.get("z")) not in eigen_tabs]
     globaal = next((n for n in blijft if n.get("type") == "global-config"), None)
@@ -371,8 +382,18 @@ def importeer(nr: NodeRed, bundels: dict[str, list[Node]], *, hub_url: str, toke
             if node.get("type") == "http request":
                 node["credentials"] = {"password": token}  # Node-RED versleutelt dit; GET /flows geeft het nooit terug
             nieuw.append(node)
-    nr.zet_flows(rev, nieuw)
-    return readback(nr, bundels, verboden=(token,), hub_url=hub_url)
+    nieuwe_rev = nr.zet_flows(rev, nieuw)
+    try:
+        return readback(nr, bundels, verboden=(token,), hub_url=hub_url)
+    except Fout as exc:
+        # Wat teruggelezen is, mag niet blijven draaien met het token: de flows van vóór de import gaan terug. De
+        # credentials van nodes die daarin al stonden bewaart Node-RED apart; ``huidig`` (uit GET /flows) bevat er geen.
+        try:
+            nr.zet_flows(nieuwe_rev or nr.flows()[0], vorige)
+        except Fout as terug:
+            raise Fout(f"{exc} De vorige flows zijn NIET teruggezet ({terug}); zet ze zelf terug of schakel de "
+                       "eigen tabbladen uit.") from exc
+        raise Fout(f"{exc} De flows van vóór de import zijn teruggezet.") from exc
 
 
 def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[str]:
@@ -390,10 +411,22 @@ def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[
     return uit
 
 
+def _lint_gelezen(gelezen: list[Node]) -> list[str]:
+    """De eigen controle over de teruggelezen nodes van één eigen tabblad. Aan of uit is een bedieningskeuze (zoals bij
+    ``checksum``): het tabblad telt als uitgeschakeld, zodat alleen de inhoud wordt beoordeeld."""
+    kopie = copy.deepcopy(gelezen)
+    for node in kopie:
+        if node.get("type") == "tab":
+            node["disabled"] = True
+    return lint(kopie)
+
+
 def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str, ...] = (),
              hub_url: str | None = None) -> dict[str, Any]:
-    """Leest terug en vergelijkt per bundel de checksum. Het token mag nergens in de teruggelezen flows staan. Met
-    ``hub_url`` (bij de import): de eigen tabbladen kunnen nergens anders heen dan naar die Hub (R-VEILIG-1)."""
+    """Leest terug en vergelijkt per bundel de checksum. Het token mag nergens in de teruggelezen flows staan. De
+    teruggelezen nodes van elk eigen tabblad gaan opnieuw door de eigen controle (``lint``): één bevinding is een
+    Fout, want wat daar staat draait met het token (herreview P2, R-VEILIG-1). Met ``hub_url`` (bij de import): de
+    eigen tabbladen kunnen nergens anders heen dan naar die Hub."""
     _rev, terug = nr.flows()
     tekst = json.dumps(terug, ensure_ascii=False)
     if any(g and g in tekst for g in verboden) or '"credentials"' in tekst:
@@ -404,13 +437,20 @@ def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str
             raise Fout("Na de import kan een flow naar een ander adres dan de Hub: " + "; ".join(omleidingen))
     tabs = per_tab(terug)
     uit: dict[str, Any] = {}
+    fouten: list[str] = []
     for naam, nodes in bundels.items():
         tab = tab_van(nodes) or {}
         gelezen = tabs.get(str(tab.get("id")), [])
         gelezen_tab = tab_van(gelezen) or {}
+        controle = _lint_gelezen(gelezen) if gelezen else []
         uit[naam] = {"tab": tab.get("id"), "verwacht": checksum(nodes), "gelezen": checksum(gelezen) if gelezen
                      else None, "gelijk": bool(gelezen) and checksum(gelezen) == checksum(nodes),
-                     "ingeschakeld": bool(gelezen) and gelezen_tab.get("disabled") is not True}
+                     "ingeschakeld": bool(gelezen) and gelezen_tab.get("disabled") is not True,
+                     "eigen_controle": controle}
+        fouten += [f"{naam}: {b}" for b in controle]
+    if fouten:
+        raise Fout("De teruggelezen flows van een eigen tabblad komen niet door de eigen controle: "
+                   + "; ".join(fouten))
     return uit
 
 

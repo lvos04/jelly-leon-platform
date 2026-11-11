@@ -200,7 +200,39 @@ AFGEWEZEN = {
     "node-env": (lambda: _wijzig("hartslag", "jlp-hs-bouw", env=[{"name": "HUB_URL", "value": "x", "type": "str"}]),
                  "veld_niet_toegestaan"),
     "node-in-groep": (lambda: _wijzig("hartslag", "jlp-hs-stuur", g="jlp-groep"), "veld_niet_toegestaan"),
+    # Herreview P2 (R-VEILIG-1, herstelpoging 2): Node-RED haalt bij het zetten van een eigenschap zelf 'msg.' eraf en
+    # verstaat aanhalingstekens en haken; een tweede regel met p = msg.url (of 'url', "url", msg['url']) na de vaste
+    # route zette msg.url op een adres zonder schema, en de controle vergeleek alleen de letterlijke wortel. Daarom is
+    # een eigenschapsnaam nu alleen een eenvoudige naam (letters, cijfers, _ en punten) en nooit 'msg…'.
+    "change-msg-url": (lambda: _regel("jlp-hs-bouw", "msg.url", to="aanvaller.example.net/api/v1/monitoring/heartbeat"),
+                       "change_regel"),
+    "change-msg-url-ip-als-getal": (lambda: _regel("jlp-hs-bouw", "msg.url", to="3232235777:8080/x"), "change_regel"),
+    "change-url-enkele-aanhalingstekens": (lambda: _regel("jlp-hs-bouw", "'url'", to="aanvaller.example.net/x"),
+                                           "change_regel"),
+    "change-url-dubbele-aanhalingstekens": (lambda: _regel("jlp-hs-bouw", '"url"', to="0xc0a80101/x"), "change_regel"),
+    "change-msg-url-haken": (lambda: _regel("jlp-hs-bouw", "msg['url']", to="aanvaller.example.net/x"), "change_regel"),
+    "change-msg-url-deel": (lambda: _regel("jlp-hs-bouw", "msg.url.x"), "change_regel"),
+    "change-msg-headers": (lambda: _regel("jlp-hs-bouw", "msg.headers", to="{}", tot="json"), "change_regel"),
+    "change-msg-method": (lambda: _regel("jlp-hs-bouw", "msg.method", to="DELETE"), "change_regel"),
+    "change-eigenschap-met-spatie": (lambda: _regel("jlp-hs-bouw", " url"), "change_regel"),
+    "change-eigenschap-niet-ascii": (lambda: _regel("jlp-hs-bouw", "urÄ±"), "change_regel"),
+    "change-wortel-msg": (lambda: _regel("jlp-hs-bouw", "msg", to="{}", tot="json"), "change_regel"),
 }
+
+
+def test_property_names_in_change_rules_are_plain_or_refused() -> None:
+    """R-VEILIG-1 (herstelpoging 2): elke schrijfwijze die Node-RED als msg.url of msg.headers leest, wordt geweigerd;
+    de bundels uit Git gebruiken alleen eenvoudige namen en blijven in orde."""
+    for geval in ("change-msg-url", "change-url-enkele-aanhalingstekens", "change-url-dubbele-aanhalingstekens",
+                  "change-msg-url-haken", "change-msg-headers"):
+        bevindingen = nf.lint(AFGEWEZEN[geval][0]())
+        assert any(b.startswith("change_regel") for b in bevindingen), (geval, bevindingen)
+    assert all(nf.lint(nodes) == [] for nodes in nf.bundels_in_git().values())
+    assert nf.EIGENSCHAP_RE.fullmatch("payload.items") and nf.EIGENSCHAP_RE.fullmatch("mediaguard_staat")
+    for fout in ("'url'", '"url"', "msg['url']", "url[0]", " url", "url ", "", "urÄ±", "a..b", ".url", "url."):
+        assert not nf.EIGENSCHAP_RE.fullmatch(fout), fout
+    # 'msg.url' heeft wel de eenvoudige vorm; de wortel 'msg' wordt apart geweigerd (Node-RED haalt 'msg.' eraf)
+    assert nf.EIGENSCHAP_RE.fullmatch("msg.url") and "change_regel" in _codes(AFGEWEZEN["change-msg-url"][0]())
 
 
 @pytest.mark.parametrize("geval", sorted(AFGEWEZEN))
@@ -226,7 +258,9 @@ def test_import_refuses_before_touching_node_red() -> None:
     with pytest.raises(nf.Fout):
         nf.importeer(nr, {"hartslag": _met("exec", type="exec", command="id")}, hub_url="https://hub.example",
                      token="t" * 30)
-    for geval in ("tab-env-hostnaam", "tab-env-ip-als-getal", "node-env"):  # R-VEILIG-1
+    for geval in ("tab-env-hostnaam", "tab-env-ip-als-getal", "node-env", "change-msg-url",
+                  "change-msg-url-ip-als-getal", "change-url-enkele-aanhalingstekens",
+                  "change-url-dubbele-aanhalingstekens", "change-msg-headers"):  # R-VEILIG-1
         with pytest.raises(nf.Fout):
             nf.importeer(nr, {"hartslag": AFGEWEZEN[geval][0]()}, hub_url="https://hub.example", token="t" * 30)
     for hub_url in ("https://gebruiker:geheim@hub.example", "ftp://hub.example", "https://hub.example/pad?x=1", ""):
@@ -237,36 +271,58 @@ def test_import_refuses_before_touching_node_red() -> None:
 
 class _NepNodeRed(nf.NodeRed):
     """Node-RED zonder netwerk: ``flows`` geeft wat er staat, ``zet_flows`` slaat op; ``na_import`` kan de teruggelezen
-    flows veranderen (zoals een Node-RED die iets anders bewaart dan gestuurd)."""
+    flows na de EERSTE schrijfactie veranderen (zoals een Node-RED die iets anders bewaart dan gestuurd); een latere
+    schrijfactie (het terugzetten door het hulpmiddel) wordt ongewijzigd bewaard."""
 
     def __init__(self, flows: list[dict[str, Any]], na_import: Any = None) -> None:
         self.url, self.kop = "http://ongebruikt.invalid", {}
         self.staat = copy.deepcopy(flows)
         self.na_import = na_import
+        self.geschreven: list[list[dict[str, Any]]] = []
 
     def flows(self) -> tuple[str, list[dict[str, Any]]]:
-        return "rev-1", copy.deepcopy(self.staat)
+        return f"rev-{len(self.geschreven) + 1}", copy.deepcopy(self.staat)
 
     def zet_flows(self, rev: str, flows: list[dict[str, Any]]) -> str:
         # zoals Node-RED: credentials worden versleuteld apart bewaard en komen nooit terug via GET /flows
         self.staat = [{k: v for k, v in n.items() if k != "credentials"} for n in copy.deepcopy(flows)]
-        if self.na_import is not None:
+        self.geschreven.append(copy.deepcopy(self.staat))
+        if self.na_import is not None and len(self.geschreven) == 1:
             self.na_import(self.staat)
-        return "rev-2"
+        return f"rev-{len(self.geschreven) + 1}"
+
+
+VORIGE_FLOWS: list[dict[str, Any]] = [
+    {"id": "ander-tab", "type": "tab", "label": "van iemand anders", "disabled": False, "info": ""},
+    {"id": "ander-n1", "type": "comment", "z": "ander-tab", "name": "blijft staan"},
+    {"id": "jlp-global-config", "type": "global-config", "name": "global-config",
+     "env": [{"name": "HUB_URL", "value": "https://vorige-hub.example", "type": "str"}]},
+]
+
+
+def _knoei_msg_url(flows: list[dict[str, Any]]) -> None:
+    """Zoals een Node-RED (of iemand met schrijfrecht, tussen de import en het teruglezen) die na de vaste route een
+    tweede regel op msg.url bewaart: de eigen controle moet dat bij het teruglezen zien."""
+    bouw = next(n for n in flows if n["id"] == "jlp-hs-bouw")
+    bouw["rules"].append({"t": "set", "p": "msg.url", "pt": "msg", "to": "aanvaller.example.net/x", "tot": "str"})
 
 
 def test_import_checks_after_reading_back_that_only_the_global_hub_url_counts() -> None:
     """R-VEILIG-1: ná de import leest de import terug dat op de eigen tabbladen geen env staat (die gaat in Node-RED
-    vóór de globale HUB_URL) en dat de globale HUB_URL precies de opgegeven Hub-URL is."""
+    vóór de globale HUB_URL), dat de globale HUB_URL precies de opgegeven Hub-URL is en dat de teruggelezen nodes van
+    elk eigen tabblad opnieuw door de eigen controle komen. Eén bevinding: Fout, en de flows van vóór de import staan
+    terug (herstelpoging 2)."""
     bundels = {"hartslag": _bundel("hartslag")}
-    goed = _NepNodeRed([])
+    goed = _NepNodeRed(VORIGE_FLOWS)
     uit = nf.importeer(goed, bundels, hub_url="https://hub.example", token="t" * 30)
-    assert uit["hartslag"]["gelijk"] is True
+    assert uit["hartslag"]["gelijk"] is True and uit["hartslag"]["eigen_controle"] == []
+    assert len(goed.geschreven) == 1
     for node in goed.staat:
         if node["type"] == "global-config":
             assert node["env"] == [{"name": "HUB_URL", "value": "https://hub.example", "type": "str"}]
         else:
             assert not node.get("env")
+    assert [n["id"] for n in goed.staat if n.get("z") == "ander-tab"] == ["ander-n1"]  # andermans tabblad blijft
 
     def tab_env(flows: list[dict[str, Any]]) -> None:
         next(n for n in flows if n["id"] == "jlp-hartslag")["env"] = [
@@ -276,12 +332,43 @@ def test_import_checks_after_reading_back_that_only_the_global_hub_url_counts() 
         g = next(n for n in flows if n["type"] == "global-config")
         g["env"] = [{"name": "HUB_URL", "value": "https://elders.example", "type": "str"}]
 
-    for knoei in (tab_env, andere_hub):
-        with pytest.raises(nf.Fout):
-            nf.importeer(_NepNodeRed([], knoei), bundels, hub_url="https://hub.example", token="t" * 30)
-    # een leeg env-veld is geen omleiding (geen Fout; de checksumvergelijking ziet het verschil wel)
-    leeg = _NepNodeRed([], lambda flows: next(n for n in flows if n["id"] == "jlp-hartslag").update(env=[]))
-    assert nf.importeer(leeg, bundels, hub_url="https://hub.example", token="t" * 30)["hartslag"]["gelijk"] is False
+    def leeg_env(flows: list[dict[str, Any]]) -> None:  # ook een leeg env-veld hoort niet op een eigen tabblad
+        next(n for n in flows if n["id"] == "jlp-hartslag").update(env=[])
+
+    def exec_node(flows: list[dict[str, Any]]) -> None:
+        flows.append({"id": "jlp-hs-x", "type": "exec", "z": "jlp-hartslag", "command": "id", "wires": []})
+
+    for knoei in (tab_env, andere_hub, leeg_env, _knoei_msg_url, exec_node):
+        nep = _NepNodeRed(VORIGE_FLOWS, knoei)
+        with pytest.raises(nf.Fout, match="teruggezet"):
+            nf.importeer(nep, bundels, hub_url="https://hub.example", token="t" * 30)
+        assert len(nep.geschreven) == 2 and nep.staat == VORIGE_FLOWS, knoei.__name__  # de vorige flows staan terug
+        assert "t" * 30 not in json.dumps(nep.geschreven[1])
+
+
+def test_import_reports_when_restoring_the_previous_flows_fails_too() -> None:
+    class Dicht(_NepNodeRed):
+        def zet_flows(self, rev: str, flows: list[dict[str, Any]]) -> str:
+            if self.geschreven:
+                raise nf.Fout("Flows schrijven geweigerd (HTTP 409).")
+            return super().zet_flows(rev, flows)
+
+    nep = Dicht(VORIGE_FLOWS, _knoei_msg_url)
+    with pytest.raises(nf.Fout, match="NIET teruggezet"):
+        nf.importeer(nep, {"hartslag": _bundel("hartslag")}, hub_url="https://hub.example", token="t" * 30)
+
+
+def test_readback_runs_the_own_check_on_the_tabs_it_reads() -> None:
+    """Ook los van een import (herstel, rooktest): staat er op een eigen tabblad iets dat de eigen controle weigert,
+    dan geeft ``readback`` een Fout. Aan of uit (bedieningskeuze) telt daarbij niet mee."""
+    bundels = {"testflow-herstart": _bundel("testflow-herstart")}
+    aan = nf.importeer(_NepNodeRed(VORIGE_FLOWS), bundels, hub_url="https://hub.example", token="t" * 30,
+                       inschakelen=frozenset({"testflow-herstart"}))
+    assert aan["testflow-herstart"]["ingeschakeld"] is True and aan["testflow-herstart"]["eigen_controle"] == []
+    kwaad = _NepNodeRed(_regel("jlp-hs-bouw", "msg.url", to="aanvaller.example.net/x"))
+    with pytest.raises(nf.Fout, match="change_regel"):
+        nf.readback(kwaad, {"hartslag": _bundel("hartslag")})
+    assert nf.readback(_NepNodeRed(_bundel("hartslag")), {"hartslag": _bundel("hartslag")})["hartslag"]["gelijk"]
 
 
 @pytest.mark.parametrize("tab_id", ["../../buiten/ontsnapt", "a/b", "<absoluut>", "..", "C:\\x", "jlp-x/../../y"])

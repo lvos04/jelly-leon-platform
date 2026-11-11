@@ -43,8 +43,11 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    Git. Een flow die een actie aanvraagt staat in Git uitgeschakeld. De import weigert bij één bevinding.
    Sinds ADR-0025 (review P2): Node-RED zoekt `$env('HUB_URL')` eerst in de env van groep en tabblad. Daarom heeft
    een tabblad alleen `id`, `type`, `label`, `disabled` en `info`, en heeft geen node een `env` of groep
-   (`veld_niet_toegestaan`). Na de import leest het hulpmiddel terug dat alleen de globale `HUB_URL` telt en dat die
-   precies de opgegeven Hub-URL is.
+   (`veld_niet_toegestaan`). Een eigenschap in een `change`-regel is alleen een eenvoudige naam en nooit `msg…`:
+   Node-RED haalt `msg.` er zelf af en verstaat aanhalingstekens en haken, dus `msg.url`, `'url'` en `msg['url']`
+   zijn `msg.url` (`change_regel`; ADR-0025 besluit 6). Na de import leest het hulpmiddel terug dat alleen de
+   globale `HUB_URL` telt en dat die precies de opgegeven Hub-URL is, en laat het de teruggelezen nodes van elk
+   eigen tabblad opnieuw door `lint` gaan; bij een bevinding gaan de flows van vóór de import terug.
 6. **Geheimen alleen bij de import.** De Hub-URL wordt de globale omgevingsvariabele `HUB_URL` van Node-RED; het
    service-token wordt een credential van de `http request`-nodes. Beide komen uit omgevingsvariabelen van het
    hulpmiddel, nooit van de opdrachtregel en nooit in Git. Eerlijk: de sleutel waarmee Node-RED credentials
