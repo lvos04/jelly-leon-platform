@@ -126,8 +126,8 @@ def render_flows_env(data: dict[str, Any]) -> str:
     return " ".join(delen)
 
 
-def manifest_flows_env(pad: Path = MANIFEST) -> str | None:
-    manifest = yaml.safe_load(pad.read_text(encoding="utf-8"))
+def manifest_flows_env(pad: Path | None = None) -> str | None:
+    manifest = yaml.safe_load((pad or MANIFEST).read_text(encoding="utf-8"))
     for env in manifest["custom_app"]["env"]:
         if env["name"] == "FLOWS":
             return str(env["value"])

@@ -194,6 +194,34 @@ def test_bundles_pass_the_own_check_and_the_lock_is_current() -> None:
     assert nf.lock_inhoud(bundels) == nf.lees_lock(), "draai: python tools/nodered_flows.py lock"
 
 
+def test_make_nodered_fails_on_a_changed_bundle_a_bad_bundle_or_a_stale_manifest(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """Negatief voor ``make nodered`` (en de CI-stap die het draait): een gewijzigde bundel zonder nieuw lock laat
+    ``lock --check`` falen, een bundel met een exec-node laat ``lint`` falen, en een manifest met een andere ``FLOWS``
+    laat ``render --check`` falen. Op een kopie in een eigen map; de repo blijft ongewijzigd."""
+    flows = tmp_path / "flows"
+    flows.mkdir()
+    for naam, nodes in nf.bundels_in_git().items():
+        (flows / f"{naam}.json").write_text(json.dumps(nodes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    lock = tmp_path / "flows.lock.json"
+    lock.write_text(nf.LOCK.read_text(encoding="utf-8"), encoding="utf-8")
+    manifest = tmp_path / "node-red.manifest.yaml"
+    manifest.write_text(nf.MANIFEST.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setattr(nf, "FLOWS_DIR", flows)
+    monkeypatch.setattr(nf, "LOCK", lock)
+    monkeypatch.setattr(nf, "MANIFEST", manifest)
+    assert [nf.main(["render", "--check"]), nf.main(["lint"]), nf.main(["lock", "--check"])] == [0, 0, 0]
+    gewijzigd = _wijzig("hartslag", "jlp-hs-toon", name="ander antwoord")
+    (flows / "hartslag.json").write_text(json.dumps(gewijzigd), encoding="utf-8")
+    assert nf.main(["lint"]) == 0 and nf.main(["lock", "--check"]) == 1
+    (flows / "hartslag.json").write_text(json.dumps(_met("exec", type="exec", command="id")), encoding="utf-8")
+    assert nf.main(["lint"]) == 1
+    manifest.write_text(nf.MANIFEST.read_text(encoding="utf-8").replace('"users":[]', '"users":[],"default":{}', 1),
+                        encoding="utf-8")
+    assert nf.main(["render", "--check"]) == 1
+    assert "loopt achter" in capsys.readouterr().err
+
+
 def test_only_the_test_flow_requests_an_action_and_it_is_off_by_default() -> None:
     lock = nf.lees_lock()["bundels"]
     assert lock["testflow-herstart"]["soort"] == "actie_aanvragen"

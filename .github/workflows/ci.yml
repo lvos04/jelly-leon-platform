@@ -95,6 +95,8 @@ jobs:
         env:
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
         run: python tools/manifesten.py
+      - name: Node-RED-flows (make nodered; FLOWS gelijk aan de overrides, bundels door de eigen controle, lock actueel)
+        run: make nodered PY=python
       - name: Manifest-, validator-, controlelijst-, documentatie-, contract- en Peil-kopiecontroles (pin en drift met de bron)
         env:
           PEIL_BRON: ${{ runner.temp }}/peil-bron
