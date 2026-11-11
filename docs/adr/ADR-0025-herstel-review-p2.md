@@ -44,9 +44,13 @@
      de eigenaar (R3): stop de app in TrueNAS, zet de datasets terug naar de herstelpunten en zet daarna de vorige
      image terug. Het platform zet nooit zelf data terug.
 
-   Gevolg: van de manifesten in deze repo kunnen alleen `ai-server-manager-executor` en `beszel-agent` via een plan
-   worden teruggezet. Voor alle andere apps is terugzetten een handeling van de eigenaar. De regels voor de digest
-   (ADR-0024 besluit 3) gelden voor de plannen die wel vrijkomen.
+   Gevolg: van de manifesten in deze repo kan alleen `beszel-agent` via een plan worden teruggezet (het enige manifest
+   met `migrations: false` en `tag_only_rollback_safe: true` dat niet beschermd is). Het manifest van
+   `ai-server-manager-executor` noemt alleen de image terugzetten ook veilig, maar de Hub-regel `APP-EXECUTOR`
+   (besluit 2; code `executor_niet_zelf`) weigert `app.update` en `app.rollback` voor de executor, dus ook dat plan
+   is geblokkeerd. Voor alle andere apps is terugzetten een handeling van de eigenaar. De regels voor de digest
+   (ADR-0024 besluit 3) gelden voor de plannen die wel vrijkomen. (Herstelpoging 2, R-HARDE-EIS-6: de eerdere tekst
+   noemde de executor ten onrechte als terug te zetten; de code was al strenger dan de tekst.)
    *Niet gekozen:* een eigenaarsstap "data terugzetten" in het plan, met daarna `app.rollback` (het voorstel van de
    review). De volgorde en de foutgevallen zijn niet vast te stellen zonder echte NAS. Wanneer staat de app stil? Start
    `app.update` een gestopte app? (ONBEKEND: de TrueNAS-simulator laat haar gestopt; de echte NAS is niet gemeten.) Wat
@@ -80,6 +84,17 @@
 6. **Node-RED-hulpmiddel.** `lint` laat op een tabblad alleen `id`, `type`, `label`, `disabled` en `info` toe en
    weigert `env` en `g` (groep) op elke node, met de code `veld_niet_toegestaan`. `importeer` leest na de import terug
    dat de eigen tabbladen geen env of groep hebben en dat de globale `HUB_URL` precies de opgegeven Hub-URL is.
+   *Herstelpoging 2 (herreview R-VEILIG-1):* een eigenschap in een `change`-regel is alleen een eenvoudige naam
+   (`EIGENSCHAP_RE`: ASCII-letters, cijfers, `_` en punten) en nooit met de wortel `msg`. Node-RED
+   (`RED.util.setMessageProperty`) haalt `msg.` er zelf af en verstaat aanhalingstekens en haken, zodat een tweede
+   regel met `msg.url`, `'url'`, `"url"` of `msg['url']` na de vaste route `msg.url` op een adres zonder schema zette
+   en door de letterlijke vergelijking van de wortel kwam; op de echte image ging het service-token zo naar een
+   luisteraar. Zulke regels geven nu `change_regel`, vóór de url- en VERBODEN-controles. Daarnaast laat `readback`
+   de teruggelezen nodes van elk eigen tabblad opnieuw door `lint` gaan (aan of uit telt niet mee) en is één
+   bevinding een Fout; `importeer` zet dan de flows van vóór de import terug (lukt dat niet, dan zegt de melding
+   dat) in plaats van de flows met het token te laten draaien. De adrescontrole (`ADRES_RE`) is bewust niet
+   verbreed naar hostnamen zonder schema: JSONata-teksten en labels zouden dan vals rood worden, en een adres kan
+   alleen nog in `msg.url` komen via de ene toegestane regel met een vaste Hub-route.
    `exporteer` gebruikt alleen een lock-naam of een eigen id (`jlp-…`) als bestandsnaam. Elk ander id krijgt
    `tab-<sha256[:16]>`, en het bestand moet direct in de exportmap staan. `[` en `]` in `FLOWS` blijven toegestaan,
    omdat de JSON-lijsten ze nodig hebben. Veilig is dat alleen zolang 568 de werkmap van de entrypoint niet kan
@@ -117,11 +132,22 @@
   geeft het terugzetplan niets vrij en gaat er niets naar de NAS; `test_terugzetten_alleen_image_door_de_hele_keten`;
   `test_hub_stand_in_weigert_een_voorstel_voor_een_beschermde_app`.
 - `apps/api/tests/integration/test_migrations.py`: `test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie`
-  (met een tegenproef: een revisie die één rij wist, wordt gezien).
+  (met een tegenproef: een revisie die één rij wist, wordt gezien). Herstelpoging 2 (herreview R-HARDE-EIS-5): `_vul`
+  vult ook elke kolom die NULL mag zijn (geen enkele waarde is NULL na het vullen), en een tweede tegenproef eist dat
+  een revisie die zo'n kolom op NULL zet (`lifecycle_runs.reason`, `idempotency_records.response_body`) rood wordt.
 - `tests/repo/test_nodered.py`: nieuwe gevallen in `test_own_check_refuses`,
   `test_import_checks_after_reading_back_that_only_the_global_hub_url_counts`,
   `test_export_never_writes_outside_the_target_directory`, `test_export_keeps_lock_names_and_own_ids`,
-  `test_render_keeps_brackets_only_because_json_lists_need_them`.
+  `test_render_keeps_brackets_only_because_json_lists_need_them`. Herstelpoging 2: de gevallen `change-msg-url`,
+  `change-url-enkele-aanhalingstekens`, `change-url-dubbele-aanhalingstekens`, `change-msg-url-haken`,
+  `change-msg-headers` (en meer) in `test_own_check_refuses`;
+  `test_property_names_in_change_rules_are_plain_or_refused`; dezelfde bundels in
+  `test_import_refuses_before_touching_node_red`; het terugzetten in
+  `test_import_checks_after_reading_back_that_only_the_global_hub_url_counts` en
+  `test_import_reports_when_restoring_the_previous_flows_fails_too`; `test_readback_runs_the_own_check_on_the_tabs_it_reads`.
+  Mutatieproeven (controle op de eigenschapsnaam weg: 16 rood; eigen controle bij het teruglezen weg: 3 rood;
+  terugzetten weg: 2 rood) en een proef op de echte image tegen een luisteraar op de Docker-bridge (de luisteraar
+  ontvangt niets, de Hub-simulator krijgt de heartbeat wel) staan in het rapport van de herstelpoging.
 - `tests/repo/test_beleid_kopie.py`; `tests/repo/test_repo_rules.py::test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make`;
   `apps/api/tests/unit/test_planner.py::test_geheime_waarden_komen_nooit_in_een_plan` (ook zonder waarde geen
   vault-verwijzing in een plan).
@@ -143,8 +169,10 @@
 - **Node-RED** (S-P2-410): een `post_install_check` "exec en function niet geladen" (`GET /nodes`; met besluit C-11
   alleen met een beheerder); de tekst van `description_nl` in het manifest (R-MANIFEST-2: het manifest levert nog geen
   flows, beheerder of Hub-token); een rooktest-stap die op de echte image laat zien dat een bundel met env op het
-  tabblad geweigerd wordt. Die weigering gebeurt al vóór het hulpmiddel Node-RED aanroept, en het bewaarde
-  rooktestrapport (`docs/platform-v2/bewijs/nodered-rooktest-p2.json`) zou dan opnieuw gemaakt moeten worden.
+  tabblad, of met een tweede regel op `msg.url` in de `change`-node (herreview R-VEILIG-1), geweigerd wordt en dat
+  een luisteraar niets ontvangt. Die weigering gebeurt al vóór het hulpmiddel Node-RED aanroept (in herstelpoging 2
+  met een losse proef op de echte image aangetoond), en het bewaarde rooktestrapport
+  (`docs/platform-v2/bewijs/nodered-rooktest-p2.json`) zou dan opnieuw gemaakt moeten worden.
 - **Melden door de Hub alleen.** Zodra de Hub de resultaten van de executor zelf doorgeeft (contractvraag over de vorm
   van dat resultaat, ADR-0024), kan `…/result` voor actiestappen alleen voor `service` open. Eigenaar: de
   contracteigenaar (ai-server-manager) voor de resultaatvorm, daarna de regisseur (nog niet gepland).
