@@ -1,0 +1,268 @@
+[
+  {
+    "id": "jlp-mediaguard-offline",
+    "type": "tab",
+    "label": "JLP · MediaGuard offline → melding",
+    "disabled": false,
+    "info": "versie 1.1.1\n\nLeest elke 60 s de inventaris van de Hub (GET /api/v1/apps, scope inventaris.lezen) en meldt een overgang van MediaGuard als event (contract 1.3 §7): flow.app_watch.down bij gestopt, gecrasht of niet meer aanwezig; flow.app_watch.recovered zodra de app weer draait. Onleesbare of onvolledige metingen zijn 'unknown' en geven nooit een event. Alleen lezen: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false) en gebruikt met de FLOWS uit het manifest geen proxy uit de omgeving (proxyOptions): het token gaat alleen naar HUB_URL."
+  },
+  {
+    "id": "jlp-mg-tik",
+    "type": "inject",
+    "z": "jlp-mediaguard-offline",
+    "name": "elke 60 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "10",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-mg-vraag"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-vraag",
+    "type": "change",
+    "z": "jlp-mediaguard-offline",
+    "name": "inventaris van de Hub",
+    "rules": [
+      {
+        "t": "set",
+        "p": "url",
+        "pt": "msg",
+        "to": "$env('HUB_URL') & '/api/v1/apps?limit=200'",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "followRedirects",
+        "pt": "msg",
+        "to": "false",
+        "tot": "bool"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 350,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-mg-haal"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-haal",
+    "type": "http request",
+    "z": "jlp-mediaguard-offline",
+    "name": "GET apps",
+    "method": "GET",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "bearer",
+    "senderr": false,
+    "headers": [],
+    "x": 560,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-mg-oordeel"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-oordeel",
+    "type": "change",
+    "z": "jlp-mediaguard-offline",
+    "name": "oordeel: up, down of unknown",
+    "rules": [
+      {
+        "t": "set",
+        "p": "meting",
+        "pt": "msg",
+        "to": "(\n  $vorige := $flowContext(\"mediaguard_staat\");\n  $ok := statusCode = 200 and $type(payload.items) = \"array\";\n  $rij := $ok ? payload.items[app_id = \"mediaguard\"][0] : undefined;\n  $staat := $exists($rij)\n    ? ($rij.aanwezig = false or $rij.runtime_staat in [\"STOPPED\", \"CRASHED\"] ? \"down\"\n       : ($rij.aanwezig = true and $rij.runtime_staat = \"RUNNING\" ? \"up\" : \"unknown\"))\n    : \"unknown\";\n  {\n    \"staat\": $staat,\n    \"runtime_staat\": $exists($rij.runtime_staat) ? $rij.runtime_staat : null,\n    \"aanwezig\": $exists($rij.aanwezig) ? $rij.aanwezig : null,\n    \"gebeurtenis\": $staat = \"down\" and $not($vorige = \"down\") ? \"down\"\n      : ($staat = \"up\" and $vorige = \"down\" ? \"recovered\" : null)\n  }\n)",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "mediaguard_staat",
+        "pt": "flow",
+        "to": "meting.staat in [\"up\", \"down\"] ? meting.staat\n  : ($exists($flowContext(\"mediaguard_staat\")) ? $flowContext(\"mediaguard_staat\") : \"unknown\")",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 800,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-mg-kies"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-kies",
+    "type": "switch",
+    "z": "jlp-mediaguard-offline",
+    "name": "overgang?",
+    "property": "meting.gebeurtenis",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "nnull"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 1030,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-mg-event"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-event",
+    "type": "change",
+    "z": "jlp-mediaguard-offline",
+    "name": "event (§7)",
+    "rules": [
+      {
+        "t": "delete",
+        "p": "headers",
+        "pt": "msg"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "(\n  $hex := function($n) { $pad($formatBase($floor($random() * $power(16, $n)), 16), -$n, \"0\") };\n  $uuid := function() { $hex(8) & \"-\" & $hex(4) & \"-4\" & $hex(3) & \"-\" & $substring(\"89ab\", $floor($random() * 4), 1) & $hex(3) & \"-\" & $hex(12) };\n  $id := $uuid();\n  {\n    \"schema_version\": \"1.0\",\n    \"event_id\": $id,\n    \"source_app\": \"node-red\",\n    \"source_event_id\": \"mediaguard-offline:\" & $id,\n    \"event_type\": meting.gebeurtenis = \"down\" ? \"flow.app_watch.down\" : \"flow.app_watch.recovered\",\n    \"entity\": {\"type\": \"app\", \"id\": \"mediaguard\"},\n    \"timestamp_utc\": $now(),\n    \"trace_id\": $uuid(),\n    \"correlation_id\": null,\n    \"actor\": {\"type\": \"flow\", \"id\": \"mediaguard-offline\"},\n    \"classification\": \"internal\",\n    \"payload\": {\"staat\": meting.staat, \"runtime_staat\": meting.runtime_staat, \"aanwezig\": meting.aanwezig, \"bron\": \"hub_inventaris\", \"flow_versie\": \"1.1.1\"},\n    \"payload_ref\": null\n  }\n)",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "url",
+        "pt": "msg",
+        "to": "$env('HUB_URL') & '/api/v1/events/inbox'",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "followRedirects",
+        "pt": "msg",
+        "to": "false",
+        "tot": "bool"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 350,
+    "y": 180,
+    "wires": [
+      [
+        "jlp-mg-meld"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-meld",
+    "type": "http request",
+    "z": "jlp-mediaguard-offline",
+    "name": "POST event",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "bearer",
+    "senderr": false,
+    "headers": [],
+    "x": 560,
+    "y": 180,
+    "wires": [
+      [
+        "jlp-mg-toon"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-toon",
+    "type": "debug",
+    "z": "jlp-mediaguard-offline",
+    "name": "antwoord van de Hub",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 800,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "jlp-mg-fout",
+    "type": "catch",
+    "z": "jlp-mediaguard-offline",
+    "name": "fouten in deze flow",
+    "scope": null,
+    "uncaught": false,
+    "x": 150,
+    "y": 260,
+    "wires": [
+      [
+        "jlp-mg-fouttoon"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-mg-fouttoon",
+    "type": "debug",
+    "z": "jlp-mediaguard-offline",
+    "name": "fout",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "error",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 350,
+    "y": 260,
+    "wires": []
+  }
+]

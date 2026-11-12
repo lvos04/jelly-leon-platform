@@ -27,9 +27,16 @@ Stappen:
       "Hub" door (307/302) naar een andere poort of een andere host, dan volgt de flow uit Git dat niet
       (``msg.followRedirects = false``). Controleproeven via de rauwe Admin-API: zonder die regel volgt Node-RED de
       doorverwijzing wel (het rapport noemt of de bearer-kop meegaat; bij deze digest: ja), en met de regel maar ook
-      ``msg.hasOwnProperty = msg.isPrototypeOf`` krijgt het doel de bearer-kop (geëist). Proxy: met ``http_proxy`` in
-      de omgeving en de ``FLOWS`` uit het manifest (``proxyOptions`` met een lege env) krijgt een proxy niets en de
-      Hub de heartbeat; controleproef zonder ``proxyOptions``: het verzoek met de bearer-kop gaat via de proxy.
+      ``msg.hasOwnProperty = msg.isPrototypeOf`` krijgt het doel de bearer-kop (geëist). Vreemde nodes (R-VEILIG-3,
+      herstelpoging 2): staat er via de rauwe Admin-API een vreemd tabblad met een geneste draad, een draad als object,
+      of een node met een eigen id (inject of http request), dan weigert de import vóór Node-RED iets verandert en
+      ontvangt een luisteraar niets. Proxy: met ``http_proxy`` in de omgeving en de ``FLOWS`` uit het manifest
+      (``proxyOptions`` met een lege env) krijgt een proxy niets en de Hub de heartbeat; controleproef zonder
+      ``proxyOptions``: het verzoek met de bearer-kop gaat via de proxy. Ingebouwde proxy van Node.js (herstelpoging 2):
+      met daarbij ``NODE_USE_ENV_PROXY=1`` of ``NODE_OPTIONS=--use-env-proxy`` krijgt een proxy van de drie bundels uit
+      Git (``persist: true``) niets en krijgt een eigen Hub-simulator heartbeat, inventaris, event en voorstel met het
+      token; de verbindingen bij die Hub zijn na de keep-alive-tijd van de simulator weer dicht; controleproef via de
+      rauwe Admin-API met ``persist: false``: het verzoek met de bearer-kop gaat via de proxy.
 
 Wat dit **niet** is: een installatie op TrueNAS, de echte Hub of de echte uitvoerder. Het beheerdersaccount van N3–N9
 kan het manifest (nog) niet leveren; de rooktest zet het met een wegwerpwaarde in ``FLOWS``. Uitkomst: **Sim-getest;
@@ -79,6 +86,22 @@ ANONIEME_PADEN = ("/flows", "/nodes", "/settings")
 # Omweg uit de review van S-P2-410 (R-VEILIG-1): de http request-node leest msg.followRedirects met
 # msg.hasOwnProperty; met deze regel ziet hij hem niet meer en volgt hij een doorverwijzing met het token.
 HASOWN_REGEL = {"t": "set", "p": "hasOwnProperty", "pt": "msg", "to": "isPrototypeOf", "tot": "msg"}
+# De ingebouwde proxy van Node.js (R-VEILIG-2, herstelpoging 2): elk van deze varianten zet hem aan (naast http_proxy).
+NODE_PROXY = {"NODE_USE_ENV_PROXY": {"NODE_USE_ENV_PROXY": "1"},
+              "NODE_OPTIONS": {"NODE_OPTIONS": "--use-env-proxy"}}
+# Toestanden in /proc/net/tcp die als open verbinding tellen: ESTABLISHED (01) en CLOSE_WAIT (08).
+OPEN_TCP = {"01", "08"}
+
+
+def open_verbindingen(poort: int) -> int:
+    """Het aantal open TCP-verbindingen (IPv4) aan de serverkant van ``poort`` op deze machine (de Hub-simulator
+    luistert in dit proces). Alleen het aantal komt in het rapport, geen adressen (V-097)."""
+    tel = 0
+    for regel in Path("/proc/net/tcp").read_text(encoding="ascii").splitlines()[1:]:
+        velden = regel.split()
+        if len(velden) > 3 and int(velden[1].rsplit(":", 1)[1], 16) == poort and velden[3] in OPEN_TCP:
+            tel += 1
+    return tel
 
 
 class HubSim:
@@ -281,6 +304,75 @@ class NoderedRooktest(UpstreamRooktest):
             "methoden_bij_de_proxy": sorted({str(v["methode"]) for v in proxy.ontvangen}),
             "proxy_kreeg_bearer": any(v["is_het_service_token"] for v in proxy.ontvangen),
         }
+
+    def node_proxyproef(self, naam: str, extra: dict[str, str]) -> dict[str, Any]:
+        """R-VEILIG-2 (herstelpoging 2 van S-P2-410): een Node-RED met de ``FLOWS`` uit het manifest (plus de
+        wegwerpbeheerder), ``http_proxy``/``HTTP_PROXY``/``all_proxy`` naar een luisteraar die als proxy speelt, en
+        ``extra`` (de ingebouwde proxy van Node.js aan). Een eigen Hub-simulator (eigen poort en token) krijgt de drie
+        bundels uit Git (``persist: true``; de testflow ingeschakeld): heartbeat, inventaris en event (MediaGuard staat
+        op gestopt) en een voorstel. Daarna de verbindingen bij die Hub: direct na het verkeer en na 8 s stilte (de
+        simulator sluit een verbinding na 5 s zonder verkeer; uvicorn-standaard). Controleproef via de rauwe
+        Admin-API: dezelfde hartslag met ``persist: false``. Het rapport krijgt alleen aantallen en methoden."""
+        hub = HubSim(self.bridge)
+        _sid, token = hub.state.register_service(APP_ID)
+        hub.state.p2.scopes[APP_ID] = set(SCOPES)
+        hub.zet_apps("STOPPED")
+        proxy = Luisteraar(self.bridge, lambda: token, proxy=True)
+        self.luisteraars.append(proxy)
+        omgeving = {"http_proxy": proxy.url, "HTTP_PROXY": proxy.url, "all_proxy": proxy.url, **extra}
+        app = dataclasses.replace(self.app, app_id=f"{APP_ID}-{naam}",
+                                  env={**self.app.env, "FLOWS": self.beheer_flows, **omgeving})
+        poort = vrije_poort()
+        hub.start()
+        cname = self.start(app, self.lege_map(naam), poort)
+        try:
+            wacht(f"Node-RED ({naam}) antwoordt", lambda: self.klaar(poort), 180)
+            nr = nf.NodeRed(f"http://127.0.0.1:{poort}", self.http)
+            nr.login(self.gebruiker, self.wachtwoord)
+            uit = nf.importeer(nr, nf.bundels_in_git(), hub_url=hub.url, token=token,
+                               inschakelen=frozenset({"testflow-herstart"}))
+            eis(all(v["gelijk"] and v["eigen_controle"] == [] for v in uit.values()), f"{naam}: import faalt")
+            p2 = hub.state.p2
+            # de automatische eerste tikken: hartslag na 5 s, MediaGuard na 10 s (gestopt → event)
+            wacht(f"{naam}: heartbeat bij de Hub", lambda: APP_ID in hub.state.heartbeats, 40, 0.3)
+            wacht(f"{naam}: event bij de Hub", lambda: bool(hub.events()), 40, 0.3)
+            code = nr.inject("jlp-th-start")
+            eis(code == 200, f"{naam}: inject jlp-th-start: HTTP {code}")
+            wacht(f"{naam}: voorstel bij de Hub", lambda: bool(p2.verzoeken), 20, 0.3)
+            time.sleep(0.5)
+            open_na_verkeer = open_verbindingen(hub.poort)
+            time.sleep(8)
+            met = {
+                "hub_kreeg_heartbeat_met_token": APP_ID in hub.state.heartbeats,
+                "hub_kreeg_event_met_token": [e[0] for e in hub.events()][:1] == ["flow.app_watch.down"],
+                "hub_kreeg_voorstel_met_token": len(p2.verzoeken) >= 1,
+                "inventaris_aanroepen_bij_de_hub": int(hub.state.calls["apps"]),
+                "proxy_ontving": len(proxy.ontvangen),
+                "verbindingen_bij_de_hub": {"direct_na_het_verkeer": open_na_verkeer,
+                                            "na_8_s_stilte": open_verbindingen(hub.poort)},
+            }
+            # controleproef: dezelfde flows, alleen jlp-hs-stuur met persist: false (rauwe Admin-API, buiten lint om);
+            # een volledige deploy start de flows opnieuw, de hartslag tikt na 5 s
+            proxy.ontvangen.clear()
+            rev, flows = nr.flows()
+            next(n for n in flows if n.get("id") == "jlp-hs-stuur")["persist"] = False
+            nr.zet_flows(rev, flows)
+            wacht(f"{naam}: controleproef, verzoek bij de proxy", lambda: bool(proxy.ontvangen), 30, 0.3)
+            time.sleep(1)
+            zonder = {"via": "rauwe Admin-API", "node": "jlp-hs-stuur", "persist": False,
+                      "proxy_ontving": len(proxy.ontvangen),
+                      "methoden_bij_de_proxy": sorted({str(v["methode"]) for v in proxy.ontvangen}),
+                      "paden_bij_de_proxy": sorted({str(v["pad"]) for v in proxy.ontvangen}),
+                      "proxy_kreeg_bearer": any(v["is_het_service_token"] for v in proxy.ontvangen)}
+            try:
+                nf.readback(nr, nf.bundels_in_git())
+                zonder["readback_ziet_het"] = "niets"
+            except nf.Fout as exc:
+                zonder["readback_ziet_het"] = "http_instelling" if "persist" in str(exc) else "andere bevinding"
+        finally:
+            sh("docker", "rm", "-f", cname, check=False)
+            hub.stop()
+        return {"met_persist_uit_git": met, "controleproef_persist_false": zonder}
 
     def andere_host(self) -> str:
         """Een tweede adres van deze machine dat de container kan bereiken: de gateway van een eigen, leeg
@@ -697,6 +789,52 @@ class NoderedRooktest(UpstreamRooktest):
             eis(hop["doel_kreeg_bearer"] is True, "controleproef: het doel kreeg de bearer-kop niet (proef zegt niets)")
             eis(gezien == "change_regel", "het teruglezen ziet de regel msg.hasOwnProperty niet")
 
+            # c3. R-VEILIG-3 (herstelpoging 2): een vreemd tabblad (rauwe Admin-API, zoals een beheerder) in een vorm
+            # die de eerste controle niet zag. De eigen hartslag gaat eerst weg; de vreemde inject tikt nooit vanzelf.
+            # importeer moet weigeren vóór Node-RED iets verandert, en de luisteraar "elders" ontvangt niets.
+            for luisteraar in (buur, elders, doorstuurder):
+                luisteraar.ontvangen.clear()
+            vt = "vreemd-rooktest"
+
+            def vreemde_inject(nid: str, draden: Any) -> dict[str, Any]:
+                return {"id": nid, "type": "inject", "z": vt, "name": "vreemd", "props": [{"p": "payload"}],
+                        "repeat": "", "crontab": "", "once": False, "onceDelay": "1", "topic": "", "payload": "",
+                        "payloadType": "date", "wires": draden}
+
+            vreemde_tab = {"id": vt, "type": "tab", "label": "vreemd (rooktest)", "disabled": False, "info": ""}
+            vormen: dict[str, list[dict[str, Any]]] = {
+                "geneste_lijst": [vreemde_inject("vreemd-tik", [[["jlp-hs-stuur"]]])],
+                "draad_als_object": [vreemde_inject("vreemd-tik", [{"0": "jlp-hs-stuur", "length": 1}])],
+                "dubbel_id_inject": [vreemde_inject("jlp-hs-toon", [["jlp-hs-stuur"]])],
+                "dubbel_id_http_request": [
+                    vreemde_inject("jlp-hs-tik", [["jlp-hs-stuur"]]),
+                    {"id": "jlp-hs-stuur", "type": "http request", "z": vt, "name": "vreemd", "method": "POST",
+                     "ret": "obj", "paytoqs": "ignore", "url": f"{elders.url}/dubbel", "tls": "", "persist": True,
+                     "proxy": "", "insecureHTTPParser": False, "authType": "bearer", "senderr": False, "headers": [],
+                     "wires": [[]]}],
+            }
+            vreemd_uit: dict[str, Any] = {}
+            for vorm, nodes in vormen.items():
+                rev, flows = nr.flows()
+                zonder_hartslag = [n for n in flows if n.get("id") != "jlp-hartslag" and n.get("z") != "jlp-hartslag"
+                                   and n.get("z") != vt and n.get("id") != vt]
+                nr.zet_flows(rev, [*zonder_hartslag, vreemde_tab, *nodes])
+                time.sleep(1)
+                voor = nr.flows()[1]
+                try:
+                    nf.importeer(nr, {"hartslag": git}, hub_url=self.hub.url, token=self.token)
+                    raise Mislukt(f"vreemde node ({vorm}): de import nam de bundel aan")
+                except nf.Fout as exc:
+                    eis("geweigerd" in str(exc), f"vreemde node ({vorm}): onverwachte melding")
+                time.sleep(1)
+                vreemd_uit[vorm] = {"geweigerd": True, "flows_in_node_red_ongewijzigd": nr.flows()[1] == voor}
+                eis(vreemd_uit[vorm]["flows_in_node_red_ongewijzigd"], f"vreemde node ({vorm}): Node-RED veranderde")
+            vreemd_uit["luisteraar_ontving"] = len(elders.ontvangen) + len(buur.ontvangen)
+            eis(vreemd_uit["luisteraar_ontving"] == 0, "vreemde node: een luisteraar kreeg een verzoek")
+            rev, flows = nr.flows()
+            nr.zet_flows(rev, [n for n in flows if n.get("z") != vt and n.get("id") != vt])
+            s.details["vreemde_nodes"] = vreemd_uit
+
             # d. terug naar de bundels uit Git, met de Hub
             nf.importeer(nr, {"hartslag": git}, hub_url=self.hub.url, token=self.token)
             alles = nf.readback(nr, nf.bundels_in_git(), hub_url=self.hub.url)
@@ -717,6 +855,25 @@ class NoderedRooktest(UpstreamRooktest):
                 "met proxyOptions uit het manifest ging het verzoek toch via de proxy, of kwam het niet aan")
             eis(zonder["proxy_ontving"] >= 1 and zonder["proxy_kreeg_bearer"] and zonder["hub_ontving"] == 0,
                 "controleproef: zonder proxyOptions ging het verzoek niet via de proxy (proef zegt niets)")
+
+            # e2. R-VEILIG-2 (herstelpoging 2): de ingebouwde proxy van Node.js. Met persist: true uit de bundels krijgt
+            # de proxy niets en de eigen Hub-simulator alles met het token; met persist: false (controle) de proxy wel.
+            node_proxy: dict[str, Any] = {}
+            for naam, extra in NODE_PROXY.items():
+                uitkomst = self.node_proxyproef(f"proxy-{naam.lower().replace('_', '-')}", extra)
+                node_proxy[naam] = uitkomst
+                met_p, zonder_p = uitkomst["met_persist_uit_git"], uitkomst["controleproef_persist_false"]
+                eis(met_p["proxy_ontving"] == 0, f"{naam}: met persist uit Git ging een verzoek via de proxy")
+                eis(met_p["hub_kreeg_heartbeat_met_token"] and met_p["hub_kreeg_event_met_token"]
+                    and met_p["hub_kreeg_voorstel_met_token"] and met_p["inventaris_aanroepen_bij_de_hub"] >= 1,
+                    f"{naam}: de Hub kreeg niet alles van de drie bundels")
+                eis(met_p["verbindingen_bij_de_hub"]["direct_na_het_verkeer"] <= 4
+                    and met_p["verbindingen_bij_de_hub"]["na_8_s_stilte"] == 0,
+                    f"{naam}: verbindingen blijven open bij de Hub: {met_p['verbindingen_bij_de_hub']}")
+                eis(zonder_p["proxy_ontving"] >= 1 and zonder_p["proxy_kreeg_bearer"],
+                    f"{naam}: controleproef zonder persist ging niet via de proxy (proef zegt niets)")
+                eis(zonder_p["readback_ziet_het"] == "http_instelling", f"{naam}: het teruglezen ziet persist niet")
+            s.details["proxy_uit_de_omgeving"]["ingebouwde_proxy_van_node"] = node_proxy
 
     # ------------------------------------------------------------------ draaien
     def draai(self) -> dict[str, Any]:
@@ -757,7 +914,9 @@ class NoderedRooktest(UpstreamRooktest):
                 "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = "
                 "false volgt Node-RED een doorverwijzing met het token (controleproef N10)",
                 "of een proxy-instelling van TrueNAS of van het formulier in de omgeving van de container komt (de "
-                "proef zet http_proxy zelf met docker run -e; proxyOptions in FLOWS negeert hem dan, N10)",
+                "proef zet http_proxy, NODE_USE_ENV_PROXY en NODE_OPTIONS zelf met docker run -e; N10)",
+                "een Hub over HTTPS achter een proxy, en de keep-alive van de echte Hub (de proef meet de "
+                "Hub-simulator, die een verbinding na 5 s zonder verkeer sluit)",
             ],
             "uitkomst": "geslaagd" if geslaagd else "mislukt",
             "stappen": [s.__dict__ for s in self.stappen],

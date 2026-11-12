@@ -23,6 +23,21 @@ sys.path.insert(0, str(ROOT / "tools"))
 import nodered_flows as nf  # noqa: E402
 
 RAPPORT = ROOT / "docs/platform-v2/bewijs/nodered-rooktest-p2.json"
+# Vaste testkopie van elke vorige uitgebrachte versie van de bundels (byte voor byte uit Git: git show
+# <commit>:install/node-red/flows/<bundel>.json), met de sha256 uit flows.lock.json van die commit (R-TECH-2,
+# herstelpoging 2 van S-P2-410).
+VERSIES_MAP = ROOT / "tests/repo/fixtures/node-red-versies"
+VORIGE_VERSIES = {
+    ("hartslag", "1.0.0"): "sha256:5653547b0322d1334507d58890b5ab9df31b5dca084453dd253e4e056570d5c0",  # 3e351a0
+    ("mediaguard-offline", "1.0.0"): "sha256:aaa38e2272cd07a19347f9b92062ca12d5a87b51b0a88dbeb6d4fdb0e9ba53f4",
+    ("testflow-herstart", "1.0.0"): "sha256:eb756371f4743541d011213d7b2c847f90cb42c5e38dd22d685d91bee4f036e8",
+    ("hartslag", "1.1.0"): "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",  # 69408c8
+    ("mediaguard-offline", "1.1.0"): "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
+    ("testflow-herstart", "1.1.0"): "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
+    ("hartslag", "1.1.1"): "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",  # fd64562
+    ("mediaguard-offline", "1.1.1"): "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
+    ("testflow-herstart", "1.1.1"): "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
+}
 # Bestanden van kern-nodes die code, bestanden of inkomend/ruw netwerkverkeer mogelijk maken: nooit laden.
 GEVAARLIJKE_NODEBESTANDEN = {"90-exec.js", "10-function.js", "10-file.js", "23-watch.js", "21-httpin.js",
                              "22-websocket.js", "31-tcpin.js", "32-udp.js", "10-mqtt.js", "06-httpproxy.js"}
@@ -335,6 +350,22 @@ def _inject(*props: dict[str, Any]) -> list[dict[str, Any]]:
     return _wijzig("hartslag", "jlp-hs-tik", props=[dict(p) for p in props])
 
 
+def _switch(**velden: Any) -> list[dict[str, Any]]:
+    """De bundel mediaguard-offline met andere velden op de switch-node (herstelpoging 2 van S-P2-410)."""
+    return _wijzig("mediaguard-offline", "jlp-mg-kies", **velden)
+
+
+def _switch_zonder(veld: str) -> list[dict[str, Any]]:
+    nodes = _bundel("mediaguard-offline")
+    next(n for n in nodes if n["id"] == "jlp-mg-kies").pop(veld)
+    return nodes
+
+
+def _debug(**velden: Any) -> list[dict[str, Any]]:
+    """De hartslagbundel met andere velden op de debug-node."""
+    return _wijzig("hartslag", "jlp-hs-toon", **velden)
+
+
 def _omweg_r_tech() -> list[dict[str, Any]]:
     """R-TECH-1, de volledige omweg uit de review: de inject leest ``flow['__proto__']`` (op de image
     ``Object.prototype`` zodra de flowcontext gevuld is), de eerste regel vult de flowcontext, de tweede zet
@@ -513,6 +544,47 @@ AFGEWEZEN = {
     "redirect-weg": (lambda: _regel("jlp-hs-bouw", "followRedirects", t="delete"), "verzoek_overschreven"),
     "redirect-deel": (lambda: _regel("jlp-hs-bouw", "followRedirects.x", to="false", tot="bool"),
                       "verzoek_overschreven"),
+    # Herstelpoging 2 van S-P2-410 (R-VEILIG-2): zonder persist: true gebruikt de http request-node de globale agent
+    # van Node.js, en die volgt met NODE_USE_ENV_PROXY=1 of NODE_OPTIONS=--use-env-proxy de proxy uit de omgeving
+    # (gemeten: het verzoek met het token ging naar de proxy, ook met proxyOptions in FLOWS).
+    "http-zonder-persist": (lambda: _wijzig("hartslag", "jlp-hs-stuur", persist=False), "http_instelling"),
+    "http-persist-als-tekst": (lambda: _wijzig("hartslag", "jlp-hs-stuur", persist="true"), "http_instelling"),
+    # Herstelpoging 2 (vervolgpunt van de herreviews): de switch-node valt onder de witte lijst. Hij leest alleen msg
+    # met een naam van de witte lijst of meting.<naam>, en vergelijkt alleen met een vaste soort of met JSONata uit de
+    # bundels; de debug-node voert nooit JSONata uit.
+    "switch-bron-jsonata": (lambda: _switch(property="$flowContext('__proto__')", propertyType="jsonata"),
+                            "switch_bron"),
+    "switch-bron-env": (lambda: _switch(property="HOME", propertyType="env"), "switch_bron"),
+    "switch-bron-flow": (lambda: _switch(property="mediaguard_staat", propertyType="flow"), "switch_bron"),
+    "switch-bron-global": (lambda: _switch(property="staat", propertyType="global"), "switch_bron"),
+    "switch-bron-soort-ontbreekt": (lambda: _switch_zonder("propertyType"), "switch_bron"),
+    "switch-msg-proto": (lambda: _switch(property="__proto__"), "switch_bron"),
+    "switch-msg-niet-op-witte-lijst": (lambda: _switch(property="kopie"), "switch_bron"),
+    "switch-msg-pad-onder-payload": (lambda: _switch(property="payload.items"), "switch_bron"),
+    "switch-meting-proto": (lambda: _switch(property="meting.__proto__"), "switch_bron"),
+    "switch-meting-constructor": (lambda: _switch(property="meting.staat.constructor"), "switch_bron"),
+    "switch-meting-hoofdletter": (lambda: _switch(property="meting.Staat"), "switch_bron"),
+    "switch-meting-haken": (lambda: _switch(property="meting['staat']"), "switch_bron"),
+    "switch-regel-jsonata-vrij": (lambda: _switch(rules=[{"t": "jsonata_exp", "v": "$flowContext('__proto__')",
+                                                          "vt": "jsonata"}]), "switch_regel"),
+    "switch-regel-vt-env": (lambda: _switch(rules=[{"t": "eq", "v": "HOME", "vt": "env"}]), "switch_regel"),
+    "switch-regel-vt-msg": (lambda: _switch(rules=[{"t": "eq", "v": "payload", "vt": "msg"}]), "switch_regel"),
+    "switch-regel-vt-flow": (lambda: _switch(rules=[{"t": "eq", "v": "__proto__", "vt": "flow"}]), "switch_regel"),
+    "switch-regel-vt-global": (lambda: _switch(rules=[{"t": "eq", "v": "x", "vt": "global"}]), "switch_regel"),
+    "switch-regel-vt-prev": (lambda: _switch(rules=[{"t": "eq", "v": "", "vt": "prev"}]), "switch_regel"),
+    "switch-regel-v2t-env": (lambda: _switch(rules=[{"t": "btwn", "v": "1", "vt": "num", "v2": "HOME",
+                                                     "v2t": "env"}]), "switch_regel"),
+    "switch-regel-v2t-jsonata": (lambda: _switch(rules=[{"t": "btwn", "v": "1", "vt": "num",
+                                                         "v2": "$lookup($$, '__proto__')", "v2t": "jsonata"}]),
+                                 "switch_regel"),
+    "switch-regel-v-geen-tekst": (lambda: _switch(rules=[{"t": "eq", "v": ["__proto__"], "vt": "str"}]),
+                                  "switch_regel"),
+    "switch-regel-onbekende-operator": (lambda: _switch(rules=[{"t": "exec"}]), "switch_regel"),
+    "switch-rules-als-object": (lambda: _switch(rules={"t": "nnull"}), "switch_regel"),
+    "switch-regel-geen-object": (lambda: _switch(rules=["nnull"]), "switch_regel"),
+    "debug-targettype-jsonata": (lambda: _debug(targetType="jsonata", complete="$flowContext('__proto__')"),
+                                 "debug_jsonata"),
+    "debug-statustype-jsonata": (lambda: _debug(statusType="jsonata", statusVal="payload"), "debug_jsonata"),
 }
 
 
@@ -562,6 +634,17 @@ def test_the_whitelist_keeps_what_the_bundles_use_and_nothing_more() -> None:
         "inject-flow-naam": _inject({"p": "payload", "v": "mediaguard_staat", "vt": "flow"}),
         "inject-met-topic": _inject({"p": "payload", "v": "1", "vt": "num"}, {"p": "topic", "v": "x", "vt": "str"}),
         "inject-zonder-vt": _inject({"p": "payload", "v": "x"}),  # Node-RED (20-inject.js): zonder vt is het 'str'
+        # switch en debug (herstelpoging 2): wat de bundels doen en gewone vergelijkingen blijven toegestaan
+        "switch-payload-tekst": _switch(property="payload", rules=[{"t": "eq", "v": "x", "vt": "str"}]),
+        "switch-meting-pad": _switch(property="meting.staat", rules=[{"t": "eq", "v": "down", "vt": "str"},
+                                                                     {"t": "else"}]),
+        "switch-tussen-getallen": _switch(rules=[{"t": "btwn", "v": "1", "vt": "num", "v2": "5", "v2t": "num"}]),
+        "switch-zonder-vt": _switch(rules=[{"t": "eq", "v": "1"}]),  # Node-RED (10-switch.js): dan num of str
+        "switch-jsonata-uit-de-bundels": _switch(rules=[{"t": "jsonata_exp", "vt": "jsonata", "v": next(
+            r["to"] for n in _bundel("mediaguard-offline") if n["id"] == "jlp-mg-oordeel" for r in n["rules"]
+            if r["p"] == "mediaguard_staat")}]),
+        "debug-heel-bericht": _debug(targetType="full", complete="true"),
+        "debug-msg-eigenschap": _debug(targetType="msg", complete="meting"),
     }
     for naam, nodes in goed.items():
         assert nf.lint(nodes) == [], (naam, nf.lint(nodes))
@@ -588,6 +671,9 @@ PLEKKEN: dict[str, Any] = {
     "inject-global": lambda naam: _inject({"p": "payload", "v": naam, "vt": "global"}),
     "inject-topic-flow": lambda naam: _inject({"p": "payload"}, {"p": "topic", "v": naam, "vt": "flow"}),
     "inject-oude-velden": lambda naam: _wijzig("hartslag", "jlp-hs-tik", payload=naam, payloadType="global"),
+    # herstelpoging 2: ook de switch-node leest geen eigenschap van het prototype (msg-naam of meting.<naam>)
+    "switch-msg": lambda naam: _switch(property=naam),
+    "switch-meting": lambda naam: _switch(property=f"meting.{naam}"),
 }
 
 
@@ -595,21 +681,95 @@ PLEKKEN: dict[str, Any] = {
 @pytest.mark.parametrize("naam", PROTOTYPE_NAMEN)
 def test_every_prototype_name_is_refused_in_every_place(naam: str, plek: str) -> None:
     bevindingen = nf.lint(PLEKKEN[plek](naam))
-    assert any(b.split(":", 1)[0] in ("change_regel", "inject_bron") and naam in b for b in bevindingen), bevindingen
+    assert any(b.split(":", 1)[0] in ("change_regel", "inject_bron", "switch_bron") and naam in b
+               for b in bevindingen), bevindingen
+
+
+def _jsonata_van(nodes: list[dict[str, Any]]) -> dict[str, tuple[str, str]]:
+    """sha256 → (node, veld) van elke JSONata in een change-regel (niet de vaste Hub-routes voor msg.url)."""
+    return {nf.jsonata_som(str(r["to"])): (str(n["id"]), f"{r['pt']}.{r['p']}") for n in nodes
+            if n.get("type") == "change" for r in n["rules"] if r.get("tot") == "jsonata" and r.get("p") != "url"}
+
+
+def _vorige_versie(naam: str, versie: str) -> list[dict[str, Any]]:
+    return nf.lees_bundel(VERSIES_MAP / f"{naam}-{versie}.json")
 
 
 def test_jsonata_is_limited_to_the_expressions_of_the_bundles() -> None:
     """Witte lijst voor JSONata (R-TECH-1: ``$flowContext('__proto__')``, ``$lookup`` en elke andere uitdrukking):
     alleen de uitdrukkingen uit de bundels in Git (vastgelegd als sha256 in het hulpmiddel) en, voor msg.url, de vaste
     Hub-routes. Eén teken anders en de regel wordt geweigerd, tot de lijst in het hulpmiddel bewust is bijgewerkt."""
-    in_git = {nf.jsonata_som(str(r["to"])) for nodes in nf.bundels_in_git().values() for n in nodes
-              if n.get("type") == "change" for r in n["rules"] if r.get("tot") == "jsonata" and r.get("p") != "url"}
-    assert in_git == set(nf.TOEGESTANE_JSONATA), "lijst en bundels lopen uiteen"
+    in_git = {som for nodes in nf.bundels_in_git().values() for som in _jsonata_van(nodes)}
+    assert in_git <= set(nf.TOEGESTANE_JSONATA), "een uitdrukking uit de bundels staat niet in de lijst"
     for naam, node_id in (("hartslag", "jlp-hs-bouw"), ("mediaguard-offline", "jlp-mg-oordeel")):
         nodes = _bundel(naam)
         regel = next(n for n in nodes if n["id"] == node_id)["rules"][0]
         regel["to"] = str(regel["to"]) + " "
         assert "change_regel" in _codes(nodes), naam
+
+
+def test_the_previous_versions_are_fixed_copies_from_git() -> None:
+    """De testkopieën zijn precies de vorige uitgebrachte versies: elke versie uit de historie (1.0.0, 1.1.0, 1.1.1)
+    van elke bundel staat erin, met de versie in het tabblad en de sha256 uit flows.lock.json van die commit."""
+    bestanden = sorted(p.name for p in VERSIES_MAP.glob("*.json"))
+    assert bestanden == sorted(f"{naam}-{versie}.json" for naam, versie in VORIGE_VERSIES)
+    for (naam, versie), som in VORIGE_VERSIES.items():
+        nodes = _vorige_versie(naam, versie)
+        assert str((nf.tab_van(nodes) or {}).get("info", "")).startswith(f"versie {versie}\n"), (naam, versie)
+        assert nf.checksum(nodes) == som, (naam, versie)
+    huidig = {rij["versie"] for rij in nf.lees_lock()["bundels"].values()}
+    assert huidig == {"1.2.0"} and not huidig & {versie for _naam, versie in VORIGE_VERSIES}
+
+
+def test_the_jsonata_list_holds_every_released_version() -> None:
+    """R-TECH-2 (herstelpoging 2 van S-P2-410): ``TOEGESTANE_JSONATA`` houdt de JSONata van ELKE uitgebrachte versie
+    bij (toevoegen, niet vervangen), met per sha256 bundel, node, veld en versies. De uitdrukkingen in Git zitten
+    erin, en elke andere sha256 hoort bij een vorige versie uit de historie: de lijst is precies wat de testkopieën en
+    de huidige bundels samen gebruiken."""
+    verwacht: dict[str, tuple[str, str, str, tuple[str, ...]]] = {}
+    bronnen = [(naam, versie, _vorige_versie(naam, versie)) for naam, versie in VORIGE_VERSIES]
+    bronnen += [(naam, nf.lees_lock()["bundels"][naam]["versie"], nodes) for naam, nodes in nf.bundels_in_git().items()]
+    for naam, versie, nodes in bronnen:
+        for som, (node_id, veld) in _jsonata_van(nodes).items():
+            bundel, nid, vld, versies = verwacht.get(som, (naam, node_id, veld, ()))
+            assert (bundel, nid, vld) == (naam, node_id, veld), f"{som}: dezelfde uitdrukking op twee plekken"
+            verwacht[som] = (naam, node_id, veld, tuple(sorted({*versies, versie})))
+    assert verwacht == nf.TOEGESTANE_JSONATA
+    in_git = {som for nodes in nf.bundels_in_git().values() for som in _jsonata_van(nodes)}
+    assert set(nf.TOEGESTANE_JSONATA) - in_git, "de historie voegt niets toe: de test zegt dan niets"
+    # mediaguard-offline 1.1.0 (uit de review van R-TECH-2): flow_versie in de JSONata maakt elke versie anders
+    oud = _jsonata_van(_vorige_versie("mediaguard-offline", "1.1.0"))
+    assert any(som not in in_git and nf.TOEGESTANE_JSONATA[som][3] == ("1.1.0",) for som in oud)
+
+
+def _met_latere_veiligheidseisen(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Een vorige versie met alleen de veiligheidseisen die later kwamen: ``persist: true`` (1.2.0) en
+    ``msg.followRedirects = false`` in de route-node (1.1.0). Niets anders verandert."""
+    kopie = copy.deepcopy(nodes)
+    http_ids = {n["id"] for n in kopie if n.get("type") == "http request"}
+    for node in kopie:
+        if node.get("type") == "http request":
+            node["persist"] = True
+        if node.get("type") == "change" and http_ids & {d for u in node.get("wires", []) for d in u} \
+                and nf.REDIRECT_UIT not in node["rules"]:
+            node["rules"].append(dict(nf.REDIRECT_UIT))
+    return kopie
+
+
+@pytest.mark.parametrize("naam,versie", sorted(VORIGE_VERSIES))
+def test_a_previous_version_is_only_refused_for_a_later_security_rule(naam: str, versie: str) -> None:
+    """R-TECH-2 (herstelpoging 2): lint weigert een vorige versie nooit om haar JSONata. Een vorige versie wordt alleen
+    geweigerd door een veiligheidseis die later kwam (``persist``: alle versies vóór 1.2.0; ``redirect_niet_uit``:
+    1.0.0) en komt met alleen die eisen erbij door lint. Herstellen naar een versie vóór 1.2.0 kan dus niet; dat is
+    bewust (ADR-0023 punt 9)."""
+    nodes = _vorige_versie(naam, versie)
+    bevindingen = nf.lint(nodes)
+    assert bevindingen, "een vorige versie zonder persist komt door lint"
+    assert not any("JSONata" in b for b in bevindingen), bevindingen
+    toegestaan = {"http_instelling"} | ({"redirect_niet_uit"} if versie == "1.0.0" else set())
+    assert {b.split(":", 1)[0] for b in bevindingen} <= toegestaan, bevindingen
+    assert all("persist" in b for b in bevindingen if b.startswith("http_instelling")), bevindingen
+    assert nf.lint(_met_latere_veiligheidseisen(nodes)) == []
 
 
 def test_every_http_request_in_git_gets_redirects_off_from_its_route_node() -> None:
@@ -627,6 +787,22 @@ def test_every_http_request_in_git_gets_redirects_off_from_its_route_node() -> N
             assert {"t": "set", "p": "followRedirects", "pt": "msg", "to": "false", "tot": "bool"} in regels, naam
             gezien += 1
     assert gezien == 4  # hartslag, mediaguard-offline (2), testflow-herstart
+
+
+def test_every_http_request_in_git_has_its_own_connection() -> None:
+    """R-VEILIG-2 (herstelpoging 2 van S-P2-410): elke http request-node in de bundels heeft ``persist: true``, dus een
+    eigen agent. Zonder die agent gebruikt got de globale agent van Node.js, en die volgt met NODE_USE_ENV_PROXY=1 of
+    NODE_OPTIONS=--use-env-proxy de proxy uit de omgeving, ook met ``proxyOptions`` in FLOWS (gemeten in de herreview
+    en in rooktest N10). ``lint`` eist het."""
+    gezien = 0
+    for naam, nodes in nf.bundels_in_git().items():
+        for node in nodes:
+            if node["type"] == "http request":
+                assert node["persist"] is True, (naam, node["id"])
+                gezien += 1
+    assert gezien == 4  # hartslag, mediaguard-offline (2), testflow-herstart
+    bevindingen = nf.lint(_wijzig("hartslag", "jlp-hs-stuur", persist=False))
+    assert bevindingen == ["http_instelling: jlp-hs-stuur.persist moet True zijn"]
 
 
 def test_import_refuses_before_touching_node_red() -> None:
@@ -651,7 +827,9 @@ def test_import_refuses_before_touching_node_red() -> None:
                   "change-url-dubbele-aanhalingstekens", "change-msg-headers",  # R-VEILIG-1 (review P2)
                   # S-P2-410, herstel R-VEILIG-1 en R-TECH-1: de omwegen uit beide rapporten
                   "omweg-r-veilig-1", "omweg-r-tech-1", "tot-jsonata-flowcontext", "tot-env",
-                  "inject-oude-velden-global", "tot-ontbreekt-bron-msg"):
+                  "inject-oude-velden-global", "tot-ontbreekt-bron-msg",
+                  # herstelpoging 2: persist, switch en debug
+                  "http-zonder-persist", "switch-bron-jsonata", "switch-regel-vt-env", "debug-targettype-jsonata"):
         with pytest.raises(nf.Fout):
             nf.importeer(nr, {"hartslag": AFGEWEZEN[geval][0]()}, hub_url="https://hub.example", token="t" * 30)
     for hub_url in ("https://gebruiker:geheim@hub.example", "ftp://hub.example", "https://hub.example/pad?x=1", ""):
@@ -770,6 +948,66 @@ def test_import_refuses_a_foreign_node_wired_into_an_own_node() -> None:
     uit = nf.importeer(_NepNodeRed([*VORIGE_FLOWS, *onschuldig]), bundels, hub_url="https://hub.example",
                        token="t" * 30)
     assert uit["hartslag"]["gelijk"] is True
+
+
+def _vreemde_inject(nid: str, draden: Any) -> dict[str, Any]:
+    """Een vreemde inject op een vreemd tabblad die msg.url op een ander adres zet (zoals in de herreview)."""
+    return {"id": nid, "type": "inject", "z": "vreemd-tab", "props": [
+        {"p": "payload", "v": "{}", "vt": "json"}, {"p": "url", "v": "elders.invalid/vreemd", "vt": "str"}],
+            "repeat": "2", "once": True, "wires": draden}
+
+
+VREEMDE_VORMEN: dict[str, list[dict[str, Any]]] = {
+    # R-VEILIG-3 van de herreview (herstelpoging 2): Node-RED gebruikt ook deze vormen als draad, of geeft een vreemde
+    # node met een eigen id het credential van de eigen node; de eerste controle zag ze niet.
+    "geneste-lijst": [VREEMDE_DRAAD[0], _vreemde_inject("vreemd-tik", [[["jlp-hs-stuur"]]])],
+    "array-achtig-object": [VREEMDE_DRAAD[0], _vreemde_inject("vreemd-tik", [{"0": "jlp-hs-stuur", "length": 1}])],
+    "dubbel-id-inject": [VREEMDE_DRAAD[0], _vreemde_inject("jlp-hs-toon", [["jlp-hs-stuur"]])],
+    "dubbel-id-http-request": [
+        VREEMDE_DRAAD[0], _vreemde_inject("jlp-hs-tik", [["jlp-hs-stuur"]]),
+        {"id": "jlp-hs-stuur", "type": "http request", "z": "vreemd-tab", "method": "POST", "ret": "obj",
+         "paytoqs": "ignore", "url": "https://elders.invalid/dubbel", "tls": "", "persist": True, "proxy": "",
+         "authType": "bearer", "headers": [], "wires": [[]]}],
+    # dicht bij twijfel: een draad in een andere vorm (ook zonder eigen id), en een eigen id in een ander veld
+    "draad-andere-vorm": [VREEMDE_DRAAD[0], _vreemde_inject("vreemd-tik", [[{"id": "vreemd-ander"}]])],
+    "eigen-id-in-ander-veld": [VREEMDE_DRAAD[0], {"id": "vreemd-link", "type": "link out", "z": "vreemd-tab",
+                                                  "mode": "link", "links": ["jlp-hs-stuur"], "wires": []}],
+}
+
+
+@pytest.mark.parametrize("vorm", sorted(VREEMDE_VORMEN))
+def test_import_refuses_every_form_of_a_foreign_node_that_reaches_an_own_node(vorm: str) -> None:
+    """R-VEILIG-3 (herstelpoging 2 van S-P2-410), per vorm: staat de vreemde node er vóór de import, dan weigert de
+    import zonder te schrijven; komt hij er bij het teruglezen bij, dan gaan de flows van vóór de import terug."""
+    bundels = {"hartslag": _bundel("hartslag")}
+    al_daar = _NepNodeRed([*VORIGE_FLOWS, *VREEMDE_VORMEN[vorm]])
+    with pytest.raises(nf.Fout, match="geweigerd"):
+        nf.importeer(al_daar, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert al_daar.geschreven == []
+
+    def erbij(flows: list[dict[str, Any]]) -> None:
+        flows.extend(copy.deepcopy(VREEMDE_VORMEN[vorm]))
+
+    erna = _NepNodeRed(VORIGE_FLOWS, erbij)
+    with pytest.raises(nf.Fout, match="teruggezet"):
+        nf.importeer(erna, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert len(erna.geschreven) == 2 and erna.staat == VORIGE_FLOWS
+    assert "t" * 30 not in json.dumps(erna.geschreven[1])
+
+
+def test_the_foreign_node_check_finds_the_reason() -> None:
+    """De melding noemt per vorm de reden: een dubbel id, een draad in een andere vorm, of een eigen id als tekst."""
+    eigen = _bundel("hartslag")
+    redenen = {vorm: " ".join(nf._vreemde_draden([*copy.deepcopy(nodes), *eigen], {"jlp-hartslag"}))
+               for vorm, nodes in VREEMDE_VORMEN.items()}
+    assert "dubbel id" in redenen["dubbel-id-inject"] and "dubbel id" in redenen["dubbel-id-http-request"]
+    for vorm in ("geneste-lijst", "array-achtig-object", "draad-andere-vorm"):
+        assert "'wires'" in redenen[vorm], vorm
+    for vorm in ("geneste-lijst", "array-achtig-object", "eigen-id-in-ander-veld"):
+        assert "noemt jlp-hs-stuur" in redenen[vorm], vorm
+    # de eigen tabbladen van de andere bundels en de globale instellingen zijn geen vreemde node die iets raakt
+    alle = [n for nodes in nf.bundels_in_git().values() for n in nodes]
+    assert nf._vreemde_draden([*alle, *copy.deepcopy(VORIGE_FLOWS)], {"jlp-hartslag"}) == []
 
 
 class _NepNodeRedValtUit(_NepNodeRed):
@@ -972,6 +1210,30 @@ def test_saved_report_is_complete_and_honest() -> None:
     assert met["hub_kreeg_de_heartbeat_met_token"] is True and met["proxy_ontving"] == 0
     assert zonder["proxy_ontving"] >= 1 and zonder["proxy_kreeg_bearer"] is True and zonder["hub_ontving"] == 0
     assert "CONNECT" in zonder["methoden_bij_de_proxy"]
+    # R-VEILIG-2 (herstelpoging 2): ook met de ingebouwde proxy van Node.js aan (NODE_USE_ENV_PROXY=1 of
+    # NODE_OPTIONS=--use-env-proxy) krijgt een proxy niets van de drie bundels uit Git (persist: true); een eigen
+    # Hub-simulator krijgt heartbeat, inventaris, event en voorstel met het token, en na 8 s stilte staat daar geen
+    # verbinding meer open. Controleproef met persist: false (rauwe Admin-API): de proxy krijgt de bearer-kop, en het
+    # teruglezen ziet het.
+    node_proxy = proxy["ingebouwde_proxy_van_node"]
+    assert set(node_proxy) == {"NODE_USE_ENV_PROXY", "NODE_OPTIONS"}
+    for naam, uitkomst in node_proxy.items():
+        met_p, zonder_p = uitkomst["met_persist_uit_git"], uitkomst["controleproef_persist_false"]
+        assert met_p["proxy_ontving"] == 0, naam
+        assert met_p["hub_kreeg_heartbeat_met_token"] is True and met_p["hub_kreeg_event_met_token"] is True, naam
+        assert met_p["hub_kreeg_voorstel_met_token"] is True and met_p["inventaris_aanroepen_bij_de_hub"] >= 1, naam
+        verbindingen = met_p["verbindingen_bij_de_hub"]
+        assert verbindingen["direct_na_het_verkeer"] <= 4 and verbindingen["na_8_s_stilte"] == 0, naam
+        assert zonder_p["persist"] is False and zonder_p["via"] == "rauwe Admin-API", naam
+        assert zonder_p["proxy_ontving"] >= 1 and zonder_p["proxy_kreeg_bearer"] is True, naam
+        assert "/api/v1/monitoring/heartbeat" in zonder_p["paden_bij_de_proxy"], naam
+        assert zonder_p["readback_ziet_het"] == "http_instelling", naam
+    # R-VEILIG-3 (herstelpoging 2): een vreemd tabblad in een vorm die de eerste controle niet zag, wordt geweigerd vóór
+    # Node-RED iets verandert, en geen luisteraar ontvangt iets
+    vreemd = n10["vreemde_nodes"]
+    vormen = {"geneste_lijst", "draad_als_object", "dubbel_id_inject", "dubbel_id_http_request"}
+    assert set(vreemd) == vormen | {"luisteraar_ontving"} and vreemd["luisteraar_ontving"] == 0
+    assert all(vreemd[v] == {"geweigerd": True, "flows_in_node_red_ongewijzigd": True} for v in vormen)
     assert weigering["hub_kreeg_de_heartbeat"] is True and weigering["luisteraar_ontving"] == 0
     proeven = n10["doorverwijzing_flow_uit_git"]
     assert set(proeven) == {f"{s} naar {w}" for s in (307, 302) for w in ("zelfde_host_andere_poort", "andere_host")}

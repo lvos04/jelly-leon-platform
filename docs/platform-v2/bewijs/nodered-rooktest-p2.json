@@ -1,7 +1,7 @@
 {
   "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
-  "gestart": "2026-11-12T05:25:53Z",
-  "klaar": "2026-11-12T05:27:36Z",
+  "gestart": "2026-11-12T06:36:02Z",
+  "klaar": "2026-11-12T06:38:56Z",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
   "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map op /data, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges; Hub = simulator op het adres van de Docker-bridge",
   "images": {
@@ -13,7 +13,8 @@
     "incident in de echte Hub of Uptime Kuma na het stoppen van Node-RED",
     "uitvoering van een goedgekeurde herstart door de echte uitvoerder",
     "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = false volgt Node-RED een doorverwijzing met het token (controleproef N10)",
-    "of een proxy-instelling van TrueNAS of van het formulier in de omgeving van de container komt (de proef zet http_proxy zelf met docker run -e; proxyOptions in FLOWS negeert hem dan, N10)"
+    "of een proxy-instelling van TrueNAS of van het formulier in de omgeving van de container komt (de proef zet http_proxy, NODE_USE_ENV_PROXY en NODE_OPTIONS zelf met docker run -e; N10)",
+    "een Hub over HTTPS achter een proxy, en de keep-alive van de echte Hub (de proef meet de Hub-simulator, die een verbinding na 5 s zonder verkeer sluit)"
   ],
   "uitkomst": "geslaagd",
   "stappen": [
@@ -132,24 +133,24 @@
         "readback": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "verwacht": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
-            "gelezen": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
+            "verwacht": "sha256:825fac33935765d99184912f0bd305ddcde0d39453955b3bf278ba9f44dc4647",
+            "gelezen": "sha256:825fac33935765d99184912f0bd305ddcde0d39453955b3bf278ba9f44dc4647",
             "gelijk": true,
             "ingeschakeld": true,
             "eigen_controle": []
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "verwacht": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
-            "gelezen": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
+            "verwacht": "sha256:12cd2ef1e32bb4cfd56a1e435e474ed5ee1029fa152c7b0b89a8d6a34ef4131a",
+            "gelezen": "sha256:12cd2ef1e32bb4cfd56a1e435e474ed5ee1029fa152c7b0b89a8d6a34ef4131a",
             "gelijk": true,
             "ingeschakeld": true,
             "eigen_controle": []
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "verwacht": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
-            "gelezen": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
+            "verwacht": "sha256:9f9f4c95bb321830430265aa1b39903d5e607bfb6f5b282c8b404024ef8e135a",
+            "gelezen": "sha256:9f9f4c95bb321830430265aa1b39903d5e607bfb6f5b282c8b404024ef8e135a",
             "gelijk": true,
             "ingeschakeld": false,
             "eigen_controle": []
@@ -160,19 +161,19 @@
         "export": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "sha256": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
+            "sha256": "sha256:825fac33935765d99184912f0bd305ddcde0d39453955b3bf278ba9f44dc4647",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "sha256": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
+            "sha256": "sha256:12cd2ef1e32bb4cfd56a1e435e474ed5ee1029fa152c7b0b89a8d6a34ef4131a",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "sha256": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
+            "sha256": "sha256:9f9f4c95bb321830430265aa1b39903d5e607bfb6f5b282c8b404024ef8e135a",
             "ingeschakeld": false,
             "vergelijking": "gelijk_aan_lock"
           }
@@ -219,7 +220,7 @@
             "runtime_staat": "STOPPED",
             "aanwezig": true,
             "bron": "hub_inventaris",
-            "flow_versie": "1.1.1"
+            "flow_versie": "1.2.0"
           }
         }
       }
@@ -287,11 +288,11 @@
       "uitkomst": "geslaagd",
       "details": {
         "na_wijziging": {
-          "gelezen": "sha256:efa0da0d4322425ad38f50554376cde10eb464bf90ce210bc7cfc0b11607a04b",
+          "gelezen": "sha256:2da6bc17026393eba72312b899e43e6f4c8d65cf14edbb2aba332b52f6783789",
           "vergelijking": "afwijkend"
         },
         "na_herstel": {
-          "gelezen": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
+          "gelezen": "sha256:825fac33935765d99184912f0bd305ddcde0d39453955b3bf278ba9f44dc4647",
           "vergelijking": "gelijk_aan_lock"
         }
       }
@@ -389,6 +390,25 @@
           "doel_kreeg_bearer": true,
           "readback_ziet_het": "change_regel"
         },
+        "vreemde_nodes": {
+          "geneste_lijst": {
+            "geweigerd": true,
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "draad_als_object": {
+            "geweigerd": true,
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "dubbel_id_inject": {
+            "geweigerd": true,
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "dubbel_id_http_request": {
+            "geweigerd": true,
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "luisteraar_ontving": 0
+        },
         "na_herstel": {
           "hartslag": {
             "gelijk": true,
@@ -420,6 +440,62 @@
               "POST"
             ],
             "proxy_kreeg_bearer": true
+          },
+          "ingebouwde_proxy_van_node": {
+            "NODE_USE_ENV_PROXY": {
+              "met_persist_uit_git": {
+                "hub_kreeg_heartbeat_met_token": true,
+                "hub_kreeg_event_met_token": true,
+                "hub_kreeg_voorstel_met_token": true,
+                "inventaris_aanroepen_bij_de_hub": 1,
+                "proxy_ontving": 0,
+                "verbindingen_bij_de_hub": {
+                  "direct_na_het_verkeer": 3,
+                  "na_8_s_stilte": 0
+                }
+              },
+              "controleproef_persist_false": {
+                "via": "rauwe Admin-API",
+                "node": "jlp-hs-stuur",
+                "persist": false,
+                "proxy_ontving": 1,
+                "methoden_bij_de_proxy": [
+                  "POST"
+                ],
+                "paden_bij_de_proxy": [
+                  "/api/v1/monitoring/heartbeat"
+                ],
+                "proxy_kreeg_bearer": true,
+                "readback_ziet_het": "http_instelling"
+              }
+            },
+            "NODE_OPTIONS": {
+              "met_persist_uit_git": {
+                "hub_kreeg_heartbeat_met_token": true,
+                "hub_kreeg_event_met_token": true,
+                "hub_kreeg_voorstel_met_token": true,
+                "inventaris_aanroepen_bij_de_hub": 1,
+                "proxy_ontving": 0,
+                "verbindingen_bij_de_hub": {
+                  "direct_na_het_verkeer": 3,
+                  "na_8_s_stilte": 0
+                }
+              },
+              "controleproef_persist_false": {
+                "via": "rauwe Admin-API",
+                "node": "jlp-hs-stuur",
+                "persist": false,
+                "proxy_ontving": 1,
+                "methoden_bij_de_proxy": [
+                  "POST"
+                ],
+                "paden_bij_de_proxy": [
+                  "/api/v1/monitoring/heartbeat"
+                ],
+                "proxy_kreeg_bearer": true,
+                "readback_ziet_het": "http_instelling"
+              }
+            }
           }
         }
       }

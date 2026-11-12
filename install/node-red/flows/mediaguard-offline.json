@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "JLP · MediaGuard offline → melding",
     "disabled": false,
-    "info": "versie 1.1.1\n\nLeest elke 60 s de inventaris van de Hub (GET /api/v1/apps, scope inventaris.lezen) en meldt een overgang van MediaGuard als event (contract 1.3 §7): flow.app_watch.down bij gestopt, gecrasht of niet meer aanwezig; flow.app_watch.recovered zodra de app weer draait. Onleesbare of onvolledige metingen zijn 'unknown' en geven nooit een event. Alleen lezen: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false) en gebruikt met de FLOWS uit het manifest geen proxy uit de omgeving (proxyOptions): het token gaat alleen naar HUB_URL."
+    "info": "versie 1.2.0\n\nLeest elke 60 s de inventaris van de Hub (GET /api/v1/apps, scope inventaris.lezen) en meldt een overgang van MediaGuard als event (contract 1.3 §7): flow.app_watch.down bij gestopt, gecrasht of niet meer aanwezig; flow.app_watch.recovered zodra de app weer draait. Onleesbare of onvolledige metingen zijn 'unknown' en geven nooit een event. Alleen lezen: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false). Gebruikt geen proxy uit de omgeving van de container: proxyOptions uit de FLOWS van het manifest negeert http_proxy en all_proxy, en een eigen verbinding per node (persist) negeert ook de proxy van Node.js zelf (NODE_USE_ENV_PROXY, --use-env-proxy). Zo ging het token in rooktest N10 alleen naar HUB_URL (gemeten bij deze digest, Hub over HTTP)."
   },
   {
     "id": "jlp-mg-tik",
@@ -75,7 +75,7 @@
     "paytoqs": "ignore",
     "url": "",
     "tls": "",
-    "persist": false,
+    "persist": true,
     "proxy": "",
     "insecureHTTPParser": false,
     "authType": "bearer",
@@ -161,7 +161,7 @@
         "t": "set",
         "p": "payload",
         "pt": "msg",
-        "to": "(\n  $hex := function($n) { $pad($formatBase($floor($random() * $power(16, $n)), 16), -$n, \"0\") };\n  $uuid := function() { $hex(8) & \"-\" & $hex(4) & \"-4\" & $hex(3) & \"-\" & $substring(\"89ab\", $floor($random() * 4), 1) & $hex(3) & \"-\" & $hex(12) };\n  $id := $uuid();\n  {\n    \"schema_version\": \"1.0\",\n    \"event_id\": $id,\n    \"source_app\": \"node-red\",\n    \"source_event_id\": \"mediaguard-offline:\" & $id,\n    \"event_type\": meting.gebeurtenis = \"down\" ? \"flow.app_watch.down\" : \"flow.app_watch.recovered\",\n    \"entity\": {\"type\": \"app\", \"id\": \"mediaguard\"},\n    \"timestamp_utc\": $now(),\n    \"trace_id\": $uuid(),\n    \"correlation_id\": null,\n    \"actor\": {\"type\": \"flow\", \"id\": \"mediaguard-offline\"},\n    \"classification\": \"internal\",\n    \"payload\": {\"staat\": meting.staat, \"runtime_staat\": meting.runtime_staat, \"aanwezig\": meting.aanwezig, \"bron\": \"hub_inventaris\", \"flow_versie\": \"1.1.1\"},\n    \"payload_ref\": null\n  }\n)",
+        "to": "(\n  $hex := function($n) { $pad($formatBase($floor($random() * $power(16, $n)), 16), -$n, \"0\") };\n  $uuid := function() { $hex(8) & \"-\" & $hex(4) & \"-4\" & $hex(3) & \"-\" & $substring(\"89ab\", $floor($random() * 4), 1) & $hex(3) & \"-\" & $hex(12) };\n  $id := $uuid();\n  {\n    \"schema_version\": \"1.0\",\n    \"event_id\": $id,\n    \"source_app\": \"node-red\",\n    \"source_event_id\": \"mediaguard-offline:\" & $id,\n    \"event_type\": meting.gebeurtenis = \"down\" ? \"flow.app_watch.down\" : \"flow.app_watch.recovered\",\n    \"entity\": {\"type\": \"app\", \"id\": \"mediaguard\"},\n    \"timestamp_utc\": $now(),\n    \"trace_id\": $uuid(),\n    \"correlation_id\": null,\n    \"actor\": {\"type\": \"flow\", \"id\": \"mediaguard-offline\"},\n    \"classification\": \"internal\",\n    \"payload\": {\"staat\": meting.staat, \"runtime_staat\": meting.runtime_staat, \"aanwezig\": meting.aanwezig, \"bron\": \"hub_inventaris\", \"flow_versie\": \"1.2.0\"},\n    \"payload_ref\": null\n  }\n)",
         "tot": "jsonata"
       },
       {
@@ -202,7 +202,7 @@
     "paytoqs": "ignore",
     "url": "",
     "tls": "",
-    "persist": false,
+    "persist": true,
     "proxy": "",
     "insecureHTTPParser": false,
     "authType": "bearer",

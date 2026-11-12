@@ -1,0 +1,148 @@
+[
+  {
+    "id": "jlp-hartslag",
+    "type": "tab",
+    "label": "JLP · Hartslag naar de Hub",
+    "disabled": false,
+    "info": "versie 1.1.1\n\nMeldt elke 60 s een heartbeat bij de Hub (contract 1.3 §6.1) met de vertraging tussen het tikken van de klok en de verwerking in de flow (flow_vertraging). Blijft de heartbeat uit, dan maakt de Hub de dienst na 3 × 60 s 'unknown'. Alleen lezen/melden: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false) en gebruikt met de FLOWS uit het manifest geen proxy uit de omgeving (proxyOptions): het token gaat alleen naar HUB_URL."
+  },
+  {
+    "id": "jlp-hs-tik",
+    "type": "inject",
+    "z": "jlp-hartslag",
+    "name": "elke 60 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "5",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 140,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-hs-bouw"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-hs-bouw",
+    "type": "change",
+    "z": "jlp-hartslag",
+    "name": "heartbeat (§6.1)",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "(\n  $ms := $millis() - payload;\n  {\n    \"status\": \"healthy\",\n    \"observed_at\": $now(),\n    \"verwacht_interval_s\": 60,\n    \"checks\": [{\"name\": \"flow_vertraging\", \"status\": $ms < 5000 ? \"healthy\" : \"degraded\", \"detail\": $string($ms) & \" ms\"}]\n  }\n)",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "url",
+        "pt": "msg",
+        "to": "$env('HUB_URL') & '/api/v1/monitoring/heartbeat'",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "followRedirects",
+        "pt": "msg",
+        "to": "false",
+        "tot": "bool"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 340,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-hs-stuur"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-hs-stuur",
+    "type": "http request",
+    "z": "jlp-hartslag",
+    "name": "POST heartbeat",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "bearer",
+    "senderr": false,
+    "headers": [],
+    "x": 560,
+    "y": 80,
+    "wires": [
+      [
+        "jlp-hs-toon"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-hs-toon",
+    "type": "debug",
+    "z": "jlp-hartslag",
+    "name": "antwoord van de Hub",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 780,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "jlp-hs-fout",
+    "type": "catch",
+    "z": "jlp-hartslag",
+    "name": "fouten in deze flow",
+    "scope": null,
+    "uncaught": false,
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "jlp-hs-fouttoon"
+      ]
+    ]
+  },
+  {
+    "id": "jlp-hs-fouttoon",
+    "type": "debug",
+    "z": "jlp-hartslag",
+    "name": "fout",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "error",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 340,
+    "y": 160,
+    "wires": []
+  }
+]

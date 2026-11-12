@@ -30,10 +30,12 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
    besluit C-11; geen gebruiker in het manifest — besluit C-12), `nodesIncludes` (alleen de genoemde kern-nodes worden
    geladen — exec, function, file, watch, http in, websocket, tcp, udp en mqtt bestaan dan niet), geen installatie van
    extra nodes of modules, geen projecten, geen telemetrie, `/diagnostics` uit, en `proxyOptions` met een lege `env`:
-   de `http request`-node gebruikt dan geen proxy uit de omgeving van de container (`http_proxy`, `all_proxy` …), zodat
-   een per ongeluk gezette proxy het token niet krijgt (gemeten in stap N10, met een controleproef zonder de
-   instelling). `tools/nodered_flows.py` laat in `settings-overrides.json` alleen deze sleutels toe; elke andere
-   (bijvoorbeeld `adminAuth.default`, dat weer anoniem lezen zou geven) wordt geweigerd.
+   de `http request`-node zoekt dan zelf geen proxy in `http_proxy` of `all_proxy` van de container (gemeten in stap
+   N10, met een controleproef zonder de instelling: dan kreeg de proxy de bearer-kop). Tegen de ingebouwde proxy van
+   Node.js (`NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy`) helpt die instelling niet: daarvoor heeft elke
+   `http request`-node in de bundels `persist: true` (punt 2). `tools/nodered_flows.py` laat in
+   `settings-overrides.json` alleen deze sleutels toe; elke andere (bijvoorbeeld `adminAuth.default`, dat weer anoniem
+   lezen zou geven) wordt geweigerd.
    Dit leunt op het gemeten gedrag van precies deze digest. Daarom bewaakt het manifest het zelf: de monitor
    verwacht **401 op `/diagnostics`** zonder aanmelding. Een Node-RED zonder deze instellingen antwoordt 200 en is dan
    niet gezond (controleproef N2 in de rooktest). Eerlijk: die 401 bewijst alleen dat `adminAuth` zonder anonieme
@@ -43,7 +45,11 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
    controle `anoniem_geweigerd` van home-control-hub).
 2. **Bij de import (`lint`).** Een bundel uit deze repo mag alleen: `inject`, `change`, `switch`, `http request`,
    `debug`, `catch`, `comment`. Een `http request` krijgt zijn adres uitsluitend van een `change`-node met een van de
-   vaste Hub-routes hieronder (`$env('HUB_URL') & '<route>'`), met een vaste methode en het token als bearer. Een
+   vaste Hub-routes hieronder (`$env('HUB_URL') & '<route>'`), met een vaste methode en het token als bearer, en heeft
+   `persist: true` (`http_instelling`): een eigen verbinding, zodat ook de ingebouwde proxy van Node.js niet geldt.
+   Zonder die eigen verbinding ging het verzoek met het token met `NODE_USE_ENV_PROXY=1` of
+   `NODE_OPTIONS=--use-env-proxy` naar een proxy uit de omgeving, ook met `proxyOptions` (gemeten, controleproef N10).
+   Een
    eigenschap in een `change`-regel is alleen een eenvoudige naam (letters, cijfers, `_` en punten, nooit `msg…`):
    Node-RED leest `msg.url`, `'url'`, `"url"` en `msg['url']` als `msg.url`, dus elke andere schrijfwijze wordt
    geweigerd (`change_regel`). Daarnaast een **witte lijst** (sinds het herstel van S-P2-410; een zwarte lijst van
@@ -54,7 +60,12 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
    `json`, `date`) of komt uit msg/flow/global met zo'n naam, en JSONata mag alleen precies de uitdrukkingen uit deze
    bundels zijn (vastgelegd als sha256 in het hulpmiddel); `env` en een ontbrekende soort worden geweigerd
    (`change_regel`). Een `inject` zet alleen `payload` (en `topic`) met een vaste soort of een naam uit flow/global,
-   ook via de oude velden `payload`/`payloadType` (`inject_bron`). Ook geweigerd (`change_regel`): een regel die geen
+   ook via de oude velden `payload`/`payloadType` (`inject_bron`). Een `switch` leest alleen msg (`propertyType`
+   `msg`) met een van die vijf namen of `meting.<naam>` (kleine letters en `_`, geen eigenschap van het prototype;
+   `switch_bron`), en een regel vergelijkt alleen met een vaste soort (zonder `vt` maakt Node-RED er zelf `num` of
+   `str` van) of met JSONata uit de bundels; `env`, `msg`, `flow`, `global`, `prev`, een onbekende operator en vrije
+   JSONata worden geweigerd (`switch_regel`). Een `debug` voert nooit JSONata uit (`targetType` en `statusType` niet
+   `jsonata`; `debug_jsonata`). Ook geweigerd (`change_regel`): een regel die geen
    object is, en de oude vorm van de `change`-node zonder lijst `rules` (Node-RED maakt die zelf tot een
    regel). Elke `http request` krijgt van zijn route-node `msg.followRedirects = false` (`redirect_niet_uit` als het
    ontbreekt; een andere waarde is `verzoek_overschreven`): gemeten bij deze digest stuurt Node-RED bij een
@@ -70,24 +81,34 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
 editor een eigen `http request` naar elk adres maken, en een eigen flow zonder `msg.followRedirects = false` volgt een
 doorverwijzing met het token (gemeten: controleproef in stap N10; ook met die regel als dezelfde flow
 `msg.hasOwnProperty` overschrijft, wat `lint` weigert). Beperkt is dus wat deze repo levert (punt 2) en wat de Hub
-toestaat (punt 3), niet het netwerk van de container. Een proxy uit de omgeving negeren de flows dankzij
-`proxyOptions` (punt 1); of een proxy-instelling van TrueNAS zelf in de omgeving van de container komt, is niet op een
-NAS gemeten. Een flow met een nodetype dat niet geladen is (bijvoorbeeld
+toestaat (punt 3), niet het netwerk van de container. Een proxy uit de omgeving negeren de flows uit Git dankzij
+`proxyOptions` (punt 1) en `persist: true` (punt 2): gemeten in stap N10 met `http_proxy`, `HTTP_PROXY` en `all_proxy`,
+ook samen met `NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy`, met een Hub over HTTP (de proxy kreeg niets;
+met de ingebouwde proxy aan kreeg een Hub-simulator van alle drie de bundels heartbeat, inventaris, event en voorstel
+met het token). Een Hub over HTTPS achter een proxy is
+niet gemeten, en of een proxy-instelling van TrueNAS zelf in de omgeving van de container komt, ook niet (geen NAS).
+Gevolg van `persist`: elke `http request`-node houdt na een verzoek één verbinding met de Hub open tot de Hub die
+sluit; de Hub-simulator doet dat na 5 s zonder verkeer, en in stap N10 stond na 8 s stilte geen verbinding meer open.
+Een flow met een nodetype dat niet geladen is (bijvoorbeeld
 exec of function), voert niets uit — ook niet als hij buiten `lint` om via de Admin-API is gezet (stap N3).
 
 ## Bundels
 
 | Bundel | Versie | Soort | Standaard | Routes bij de Hub |
 |---|---|---|---|---|
-| `flows/hartslag.json` | 1.1.1 | alleen lezen en melden | aan | `POST /api/v1/monitoring/heartbeat` |
-| `flows/mediaguard-offline.json` | 1.1.1 | alleen lezen en melden | aan | `GET /api/v1/apps`, `POST /api/v1/events/inbox` |
-| `flows/testflow-herstart.json` | 1.1.1 | actie aanvragen | **uit** | `POST /api/v1/actions/proposals` (voorlopige route) |
+| `flows/hartslag.json` | 1.2.0 | alleen lezen en melden | aan | `POST /api/v1/monitoring/heartbeat` |
+| `flows/mediaguard-offline.json` | 1.2.0 | alleen lezen en melden | aan | `GET /api/v1/apps`, `POST /api/v1/events/inbox` |
+| `flows/testflow-herstart.json` | 1.2.0 | actie aanvragen | **uit** | `POST /api/v1/actions/proposals` (voorlopige route) |
 
 De versie staat op de eerste regel van de beschrijving van het tabblad (`versie x.y.z`). Een wijziging = versie
 ophogen, `python tools/nodered_flows.py lock`, committen. `make nodered` controleert manifest, bundels en lock.
 Verandert een JSONata-uitdrukking, dan weigert `lint` de bundel tot de sha256 van de nieuwe uitdrukking bewust in
-`TOEGESTANE_JSONATA` van `tools/nodered_flows.py` staat (de melding noemt het begin van die sha256). Versie 1.1.1
-(S-P2-410, herstel): alleen de beschrijving (geen proxy uit de omgeving) en `flow_versie` in het event.
+`TOEGESTANE_JSONATA` van `tools/nodered_flows.py` staat (de melding noemt het begin van die sha256). Die lijst houdt
+de JSONata van **elke** uitgebrachte versie bij (per sha256 bundel, node, veld en versies; toevoegen, nooit vervangen),
+zodat `lint` een oudere versie nooit om haar JSONata weigert. De vorige versies (1.0.0, 1.1.0, 1.1.1) staan als vaste
+testkopie in `tests/repo/fixtures/node-red-versies/`; de repotest eist dat de lijst precies daarbij en bij de huidige
+bundels hoort. Versie 1.1.1 (S-P2-410, herstel): alleen de beschrijving en `flow_versie` in het event. Versie 1.2.0
+(herstelpoging 2): `persist: true` op elke `http request`-node, de beschrijving (proxy) en `flow_versie`.
 
 ### Hartslag (I10-10-06)
 
@@ -118,7 +139,7 @@ Eventschema (envelop van contract 1.3 §7, `schema_version "1.0"`):
   "actor": {"type": "flow", "id": "mediaguard-offline"},
   "classification": "internal",
   "payload": {"staat": "down", "runtime_staat": "STOPPED", "aanwezig": true, "bron": "hub_inventaris",
-              "flow_versie": "1.1.1"}
+              "flow_versie": "1.2.0"}
 }
 ```
 
@@ -157,16 +178,25 @@ python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere v
   geeft ze nooit terug; de import leest terug en vergelijkt per bundel de sha256 met de verwachting, laat de
   teruggelezen nodes van elk eigen tabblad opnieuw door `lint` gaan, en controleert dat op de eigen tabbladen geen
   `env` staat, dat de globale `HUB_URL` precies de opgegeven Hub-URL is en dat geen node buiten de eigen tabbladen
-  een draad naar een eigen node heeft (zo'n node zou buiten `lint` om bijvoorbeeld `msg.url` kunnen zetten). Vindt het
+  bij een eigen node kan komen (zo'n node zou buiten `lint` om bijvoorbeeld `msg.url` kunnen zetten). Geweigerd wordt
+  een vreemde node met hetzelfde id als een eigen node (Node-RED gaf zo'n dubbele `http request` het token van de
+  eigen node; gemeten in de herreview), met `wires` die niet precies een lijst van lijsten met node-ids is (Node-RED
+  leest ook een geneste lijst of een object met `length` als draad), of met een eigen id ergens als tekst (een draad,
+  of een ander veld zoals `links` of `scope`). Vindt het
   teruglezen iets, of faalt het teruglezen zelf (bijvoorbeeld een netwerkfout), dan zet de import de flows van vóór
-  de import terug (lukt dat niet, dan zegt de melding dat) en geeft een fout. Staat zo'n vreemde draad er al vóór de
-  import, dan weigert de import zonder iets te schrijven. Tabbladen die niet uit deze repo komen blijven staan.
+  de import terug (lukt dat niet, dan zegt de melding dat) en geeft een fout. Staat zo'n vreemde node er al vóór de
+  import, dan weigert de import zonder iets te schrijven (stap N10, vier vormen). Tabbladen die niet uit deze repo
+  komen en geen eigen node raken, blijven staan.
 - **Export (Git-export):** één bestand per tabblad plus de vergelijking met `flows.lock.json`:
   `gelijk_aan_lock`, `afwijkend` of `onbekend` (tabblad dat niet uit deze repo komt). Een tabblad-id is nooit een
   pad: een tabblad dat niet in het lock staat en geen eigen id (`jlp-…`) heeft, krijgt de bestandsnaam
   `tab-<sha256[:16]>`.
-- **Herstel:** een oudere versie terugzetten is dezelfde import met het oudere bestand (uit Git); daarna toont de
-  export weer `gelijk_aan_lock` zodra de versie uit het lock terugstaat.
+- **Herstel:** een oudere versie terugzetten is dezelfde import met het oudere bestand (uit Git), als die versie
+  door `lint` komt; daarna toont de export weer `gelijk_aan_lock` zodra de versie uit het lock terugstaat. `lint`
+  weigert een versie nooit om haar JSONata, wel om een veiligheidseis die later kwam: de versies vóór 1.2.0 missen
+  `persist: true` (en 1.0.0 ook `msg.followRedirects = false`) en zijn dus niet terug te zetten. Een echte oudere
+  versie terugzetten kan pas als er een versie na 1.2.0 is; stap N8 zet nu een andere versie (een variant) en daarna
+  de versie uit Git terug.
 - **Back-up:** `/data` (flows, versleutelde credentials en de sleutel daarvan) gaat mee in de `stopped_snapshot` van
   het manifest. De bundels zelf staan in Git.
 

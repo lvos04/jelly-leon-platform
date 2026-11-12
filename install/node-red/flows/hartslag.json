@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "JLP · Hartslag naar de Hub",
     "disabled": false,
-    "info": "versie 1.1.1\n\nMeldt elke 60 s een heartbeat bij de Hub (contract 1.3 §6.1) met de vertraging tussen het tikken van de klok en de verwerking in de flow (flow_vertraging). Blijft de heartbeat uit, dan maakt de Hub de dienst na 3 × 60 s 'unknown'. Alleen lezen/melden: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false) en gebruikt met de FLOWS uit het manifest geen proxy uit de omgeving (proxyOptions): het token gaat alleen naar HUB_URL."
+    "info": "versie 1.2.0\n\nMeldt elke 60 s een heartbeat bij de Hub (contract 1.3 §6.1) met de vertraging tussen het tikken van de klok en de verwerking in de flow (flow_vertraging). Blijft de heartbeat uit, dan maakt de Hub de dienst na 3 × 60 s 'unknown'. Alleen lezen/melden: deze flow wijzigt niets. Volgt geen doorverwijzingen (msg.followRedirects = false). Gebruikt geen proxy uit de omgeving van de container: proxyOptions uit de FLOWS van het manifest negeert http_proxy en all_proxy, en een eigen verbinding per node (persist) negeert ook de proxy van Node.js zelf (NODE_USE_ENV_PROXY, --use-env-proxy). Zo ging het token in rooktest N10 alleen naar HUB_URL (gemeten bij deze digest, Hub over HTTP)."
   },
   {
     "id": "jlp-hs-tik",
@@ -82,7 +82,7 @@
     "paytoqs": "ignore",
     "url": "",
     "tls": "",
-    "persist": false,
+    "persist": true,
     "proxy": "",
     "insecureHTTPParser": false,
     "authType": "bearer",
