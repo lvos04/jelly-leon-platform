@@ -60,7 +60,8 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    en "de app blijft nooit gestopt achter" gelden niet meer voor een Custom App. De echte Hub en executor weigeren
    elke actie op een gestopte Custom App, ook `app.start` (`doel_niet_herkenbaar`; ai-server-manager ADR-0030 besluit
    21). Zo'n app blijft gestopt tot de eigenaar hem in TrueNAS start; `starten` wordt een handmatige eigenaarsstap en
-   de eigenaar krijgt een duidelijke melding. Voor een catalogusapp blijft `starten` een actie `app.start`.
+   de eigenaar krijgt een duidelijke melding. Na die eigenaarsstap komt een nieuwe snapshot; `bijwerken` komt pas
+   daarna vrij. Voor een catalogusapp blijft `starten` een actie `app.start`.
 7. **Readback telt, niet alleen het woord "voltooid".** `…/steps/{id}/result` vraagt `execution_id` + readback. Bij
    `bijwerken` en `installeren` moet de teruggelezen digest gelijk zijn aan de gepinde digest; anders is de stap
    `mislukt` (`readback_afwijking`), ook als de melder "voltooid" zegt. De readback is wat de melder doorgeeft (rol
