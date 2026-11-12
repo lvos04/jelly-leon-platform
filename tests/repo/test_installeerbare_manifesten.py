@@ -231,15 +231,17 @@ def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: st
 @pytest.mark.parametrize("variant", ["privileged", "cap_add", "docker_socket"])
 def test_node_red_variants_with_extra_rights_are_refused_by_the_validator(variant: str, tmp_path: Path) -> None:
     """Negatief (S-P2-410): dezelfde Node-RED-installatie met extra rechten wordt door de validator van de eigenaar van
-    de standaard geweigerd (``--strict``), niet alleen door de eigen controles."""
+    de standaard geweigerd (``--strict``), niet alleen door de eigen controles. Per variant precies de verwachte
+    foutcode (R-MANIFEST-1): zonder die regel in de validator wordt de test rood, ook als een andere regel de variant
+    toevallig weigert. De socketvariant laat daarom de bestaande opslag ``data`` naar de socket wijzen (één wijziging,
+    geen tweede fout zoals ``storage_unknown_reference``)."""
     validator = _validator()
     tekst = (mf.MANIFEST_DIR / "node-red.manifest.yaml").read_text(encoding="utf-8")
-    vervang = {
-        "privileged": ("  privileged: false\n", "  privileged: true\n"),
-        "cap_add": ("  cap_add: []\n", "  cap_add: [SYS_ADMIN]\n"),
-        "docker_socket": ("      read_only: false\n",
-                          "      read_only: false\n    - name: sock\n      type: host_path\n"
-                          "      host_path: /var/run/docker.sock\n      read_only: false\n"),
+    vervang, code = {
+        "privileged": (("  privileged: false\n", "  privileged: true\n"), "privileged_forbidden"),
+        "cap_add": (("  cap_add: []\n", "  cap_add: [SYS_ADMIN]\n"), "capability_forbidden"),
+        "docker_socket": (("      host_path: {param: data_path}\n", "      host_path: /var/run/docker.sock\n"),
+                          "docker_socket_forbidden"),
     }[variant]
     assert tekst.count(vervang[0]) == 1, vervang[0]
     pad = tmp_path / "node-red.manifest.yaml"
@@ -247,11 +249,12 @@ def test_node_red_variants_with_extra_rights_are_refused_by_the_validator(varian
     res = subprocess.run([str(validator), "validate", "--strict", "--format", "json", str(pad)],
                          capture_output=True, text=True, check=False)
     assert res.returncode != 0, res.stdout
+    uitslag = json.loads(res.stdout)
+    fouten = {f["code"] for f in uitslag["findings"] if f["severity"] == "error"}
+    assert uitslag["strict_valid"] is False and fouten == {code}, uitslag["findings"]
     goed = subprocess.run([str(validator), "validate", "--strict", str(mf.MANIFEST_DIR / "node-red.manifest.yaml")],
                           capture_output=True, text=True, check=False)
     assert goed.returncode == 0, goed.stdout  # alleen de wijziging maakt het verschil
-    if variant == "privileged":
-        assert "privileged_forbidden" in res.stdout
 
 
 def test_authentik_translation_is_blocked_until_the_executor_fills_secrets(tmp_path: Path) -> None:
