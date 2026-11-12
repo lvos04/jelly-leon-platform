@@ -344,8 +344,9 @@
   `headers` (wissen), flow/global-namen alleen kleine letters en `_` zonder eigenschap van het prototype, waarden
   alleen `str`/`num`/`bool`/`json`/`date` of een naam uit msg/flow/global, JSONata alleen de uitdrukkingen uit de
   bundels (sha256 in `TOEGESTANE_JSONATA`); hetzelfde voor `to` en voor de `inject` (nieuwe code `inject_bron`).
-- **Geen proxy uit de omgeving (R-VEILIG-2):** `FLOWS` zet `proxyOptions={"env":{}}`; met `http_proxy` in de omgeving
-  van de container ging het verzoek met het token anders via die proxy (gemeten).
+- **Geen proxy uit `http_proxy`/`all_proxy` (R-VEILIG-2):** `FLOWS` zet `proxyOptions={"env":{}}`; met `http_proxy`
+  in de omgeving van de container ging het verzoek met het token anders via die proxy (gemeten). De ingebouwde proxy
+  van Node.js hield dat niet tegen: zie herstelpoging 2 hieronder.
 - **Vaste sleutels in `settings-overrides.json` (R-VEILIG-4):** `adminAuth.default` en elke andere onbekende sleutel
   worden geweigerd. **Vreemde draden (R-VEILIG-3):** een node buiten de eigen tabbladen met een draad naar een eigen
   node laat de import weigeren (vooraf) of terugzetten (bij het teruglezen).
@@ -356,4 +357,28 @@
 - **Bundels 1.1.1** (alleen beschrijving en `flow_versie`), lock bijgewerkt. **Rooktest N10** weigert ook de bundel met
   `msg.hasOwnProperty`, met een controleproef via de rauwe Admin-API (het doel krijgt de bearer-kop), en meet de proxy
   met en zonder `proxyOptions`; het bewaarde rapport is opnieuw gemaakt.
+- Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.
+
+### Node-RED: herstelpoging 2 na de herreview van S-P2-410
+
+- **Eigen verbinding per `http request` (R-VEILIG-2):** `proxyOptions` hield alleen de proxy tegen die Node-RED zelf
+  zoekt. Met `NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy` ging het verzoek met het token toch naar een
+  proxy uit de omgeving (gemeten). Elke `http request`-node in de bundels heeft nu `persist: true` (een eigen agent) en
+  `lint` eist dat (`http_instelling`). Rooktest N10 meet beide varianten met de drie bundels: de proxy krijgt niets,
+  een Hub-simulator krijgt heartbeat, inventaris, event en voorstel met het token, en na 8 s stilte staat daar geen
+  verbinding meer open; controleproef via de rauwe Admin-API met `persist: false`: de proxy krijgt de bearer-kop.
+- **Vreemde nodes (R-VEILIG-3):** de import weigert ook een vreemde node met hetzelfde id als een eigen node, met
+  `wires` in een andere vorm dan een lijst van lijsten met node-ids (een geneste lijst of een object met `length`
+  leest Node-RED ook als draad), of met een eigen id ergens als tekst; ook bij het teruglezen. Rooktest N10 weigert vier
+  vormen vóór Node-RED iets verandert.
+- **JSONata van elke uitgebrachte versie (R-TECH-2):** `TOEGESTANE_JSONATA` houdt per sha256 bundel, node, veld en
+  versies bij (toevoegen, niet vervangen); de vorige versies 1.0.0, 1.1.0 en 1.1.1 staan als vaste testkopie in
+  `tests/repo/fixtures/node-red-versies/`. `lint` weigert een vorige versie niet meer om haar JSONata, wel om een
+  veiligheidseis die later kwam: de versies vóór 1.2.0 missen `persist` en zijn dus niet terug te zetten.
+- **Switch en debug in de witte lijst:** een `switch` leest alleen msg met een naam van de witte lijst of
+  `meting.<naam>` en vergelijkt alleen met een vaste soort of JSONata uit de bundels (`switch_bron`, `switch_regel`);
+  een `debug` voert geen JSONata uit (`debug_jsonata`).
+- **Bundels 1.2.0** (`persist`, beschrijving en `flow_versie`), lock bijgewerkt; ADR-0023, de README's, de kop van het
+  manifest en `toelichting_nl` zeggen nu precies wat `lint` doet en wat gemeten is; het bewaarde rooktestrapport is
+  opnieuw gemaakt.
 - Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.

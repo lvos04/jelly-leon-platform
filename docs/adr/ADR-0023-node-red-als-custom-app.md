@@ -1,7 +1,8 @@
 # ADR-0023 — Node-RED als standaard Custom App: beveiligd via `FLOWS`, flows als gecontroleerde bundels
 
 - Status: aanvaard · Datum: 2026-11-11 · Bijgewerkt: 2026-11-12 (S-P2-410: besluit C-11, restpunten van de review;
-  herstel na de review van S-P2-410: witte lijst in `lint`, geen proxy uit de omgeving, vaste sleutels in `FLOWS`)
+  herstel na de review van S-P2-410: witte lijst in `lint`, geen proxy uit de omgeving, vaste sleutels in `FLOWS`;
+  herstelpoging 2: `persist`, vreemde nodes, de JSONata van elke uitgebrachte versie, switch en debug)
   · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
 - Manifest: `install/manifests/node-red.manifest.yaml` · Instellingen en flows: `install/node-red/`
 - Hulpmiddelen: `tools/nodered_flows.py`, `tools/nodered_rooktest.py` · Bewijs:
@@ -30,7 +31,11 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    `proxyOptions` met een lege `env` (sinds het herstel van S-P2-410, R-VEILIG-2): de `http request`-node leest een
    proxy anders uit de omgeving van de container (`http_proxy`, `all_proxy` …), en dan ging het verzoek met het
    service-token via die proxy (gemeten; op LAN-HTTP als platte tekst in de tunnel). Met de lege `env` negeert hij
-   die variabelen; Node-RED hoeft de Hub niet via een proxy te bereiken. `nodered_flows.py` laat in de overrides
+   die variabelen; Node-RED hoeft de Hub niet via een proxy te bereiken. Dat geldt alleen voor de proxy die Node-RED
+   zelf zoekt: met `NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy` gebruikt Node.js v24 (in deze image)
+   de proxy uit de omgeving voor de globale agent, en ging het verzoek met het token toch naar de proxy (gemeten in
+   de herreview en in de controleproef van N10). Daarom heeft elke `http request`-node in de bundels `persist: true`
+   (punt 5): een eigen agent, die die proxy niet gebruikt. `nodered_flows.py` laat in de overrides
    alleen deze vaste sleutels toe (`TOEGESTANE_OVERRIDES`): een sleutel als `adminAuth.default` werd anders een eigen
    instelling die weer anoniem lezen gaf (gemeten; R-VEILIG-4).
    De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
@@ -89,11 +94,32 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
      `jsonata` of `msg` worden geweigerd. JSONata in een `change`-regel mag alleen precies een van de uitdrukkingen uit
      de bundels zijn (sha256 in `TOEGESTANE_JSONATA`; voor `msg.url` de vaste Hub-routes), dus ook geen
      `$flowContext('__proto__')` of `$lookup`. Codes: `change_regel` en `inject_bron`. Elke eigenschap van
-     `Object.prototype` (en `prototype`) valt zo op elke plek af; de tests eisen dat per naam en per plek.
-   - *Vreemde draden* (R-VEILIG-3): een node buiten de eigen tabbladen met een draad naar een eigen node kan buiten
-     `lint` om `msg.url` zetten. Staat zo'n draad er vóór de import, dan weigert de import zonder te schrijven; ziet het
-     teruglezen er een, dan gaan de flows van vóór de import terug. Wat een beheerder ná de import zelf in de editor
-     wijzigt, valt daarbuiten (zie "Uitgaand verkeer").
+     `Object.prototype` (en `prototype`) valt zo af in `p` en `to` van een `change`-regel, in een `inject` en in een
+     `switch` (hieronder); de tests eisen dat per naam en per plek.
+   - *Switch en debug* (herstelpoging 2; vervolgpunt van de herreviews): een `switch` leest alleen msg
+     (`propertyType` `msg`) met een van de vijf msg-namen of `meting.<naam>` (kleine letters en `_`, geen eigenschap
+     van het prototype; `switch_bron`). Een regel heeft een bekende operator en vergelijkt alleen met een vaste soort
+     (`str`, `num`, `bool`, `json`, `date`; zonder `vt` maakt Node-RED er zelf `num` of `str` van) of met JSONata uit
+     `TOEGESTANE_JSONATA`, ook in `v2`; `env`, `msg`, `flow`, `global` en `prev` worden geweigerd (`switch_regel`).
+     Een `debug` voert nooit JSONata uit: `targetType` en `statusType` zijn niet `jsonata` (`debug_jsonata`). Een
+     `switch` en een `debug` schrijven niets; dit sluit het lezen met vrije JSONata of uit de context af.
+   - *Eigen verbinding per `http request`* (herstelpoging 2, R-VEILIG-2): elke `http request`-node heeft
+     `persist: true` (`http_instelling` als het ontbreekt). Zonder eigen agent gebruikt got de globale agent van
+     Node.js, en die volgde met `NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy` de proxy uit de omgeving,
+     ook met `proxyOptions` (punt 2). Gevolg voor de Hub: elke `http request`-node houdt na een verzoek hooguit één
+     verbinding open tot de Hub die sluit (keep-alive). De Hub-simulator sluit na 5 s zonder verkeer; in N10 stonden
+     direct na het verkeer 3 verbindingen open en na 8 s stilte geen. De web-voorkant van de echte Hub houdt een
+     verbinding volgens haar bron 65 s open (`keepAliveTimeout` in `apps/web/server/hub-server.mjs` van
+     ai-server-manager; gelezen, niet gemeten): met een tik elke 60 s blijft dan per node één verbinding open, niet meer.
+     De bundels kregen daarvoor versie 1.2.0.
+   - *Vreemde nodes* (R-VEILIG-3; herstelpoging 2 dicht bij twijfel): een node buiten de eigen tabbladen kan buiten
+     `lint` om `msg.url` zetten en het bericht naar een eigen node sturen. Geweigerd wordt een vreemde node met
+     hetzelfde id als een eigen node (Node-RED gaf zo'n dubbele `http request` het token van de eigen node; gemeten in de
+     herreview), met `wires` die niet precies een lijst van lijsten met node-ids is (Node-RED leest ook een geneste
+     lijst of een object met `length` als draad), of met een eigen id ergens als tekst (een draad, of een veld als
+     `links` of `scope`). Staat zo'n node er vóór de import, dan weigert de import zonder te schrijven (N10, vier
+     vormen); ziet het teruglezen er een, dan gaan de flows van vóór de import terug. Wat een beheerder ná de import
+     zelf in de editor wijzigt, valt daarbuiten (zie "Uitgaand verkeer").
    - *Oude vorm van de `change`-node:* een `change`-node zonder lijst `rules` (met `action`/`property`/`to`, die
      Node-RED zelf tot een regel maakt) wordt geweigerd (`change_regel`), net als een regel die geen object is.
    - *Doorverwijzingen:* gemeten bij deze digest stuurt de `http request`-node bij een doorverwijzing (307 en 302)
@@ -102,7 +128,8 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
      alleen de kleine letters `authorization` weg). Elke `http request` krijgt daarom van zijn route-node
      `msg.followRedirects = false` (bool); ontbreekt dat, dan `redirect_niet_uit`, en elke andere regel op
      `msg.followRedirects` is `verzoek_overschreven`. De bundels kregen daarvoor versie 1.1.0; versie 1.1.1 (herstel)
-     wijzigt alleen de beschrijving en `flow_versie`. Rooktest N10 meet het bij elke digest opnieuw, met een
+     wijzigt alleen de beschrijving en `flow_versie`; versie 1.2.0 is `persist` (hierboven). Rooktest N10 meet het bij
+     elke digest opnieuw, met een
      controleproef zonder de regel en een met de regel plus `msg.hasOwnProperty = msg.isPrototypeOf`.
    - *Teruglezen faalt zelf* (netwerkfout, of teruggelezen gegevens die geen lijst van objecten zijn): `importeer`
      zet ook dan de flows van vóór de import terug en geeft een Nederlandse melding (R-VEILIG-5); `lint` geeft bij
@@ -121,7 +148,14 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    (`unknown` na 3 × het interval). Een eigen Uptime Kuma-koppeling is niet gebouwd: Uptime Kuma krijgt zijn monitors
    van de Hub uit het monitorplan van het manifest.
 9. **Versies en herstel (I10-10-05).** Git + lock zijn de historie; `exporteer` schrijft per tabblad een bestand en
-   vergelijkt met het lock; een oude versie herstellen is een import van het oudere bestand met checksum-readback.
+   vergelijkt met het lock; een oude versie herstellen is een import van het oudere bestand met checksum-readback,
+   als die versie door `lint` komt. `TOEGESTANE_JSONATA` houdt de JSONata van elke uitgebrachte versie bij (per
+   sha256 bundel, node, veld en versies; toevoegen, nooit vervangen; herstelpoging 2, R-TECH-2), zodat `lint` een
+   oudere versie nooit om haar JSONata weigert; de vorige versies staan als vaste testkopie in
+   `tests/repo/fixtures/node-red-versies/`. Een veiligheidseis die later kwam, geldt wel: de versies vóór 1.2.0 missen
+   `persist` (1.0.0 ook `msg.followRedirects = false`) en zijn dus bewust niet terug te zetten; met alleen die eisen
+   erbij komen ze door `lint` (repotest). Een echte oudere versie terugzetten kan pas als er een versie na 1.2.0 is;
+   N8 zet nu een andere versie (een variant) en daarna de versie uit Git terug.
    Een tabblad-id is nooit een pad: alleen een lock-naam of een eigen id (`jlp-…`) wordt een bestandsnaam, elk ander
    id `tab-<sha256[:16]>` (ADR-0025 besluit 6).
    `/data` gaat mee in de `stopped_snapshot`.
@@ -147,8 +181,10 @@ eindgebruiker heeft geen terminal.
 Verder niet gebouwd of niet af te dwingen:
 
 - **Uitgaand verkeer:** het formulier kent geen egressregels. Beperkt zijn de bundels uit deze repo (lint), wat de
-  Hub een service-token toestaat, en de proxy: met `proxyOptions` uit `FLOWS` gebruikt een flow geen proxy uit de
-  omgeving (gemeten, N10; of een proxy-instelling van TrueNAS zelf in die omgeving komt, is niet op een NAS gemeten).
+  Hub een service-token toestaat, en de proxy: met `proxyOptions` uit `FLOWS` en `persist: true` in de bundels
+  gebruikt een flow uit Git geen proxy uit de omgeving, ook niet met `NODE_USE_ENV_PROXY=1` of
+  `NODE_OPTIONS=--use-env-proxy` (gemeten, N10, met een Hub over HTTP; een Hub over HTTPS achter een proxy is niet
+  gemeten, en of een proxy-instelling van TrueNAS zelf in die omgeving komt, is niet op een NAS gemeten).
   Een beheerder kan in de editor zelf een `http request` naar elk adres maken, en een eigen flow zonder
   `msg.followRedirects = false` (of met `msg.hasOwnProperty` overschreven) volgt een doorverwijzing met het token
   (gemeten, N10).
@@ -179,10 +215,15 @@ verandert (een luisteraar ontvangt niets); een doorverwijzing (307/302) van de "
 volgt de flow uit Git niet; controleproef zonder `msg.followRedirects = false`: Node-RED volgt de doorverwijzing en
 stuurt de bearer-kop mee, en het teruglezen ziet de ontbrekende regel (`redirect_niet_uit`); controleproef via de
 rauwe Admin-API met die regel maar ook `msg.hasOwnProperty = msg.isPrototypeOf`: het doel van de doorverwijzing krijgt
-de bearer-kop, en het teruglezen ziet de regel (`change_regel`); met `http_proxy`, `HTTP_PROXY` en `all_proxy` in de
+de bearer-kop, en het teruglezen ziet de regel (`change_regel`); een vreemd tabblad (rauwe Admin-API) met een
+geneste draad, een draad als object, of een node met een eigen id (inject of `http request`) laat de import weigeren
+vóór Node-RED iets verandert, en een luisteraar ontvangt niets; met `http_proxy`, `HTTP_PROXY` en `all_proxy` in de
 omgeving en de `FLOWS` uit het manifest krijgt een proxy niets en de Hub de heartbeat met het token; controleproef
-zonder `proxyOptions`: het verzoek gaat via de proxy (`CONNECT`-tunnel) en de proxy ziet de bearer-kop. De
-Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
+zonder `proxyOptions`: het verzoek gaat via de proxy (`CONNECT`-tunnel) en de proxy ziet de bearer-kop; met daarbij
+`NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy` krijgt de proxy van de drie bundels uit Git niets en een eigen
+Hub-simulator heartbeat, inventaris, event en voorstel met het token, en staat daar na 8 s stilte geen verbinding meer
+open; controleproef via de rauwe Admin-API met `persist: false`: de proxy krijgt de heartbeat met de bearer-kop, en
+het teruglezen ziet het (`http_instelling`). De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
 
 ## Afgewezen
 

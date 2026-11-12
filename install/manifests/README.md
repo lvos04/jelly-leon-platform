@@ -22,7 +22,8 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 > Node-RED (P2) heeft een eigen proef met de echte image tegen de Hub-simulator (`tools/nodered_rooktest.py`,
 > `make nodered-rooktest`, dezelfde CI-job): beveiliging volgens het manifest, controleproef zonder de instellingen,
 > import van de flowbundels, melding, actieaanvraag, hartslag, herstel van een flowversie, herstart en stoppen, en
-> dat het service-token alleen naar de Hub gaat (geen doorverwijzing, geen proxy uit de omgeving) —
+> dat het service-token alleen naar de Hub gaat (geen doorverwijzing; geen proxy uit de omgeving, ook niet met de
+> ingebouwde proxy van Node.js aan; een vreemde node die een eigen node raakt laat de import weigeren) —
 > **Sim-getest**. Het manifest levert op een NAS alleen een beveiligde, lege Node-RED zonder anonieme toegang (besluit
 > C-11: zonder beheerder helemaal dicht, ook lezen); beheerder, flows en service-token zijn **Geblokkeerd**
 > (`../node-red/README.md`, ADR-0023).

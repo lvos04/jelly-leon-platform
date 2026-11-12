@@ -5,8 +5,10 @@
 # community/node-red 1.4.35). De catalogusapp draait als 1000:1000 en kent geen beheerder-login of nodebeperking;
 # deze Custom App draait als 568:568 en zet de beveiliging via FLOWS (ADR-0023): geen anonieme toegang tot de editor
 # en de Admin-API, ook niet lezen (besluit C-11, gebruiker 2026-11-11), er is nog GEEN beheerder, alleen kern-nodes
-# zonder exec/function/bestand, geen installatie van extra nodes, en flows gebruiken geen proxy uit de omgeving van
-# de container (proxyOptions met een lege env; het service-token gaat alleen naar de Hub, rooktest N10). Zonder
+# zonder exec/function/bestand, geen installatie van extra nodes, en proxyOptions met een lege env: de http
+# request-node zoekt zelf geen proxy in http_proxy of all_proxy. Tegen de ingebouwde proxy van Node.js
+# (NODE_USE_ENV_PROXY, --use-env-proxy) zorgen de bundels zelf (persist: true); met beide ging het service-token in
+# rooktest N10 alleen naar de Hub (Hub over HTTP; ADR-0023). Zonder
 # beheerder is Node-RED dus helemaal dicht; dat is de bedoelde stand (besluit C-12). FLOWS wordt gemaakt uit
 # install/node-red/settings-overrides.json
 # (tools/nodered_flows.py render --check). Op een echte NAS: NIET GEVALIDEERD.
