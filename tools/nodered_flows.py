@@ -64,15 +64,42 @@ VERBODEN_MSG_VELDEN = frozenset({"method", "headers", "cookies", "requestTimeout
 # haken (msg['url'], 'url', "url"); elke andere schrijfwijze dan de eenvoudige naam wordt daarom geweigerd, vóór de
 # url- en VERBODEN-controles (herreview P2, R-VEILIG-1, herstelpoging 2).
 EIGENSCHAP_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
-# Segmenten die in JavaScript naar het prototype van elk object leiden. Op de gepinde image vervuilt een bundel daarmee
-# Object.prototype (a = msg.__proto__; a.env.http_proxy = …): geweigerd in de eigenschap (p) en in de bron (to) bij
-# een bron uit msg, flow of global (S-P2-410 bouwpunt 9b; R-VEILIG-3 van S-P2-395).
-VERBODEN_SEGMENTEN = frozenset({"__proto__", "constructor", "prototype"})
-CONTEXT_BRONNEN = frozenset({"msg", "flow", "global"})
+# Witte lijst (V-086; S-P2-410, herstel van R-TECH-1 en R-VEILIG-1). Een zwarte lijst van drie segmenten liet andere
+# wegen naar het prototype van elk object open: msg.hasOwnProperty = msg.isPrototypeOf zette msg.followRedirects buiten
+# werking (de http request-node leest die met msg.hasOwnProperty), en een inject die flow['__proto__'] leest gaf
+# Object.prototype als payload (gemeten op de gepinde image). Daarom geldt nu alleen wat de bundels echt gebruiken:
+# - een msg-eigenschap (in p, en in to bij tot msg) is precies één van deze namen, zonder pad met punten; url alleen met
+#   een vaste Hub-route, followRedirects alleen false, headers alleen met delete;
+MSG_NAMEN = frozenset({"payload", "url", "followRedirects", "meting", "headers"})
+# - een naam in de flow- of globale context (p bij pt flow; to bij tot flow/global; v van een inject) is alleen
+#   kleine letters en _ (dus geen punt, haak of hoofdletter) en geen eigenschap van Object.prototype of 'prototype';
+CONTEXT_NAAM_RE = re.compile(r"^[a-z_]+$")
+PROTOTYPE_NAMEN = frozenset({"__proto__", "constructor", "prototype", "hasOwnProperty", "isPrototypeOf",
+                             "propertyIsEnumerable", "toString", "toLocaleString", "valueOf", "__defineGetter__",
+                             "__defineSetter__", "__lookupGetter__", "__lookupSetter__"})
+CONTEXT_SOORTEN = frozenset({"flow", "global"})
+# - een waarde heeft een vaste soort (tot van een change-regel, vt van een inject); env, bin, msg in een inject en elke
+#   onbekende of ontbrekende soort worden geweigerd. Een change-regel mag daarnaast lezen uit msg/flow/global (met de
+#   namen hierboven) en JSONata gebruiken, maar alleen precies de uitdrukkingen uit de bundels in Git (op sha256; de
+#   vaste Hub-routes voor msg.url staan in HUB_ROUTES). Een bundel met een andere uitdrukking wordt geweigerd tot deze
+#   lijst bewust is bijgewerkt (en de review dat ziet).
+VASTE_SOORTEN = frozenset({"str", "num", "bool", "json", "date"})
+TOEGESTANE_JSONATA: dict[str, str] = {
+    "sha256:629026bf4e16bed15e985d5604d5bb51993e4e9ef5caaf0c853b621f2274b09f": "hartslag · jlp-hs-bouw · msg.payload",
+    "sha256:bf38cdf357bc0fdca4ee24195bbc6f62930fef71782ecfcc1b2768a1a412f6ad":
+        "mediaguard-offline · jlp-mg-oordeel · msg.meting",
+    "sha256:1556051bc7dffcad1355e051c3442475a04567a5ea1d960ac5ed7181689815f1":
+        "mediaguard-offline · jlp-mg-oordeel · flow.mediaguard_staat",
+    "sha256:9a9bbcb91e8bf37775f3cfb37f0143f37b45cb1fd99e5dac2c338241d4d0d968":
+        "mediaguard-offline · jlp-mg-event · msg.payload",
+    "sha256:145177ef97b336f7465fd3e7782c13b4a98b6ba0ba9fb2ece3d51b08aad9fff6":
+        "testflow-herstart · jlp-th-bouw · msg.payload",
+}
 # De enige toegestane regel op msg.followRedirects, en verplicht in de route-node van elke http request: gemeten op de
 # gepinde image stuurt de http request-node bij een doorverwijzing (307/302) naar een andere host of poort de
 # bearer-kop met het service-token mee (Node-RED zet de kop terug als 'Authorization', zodat got hem bij een andere
-# herkomst niet meer weghaalt). Zonder doorverwijzingen gaat het token alleen naar HUB_URL (S-P2-410 bouwpunt 9d).
+# herkomst niet meer weghaalt). Zonder doorverwijzingen, en met proxyOptions uit FLOWS zonder proxy uit de omgeving,
+# gaat het token alleen naar HUB_URL (S-P2-410 bouwpunt 9d en herstel R-VEILIG-2).
 REDIRECT_UIT = {"t": "set", "p": "followRedirects", "pt": "msg", "to": "false", "tot": "bool"}
 ID_RE = re.compile(r"^jlp-[a-z0-9-]{1,60}$")
 VERSIE_RE = re.compile(r"^versie (\d+\.\d+\.\d+)\n")
@@ -84,6 +111,11 @@ ONVEILIG_IN_FLOWS_ENV = re.compile(r"[\s$*?\\`'~<>|;&()]")
 # Besluit C-11 (gebruiker, 2026-11-11): geen anonieme toegang tot de editor en de Admin-API, ook niet lezen; en volgens
 # besluit C-12 geen gebruiker of geheim in het manifest. adminAuth is daarom precies dit (geen ``default``).
 ADMIN_AUTH = {"type": "credentials", "users": []}
+# De enige instellingen die FLOWS mag zetten (R-VEILIG-4 van S-P2-410): Node-RED maakt van elke '-D sleutel=waarde'
+# een instelling, ook van 'adminAuth.default' (op de image gaf dat weer anoniem lezen). proxyOptions met een lege env:
+# de http request-node gebruikt dan geen proxy uit de omgeving van de container (R-VEILIG-2 van S-P2-410).
+TOEGESTANE_OVERRIDES = ("adminAuth", "nodesIncludes", "externalModules", "functionExternalModules",
+                        "editorTheme.projects.enabled", "editorTheme.tours", "telemetry", "diagnostics", "proxyOptions")
 GEEN_BEHEERDER = ("Node-RED geeft zonder aanmelding niets (besluit C-11): geef --gebruiker op en zet het wachtwoord "
                   "van die beheerder in NODERED_BEHEER_WACHTWOORD.")
 
@@ -100,6 +132,10 @@ def lees_overrides(pad: Path = OVERRIDES) -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("overrides"), dict) \
             or not isinstance(data.get("flows_bestand"), str):
         raise Fout(f"{pad.name}: verwacht een object met 'flows_bestand' en 'overrides'")
+    if onbekend := sorted(set(data["overrides"]) - set(TOEGESTANE_OVERRIDES)):
+        raise Fout(f"{pad.name}: instelling {', '.join(onbekend)} is niet toegestaan (alleen "
+                   f"{', '.join(TOEGESTANE_OVERRIDES)}); een sleutel als 'adminAuth.default' geeft weer anonieme "
+                   "rechten (besluit C-11)")
     if data["overrides"].get("adminAuth") != ADMIN_AUTH:
         raise Fout(f"{pad.name}: adminAuth moet precies {json.dumps(ADMIN_AUTH)} zijn: geen 'default' (geen anonieme "
                    "rechten, besluit C-11) en geen gebruiker of geheim in het manifest (besluit C-12)")
@@ -247,11 +283,7 @@ def lint(nodes: list[Node]) -> list[str]:
         if ntype == "change":
             uit += _lint_change(node)
         elif ntype == "inject":
-            props = node.get("props")
-            velden = [p.get("p") for p in props] if isinstance(props, list) and all(
-                isinstance(p, dict) for p in props) else None
-            if velden not in (["payload"], ["payload", "topic"]):
-                uit.append(f"inject_velden: {node.get('id')} mag alleen payload (en topic) zetten")
+            uit += _lint_inject(node)
         elif ntype == "debug":
             if node.get("console") or node.get("tostatus"):
                 uit.append(f"debug_naar_log: {node.get('id')} schrijft alleen naar de zijbalk, niet naar het log")
@@ -262,13 +294,68 @@ def lint(nodes: list[Node]) -> list[str]:
     return uit
 
 
-def _segment_fout(naam: str) -> str | None:
-    """Waarom ``naam`` geen eenvoudige, veilige eigenschapsnaam is (None = in orde)."""
-    if not EIGENSCHAP_RE.fullmatch(naam):
-        return "is geen eenvoudige naam (alleen letters, cijfers, _ en punten; geen aanhalingstekens of haken)"
-    if verboden := VERBODEN_SEGMENTEN & set(naam.split(".")):
-        return f"bevat {', '.join(sorted(verboden))} (leidt naar het prototype van elk object)"
+def jsonata_som(uitdrukking: str) -> str:
+    """De sha256 waarmee een JSONata-uitdrukking in ``TOEGESTANE_JSONATA`` staat."""
+    return "sha256:" + hashlib.sha256(uitdrukking.encode("utf-8")).hexdigest()
+
+
+def _naam_fout(naam: Any, bak: str) -> str | None:
+    """Waarom ``naam`` geen toegestane naam in ``bak`` (msg, flow of global) is; None = in orde (witte lijst)."""
+    if not isinstance(naam, str):
+        return "is geen tekst"
+    if bak == "msg":
+        return None if naam in MSG_NAMEN else f"staat niet op de witte lijst ({', '.join(sorted(MSG_NAMEN))})"
+    if not CONTEXT_NAAM_RE.fullmatch(naam):
+        return "is geen naam van alleen kleine letters en _ (geen pad, haak of hoofdletter)"
+    if naam in PROTOTYPE_NAMEN:
+        return "is een eigenschap van het prototype van elk object"
     return None
+
+
+def _waarde_fout(soort: Any, waarde: Any, *, change: bool) -> str | None:
+    """Waarom een waarde van soort ``soort`` (``tot`` of ``vt``) niet mag; None = in orde. JSONata en een bron uit msg
+    mogen alleen in een change-regel."""
+    if soort in VASTE_SOORTEN:
+        return None if isinstance(waarde, str) else "is geen tekst"
+    if soort in CONTEXT_SOORTEN or (change and soort == "msg"):
+        reden = _naam_fout(waarde, str(soort))
+        return None if reden is None else f"'{str(waarde)[:40]}' ({soort}) {reden}"
+    if change and soort == "jsonata":
+        if isinstance(waarde, str) and jsonata_som(waarde) in TOEGESTANE_JSONATA:
+            return None
+        som = jsonata_som(waarde) if isinstance(waarde, str) else "geen tekst"
+        return (f"JSONata die niet uit de bundels in Git komt ({som[:19]}…; alleen de uitdrukkingen in "
+                "TOEGESTANE_JSONATA)")
+    toegestaan = sorted(VASTE_SOORTEN | CONTEXT_SOORTEN | ({"msg", "jsonata"} if change else set()))
+    return f"soort '{soort}' is niet toegestaan (alleen {', '.join(toegestaan)}; nooit env)"
+
+
+def _lint_inject(node: Node) -> list[str]:
+    """Een inject zet alleen payload (en topic), met een vaste soort of een naam in flow/global. Zoals Node-RED
+    (20-inject.js): een payload zonder eigen ``v`` neemt de oude velden ``payload``/``payloadType``, een topic met
+    ``vt`` str zonder ``v`` het veld ``topic``, en zonder ``vt`` is de soort ``str``. De oude velden worden daarnaast
+    altijd zelf gecontroleerd."""
+    nid = node.get("id")
+    ruw = node.get("props")
+    props: list[Node] = ruw if isinstance(ruw, list) and all(isinstance(p, dict) for p in ruw) else []
+    if [p.get("p") for p in props] not in (["payload"], ["payload", "topic"]):
+        return [f"inject_velden: {nid} mag alleen payload (en topic) zetten"]
+    paren: list[tuple[str, Any, Any]] = []
+    for prop in props:
+        if prop["p"] == "payload" and "v" not in prop:
+            paren.append(("payload", node.get("payloadType"), node.get("payload")))
+        elif prop["p"] == "topic" and prop.get("vt") == "str" and "v" not in prop:
+            paren.append(("topic", "str", node.get("topic", "")))
+        else:
+            paren.append((str(prop["p"]), prop.get("vt"), prop.get("v", "")))
+    if "payloadType" in node or "payload" in node:
+        paren.append(("payload (oude velden)", node.get("payloadType"), node.get("payload", "")))
+    uit = []
+    for wat, soort, waarde in paren:
+        if (reden := _waarde_fout("str" if soort is None else soort, "" if waarde is None else waarde,
+                                  change=False)) is not None:
+            uit.append(f"inject_bron: {nid}.{wat} — {reden}")
+    return uit
 
 
 def _lint_change(node: Node) -> list[str]:
@@ -288,12 +375,11 @@ def _lint_change(node: Node) -> list[str]:
         wortel = veld.split(".", 1)[0]
         if soort not in ("set", "delete") or bak not in ("msg", "flow"):
             uit.append(f"change_regel: {nid} — alleen set/delete op msg of de eigen flowcontext")
-        elif (reden := _segment_fout(veld)) is not None or wortel == "msg":
-            uit.append(f"change_regel: {nid} — eigenschap '{veld[:40]}' "
-                       f"{reden or 'begint met msg (Node-RED haalt msg. er zelf af)'}; Node-RED leest andere "
+        elif not EIGENSCHAP_RE.fullmatch(veld) or wortel == "msg":
+            vorm = ("begint met msg (Node-RED haalt msg. er zelf af)" if EIGENSCHAP_RE.fullmatch(veld) else
+                    "is geen eenvoudige naam (alleen letters, cijfers, _ en punten; geen aanhalingstekens of haken)")
+            uit.append(f"change_regel: {nid} — eigenschap '{veld[:40]}' {vorm}; Node-RED leest andere "
                        "schrijfwijzen als msg.url of msg.headers")
-        elif soort == "set" and bron in CONTEXT_BRONNEN and (reden := _segment_fout(str(regel.get("to", "")))):
-            uit.append(f"change_regel: {nid} — bron '{str(regel.get('to', ''))[:40]}' ({bron}) {reden}")
         elif bak == "msg" and wortel == "url":
             if soort != "set" or bron != "jsonata" or regel.get("to") not in HUB_ROUTES or veld != "url":
                 uit.append(f"url_niet_toegestaan: {nid} zet msg.url op iets anders dan een vaste Hub-route")
@@ -303,6 +389,11 @@ def _lint_change(node: Node) -> list[str]:
                            "doorverwijzing neemt het token mee naar een ander adres")
         elif bak == "msg" and wortel in VERBODEN_MSG_VELDEN and soort != "delete":
             uit.append(f"verzoek_overschreven: {nid} zet msg.{wortel} (methode en koppen liggen vast)")
+        elif (reden := _naam_fout(veld, str(bak))) is not None:
+            uit.append(f"change_regel: {nid} — eigenschap '{veld[:40]}' ({bak}) {reden}")
+        elif soort == "set" and (reden := _waarde_fout(bron, regel.get("to"), change=True)) is not None:
+            # Zonder tot maakt Node-RED er zelf msg (to begint met 'msg.') of str van; daarom moet tot er altijd staan.
+            uit.append(f"change_regel: {nid} — bron van '{veld[:40]}': {reden}")
     return uit
 
 
@@ -454,6 +545,9 @@ def importeer(nr: NodeRed, bundels: dict[str, list[Node]], *, hub_url: str, toke
             if node.get("type") == "http request":
                 node["credentials"] = {"password": token}  # Node-RED versleutelt dit; GET /flows geeft het nooit terug
             nieuw.append(node)
+    if vreemd := _vreemde_draden(nieuw, eigen_tabs):  # R-VEILIG-3: weigeren vóór Node-RED iets verandert
+        raise Fout("De import is geweigerd: een node buiten de eigen tabbladen draadt naar een eigen node en kan zo "
+                   "het verzoek met het token sturen: " + "; ".join(vreemd))
     nieuwe_rev = nr.zet_flows(rev, nieuw)
     try:
         return readback(nr, bundels, verboden=(token,), hub_url=hub_url)
@@ -475,9 +569,27 @@ def _kort(exc: BaseException) -> str:
     return str(exc)[:200] if isinstance(exc, Fout) else f"{type(exc).__name__}: {str(exc)[:200]}"
 
 
+def _vreemde_draden(flows: list[Node], eigen_tabs: set[str]) -> list[str]:
+    """Nodes buiten de eigen tabbladen met een draad naar een eigen node (R-VEILIG-3 van S-P2-410). Zo'n node kan
+    buiten ``lint`` om bijvoorbeeld msg.url zetten en het bericht dan naar de eigen http request-node met het token
+    sturen. Draden tussen vreemde nodes onderling tellen niet."""
+    eigen = {str(n.get("id")) for n in flows if str(n.get("id")) in eigen_tabs or str(n.get("z")) in eigen_tabs}
+    uit = []
+    for node in flows:
+        if str(node.get("id")) in eigen:
+            continue
+        draden = node.get("wires")
+        doelen = {d for u in draden if isinstance(u, list) for d in u if isinstance(d, str)} \
+            if isinstance(draden, list) else set()
+        if geraakt := sorted(doelen & eigen):
+            uit.append(f"{node.get('id')} (buiten de eigen tabbladen) draadt naar {', '.join(geraakt)}")
+    return uit
+
+
 def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[str]:
     """Wat ná de import een flow van een eigen tabblad naar een ander adres dan de Hub kan sturen: een env op het
-    tabblad of op een node daarin (of een groep), of een globale HUB_URL die niet precies de opgegeven Hub-URL is."""
+    tabblad of op een node daarin (of een groep), een globale HUB_URL die niet precies de opgegeven Hub-URL is, of een
+    node buiten de eigen tabbladen met een draad naar een eigen node (R-VEILIG-3)."""
     uit = []
     for node in flows:
         eigen = str(node.get("id")) in eigen_tabs or str(node.get("z")) in eigen_tabs
@@ -487,7 +599,7 @@ def _omleidingen(flows: list[Node], eigen_tabs: set[str], hub_url: str) -> list[
                if isinstance(e, dict) and e.get("name") == "HUB_URL"]
     if [e.get("value") for e in globale] != [hub_url]:
         uit.append("de globale HUB_URL is niet precies de opgegeven Hub-URL")
-    return uit
+    return uit + _vreemde_draden(flows, eigen_tabs)
 
 
 def _lint_gelezen(gelezen: list[Node]) -> list[str]:
@@ -504,8 +616,10 @@ def readback(nr: NodeRed, bundels: dict[str, list[Node]], *, verboden: tuple[str
              hub_url: str | None = None) -> dict[str, Any]:
     """Leest terug en vergelijkt per bundel de checksum. Het token mag nergens in de teruggelezen flows staan. De
     teruggelezen nodes van elk eigen tabblad gaan opnieuw door de eigen controle (``lint``): één bevinding is een
-    Fout, want wat daar staat draait met het token (herreview P2, R-VEILIG-1). Met ``hub_url`` (bij de import): de
-    eigen tabbladen kunnen nergens anders heen dan naar die Hub."""
+    Fout, want wat daar staat draait met het token (herreview P2, R-VEILIG-1). Met ``hub_url`` (bij de import): geen
+    env of groep op de eigen tabbladen, de globale HUB_URL is precies die Hub, en geen node buiten de eigen tabbladen
+    draadt naar een eigen node (``_omleidingen``). Wat een beheerder ná de import zelf in de editor wijzigt, valt
+    daarbuiten (ADR-0023, "Uitgaand verkeer")."""
     _rev, terug = nr.flows()
     tekst = json.dumps(terug, ensure_ascii=False)
     if any(g and g in tekst for g in verboden) or '"credentials"' in tekst:

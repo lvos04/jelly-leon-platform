@@ -1,7 +1,7 @@
 {
   "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
-  "gestart": "2026-11-11T18:15:27Z",
-  "klaar": "2026-11-11T18:16:49Z",
+  "gestart": "2026-11-12T05:25:53Z",
+  "klaar": "2026-11-12T05:27:36Z",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
   "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map op /data, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges; Hub = simulator op het adres van de Docker-bridge",
   "images": {
@@ -12,7 +12,8 @@
     "flow 'my_house sensor verouderd → melding' (geen contractroute voor sensorversheid)",
     "incident in de echte Hub of Uptime Kuma na het stoppen van Node-RED",
     "uitvoering van een goedgekeurde herstart door de echte uitvoerder",
-    "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = false volgt Node-RED een doorverwijzing met het token (controleproef N10)"
+    "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = false volgt Node-RED een doorverwijzing met het token (controleproef N10)",
+    "of een proxy-instelling van TrueNAS of van het formulier in de omgeving van de container komt (de proef zet http_proxy zelf met docker run -e; proxyOptions in FLOWS negeert hem dan, N10)"
   ],
   "uitkomst": "geslaagd",
   "stappen": [
@@ -131,24 +132,24 @@
         "readback": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "verwacht": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
-            "gelezen": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
+            "verwacht": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
+            "gelezen": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
             "gelijk": true,
             "ingeschakeld": true,
             "eigen_controle": []
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "verwacht": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
-            "gelezen": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
+            "verwacht": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
+            "gelezen": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
             "gelijk": true,
             "ingeschakeld": true,
             "eigen_controle": []
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "verwacht": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
-            "gelezen": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
+            "verwacht": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
+            "gelezen": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
             "gelijk": true,
             "ingeschakeld": false,
             "eigen_controle": []
@@ -159,19 +160,19 @@
         "export": {
           "hartslag": {
             "tab": "jlp-hartslag",
-            "sha256": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
+            "sha256": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "mediaguard-offline": {
             "tab": "jlp-mediaguard-offline",
-            "sha256": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
+            "sha256": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
             "ingeschakeld": true,
             "vergelijking": "gelijk_aan_lock"
           },
           "testflow-herstart": {
             "tab": "jlp-testflow-herstart",
-            "sha256": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
+            "sha256": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
             "ingeschakeld": false,
             "vergelijking": "gelijk_aan_lock"
           }
@@ -218,7 +219,7 @@
             "runtime_staat": "STOPPED",
             "aanwezig": true,
             "bron": "hub_inventaris",
-            "flow_versie": "1.1.0"
+            "flow_versie": "1.1.1"
           }
         }
       }
@@ -286,11 +287,11 @@
       "uitkomst": "geslaagd",
       "details": {
         "na_wijziging": {
-          "gelezen": "sha256:f1234495d0df1fa54512277fd8d7f543c00a0e1a5b19077a1df7fd596216c75b",
+          "gelezen": "sha256:efa0da0d4322425ad38f50554376cde10eb464bf90ce210bc7cfc0b11607a04b",
           "vergelijking": "afwijkend"
         },
         "na_herstel": {
-          "gelezen": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
+          "gelezen": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
           "vergelijking": "gelijk_aan_lock"
         }
       }
@@ -330,7 +331,7 @@
     },
     {
       "id": "N10",
-      "titel": "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing (ADR-0025; I10-10-02)",
+      "titel": "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing, geen proxy uit de omgeving (ADR-0025; I10-10-02)",
       "uitkomst": "geslaagd",
       "details": {
         "weigering": {
@@ -342,6 +343,13 @@
             "flows_in_node_red_ongewijzigd": true
           },
           "tweede_regel_op_msg_url": {
+            "geweigerd": true,
+            "codes": [
+              "change_regel"
+            ],
+            "flows_in_node_red_ongewijzigd": true
+          },
+          "hasOwnProperty_isPrototypeOf": {
             "geweigerd": true,
             "codes": [
               "change_regel"
@@ -374,6 +382,13 @@
           "bearer_meegestuurd_naar_andere_host": true,
           "readback_ziet_het": "redirect_niet_uit"
         },
+        "controleproef_hasOwnProperty": {
+          "via": "rauwe Admin-API",
+          "regel": "msg.hasOwnProperty = msg.isPrototypeOf",
+          "doorverwijzing_gevolgd": true,
+          "doel_kreeg_bearer": true,
+          "readback_ziet_het": "change_regel"
+        },
         "na_herstel": {
           "hartslag": {
             "gelijk": true,
@@ -386,6 +401,25 @@
           "testflow-herstart": {
             "gelijk": true,
             "eigen_controle": []
+          }
+        },
+        "proxy_uit_de_omgeving": {
+          "met_proxyOptions_uit_het_manifest": {
+            "hub_kreeg_de_heartbeat_met_token": true,
+            "hub_ontving": 2,
+            "proxy_ontving": 0,
+            "methoden_bij_de_proxy": [],
+            "proxy_kreeg_bearer": false
+          },
+          "controleproef_zonder_proxyOptions": {
+            "hub_kreeg_de_heartbeat_met_token": false,
+            "hub_ontving": 0,
+            "proxy_ontving": 4,
+            "methoden_bij_de_proxy": [
+              "CONNECT",
+              "POST"
+            ],
+            "proxy_kreeg_bearer": true
           }
         }
       }

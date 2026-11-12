@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "JLP · Testflow: herstart aanvragen",
     "disabled": true,
-    "info": "versie 1.1.0\n\nStaat standaard UIT. Vraagt bij de Hub een herstart van één app aan als ActionProposal (contract 1.3 §8). De flow voert zelf niets uit: de Hub bepaalt de risicoklasse, vraagt zo nodig goedkeuring en laat alleen de uitvoerder iets doen. Het antwoord toont de status (toegestaan of wacht op goedkeuring). Volgt geen doorverwijzingen (msg.followRedirects = false): het token gaat alleen naar HUB_URL."
+    "info": "versie 1.1.1\n\nStaat standaard UIT. Vraagt bij de Hub een herstart van één app aan als ActionProposal (contract 1.3 §8). De flow voert zelf niets uit: de Hub bepaalt de risicoklasse, vraagt zo nodig goedkeuring en laat alleen de uitvoerder iets doen. Het antwoord toont de status (toegestaan of wacht op goedkeuring). Volgt geen doorverwijzingen (msg.followRedirects = false) en gebruikt met de FLOWS uit het manifest geen proxy uit de omgeving (proxyOptions): het token gaat alleen naar HUB_URL."
   },
   {
     "id": "jlp-th-start",

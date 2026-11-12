@@ -21,11 +21,15 @@ Stappen:
 - N7  hartslag met flowvertraging komt bij de Hub aan;
 - N8  een andere flowversie zetten en de versie uit Git herstellen (checksum);
 - N9  herstart zonder verlies; stoppen is zichtbaar (monitor faalt, heartbeat verouderd → ``unknown``);
-- N10 het service-token gaat alleen naar de Hub (ADR-0025, S-P2-410 bouwpunt 9d): een bundel met een ``env`` op het
-      tabblad of met een tweede regel op ``msg.url`` wordt geweigerd vóór Node-RED iets verandert, en een luisteraar
-      ontvangt niets; stuurt de "Hub" door (307/302) naar een andere poort of een andere host, dan volgt de flow uit Git
-      dat niet (``msg.followRedirects = false``). Controleproef: zonder die regel volgt Node-RED de doorverwijzing wel,
-      en het rapport noemt of de bearer-kop daarbij meegaat (bij deze digest: ja).
+- N10 het service-token gaat alleen naar de Hub (ADR-0025, S-P2-410 bouwpunt 9d en het herstel na de review): een
+      bundel met een ``env`` op het tabblad, met een tweede regel op ``msg.url`` of met ``msg.hasOwnProperty =
+      msg.isPrototypeOf`` wordt geweigerd vóór Node-RED iets verandert, en een luisteraar ontvangt niets; stuurt de
+      "Hub" door (307/302) naar een andere poort of een andere host, dan volgt de flow uit Git dat niet
+      (``msg.followRedirects = false``). Controleproeven via de rauwe Admin-API: zonder die regel volgt Node-RED de
+      doorverwijzing wel (het rapport noemt of de bearer-kop meegaat; bij deze digest: ja), en met de regel maar ook
+      ``msg.hasOwnProperty = msg.isPrototypeOf`` krijgt het doel de bearer-kop (geëist). Proxy: met ``http_proxy`` in
+      de omgeving en de ``FLOWS`` uit het manifest (``proxyOptions`` met een lege env) krijgt een proxy niets en de
+      Hub de heartbeat; controleproef zonder ``proxyOptions``: het verzoek met de bearer-kop gaat via de proxy.
 
 Wat dit **niet** is: een installatie op TrueNAS, de echte Hub of de echte uitvoerder. Het beheerdersaccount van N3–N9
 kan het manifest (nog) niet leveren; de rooktest zet het met een wegwerpwaarde in ``FLOWS``. Uitkomst: **Sim-getest;
@@ -72,6 +76,9 @@ GEHEIM_RE = re.compile(r"(svc_[A-Za-z0-9_-]{20,}|eyJ[A-Za-z0-9_-]{10,}|\$2[aby]\
 # Besluit C-11: zonder aanmelding geen flows, nodes of instellingen (dezelfde paden als de controle anoniem_geweigerd
 # van home-control-hub).
 ANONIEME_PADEN = ("/flows", "/nodes", "/settings")
+# Omweg uit de review van S-P2-410 (R-VEILIG-1): de http request-node leest msg.followRedirects met
+# msg.hasOwnProperty; met deze regel ziet hij hem niet meer en volgt hij een doorverwijzing met het token.
+HASOWN_REGEL = {"t": "set", "p": "hasOwnProperty", "pt": "msg", "to": "isPrototypeOf", "tot": "msg"}
 
 
 class HubSim:
@@ -120,21 +127,38 @@ class HubSim:
 class Luisteraar:
     """Een HTTP-luisteraar op een adres dat de container kan bereiken. Noteert per verzoek alleen methode, pad en of er
     een bearer-kop was (en of dat het service-token was; het token zelf nooit). Met ``doorverwijzing`` antwoordt hij
-    met die status en ``Location: <doel><pad>`` (de doorstuurder in N10)."""
+    met die status en ``Location: <doel><pad>`` (de doorstuurder in N10). Met ``proxy`` speelt hij een proxy: op
+    ``CONNECT`` antwoordt hij 200 en houdt de verbinding open, zodat het verzoek in de tunnel (bij een http-doel platte
+    tekst) hier ook binnenkomt en genoteerd wordt (N10, R-VEILIG-2)."""
 
-    def __init__(self, host: str, token: Callable[[], str]) -> None:
+    def __init__(self, host: str, token: Callable[[], str], *, proxy: bool = False) -> None:
         self.ontvangen: list[dict[str, Any]] = []
         self.doorverwijzing: tuple[int, str] | None = None
         luisteraar = self
 
         class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1" if proxy else "HTTP/1.0"
+
+            def do_CONNECT(self) -> None:  # de naam komt uit BaseHTTPRequestHandler
+                # het doel (host:poort) wordt niet genoteerd: het is een adres van deze machine (V-097)
+                luisteraar.ontvangen.append({"methode": "CONNECT", "pad": "", "bearer": False,
+                                             "is_het_service_token": False})
+                if not proxy:
+                    self.send_error(405)
+                    return
+                self.send_response(200, "Connection established")
+                self.end_headers()
+
             def _vang(self) -> None:
                 lengte = int(self.headers.get("Content-Length") or 0)
                 if lengte:
                     self.rfile.read(lengte)
                 kop = self.headers.get("Authorization") or ""
                 geheim = token()
-                luisteraar.ontvangen.append({"methode": self.command, "pad": self.path.split("?", 1)[0],
+                pad = self.path.split("?", 1)[0]
+                if pad.startswith(("http://", "https://")):  # vorm van een verzoek aan een proxy zonder tunnel
+                    pad = "/" + pad.split("/", 3)[3] if pad.count("/") >= 3 else "/"
+                luisteraar.ontvangen.append({"methode": self.command, "pad": pad,
                                              "bearer": kop.startswith("Bearer "),
                                              "is_het_service_token": bool(geheim) and kop == f"Bearer {geheim}"})
                 if luisteraar.doorverwijzing is not None:
@@ -179,6 +203,7 @@ class NoderedRooktest(UpstreamRooktest):
                          "{{(index .IPAM.Config 0).Gateway}}").strip()
         self.hub = HubSim(self.bridge)
         self.token = ""
+        self.beheer_flows = ""
         self.poort = 0
         self.cname = ""
         self.nr: nf.NodeRed | None = None
@@ -219,10 +244,43 @@ class NoderedRooktest(UpstreamRooktest):
         code = self.beheer().inject(node_id, props)
         eis(code == 200, f"inject {node_id}: HTTP {code}")
 
-    def luisteraar(self, host: str) -> Luisteraar:
-        luisteraar = Luisteraar(host, lambda: self.token)
+    def luisteraar(self, host: str, *, proxy: bool = False) -> Luisteraar:
+        luisteraar = Luisteraar(host, lambda: self.token, proxy=proxy)
         self.luisteraars.append(luisteraar)
         return luisteraar
+
+    def proxyproef(self, naam: str, flows: str) -> dict[str, Any]:
+        """R-VEILIG-2 (herstel S-P2-410): een tweede Node-RED met ``FLOWS`` = ``flows`` (met de wegwerpbeheerder) en
+        ``http_proxy``, ``HTTP_PROXY`` en ``all_proxy`` in de omgeving naar een luisteraar die als proxy speelt.
+        Importeert de hartslag uit Git met een tweede luisteraar als Hub, tikt en wacht ook de automatische eerste tik
+        af. Het rapport krijgt alleen aantallen en methoden, geen adressen (V-097)."""
+        proxy = self.luisteraar(self.bridge, proxy=True)
+        hub = self.luisteraar(self.bridge)
+        omgeving = {"http_proxy": proxy.url, "HTTP_PROXY": proxy.url, "all_proxy": proxy.url}
+        app = dataclasses.replace(self.app, app_id=f"{APP_ID}-{naam}",
+                                  env={**self.app.env, "FLOWS": flows, **omgeving})
+        poort = vrije_poort()
+        cname = self.start(app, self.lege_map(naam), poort)
+        try:
+            wacht(f"Node-RED ({naam}) antwoordt", lambda: self.klaar(poort), 180)
+            nr = nf.NodeRed(f"http://127.0.0.1:{poort}", self.http)
+            nr.login(self.gebruiker, self.wachtwoord)
+            uit = nf.importeer(nr, {"hartslag": nf.bundels_in_git()["hartslag"]}, hub_url=hub.url, token=self.token)
+            eis(uit["hartslag"]["gelijk"] and uit["hartslag"]["eigen_controle"] == [], f"{naam}: import faalt")
+            code = nr.inject("jlp-hs-tik")
+            eis(code == 200, f"{naam}: inject jlp-hs-tik: HTTP {code}")
+            wacht(f"{naam}: verzoek bij de Hub of bij de proxy", lambda: bool(hub.ontvangen or proxy.ontvangen), 30,
+                  0.3)
+            time.sleep(7)  # ook de automatische eerste tik na het zetten van de flows (5 s)
+        finally:
+            sh("docker", "rm", "-f", cname, check=False)
+        return {
+            "hub_kreeg_de_heartbeat_met_token": any(v["is_het_service_token"] for v in hub.hartslagen()),
+            "hub_ontving": len(hub.ontvangen),
+            "proxy_ontving": len(proxy.ontvangen),
+            "methoden_bij_de_proxy": sorted({str(v["methode"]) for v in proxy.ontvangen}),
+            "proxy_kreeg_bearer": any(v["is_het_service_token"] for v in proxy.ontvangen),
+        }
 
     def andere_host(self) -> str:
         """Een tweede adres van deze machine dat de container kan bereiken: de gateway van een eigen, leeg
@@ -304,8 +362,8 @@ class NoderedRooktest(UpstreamRooktest):
             gebruiker = json.dumps({"username": self.gebruiker, "password": hash_, "permissions": "*"},
                                    separators=(",", ":"))
             self.poort = vrije_poort()
-            self.cname = self.start(self.variant("beheer", self.manifest_flows.replace(leeg, f'"users":[{gebruiker}]')),
-                                    self.lege_map("beheer"), self.poort)
+            self.beheer_flows = self.manifest_flows.replace(leeg, f'"users":[{gebruiker}]')
+            self.cname = self.start(self.variant("beheer", self.beheer_flows), self.lege_map("beheer"), self.poort)
             wacht("Node-RED (beheer) antwoordt", lambda: self.klaar(self.poort), 180)
             eis(self.monitor_ok(self.poort), "monitor klopt niet in beheerdersmodus")
             fout = nf.NodeRed(f"http://127.0.0.1:{self.poort}", self.http)
@@ -520,8 +578,8 @@ class NoderedRooktest(UpstreamRooktest):
             s.details["incident_in_echte_hub_of_uptime_kuma"] = "NIET GEVALIDEERD"
 
     def n10_alleen_naar_de_hub(self) -> None:
-        with self.stap("N10", "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing "
-                              "(ADR-0025; I10-10-02)") as s:
+        with self.stap("N10", "Het service-token gaat alleen naar de Hub: weigeren vóór Node-RED, geen doorverwijzing, "
+                              "geen proxy uit de omgeving (ADR-0025; I10-10-02)") as s:
             sh("docker", "start", self.cname)
             wacht("Node-RED (beheer) weer gestart", lambda: self.klaar(self.poort), 180)
             nr = self.beheer()
@@ -541,8 +599,12 @@ class NoderedRooktest(UpstreamRooktest):
             next(n for n in tweede_url if n["id"] == "jlp-hs-bouw")["rules"].append(
                 {"t": "set", "p": "msg.url", "pt": "msg", "to": f"{als_getal}/api/v1/monitoring/heartbeat",
                  "tot": "str"})
+            # herstel R-VEILIG-1: msg.hasOwnProperty = msg.isPrototypeOf zet msg.followRedirects buiten werking
+            eigen_has = json.loads(json.dumps(git))
+            next(n for n in eigen_has if n["id"] == "jlp-hs-bouw")["rules"].append(dict(HASOWN_REGEL))
             weigering: dict[str, Any] = {}
-            for naam, nodes in (("env_op_tabblad", env_op_tab), ("tweede_regel_op_msg_url", tweede_url)):
+            for naam, nodes in (("env_op_tabblad", env_op_tab), ("tweede_regel_op_msg_url", tweede_url),
+                                ("hasOwnProperty_isPrototypeOf", eigen_has)):
                 voor = nr.flows()[1]
                 try:
                     nf.importeer(nr, {"hartslag": nodes}, hub_url=self.hub.url, token=self.token)
@@ -606,12 +668,55 @@ class NoderedRooktest(UpstreamRooktest):
                 "readback_ziet_het": gezien}
             eis(gezien == "redirect_niet_uit", "het teruglezen ziet de ontbrekende regel niet")
 
+            # c2. controleproef bij de weigering van R-VEILIG-1 (herstel S-P2-410): de route-node uit Git, mét
+            # msg.followRedirects = false, plus msg.hasOwnProperty = msg.isPrototypeOf, via de rauwe Admin-API (lint en
+            # importeer weigeren hem, zie a). De http request-node ziet followRedirects dan niet meer: het doel van de
+            # doorverwijzing krijgt de bearer-kop wel. Zo laat de proef zien dat de weigering iets tegenhoudt.
+            for luisteraar in (buur, elders, doorstuurder):
+                luisteraar.ontvangen.clear()
+            doorstuurder.doorverwijzing = (307, elders.url)
+            rev, flows = nr.flows()
+            bouw = next(n for n in flows if n.get("id") == "jlp-hs-bouw")
+            bouw["rules"] = [*next(n for n in git if n["id"] == "jlp-hs-bouw")["rules"], dict(HASOWN_REGEL)]
+            nr.zet_flows(rev, flows)
+            time.sleep(1)
+            self.tik("jlp-hs-tik")
+            wacht("controleproef hasOwnProperty: verzoek bij de andere host", lambda: bool(elders.hartslagen()), 20,
+                  0.3)
+            doorstuurder.doorverwijzing = None
+            try:
+                nf.readback(nr, {"hartslag": git})
+                gezien = "niets"
+            except nf.Fout as exc:
+                gezien = "change_regel" if "change_regel" in str(exc) else "andere bevinding"
+            hop = {"via": "rauwe Admin-API", "regel": "msg.hasOwnProperty = msg.isPrototypeOf",
+                   "doorverwijzing_gevolgd": True,
+                   "doel_kreeg_bearer": any(v["is_het_service_token"] for v in elders.hartslagen()),
+                   "readback_ziet_het": gezien}
+            s.details["controleproef_hasOwnProperty"] = hop
+            eis(hop["doel_kreeg_bearer"] is True, "controleproef: het doel kreeg de bearer-kop niet (proef zegt niets)")
+            eis(gezien == "change_regel", "het teruglezen ziet de regel msg.hasOwnProperty niet")
+
             # d. terug naar de bundels uit Git, met de Hub
             nf.importeer(nr, {"hartslag": git}, hub_url=self.hub.url, token=self.token)
             alles = nf.readback(nr, nf.bundels_in_git(), hub_url=self.hub.url)
             s.details["na_herstel"] = {n: {"gelijk": v["gelijk"], "eigen_controle": v["eigen_controle"]}
                                        for n, v in alles.items()}
             eis(all(v["gelijk"] and not v["eigen_controle"] for v in alles.values()), "herstel naar Git faalt")
+
+            # e. R-VEILIG-2 (herstel S-P2-410): een proxyvariabele in de omgeving van de container. Met de FLOWS uit
+            # het manifest (proxyOptions met een lege env) krijgt de proxy niets en de "Hub" de heartbeat met het
+            # token; controleproef zonder proxyOptions: het verzoek met de bearer-kop gaat via de proxy.
+            optie = ' -D proxyOptions={"env":{}}'
+            eis(self.beheer_flows.count(optie) == 1, "FLOWS uit het manifest heeft geen proxyOptions met een lege env")
+            met = self.proxyproef("proxy-met", self.beheer_flows)
+            zonder = self.proxyproef("proxy-zonder", self.beheer_flows.replace(optie, ""))
+            s.details["proxy_uit_de_omgeving"] = {"met_proxyOptions_uit_het_manifest": met,
+                                                  "controleproef_zonder_proxyOptions": zonder}
+            eis(met["hub_kreeg_de_heartbeat_met_token"] and met["proxy_ontving"] == 0,
+                "met proxyOptions uit het manifest ging het verzoek toch via de proxy, of kwam het niet aan")
+            eis(zonder["proxy_ontving"] >= 1 and zonder["proxy_kreeg_bearer"] and zonder["hub_ontving"] == 0,
+                "controleproef: zonder proxyOptions ging het verzoek niet via de proxy (proef zegt niets)")
 
     # ------------------------------------------------------------------ draaien
     def draai(self) -> dict[str, Any]:
@@ -651,6 +756,8 @@ class NoderedRooktest(UpstreamRooktest):
                 "uitvoering van een goedgekeurde herstart door de echte uitvoerder",
                 "flows die een beheerder zelf in de editor maakt: geen egressregels, en zonder msg.followRedirects = "
                 "false volgt Node-RED een doorverwijzing met het token (controleproef N10)",
+                "of een proxy-instelling van TrueNAS of van het formulier in de omgeving van de container komt (de "
+                "proef zet http_proxy zelf met docker run -e; proxyOptions in FLOWS negeert hem dan, N10)",
             ],
             "uitkomst": "geslaagd" if geslaagd else "mislukt",
             "stappen": [s.__dict__ for s in self.stappen],

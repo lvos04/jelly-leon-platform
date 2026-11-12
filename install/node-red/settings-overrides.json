@@ -1,5 +1,5 @@
 {
-  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $, * of ? bevatten; [ en ] blijven nodig voor JSON-lijsten en zijn alleen veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij deze digest; ADR-0025). adminAuth is precies {\"type\": \"credentials\", \"users\": []}: geen anonieme toegang, ook niet lezen (besluit C-11), en geen gebruiker of geheim in het manifest (besluit C-12); tools/nodered_flows.py weigert elke andere vorm.",
+  "toelichting_nl": "Instellingen die het manifest via de omgevingsvariabele FLOWS aan Node-RED meegeeft (elke sleutel wordt één '-D sleutel=waarde'). Bron van waarheid voor install/manifests/node-red.manifest.yaml; tools/nodered_flows.py render --check bewaakt dat beide gelijk zijn. Waarden mogen geen spaties, $, * of ? bevatten; [ en ] blijven nodig voor JSON-lijsten en zijn alleen veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij deze digest; ADR-0025). adminAuth is precies {\"type\": \"credentials\", \"users\": []}: geen anonieme toegang, ook niet lezen (besluit C-11), en geen gebruiker of geheim in het manifest (besluit C-12); tools/nodered_flows.py weigert elke andere vorm, en elke sleutel buiten de vaste lijst (TOEGESTANE_OVERRIDES). proxyOptions met een lege env: de http request-node gebruikt geen proxy uit de omgeving van de container (http_proxy, all_proxy …), zodat het service-token alleen naar de Hub gaat (gemeten in rooktest N10).",
   "flows_bestand": "flows.json",
   "overrides": {
     "adminAuth": {"type": "credentials", "users": []},
@@ -17,6 +17,7 @@
     "editorTheme.projects.enabled": false,
     "editorTheme.tours": false,
     "telemetry": {"enabled": false, "updateNotification": false},
-    "diagnostics": {"enabled": false, "ui": false}
+    "diagnostics": {"enabled": false, "ui": false},
+    "proxyOptions": {"env": {}}
   }
 }

@@ -5,8 +5,10 @@
 # community/node-red 1.4.35). De catalogusapp draait als 1000:1000 en kent geen beheerder-login of nodebeperking;
 # deze Custom App draait als 568:568 en zet de beveiliging via FLOWS (ADR-0023): geen anonieme toegang tot de editor
 # en de Admin-API, ook niet lezen (besluit C-11, gebruiker 2026-11-11), er is nog GEEN beheerder, alleen kern-nodes
-# zonder exec/function/bestand, geen installatie van extra nodes. Zonder beheerder is Node-RED dus helemaal dicht;
-# dat is de bedoelde stand (besluit C-12). FLOWS wordt gemaakt uit install/node-red/settings-overrides.json
+# zonder exec/function/bestand, geen installatie van extra nodes, en flows gebruiken geen proxy uit de omgeving van
+# de container (proxyOptions met een lege env; het service-token gaat alleen naar de Hub, rooktest N10). Zonder
+# beheerder is Node-RED dus helemaal dicht; dat is de bedoelde stand (besluit C-12). FLOWS wordt gemaakt uit
+# install/node-red/settings-overrides.json
 # (tools/nodered_flows.py render --check). Op een echte NAS: NIET GEVALIDEERD.
 # Wat dit manifest NIET kan (contractvraag C-5, ADR-0023): een beheerder aanmaken, de flows uit install/node-red/flows
 # plaatsen en het service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden. De
@@ -37,7 +39,7 @@ custom_app:
       read_only: false
   env:
     - name: FLOWS
-      value: 'flows.json -D adminAuth={"type":"credentials","users":[]} -D nodesIncludes=["05-junction.js","20-inject.js","21-debug.js","24-complete.js","25-catch.js","25-status.js","60-link.js","90-comment.js","91-global-config.js","98-unknown.js","10-switch.js","15-change.js","80-template.js","89-delay.js","89-trigger.js","rbe.js","05-tls.js","21-httprequest.js","70-JSON.js","17-split.js"] -D externalModules={"autoInstall":false,"palette":{"allowInstall":false,"allowUpdate":false,"allowUpload":false},"modules":{"allowInstall":false}} -D functionExternalModules=false -D editorTheme.projects.enabled=false -D editorTheme.tours=false -D telemetry={"enabled":false,"updateNotification":false} -D diagnostics={"enabled":false,"ui":false}'
+      value: 'flows.json -D adminAuth={"type":"credentials","users":[]} -D nodesIncludes=["05-junction.js","20-inject.js","21-debug.js","24-complete.js","25-catch.js","25-status.js","60-link.js","90-comment.js","91-global-config.js","98-unknown.js","10-switch.js","15-change.js","80-template.js","89-delay.js","89-trigger.js","rbe.js","05-tls.js","21-httprequest.js","70-JSON.js","17-split.js"] -D externalModules={"autoInstall":false,"palette":{"allowInstall":false,"allowUpdate":false,"allowUpload":false},"modules":{"allowInstall":false}} -D functionExternalModules=false -D editorTheme.projects.enabled=false -D editorTheme.tours=false -D telemetry={"enabled":false,"updateNotification":false} -D diagnostics={"enabled":false,"ui":false} -D proxyOptions={"env":{}}'
   resources:
     cpus: 1
     memory_mib: 512
@@ -160,8 +162,12 @@ post_install_checks:
     soort: handmatig
     beschrijving_nl: >-
       Met een beheerder: GET /nodes (aangemeld) toont geen exec, function, file, watch, http in, websocket, tcp, udp of
-      mqtt. Zonder aanmelding geeft GET /nodes 401 (besluit C-11), dus pas te controleren zodra er een beheerder is;
-      tot dan aangetoond door de rooktest bij deze digest (stap N3, zelfde FLOWS met een wegwerpbeheerder).
+      mqtt. Zonder aanmelding geeft GET /nodes 401 (besluit C-11), en volgens besluit C-12 ("Wachten") is er nog geen
+      beheerder. Deze controle blijft daarom open tot C-12 is uitgevoerd, en zo lang is Node-RED niet gezond; dat is
+      de bedoelde stand. Bevestig hem niet zonder hem uit te voeren. Wat de beheerder nu wel kan nagaan: dat de digest
+      van de geïnstalleerde image gelijk is aan die in docs/platform-v2/bewijs/nodered-rooktest-p2.json (daar toonde
+      de rooktest in stap N3, met dezelfde FLOWS en een wegwerpbeheerder, dat alleen kern-nodes geladen zijn), en dat
+      beveiliging_actief en anoniem_geweigerd slagen.
   - id: beheerder_en_flows
     soort: handmatig
     beschrijving_nl: >-

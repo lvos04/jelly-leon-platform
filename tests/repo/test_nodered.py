@@ -59,6 +59,50 @@ def test_overrides_harden_the_editor_and_the_palette() -> None:
                                     "modules": {"allowInstall": False}}
     assert o["functionExternalModules"] is False and o["editorTheme.projects.enabled"] is False
     assert o["diagnostics"] == {"enabled": False, "ui": False}
+    # R-VEILIG-2 (S-P2-410): een proxyvariabele in de omgeving van de container (http_proxy, all_proxy …) mag het
+    # verzoek met het service-token niet via een proxy leiden; met een eigen, lege env leest de http request-node er
+    # geen.
+    assert o["proxyOptions"] == {"env": {}}
+
+
+def test_the_manifest_turns_off_proxies_from_the_environment() -> None:
+    """R-VEILIG-2: FLOWS in het manifest zet ``proxyOptions`` met een lege ``env`` (gemeten in rooktest N10: met
+    http_proxy in de omgeving krijgt een proxy dan niets, zonder de instelling krijgt hij CONNECT en de bearer-kop)."""
+    flows = nf.manifest_flows_env() or ""
+    assert ' -D proxyOptions={"env":{}}' in flows
+    assert flows.count("proxyOptions") == 1
+
+
+TOEGESTANE_OVERRIDES = {"adminAuth", "nodesIncludes", "externalModules", "functionExternalModules",
+                        "editorTheme.projects.enabled", "editorTheme.tours", "telemetry", "diagnostics", "proxyOptions"}
+ONBEKENDE_OVERRIDES = {
+    # R-VEILIG-4 (S-P2-410): Node-RED maakt van '-D adminAuth.default=…' een eigen instelling naast adminAuth; op de
+    # image gaf dat anoniem lezen ('/flows' 200). Elke sleutel buiten de vaste lijst wordt geweigerd.
+    "adminAuth.default": {"permissions": "read"},
+    "adminAuth.default.permissions": "read",
+    "adminAuth.users": [{"username": "x", "password": "y", "permissions": "*"}],
+    "adminAuth.type": "credentials",
+    "httpStatic": "/data",
+    "httpAdminRoot": "/beheer",
+    "httpNodeAuth": {"user": "x", "pass": "y"},
+    "httpNodeRoot": "/x",
+    "editorTheme": {"projects": {"enabled": True}},
+    "proxyOptions.env.http_proxy": "http://elders.invalid",
+    "credentialSecret": "x",
+}
+
+
+@pytest.mark.parametrize("sleutel", sorted(ONBEKENDE_OVERRIDES))
+def test_overrides_only_accept_the_fixed_keys(sleutel: str, tmp_path: Path) -> None:
+    """R-VEILIG-4: ``lees_overrides`` laat alleen een vaste lijst sleutels toe; ``adminAuth.default`` (en elke andere
+    sleutel) geeft een ``Fout``, dus ``render`` en ``render --check`` falen ook."""
+    data = copy.deepcopy(nf.lees_overrides())
+    assert set(data["overrides"]) == TOEGESTANE_OVERRIDES
+    data["overrides"][sleutel] = ONBEKENDE_OVERRIDES[sleutel]
+    pad = tmp_path / "settings-overrides.json"
+    pad.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(nf.Fout, match=re.escape(sleutel)):
+        nf.lees_overrides(pad)
 
 
 ANONIEME_RECHTEN = {
@@ -160,6 +204,12 @@ def test_post_install_checks_follow_decision_c11() -> None:
     assert exec_check["soort"] == "handmatig"
     for woord in ("GET /nodes", "beheerder", "exec", "function", "N3"):
         assert woord in exec_check["beschrijving_nl"], woord
+    # R-MANIFEST-2 (S-P2-410): de tekst zegt dat deze controle tot besluit C-12 open blijft en Node-RED zo lang niet
+    # gezond is (bedoelde stand), en wat de beheerder nu wel kan nagaan (digest gelijk aan die van het rooktestrapport).
+    tekst = " ".join(exec_check["beschrijving_nl"].split())
+    for woord in ("C-12", "open", "niet gezond", "bedoelde stand", "digest", "nodered-rooktest-p2.json"):
+        assert woord in tekst, woord
+    assert 10 <= len(exec_check["beschrijving_nl"]) <= 1000  # grens van het schema (PostInstallCheck)
     assert checks["beheerder_en_flows"]["soort"] == "handmatig"
     assert "dicht" in checks["beheerder_en_flows"]["beschrijving_nl"]
 
@@ -271,6 +321,32 @@ def _regel(node_id: str, veld: str, **regel: Any) -> list[dict[str, Any]]:
     return nodes
 
 
+def _regel_zonder_tot(to: str) -> list[dict[str, Any]]:
+    """Een set-regel zonder ``tot``: Node-RED (15-change.js) maakt daar zelf ``msg`` van als ``to`` met 'msg.' begint,
+    en anders ``str``."""
+    nodes = _bundel("hartslag")
+    next(n for n in nodes if n["id"] == "jlp-hs-bouw")["rules"].append({"t": "set", "p": "meting", "pt": "msg",
+                                                                        "to": to})
+    return nodes
+
+
+def _inject(*props: dict[str, Any]) -> list[dict[str, Any]]:
+    """De hartslagbundel met andere ``props`` op de inject-node."""
+    return _wijzig("hartslag", "jlp-hs-tik", props=[dict(p) for p in props])
+
+
+def _omweg_r_tech() -> list[dict[str, Any]]:
+    """R-TECH-1, de volledige omweg uit de review: de inject leest ``flow['__proto__']`` (op de image
+    ``Object.prototype`` zodra de flowcontext gevuld is), de eerste regel vult de flowcontext, de tweede zet
+    ``payload.headers.X_Proef``: dan erft elk object die kop, ook ``msg.headers`` van de http request-node."""
+    nodes = _inject({"p": "payload", "v": "__proto__", "vt": "flow"})
+    bouw = next(n for n in nodes if n["id"] == "jlp-hs-bouw")
+    bouw["rules"] = [{"t": "set", "p": "staat", "pt": "flow", "to": "1", "tot": "num"},
+                     {"t": "set", "p": "payload.headers.X_Proef", "pt": "msg", "to": "y", "tot": "str"},
+                     *bouw["rules"][1:]]
+    return nodes
+
+
 AFGEWEZEN = {
     "exec-node": (lambda: _met("exec", type="exec", command="id"), "nodetype_niet_toegestaan"),
     "function-node": (lambda: _met("fn", type="function", func="return msg;"), "nodetype_niet_toegestaan"),
@@ -344,14 +420,69 @@ AFGEWEZEN = {
     "prototype-in-p": (lambda: _regel("jlp-hs-bouw", "a.prototype"), "change_regel"),
     "proto-in-p-flow": (lambda: _regel("jlp-hs-bouw", "__proto__.x", pt="flow"), "change_regel"),
     "constructor-in-p-flow": (lambda: _regel("jlp-hs-bouw", "a.constructor", pt="flow"), "change_regel"),
-    "proto-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="__proto__", tot="msg"), "change_regel"),
-    "constructor-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="payload.constructor", tot="msg"),
+    # (Sinds het herstel van S-P2-410 met een eigenschap van de witte lijst, zodat de weigering echt uit 'to' komt.)
+    "proto-in-to-msg": (lambda: _regel("jlp-hs-bouw", "meting", to="__proto__", tot="msg"), "change_regel"),
+    "constructor-in-to-msg": (lambda: _regel("jlp-hs-bouw", "meting", to="payload.constructor", tot="msg"),
                               "change_regel"),
-    "prototype-in-to-flow": (lambda: _regel("jlp-hs-bouw", "a", to="x.prototype", tot="flow"), "change_regel"),
-    "proto-in-to-global": (lambda: _regel("jlp-hs-bouw", "a", to="__proto__", tot="global"), "change_regel"),
-    "constructor-in-to-global": (lambda: _regel("jlp-hs-bouw", "a", to="constructor", tot="global"), "change_regel"),
-    "prototype-in-to-msg": (lambda: _regel("jlp-hs-bouw", "a", to="prototype", tot="msg"), "change_regel"),
-    "proto-haken-in-to": (lambda: _regel("jlp-hs-bouw", "a", to="payload['__proto__']", tot="msg"), "change_regel"),
+    "prototype-in-to-flow": (lambda: _regel("jlp-hs-bouw", "meting", to="x.prototype", tot="flow"), "change_regel"),
+    "proto-in-to-global": (lambda: _regel("jlp-hs-bouw", "meting", to="__proto__", tot="global"), "change_regel"),
+    "constructor-in-to-global": (lambda: _regel("jlp-hs-bouw", "meting", to="constructor", tot="global"),
+                                 "change_regel"),
+    "prototype-in-to-msg": (lambda: _regel("jlp-hs-bouw", "meting", to="prototype", tot="msg"), "change_regel"),
+    "proto-haken-in-to": (lambda: _regel("jlp-hs-bouw", "meting", to="payload['__proto__']", tot="msg"),
+                          "change_regel"),
+    # S-P2-410, herstel na de review (R-TECH-1 en R-VEILIG-1, blokkerend; V-086): de zwarte lijst van drie segmenten
+    # liet andere wegen naar het prototype open. msg.hasOwnProperty = msg.isPrototypeOf zette msg.followRedirects
+    # buiten werking (de doorverwijzing ging met het token naar een andere host), en een inject die flow['__proto__']
+    # leest plus 'payload.headers.X' vervuilde Object.prototype (kop langs verzoek_overschreven). Nu een witte lijst:
+    # msg-eigenschappen alleen precies de namen die de bundels gebruiken, flow/global-namen alleen [a-z_]+ zonder
+    # eigenschap van het prototype, waardesoorten alleen str/num/bool/json/date (en jsonata alleen de uitdrukkingen
+    # uit de bundels), in 'p', in 'to' en in de inject (ook de oude velden payload/payloadType).
+    "omweg-r-veilig-1": (lambda: _regel("jlp-hs-bouw", "hasOwnProperty", to="isPrototypeOf", tot="msg"),
+                         "change_regel"),
+    "omweg-r-veilig-1-lookupgetter": (lambda: _regel("jlp-hs-bouw", "hasOwnProperty", to="__lookupGetter__",
+                                                     tot="msg"), "change_regel"),
+    "omweg-r-tech-1": (lambda: _omweg_r_tech(), "inject_bron"),
+    "omweg-r-tech-1-alleen-change": (lambda: _omweg_r_tech(), "change_regel"),
+    "p-niet-op-witte-lijst": (lambda: _regel("jlp-hs-bouw", "kopie"), "change_regel"),
+    "p-pad-onder-witte-naam": (lambda: _regel("jlp-hs-bouw", "payload.headers.X_Proef", to="y"), "change_regel"),
+    "p-flow-hoofdletters": (lambda: _regel("jlp-hs-bouw", "Staat", pt="flow", to="1", tot="num"), "change_regel"),
+    "p-flow-pad": (lambda: _regel("jlp-hs-bouw", "staat.x", pt="flow", to="1", tot="num"), "change_regel"),
+    "to-msg-niet-op-witte-lijst": (lambda: _regel("jlp-hs-bouw", "meting", to="isPrototypeOf", tot="msg"),
+                                   "change_regel"),
+    "to-msg-pad": (lambda: _regel("jlp-hs-bouw", "meting", to="payload.items", tot="msg"), "change_regel"),
+    "to-flow-pad": (lambda: _regel("jlp-hs-bouw", "meting", to="staat.x", tot="flow"), "change_regel"),
+    "to-global-hoofdletters": (lambda: _regel("jlp-hs-bouw", "meting", to="valueOf", tot="global"), "change_regel"),
+    "tot-env": (lambda: _regel("jlp-hs-bouw", "meting", to="__proto__", tot="env"), "change_regel"),
+    "tot-env-gewone-naam": (lambda: _regel("jlp-hs-bouw", "meting", to="HOME", tot="env"), "change_regel"),
+    "tot-ontbreekt-bron-msg": (lambda: _regel_zonder_tot("msg.__proto__"), "change_regel"),
+    "tot-ontbreekt-tekst": (lambda: _regel_zonder_tot("x"), "change_regel"),
+    "tot-bin": (lambda: _regel("jlp-hs-bouw", "meting", to="[1]", tot="bin"), "change_regel"),
+    "to-geen-tekst": (lambda: _regel("jlp-hs-bouw", "meting", to=["__proto__"], tot="flow"), "change_regel"),
+    "tot-jsonata-flowcontext": (lambda: _regel("jlp-hs-bouw", "meting", to="$flowContext('__proto__')",
+                                               tot="jsonata"), "change_regel"),
+    "tot-jsonata-lookup": (lambda: _regel("jlp-hs-bouw", "meting", to="$lookup($$, '__proto__')", tot="jsonata"),
+                           "change_regel"),
+    "tot-jsonata-onbekend": (lambda: _regel("jlp-hs-bouw", "meting", to="payload", tot="jsonata"), "change_regel"),
+    "tot-jsonata-hub-route-buiten-url": (lambda: _regel("jlp-hs-bouw", "meting",
+                                                        to="$env('HUB_URL') & '/api/v1/apps?limit=200'",
+                                                        tot="jsonata"), "change_regel"),
+    "inject-vt-flow": (lambda: _inject({"p": "payload", "v": "__proto__", "vt": "flow"}), "inject_bron"),
+    "inject-vt-global": (lambda: _inject({"p": "payload", "v": "constructor", "vt": "global"}), "inject_bron"),
+    "inject-oude-velden-global": (lambda: _wijzig("hartslag", "jlp-hs-tik", payload="__proto__",
+                                                  payloadType="global"), "inject_bron"),
+    "inject-oude-velden-flow": (lambda: _wijzig("hartslag", "jlp-hs-tik", payload="hasOwnProperty",
+                                                payloadType="flow"), "inject_bron"),
+    "inject-oude-velden-env": (lambda: _wijzig("hartslag", "jlp-hs-tik", payload="HOME", payloadType="env"),
+                               "inject_bron"),
+    "inject-vt-env": (lambda: _inject({"p": "payload", "v": "HOME", "vt": "env"}), "inject_bron"),
+    "inject-vt-jsonata": (lambda: _inject({"p": "payload", "v": "$flowContext('__proto__')", "vt": "jsonata"}),
+                          "inject_bron"),
+    "inject-vt-msg": (lambda: _inject({"p": "payload", "v": "__proto__", "vt": "msg"}), "inject_bron"),
+    "inject-vt-bin": (lambda: _inject({"p": "payload", "v": "[1]", "vt": "bin"}), "inject_bron"),
+    "inject-topic-flow": (lambda: _inject({"p": "payload"}, {"p": "topic", "v": "__proto__", "vt": "flow"}),
+                          "inject_bron"),
+    "inject-flow-pad": (lambda: _inject({"p": "payload", "v": "staat.x", "vt": "flow"}), "inject_bron"),
     # S-P2-410 bouwpunt 9c: de oude vorm van de change-node (zonder rules, met action/property/to) maakt Node-RED zelf
     # tot een regel (15-change.js); zo kwamen msg.rejectUnauthorized, msg.followRedirects en msg.requestTimeout langs
     # verzoek_overschreven. Die vorm wordt geweigerd.
@@ -415,16 +546,70 @@ def test_own_check_refuses(geval: str) -> None:
     assert code in _codes(maak()), nf.lint(maak())
 
 
-def test_prototype_segments_are_refused_but_plain_sources_stay_allowed() -> None:
-    """Bouwpunt 9b zonder te veel te weigeren: een gewone bron (``tot`` msg/flow met een eenvoudige naam) blijft
-    toegestaan, ook met een deel dat op een verboden woord lijkt."""
-    for to, tot in (("payload", "msg"), ("payload.items", "msg"), ("mediaguard_staat", "flow"),
-                    ("proto_type", "msg"), ("constructor_naam", "msg")):
-        assert not {"change_regel"} & _codes(_regel("jlp-hs-bouw", "kopie", to=to, tot=tot)), (to, tot)
-    assert frozenset({"__proto__", "constructor", "prototype"}) == nf.VERBODEN_SEGMENTEN
+def test_the_whitelist_keeps_what_the_bundles_use_and_nothing_more() -> None:
+    """Witte lijst (S-P2-410, herstel R-TECH-1/R-VEILIG-1) zonder te veel te weigeren: de bundels uit Git en gewone
+    bronnen blijven toegestaan, ook een flow-naam die op een verboden woord lijkt; een pad of een andere naam niet."""
+    assert all(nf.lint(nodes) == [] for nodes in nf.bundels_in_git().values())
+    goed = {
+        "msg-bron": _regel("jlp-hs-bouw", "meting", to="payload", tot="msg"),
+        "flow-bron": _regel("jlp-hs-bouw", "meting", to="mediaguard_staat", tot="flow"),
+        "flow-bron-lijkt-op-proto": _regel("jlp-hs-bouw", "meting", to="proto_type", tot="flow"),
+        "global-bron-lijkt-op-constructor": _regel("jlp-hs-bouw", "meting", to="constructor_naam", tot="global"),
+        "flow-schrijven": _regel("jlp-hs-bouw", "staat", pt="flow", to="1", tot="num"),
+        "koppen-weg": _regel("jlp-hs-bouw", "headers", t="delete"),
+        **{f"vaste-soort-{tot}": _regel("jlp-hs-bouw", "meting", to=to, tot=tot)
+           for to, tot in (("x", "str"), ("1", "num"), ("true", "bool"), ("{}", "json"), ("", "date"))},
+        "inject-flow-naam": _inject({"p": "payload", "v": "mediaguard_staat", "vt": "flow"}),
+        "inject-met-topic": _inject({"p": "payload", "v": "1", "vt": "num"}, {"p": "topic", "v": "x", "vt": "str"}),
+        "inject-zonder-vt": _inject({"p": "payload", "v": "x"}),  # Node-RED (20-inject.js): zonder vt is het 'str'
+    }
+    for naam, nodes in goed.items():
+        assert nf.lint(nodes) == [], (naam, nf.lint(nodes))
+    assert {"payload", "url", "followRedirects", "meting", "headers"} == nf.MSG_NAMEN
+    assert {"__proto__", "constructor", "prototype"} <= nf.PROTOTYPE_NAMEN
     for geval in ("proto-in-p", "proto-in-to-msg", "constructor-in-to-global", "prototype-in-to-flow"):
         assert any("__proto__" in b or "constructor" in b or "prototype" in b
                    for b in nf.lint(AFGEWEZEN[geval][0]())), geval
+
+
+# Alle eigenschappen van Object.prototype, plus 'prototype' (van een functie). Elk ervan wordt geweigerd op elke plek
+# waar een bundel een naam in msg, flow of global schrijft of leest (S-P2-410, herstel R-TECH-1/R-VEILIG-1): de
+# witte lijst laat ze vanzelf vallen; deze test bewijst dat per naam en per plek.
+PROTOTYPE_NAMEN = ("__proto__", "constructor", "prototype", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
+                   "toString", "toLocaleString", "valueOf", "__defineGetter__", "__defineSetter__", "__lookupGetter__",
+                   "__lookupSetter__")
+PLEKKEN: dict[str, Any] = {
+    "p-msg": lambda naam: _regel("jlp-hs-bouw", naam),
+    "p-flow": lambda naam: _regel("jlp-hs-bouw", naam, pt="flow"),
+    "to-msg": lambda naam: _regel("jlp-hs-bouw", "meting", to=naam, tot="msg"),
+    "to-flow": lambda naam: _regel("jlp-hs-bouw", "meting", to=naam, tot="flow"),
+    "to-global": lambda naam: _regel("jlp-hs-bouw", "meting", to=naam, tot="global"),
+    "inject-flow": lambda naam: _inject({"p": "payload", "v": naam, "vt": "flow"}),
+    "inject-global": lambda naam: _inject({"p": "payload", "v": naam, "vt": "global"}),
+    "inject-topic-flow": lambda naam: _inject({"p": "payload"}, {"p": "topic", "v": naam, "vt": "flow"}),
+    "inject-oude-velden": lambda naam: _wijzig("hartslag", "jlp-hs-tik", payload=naam, payloadType="global"),
+}
+
+
+@pytest.mark.parametrize("plek", sorted(PLEKKEN))
+@pytest.mark.parametrize("naam", PROTOTYPE_NAMEN)
+def test_every_prototype_name_is_refused_in_every_place(naam: str, plek: str) -> None:
+    bevindingen = nf.lint(PLEKKEN[plek](naam))
+    assert any(b.split(":", 1)[0] in ("change_regel", "inject_bron") and naam in b for b in bevindingen), bevindingen
+
+
+def test_jsonata_is_limited_to_the_expressions_of_the_bundles() -> None:
+    """Witte lijst voor JSONata (R-TECH-1: ``$flowContext('__proto__')``, ``$lookup`` en elke andere uitdrukking):
+    alleen de uitdrukkingen uit de bundels in Git (vastgelegd als sha256 in het hulpmiddel) en, voor msg.url, de vaste
+    Hub-routes. Eén teken anders en de regel wordt geweigerd, tot de lijst in het hulpmiddel bewust is bijgewerkt."""
+    in_git = {nf.jsonata_som(str(r["to"])) for nodes in nf.bundels_in_git().values() for n in nodes
+              if n.get("type") == "change" for r in n["rules"] if r.get("tot") == "jsonata" and r.get("p") != "url"}
+    assert in_git == set(nf.TOEGESTANE_JSONATA), "lijst en bundels lopen uiteen"
+    for naam, node_id in (("hartslag", "jlp-hs-bouw"), ("mediaguard-offline", "jlp-mg-oordeel")):
+        nodes = _bundel(naam)
+        regel = next(n for n in nodes if n["id"] == node_id)["rules"][0]
+        regel["to"] = str(regel["to"]) + " "
+        assert "change_regel" in _codes(nodes), naam
 
 
 def test_every_http_request_in_git_gets_redirects_off_from_its_route_node() -> None:
@@ -463,7 +648,10 @@ def test_import_refuses_before_touching_node_red() -> None:
                      token="t" * 30)
     for geval in ("tab-env-hostnaam", "tab-env-ip-als-getal", "node-env", "change-msg-url",
                   "change-msg-url-ip-als-getal", "change-url-enkele-aanhalingstekens",
-                  "change-url-dubbele-aanhalingstekens", "change-msg-headers"):  # R-VEILIG-1
+                  "change-url-dubbele-aanhalingstekens", "change-msg-headers",  # R-VEILIG-1 (review P2)
+                  # S-P2-410, herstel R-VEILIG-1 en R-TECH-1: de omwegen uit beide rapporten
+                  "omweg-r-veilig-1", "omweg-r-tech-1", "tot-jsonata-flowcontext", "tot-env",
+                  "inject-oude-velden-global", "tot-ontbreekt-bron-msg"):
         with pytest.raises(nf.Fout):
             nf.importeer(nr, {"hartslag": AFGEWEZEN[geval][0]()}, hub_url="https://hub.example", token="t" * 30)
     for hub_url in ("https://gebruiker:geheim@hub.example", "ftp://hub.example", "https://hub.example/pad?x=1", ""):
@@ -547,6 +735,41 @@ def test_import_checks_after_reading_back_that_only_the_global_hub_url_counts() 
             nf.importeer(nep, bundels, hub_url="https://hub.example", token="t" * 30)
         assert len(nep.geschreven) == 2 and nep.staat == VORIGE_FLOWS, knoei.__name__  # de vorige flows staan terug
         assert "t" * 30 not in json.dumps(nep.geschreven[1])
+
+
+VREEMDE_DRAAD: list[dict[str, Any]] = [
+    {"id": "vreemd-tab", "type": "tab", "label": "van iemand anders", "disabled": False, "info": ""},
+    {"id": "vreemd-zet", "type": "change", "z": "vreemd-tab",
+     "rules": [{"t": "set", "p": "url", "pt": "msg", "to": "elders.invalid/x", "tot": "str"}],
+     "wires": [["jlp-hs-stuur"]]},
+]
+
+
+def test_import_refuses_a_foreign_node_wired_into_an_own_node() -> None:
+    """R-VEILIG-3 (S-P2-410): een node buiten de eigen tabbladen met een draad naar een eigen node (hier de http
+    request-node met het token) kan msg.url zetten buiten ``lint`` om. Staat zo'n draad er al: de import weigert vóór
+    Node-RED iets verandert. Komt hij er na het schrijven bij: het teruglezen ziet hem en de vorige flows gaan terug.
+    Een vreemde node die alleen naar vreemde nodes draadt, blijft gewoon staan."""
+    bundels = {"hartslag": _bundel("hartslag")}
+    al_daar = _NepNodeRed([*VORIGE_FLOWS, *VREEMDE_DRAAD])
+    with pytest.raises(nf.Fout, match="vreemd-zet") as fout:
+        nf.importeer(al_daar, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert "jlp-hs-stuur" in str(fout.value) and al_daar.geschreven == []
+
+    def vreemde_draad(flows: list[dict[str, Any]]) -> None:
+        flows.extend(copy.deepcopy(VREEMDE_DRAAD))
+
+    erna = _NepNodeRed(VORIGE_FLOWS, vreemde_draad)
+    with pytest.raises(nf.Fout, match="teruggezet") as fout:
+        nf.importeer(erna, bundels, hub_url="https://hub.example", token="t" * 30)
+    assert "vreemd-zet" in str(fout.value)
+    assert len(erna.geschreven) == 2 and erna.staat == VORIGE_FLOWS
+    onschuldig = copy.deepcopy(VREEMDE_DRAAD)
+    onschuldig[1]["wires"] = [["vreemd-ander"]]
+    onschuldig.append({"id": "vreemd-ander", "type": "debug", "z": "vreemd-tab", "wires": []})
+    uit = nf.importeer(_NepNodeRed([*VORIGE_FLOWS, *onschuldig]), bundels, hub_url="https://hub.example",
+                       token="t" * 30)
+    assert uit["hartslag"]["gelijk"] is True
 
 
 class _NepNodeRedValtUit(_NepNodeRed):
@@ -734,8 +957,21 @@ def test_saved_report_is_complete_and_honest() -> None:
     weigering = n10["weigering"]
     assert "veld_niet_toegestaan" in weigering["env_op_tabblad"]["codes"]
     assert "change_regel" in weigering["tweede_regel_op_msg_url"]["codes"]
-    for naam in ("env_op_tabblad", "tweede_regel_op_msg_url"):
+    assert "change_regel" in weigering["hasOwnProperty_isPrototypeOf"]["codes"]  # herstel R-VEILIG-1
+    for naam in ("env_op_tabblad", "tweede_regel_op_msg_url", "hasOwnProperty_isPrototypeOf"):
         assert weigering[naam]["geweigerd"] is True and weigering[naam]["flows_in_node_red_ongewijzigd"] is True
+    # Controleproef bij R-VEILIG-1: dezelfde regel via de rauwe Admin-API (buiten de eigen controle om) zet
+    # msg.followRedirects buiten werking; het doel van de doorverwijzing krijgt de bearer-kop wel.
+    hop = n10["controleproef_hasOwnProperty"]
+    assert hop["via"] == "rauwe Admin-API" and hop["doorverwijzing_gevolgd"] is True
+    assert hop["doel_kreeg_bearer"] is True and hop["readback_ziet_het"] == "change_regel"
+    # R-VEILIG-2: met http_proxy in de omgeving en proxyOptions uit het manifest krijgt de proxy niets; zonder de
+    # instelling (controleproef) gaat het verzoek met de bearer-kop via de proxy (CONNECT-tunnel).
+    proxy = n10["proxy_uit_de_omgeving"]
+    met, zonder = proxy["met_proxyOptions_uit_het_manifest"], proxy["controleproef_zonder_proxyOptions"]
+    assert met["hub_kreeg_de_heartbeat_met_token"] is True and met["proxy_ontving"] == 0
+    assert zonder["proxy_ontving"] >= 1 and zonder["proxy_kreeg_bearer"] is True and zonder["hub_ontving"] == 0
+    assert "CONNECT" in zonder["methoden_bij_de_proxy"]
     assert weigering["hub_kreeg_de_heartbeat"] is True and weigering["luisteraar_ontving"] == 0
     proeven = n10["doorverwijzing_flow_uit_git"]
     assert set(proeven) == {f"{s} naar {w}" for s in (307, 302) for w in ("zelfde_host_andere_poort", "andere_host")}

@@ -5,8 +5,8 @@
       "bestand": "flows/hartslag.json",
       "tab": "jlp-hartslag",
       "label": "JLP · Hartslag naar de Hub",
-      "versie": "1.1.0",
-      "sha256": "sha256:319451308eb0c5ef20ce24f61d23d8fcfc2ee1c126f103578681473e5f356980",
+      "versie": "1.1.1",
+      "sha256": "sha256:ff5b847d8c7d8bdf68a878d7748a7afa38bbabb79762322eb58e85feb14a1407",
       "soort": "alleen_lezen_en_melden",
       "standaard_aan": true,
       "routes": [
@@ -18,8 +18,8 @@
       "bestand": "flows/mediaguard-offline.json",
       "tab": "jlp-mediaguard-offline",
       "label": "JLP · MediaGuard offline → melding",
-      "versie": "1.1.0",
-      "sha256": "sha256:c88682bec0d5f8ca7000107e45b868d3c3730a27eec3290121ec7d0b2ec0c1bf",
+      "versie": "1.1.1",
+      "sha256": "sha256:deba58ace395fbd859a8f15b0fc463cff6aad7c6eb8ad589c32d2210039f25ad",
       "soort": "alleen_lezen_en_melden",
       "standaard_aan": true,
       "routes": [
@@ -35,8 +35,8 @@
       "bestand": "flows/testflow-herstart.json",
       "tab": "jlp-testflow-herstart",
       "label": "JLP · Testflow: herstart aanvragen",
-      "versie": "1.1.0",
-      "sha256": "sha256:849caa32307801f6f2c55fe20564cdf37f01d594d8e264a662401ba3abe52c37",
+      "versie": "1.1.1",
+      "sha256": "sha256:0bba18b0d647c9ddd998840a5c767c51caf4b4e11723f4687c574898c06593a3",
       "soort": "actie_aanvragen",
       "standaard_aan": false,
       "routes": [
