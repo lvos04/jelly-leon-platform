@@ -191,4 +191,9 @@
   een melding van een al uitgevoerde stap na het vervallen nog mag, is een ontwerpvraag. Het huidige gedrag staat vast
   in `apps/api/tests/integration/test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`
   (karakteriseringstest; rood als de weigering in `report_step` wegvalt).
+  *Ontwerp:* ADR-0026 (S-P2-415). Het plan blijft vervallen en geeft niets vrij; een late melding met `execution_id`
+  en readback wordt vastgelegd en de eigenaar krijgt een duidelijke melding. Een Custom App blijft gestopt tot de
+  eigenaar hem in TrueNAS start (ai-server-manager ADR-0030 besluit 21). Eigenaar van het vervolg: de regisseur; de
+  bouw is voorgesteld voor S-P2-420 bouwpunt 2 (zie ADR-0026, kop "Gevolgen"). Tot die bouw geldt het gedrag
+  hierboven.
 - Alles hierboven is **Sim-getest**. Tegen de echte Hub, de echte executor en een echte NAS: NIET GEVALIDEERD.

@@ -7,6 +7,8 @@
 - Aangevuld door ADR-0024 (review P2): versheidsgrens van 900 s voor elk plan, bewijs van terugzetten met de digest
 - Aangevuld door ADR-0025 (herstel na de review van P2): terugzetten nooit alleen de image als dat niet veilig is,
   beschermde apps volgens het Hub-beleid, volledig herstelpunt, plan vervalt met zijn meting, validator vast in CI
+- Gewijzigd door ADR-0026 (ontwerp, nog niet gebouwd): besluit 6 — een Custom App die een updateplan stopt, blijft
+  gestopt tot de eigenaar hem in TrueNAS start, met een duidelijke melding
 
 ## Aanleiding
 
@@ -54,6 +56,11 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    de testkopie, dan komt `bijwerken` nooit vrij: de oude app draait door op onaangeroerde data. Zonder migraties
    vervalt de schaduwtest; het herstelpunt blijft. Voor een catalogusapp bestaat (nog) geen schaduwtest
    (`schaduwtest_niet_beschikbaar`, waarschuwing) en is de export een handmatige stap.
+   *Gewijzigd door ADR-0026 (ontwerp; de code doet nog wat hierboven staat):* "`starten` (ook als de snapshot mislukt)"
+   en "de app blijft nooit gestopt achter" gelden niet meer voor een Custom App. De echte Hub en executor weigeren
+   elke actie op een gestopte Custom App, ook `app.start` (`doel_niet_herkenbaar`; ai-server-manager ADR-0030 besluit
+   21). Zo'n app blijft gestopt tot de eigenaar hem in TrueNAS start; `starten` wordt een handmatige eigenaarsstap en
+   de eigenaar krijgt een duidelijke melding. Voor een catalogusapp blijft `starten` een actie `app.start`.
 7. **Readback telt, niet alleen het woord "voltooid".** `…/steps/{id}/result` vraagt `execution_id` + readback. Bij
    `bijwerken` en `installeren` moet de teruggelezen digest gelijk zijn aan de gepinde digest; anders is de stap
    `mislukt` (`readback_afwijking`), ook als de melder "voltooid" zegt. De readback is wat de melder doorgeeft (rol
