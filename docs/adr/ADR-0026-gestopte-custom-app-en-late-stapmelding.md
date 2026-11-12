@@ -207,17 +207,34 @@ stap vrij uit een vervallen plan.
    snapshot `voltooid` is** (anders `geblokkeerd`, zoals elke stap na een mislukte voorganger). Die snapshot is een
    actie `zfs.snapshot.create` met een dataset als doel; `doel_niet_herkenbaar` geldt daar niet. Ze wordt gemaakt
    terwijl de app draait (opnieuw stoppen zou de app weer gestopt achterlaten) en is daarom niet gegarandeerd
-   consistent voor een database; de eerste snapshot, gemaakt terwijl de app gestopt was, blijft bestaan als consistent
-   herstelpunt van het begin. Welke van de twee als `backup_checkpoint_id` met `bijwerken` meegaat, is een open punt
-   (besluit nodig vóór de bouw); tot dat besluit er is, blijven beide snapshots bestaan en noemt `bijwerken` beide in
-   `herstelpunt_van`. De oude meting onder `bijwerken` blijft; wat daar tegenover staat, is dat de executor de
+   consistent voor een database.
+
+   **Welke snapshot als `backup_checkpoint_id` meegaat (keuze van de regisseur, S-P2-415-H1, 2026-11-12):** de
+   **EERSTE** snapshot. `backup_checkpoint_id` en het veld `herstelpunt` van `bijwerken` noemen de eerste snapshot: die is
+   consistent, want gemaakt terwijl de app gestopt was. De tweede snapshot blijft bestaan en staat, naast de eerste, in
+   `herstelpunt_van` van `bijwerken` en in de preview van het plan. Eerlijk: gegevens die de app na de herstart
+   schrijft, zitten alleen in die tweede, niet gegarandeerd consistente snapshot, niet in het herstelpunt dat als
+   `backup_checkpoint_id` meegaat. De uitleg van `bijwerken` zegt dat ook zo. Dit vraagt geen contractwijziging:
+   `herstelpunt_van` is al een lijst en `herstelpunt` één snapshotnaam (`planner._Bouw.stap`, `planner.plan_update`).
+   ONBEKEND voor de bouw: of de Hub een plansnapshot als B12-checkpoint binnen het RPO accepteert (contract §8,
+   "Back-upbevestiging": de Hub bindt een checkpoint van een B12-back-up met status `geverifieerd`, niet ouder dan het
+   RPO; start de eigenaar de app pas laat, dan kan de eerste snapshot ouder zijn dan het RPO) - eerst vaststellen met:
+   `grep -rn "backup_checkpoint_id\|rpo" ai-server-manager/apps/api/src/hub`. Weigert de Hub, dan komt `bijwerken`
+   niet vrij terwijl de app draait: dat is veilig, maar de bouwstap moet het melden.
+
+   De oude meting onder `bijwerken` blijft; wat daar tegenover staat, is dat de executor de
    precondities zelf opnieuw controleert via een readback (ETag/digest; contract §8).
 2. **"Starten vrijgeven" geldt alleen voor catalogusapps.** Daar blijft `starten` een actie `app.start` (R1), zoals
    ADR-0022 besluit 6 zegt. Van de manifesten in deze repo heeft nu geen enkele catalogusapp `stopped_snapshot`; dit
    pad is dus alleen in unit-tests met een testmanifest te toetsen.
 3. **De eigenaar krijgt een duidelijke melding, in het plan en in de Hub.** Zodra `stoppen` van een Custom App is
-   gemeld met een `execution_id` en een readback met `staat: STOPPED` (status `voltooid`, of `mislukt` met die
-   readback), legt deze dienst vast dat de app gestopt staat en zet hij:
+   gemeld met een readback met `staat: STOPPED` (status `voltooid`, die `planner.meld` alleen met een `execution_id`
+   aanneemt, of `mislukt` met die readback, met of zonder `execution_id`), legt deze dienst vast dat de app gestopt
+   staat en zet hij de melding hieronder. De melding "gestopt" vraagt geen `execution_id`: ze geeft niets vrij (zoals
+   de melding "weer gestart" van punt 4; eis 3 gaat over een stapresultaat dat iets vrijgeeft). `planner.meld` eist een
+   `execution_id` alleen bij `voltooid` en neemt `mislukt` met readback `STOPPED` zonder `execution_id` dus aan; ook dat
+   geval geeft deze melding en dit event (en geen herstelevent). Dit punt gaat over een tijdige melding; voor een late
+   melding op een vervallen plan geldt punt 4. De melding:
    - in de planweergave (`GET /lifecycle/v1/plans/{id}`) een melding voor de eigenaar, met de appnaam, wat er is
      gebeurd en wat hij moet doen. Voorbeeld: "Gotify is gestopt voor het herstelpunt van de update en blijft gestopt.
      Start hem in TrueNAS onder Apps; daarna gaat het plan verder.";
@@ -286,7 +303,7 @@ stap vrij uit een vervallen plan.
 
 ## Gevolgen
 
-**Voorgestelde bouwstap in deze repo** (zonder stap-ID; de regisseur plant hem). Bouwpunt 1 komt als **eerste**, vóór
+**Voorgestelde bouwstap in deze repo** (zonder stap-ID; de regisseur plant hem). Bouwpunt 1 komt als **eerste**, vooraan in
 S-P2-420 (prioriteit HARDE EIS). De rest is een vervolgpunt voor **S-P2-420 bouwpunt 2** (de stand-ins naast de echte
 Hub- en executorcode); de regisseur beslist of het daar of in een eigen stap komt. Eerst de tests, eerst rood:
 
@@ -304,7 +321,10 @@ Hub- en executorcode); de regisseur beslist of het daar of in een eigen stap kom
 2. `planner.plan_update`: voor een Custom App `starten` als handmatige eigenaarsstap (besluit 1), uitleg zonder "nooit
    gestopt achter"; `risicoklasse_verwacht` van `stoppen` R2 voor een Custom App. Na de eigenaarsstap een nieuwe
    snapshot van dezelfde datasets (eigen stap-id en snapshotnaam, te kiezen in de bouwstap); `bijwerken` hangt daar
-   van af (besluit 1, "Gevolg van A2"). Catalogusapps ongewijzigd (besluit 2). Tests in
+   van af (besluit 1, "Gevolg van A2"). `bijwerken.herstelpunt` (en dus `backup_checkpoint_id`) is de eerste
+   snapshotnaam; `herstelpunt_van` noemt beide snapshotstappen; de uitleg van `bijwerken` zegt dat gegevens van na de
+   herstart alleen in de tweede, niet gegarandeerd consistente snapshot zitten (keuze H1, besluit 1). Catalogusapps
+   ongewijzigd (besluit 2). Tests in
    `apps/api/tests/unit/test_planner.py`, bijvoorbeeld (namen voorgesteld, nog te schrijven): een update van Gotify
    heeft `starten` met `soort == "handmatig"`, `voorstel is None`, `verwacht == {"staat": "RUNNING"}` en
    `risicoklasse_verwacht == "R3"`; `bijwerken` komt niet vrij na een `voltooid` gemelde eigenaarsstap zolang de nieuwe
@@ -337,8 +357,9 @@ Hub- en executorcode); de regisseur beslist of het daar of in een eigen stap kom
    vervallen plan geeft één `lifecycle.app.recovered`, sluit de melding, geeft geen stap vrij en zet het plan niet op
    `in_uitvoering`; een plan voor een beschermde app krijgt geen stap en geen melding; een herstelevent komt nooit
    zonder readback `RUNNING`; een tijdige melding `mislukt` zonder readback op `stoppen` geeft de melding
-   `stop_uitkomst_onbekend` en geen herstelevent; bij een readback `RUNNING` op `stoppen` bevat de eigenaarsstap nergens
-   de tekst "staat gestopt".
+   `stop_uitkomst_onbekend` en geen herstelevent; een tijdige melding `mislukt` met readback `STOPPED` zonder
+   `execution_id` op `stoppen` geeft één melding "gestopt", één event `lifecycle.app.down` en geen herstelevent
+   (besluit 3); bij een readback `RUNNING` op `stoppen` bevat de eigenaarsstap nergens de tekst "staat gestopt".
 6. Stand-ins `e2e/simulators/hub/hub_p2.py` en `executor_sim.py`: `doel_niet_herkenbaar` voor elke actie met een app
    als doel op een gestopte Custom App, en `app.stop` op een Custom App als R2. De ketentest
    `test_keten_plan_hub_executor_nas.py::test_update_met_schaduwtest_en_daarna_terugzetten` gaat mee: de eigenaar
@@ -403,4 +424,7 @@ de alinea "Late melding van `stoppen` na het vervallen" een verwijzing naar deze
 - Of een gestart plan moet kunnen vervallen (ADR-0024, "Een gestart plan vervalt niet"), valt buiten dit ontwerp. Wel
   laat A2 het gat tussen herstelpunt en `bijwerken` door de eigenaar bepalen (oude meting; gegevens na de herstart
   buiten het eerste herstelpunt); de nieuwe snapshot vóór `bijwerken` (besluit 1) dekt de gegevens, niet de meting, en
-  is niet gegarandeerd consistent voor een database. Welke snapshot als `backup_checkpoint_id` meegaat, is open.
+  is niet gegarandeerd consistent voor een database. Als `backup_checkpoint_id` gaat de eerste, consistente snapshot
+  mee (keuze H1, besluit 1); gegevens van na de herstart zitten dus alleen in de tweede snapshot, niet in dat
+  herstelpunt. Of de Hub een plansnapshot als B12-checkpoint binnen het RPO accepteert, is ONBEKEND (commando in
+  besluit 1).

@@ -187,7 +187,9 @@
   via de Hub en de executor al gestopt kan zijn, dan weigert `report_step` haar met 409 `plan_vervallen`. Het plan
   geeft daardoor ook `starten` (de herstelstap van `stoppen`, ADR-0022 besluit 6) niet vrij en biedt het opnieuw
   starten niet aan; de app kan gestopt blijven. De eigenaar start de app dan zelf of maakt een nieuw plan op een verse
-  meting. Voor beschermde apps speelt dit niet (geen enkele stap vrij). Het gedrag is bewust niet gewijzigd: wanneer
+  meting. Voor beschermde apps die de planner herkent, speelt dit niet (geen enkele stap vrij). Dat geldt nu niet voor
+  elke app met kijkgeschiedenis: de planner herkent een beschermde app nog niet op de catalogusapp (bijvoorbeeld een
+  catalogusapp `emby` onder een andere naam); zie ADR-0026, Context "Beschermde apps" en Gevolgen, bouwpunt 1. Het gedrag is bewust niet gewijzigd: wanneer
   een melding van een al uitgevoerde stap na het vervallen nog mag, is een ontwerpvraag. Het huidige gedrag staat vast
   in `apps/api/tests/integration/test_plans_api.py::test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij`
   (karakteriseringstest; rood als de weigering in `report_step` wegvalt).
