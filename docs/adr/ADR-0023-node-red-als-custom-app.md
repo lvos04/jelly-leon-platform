@@ -1,6 +1,7 @@
 # ADR-0023 — Node-RED als standaard Custom App: beveiligd via `FLOWS`, flows als gecontroleerde bundels
 
-- Status: aanvaard · Datum: 2026-11-11 · Bijgewerkt: 2026-11-11 (S-P2-410: besluit C-11, restpunten van de review)
+- Status: aanvaard · Datum: 2026-11-11 · Bijgewerkt: 2026-11-12 (S-P2-410: besluit C-11, restpunten van de review;
+  herstel na de review van S-P2-410: witte lijst in `lint`, geen proxy uit de omgeving, vaste sleutels in `FLOWS`)
   · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
 - Manifest: `install/manifests/node-red.manifest.yaml` · Instellingen en flows: `install/node-red/`
 - Hulpmiddelen: `tools/nodered_flows.py`, `tools/nodered_rooktest.py` · Bewijs:
@@ -25,7 +26,13 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    `adminAuth` precies `{"type": "credentials", "users": []}`: **geen** gebruikers en **geen** `default`, dus zonder
    aanmelding geen enkel recht, ook niet lezen (besluit C-11, punt 4); `nodesIncludes`
    (alleen genoemde kern-nodes; exec, function, file, watch, http in, websocket, tcp, udp en mqtt worden niet
-   geladen), geen installatie van nodes/modules, geen projecten, geen telemetrie, `/diagnostics` uit.
+   geladen), geen installatie van nodes/modules, geen projecten, geen telemetrie, `/diagnostics` uit, en
+   `proxyOptions` met een lege `env` (sinds het herstel van S-P2-410, R-VEILIG-2): de `http request`-node leest een
+   proxy anders uit de omgeving van de container (`http_proxy`, `all_proxy` …), en dan ging het verzoek met het
+   service-token via die proxy (gemeten; op LAN-HTTP als platte tekst in de tunnel). Met de lege `env` negeert hij
+   die variabelen; Node-RED hoeft de Hub niet via een proxy te bereiken. `nodered_flows.py` laat in de overrides
+   alleen deze vaste sleutels toe (`TOEGESTANE_OVERRIDES`): een sleutel als `adminAuth.default` werd anders een eigen
+   instelling die weer anoniem lezen gaf (gemeten; R-VEILIG-4).
    De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
    geen spaties, `$`, `*`, `?` of andere shelltekens bevatten. `[` en `]` zijn ook jokertekens, maar de JSON-lijsten
    (`nodesIncludes`) hebben ze nodig; veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij
@@ -42,7 +49,10 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    herkenbaar (200; N2). Een `FLOWS` die maar voor een deel aankomt (bijvoorbeeld `adminAuth` wel en `nodesIncludes`
    niet) ziet de monitor niet. Dat de kern-nodes beperkt zijn, toont `GET /nodes`, en dat kan alleen een beheerder: de
    controle na installatie `exec_en_function_niet_geladen` (handmatig, zodra er een beheerder is) en tot dan de rooktest
-   bij deze digest (N3, dezelfde `FLOWS` met alleen een wegwerpbeheerder).
+   bij deze digest (N3, dezelfde `FLOWS` met alleen een wegwerpbeheerder). Die handmatige controle blijft open tot
+   besluit C-12 is uitgevoerd, en zo lang is Node-RED niet "gezond" (contract kop 9); dat is de bedoelde stand. Wat de
+   beheerder nu wel kan nagaan, staat in de controle zelf: de digest van de geïnstalleerde image tegen die in het
+   rooktestrapport, en de twee http-controles (R-MANIFEST-2 van S-P2-410).
 4. **Geen anonieme toegang (besluit C-11 van de gebruiker, 2026-11-11).** De editor en de Admin-API zijn alleen
    bruikbaar na aanmelding van een beheerder. Gemeten (N1): anoniem `GET /flows`, `GET /nodes`, `GET /settings` en
    `GET /diagnostics` geven 401, `POST /flows` ook; exporteren zonder aanmelding wordt geweigerd. Dezelfde paden
@@ -64,10 +74,26 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    globale `HUB_URL` telt en dat die precies de opgegeven Hub-URL is, en laat het de teruggelezen nodes van elk
    eigen tabblad opnieuw door `lint` gaan; bij een bevinding gaan de flows van vóór de import terug.
    Sinds S-P2-410 (restpunten van de review van P2):
-   - *Prototype:* de segmenten `__proto__`, `constructor` en `prototype` worden geweigerd in een eigenschap (`p`) en in
-     een bron (`to`) uit msg, flow of global (`change_regel`); daarmee was op de echte image `Object.prototype` te
-     vervuilen. Een bron in JSONata (`$$.__proto__`, `$lookup($$, '__pro' & 'to__')`) geeft bij deze digest
-     `undefined`, geen prototype (gemeten met de JSONata uit de image).
+   - *Witte lijst in plaats van verboden woorden* (herstel na de review van S-P2-410, R-TECH-1 en R-VEILIG-1;
+     V-086). Eerst weigerde `lint` alleen de segmenten `__proto__`, `constructor` en `prototype` in een `change`-regel.
+     Dat liet andere wegen naar het prototype van elk object open: `msg.hasOwnProperty = msg.isPrototypeOf` zette
+     `msg.followRedirects` buiten werking (de `http request`-node leest die met `msg.hasOwnProperty`; gemeten: het
+     token ging bij een doorverwijzing naar een andere host), en een `inject` die `flow['__proto__']` leest gaf
+     `Object.prototype` als payload, waarna `payload.headers.X` een kop op elk object zette. Nu geldt alleen wat de
+     bundels echt gebruiken. Een `change`-regel zet in msg alleen precies `payload`, `url` (een vaste Hub-route),
+     `followRedirects` (alleen `false`), `meting` of `headers` (alleen wissen), zonder pad met punten. Een naam in de
+     flow- of globale context is alleen kleine letters en `_` en geen eigenschap van het prototype; dat geldt in `p`,
+     in `to` (bij een bron uit msg, flow of global; uit msg dezelfde vijf namen) en in een `inject` (ook via de oude
+     velden `payload`/`payloadType`). Een waarde heeft een vaste soort (`str`, `num`, `bool`, `json`, `date`); `env`,
+     `bin`, een ontbrekende soort (Node-RED maakt daar zelf `msg` van als `to` met `msg.` begint) en een `inject` met
+     `jsonata` of `msg` worden geweigerd. JSONata in een `change`-regel mag alleen precies een van de uitdrukkingen uit
+     de bundels zijn (sha256 in `TOEGESTANE_JSONATA`; voor `msg.url` de vaste Hub-routes), dus ook geen
+     `$flowContext('__proto__')` of `$lookup`. Codes: `change_regel` en `inject_bron`. Elke eigenschap van
+     `Object.prototype` (en `prototype`) valt zo op elke plek af; de tests eisen dat per naam en per plek.
+   - *Vreemde draden* (R-VEILIG-3): een node buiten de eigen tabbladen met een draad naar een eigen node kan buiten
+     `lint` om `msg.url` zetten. Staat zo'n draad er vóór de import, dan weigert de import zonder te schrijven; ziet het
+     teruglezen er een, dan gaan de flows van vóór de import terug. Wat een beheerder ná de import zelf in de editor
+     wijzigt, valt daarbuiten (zie "Uitgaand verkeer").
    - *Oude vorm van de `change`-node:* een `change`-node zonder lijst `rules` (met `action`/`property`/`to`, die
      Node-RED zelf tot een regel maakt) wordt geweigerd (`change_regel`), net als een regel die geen object is.
    - *Doorverwijzingen:* gemeten bij deze digest stuurt de `http request`-node bij een doorverwijzing (307 en 302)
@@ -75,8 +101,9 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
      verzoek terug als `Authorization`, zodat got hem bij een andere herkomst niet meer weghaalt (`got` 14.6.6 haalt
      alleen de kleine letters `authorization` weg). Elke `http request` krijgt daarom van zijn route-node
      `msg.followRedirects = false` (bool); ontbreekt dat, dan `redirect_niet_uit`, en elke andere regel op
-     `msg.followRedirects` is `verzoek_overschreven`. De bundels staan daarvoor op versie 1.1.0. Rooktest N10 meet het
-     bij elke digest opnieuw, met een controleproef zonder de regel.
+     `msg.followRedirects` is `verzoek_overschreven`. De bundels kregen daarvoor versie 1.1.0; versie 1.1.1 (herstel)
+     wijzigt alleen de beschrijving en `flow_versie`. Rooktest N10 meet het bij elke digest opnieuw, met een
+     controleproef zonder de regel en een met de regel plus `msg.hasOwnProperty = msg.isPrototypeOf`.
    - *Teruglezen faalt zelf* (netwerkfout, of teruggelezen gegevens die geen lijst van objecten zijn): `importeer`
      zet ook dan de flows van vóór de import terug en geeft een Nederlandse melding (R-VEILIG-5); `lint` geeft bij
      `rules`, `wires` of `props` van een verkeerde vorm een bevinding (`change_regel`, `draad_ongeldig`,
@@ -119,9 +146,12 @@ eindgebruiker heeft geen terminal.
 
 Verder niet gebouwd of niet af te dwingen:
 
-- **Uitgaand verkeer:** het formulier kent geen egressregels. Beperkt zijn de bundels uit deze repo (lint) en wat de
-  Hub een service-token toestaat; een beheerder kan in de editor zelf een `http request` naar elk adres maken, en een
-  eigen flow zonder `msg.followRedirects = false` volgt een doorverwijzing met het token (gemeten, N10).
+- **Uitgaand verkeer:** het formulier kent geen egressregels. Beperkt zijn de bundels uit deze repo (lint), wat de
+  Hub een service-token toestaat, en de proxy: met `proxyOptions` uit `FLOWS` gebruikt een flow geen proxy uit de
+  omgeving (gemeten, N10; of een proxy-instelling van TrueNAS zelf in die omgeving komt, is niet op een NAS gemeten).
+  Een beheerder kan in de editor zelf een `http request` naar elk adres maken, en een eigen flow zonder
+  `msg.followRedirects = false` (of met `msg.hasOwnProperty` overschreven) volgt een doorverwijzing met het token
+  (gemeten, N10).
 - **Flow "my_house sensor verouderd → melding":** geen contractroute voor sensorversheid → `capability_unavailable`;
   er is geen nagebootste flow.
 - **Incident bij stoppen:** in de simulator zichtbaar als verouderde heartbeat; in de echte Hub en Uptime Kuma
@@ -143,11 +173,16 @@ de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met 
 gestopt/hersteld/onbekend ·
 N6 testflow: uit = geen reactie; aan = R1 toegestaan / R2 wacht op goedkeuring, actor door de Hub gezet · N7 hartslag
 met flowvertraging · N8 andere versie zichtbaar als afwijkend, herstel uit Git · N9 herstart zonder verlies van flows
-en credentials, stoppen zichtbaar · N10 het token gaat alleen naar de Hub: een bundel met `env` op het tabblad of met
-een tweede regel op `msg.url` wordt geweigerd vóór Node-RED iets verandert (een luisteraar ontvangt niets); een
-doorverwijzing (307/302) van de "Hub" naar een andere poort of host volgt de flow uit Git niet; controleproef zonder
-`msg.followRedirects = false`: Node-RED volgt de doorverwijzing en stuurt de bearer-kop mee, en het teruglezen ziet de
-ontbrekende regel (`redirect_niet_uit`). De Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
+en credentials, stoppen zichtbaar · N10 het token gaat alleen naar de Hub: een bundel met `env` op het tabblad, met
+een tweede regel op `msg.url` of met `msg.hasOwnProperty = msg.isPrototypeOf` wordt geweigerd vóór Node-RED iets
+verandert (een luisteraar ontvangt niets); een doorverwijzing (307/302) van de "Hub" naar een andere poort of host
+volgt de flow uit Git niet; controleproef zonder `msg.followRedirects = false`: Node-RED volgt de doorverwijzing en
+stuurt de bearer-kop mee, en het teruglezen ziet de ontbrekende regel (`redirect_niet_uit`); controleproef via de
+rauwe Admin-API met die regel maar ook `msg.hasOwnProperty = msg.isPrototypeOf`: het doel van de doorverwijzing krijgt
+de bearer-kop, en het teruglezen ziet de regel (`change_regel`); met `http_proxy`, `HTTP_PROXY` en `all_proxy` in de
+omgeving en de `FLOWS` uit het manifest krijgt een proxy niets en de Hub de heartbeat met het token; controleproef
+zonder `proxyOptions`: het verzoek gaat via de proxy (`CONNECT`-tunnel) en de proxy ziet de bearer-kop. De
+Hub-simulator kreeg hiervoor de heartbeat-route van §6.1.
 
 ## Afgewezen
 

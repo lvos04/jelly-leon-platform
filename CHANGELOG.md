@@ -334,3 +334,26 @@
   geen doorverwijzing met het token, controleproef zonder de regel); het bewaarde rapport
   `docs/platform-v2/bewijs/nodered-rooktest-p2.json` is opnieuw gemaakt (met `eigen_controle` in de readback).
 - Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.
+
+### Node-RED: herstel na de review van S-P2-410
+
+- **Witte lijst in `lint` (R-TECH-1 en R-VEILIG-1, blokkerend; V-086):** de weigering van alleen `__proto__`,
+  `constructor` en `prototype` liet andere wegen open (`msg.hasOwnProperty = msg.isPrototypeOf` zette
+  `msg.followRedirects` buiten werking; een `inject` die `flow['__proto__']` leest, `change` met `tot` env of JSONata
+  met `$flowContext`). Nu: msg-eigenschappen alleen precies `payload`, `url`, `followRedirects`, `meting` en
+  `headers` (wissen), flow/global-namen alleen kleine letters en `_` zonder eigenschap van het prototype, waarden
+  alleen `str`/`num`/`bool`/`json`/`date` of een naam uit msg/flow/global, JSONata alleen de uitdrukkingen uit de
+  bundels (sha256 in `TOEGESTANE_JSONATA`); hetzelfde voor `to` en voor de `inject` (nieuwe code `inject_bron`).
+- **Geen proxy uit de omgeving (R-VEILIG-2):** `FLOWS` zet `proxyOptions={"env":{}}`; met `http_proxy` in de omgeving
+  van de container ging het verzoek met het token anders via die proxy (gemeten).
+- **Vaste sleutels in `settings-overrides.json` (R-VEILIG-4):** `adminAuth.default` en elke andere onbekende sleutel
+  worden geweigerd. **Vreemde draden (R-VEILIG-3):** een node buiten de eigen tabbladen met een draad naar een eigen
+  node laat de import weigeren (vooraf) of terugzetten (bij het teruglezen).
+- **Manifest:** de controle `exec_en_function_niet_geladen` zegt dat ze tot besluit C-12 open blijft en Node-RED zo
+  lang niet gezond is (bedoelde stand), en wat de beheerder nu wel kan nagaan (R-MANIFEST-2). De negatieve
+  validatortest eist per variant precies de foutcode (`privileged_forbidden`, `capability_forbidden`,
+  `docker_socket_forbidden`; R-MANIFEST-1).
+- **Bundels 1.1.1** (alleen beschrijving en `flow_versie`), lock bijgewerkt. **Rooktest N10** weigert ook de bundel met
+  `msg.hasOwnProperty`, met een controleproef via de rauwe Admin-API (het doel krijgt de bearer-kop), en meet de proxy
+  met en zonder `proxyOptions`; het bewaarde rapport is opnieuw gemaakt.
+- Alles hierboven is **Sim-getest** (Docker, Hub-simulator). Op een echte TrueNAS: **NIET GEVALIDEERD**.

@@ -21,7 +21,8 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 >
 > Node-RED (P2) heeft een eigen proef met de echte image tegen de Hub-simulator (`tools/nodered_rooktest.py`,
 > `make nodered-rooktest`, dezelfde CI-job): beveiliging volgens het manifest, controleproef zonder de instellingen,
-> import van de flowbundels, melding, actieaanvraag, hartslag, herstel van een flowversie, herstart en stoppen —
+> import van de flowbundels, melding, actieaanvraag, hartslag, herstel van een flowversie, herstart en stoppen, en
+> dat het service-token alleen naar de Hub gaat (geen doorverwijzing, geen proxy uit de omgeving) —
 > **Sim-getest**. Het manifest levert op een NAS alleen een beveiligde, lege Node-RED zonder anonieme toegang (besluit
 > C-11: zonder beheerder helemaal dicht, ook lezen); beheerder, flows en service-token zijn **Geblokkeerd**
 > (`../node-red/README.md`, ADR-0023).
@@ -63,7 +64,7 @@ make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator:
 | Beszel | eerste account aanmaken (tot dan kan iedereen op het LAN dat) | `GET /api/beszel/first-run` → `firstRun: false` |
 | Uptime Kuma | eerste beheerder aanmaken; API-sleutel voor de Hub (alleen `/metrics`) | alleen via Socket.IO controleerbaar → bevestiging door de gebruiker |
 | Authentik | initiële setup (`akadmin`) met MFA; API-token voor home-control-hub | `/-/health/ready/`; beheer via home-control-hub (B13) |
-| Node-RED | niets in te stellen: zonder beheerder is de editor helemaal dicht, ook lezen (besluit C-11), tot er een voorziening is om een beheerder en flows te leveren (besluit C-12; Geblokkeerd) | zonder aanmelding: `/diagnostics` → 401, `GET /flows`, `/nodes` en `/settings` → 401, `POST /flows` → 401; `/auth/login` → type `credentials`; "exec en function niet geladen" alleen met een beheerder (handmatig) |
+| Node-RED | niets in te stellen: zonder beheerder is de editor helemaal dicht, ook lezen (besluit C-11), tot er een voorziening is om een beheerder en flows te leveren (besluit C-12; Geblokkeerd) | zonder aanmelding: `/diagnostics` → 401, `GET /flows`, `/nodes` en `/settings` → 401, `POST /flows` → 401; `/auth/login` → type `credentials`; "exec en function niet geladen" alleen met een beheerder (handmatig; blijft open tot besluit C-12 is uitgevoerd, en zo lang is Node-RED niet gezond: de bedoelde stand) |
 
 Tokens en sleutels die de gebruiker zo maakt, gaan alleen in de vault van de Hub (nooit in een manifest of formulier).
 
