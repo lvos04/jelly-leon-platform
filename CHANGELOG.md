@@ -2,6 +2,7 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Node-RED-lint weigert env-substitutie** (KLEIN-50): een tekst die precies `${NAAM}` of `$(NAAM)` is (Node-RED vult daar een omgevingsvariabele in) geeft `env_substitutie`.
 - **Databasefout zonder DETAIL van PostgreSQL in de log** (KLEIN-36): API en worker loggen bij een DBAPIError alleen soort, sqlstate, constraint en tabel; logfilter als vangnet.
 - **Databasefout zonder parameterwaarden** (KLEIN-28, V-094): de engines van API, worker en migraties staan op
   `hide_parameters=True`; een databasefout noemt geen parameterwaarden meer in fout of log.

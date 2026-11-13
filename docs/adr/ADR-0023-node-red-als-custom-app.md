@@ -103,6 +103,10 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
      `TOEGESTANE_JSONATA`, ook in `v2`; `env`, `msg`, `flow`, `global` en `prev` worden geweigerd (`switch_regel`).
      Een `debug` voert nooit JSONata uit: `targetType` en `statusType` zijn niet `jsonata` (`debug_jsonata`). Een
      `switch` en een `debug` schrijven niets; dit sluit het lezen met vrije JSONata of uit de context af.
+   - *Geen env-substitutie* (KLEIN-50): Node-RED vervangt elke tekstwaarde die precies `${NAAM}` of `$(NAAM)` is
+     door een instelling of omgevingsvariabele, in elk veld en bij elke soort (ook `str`). Zo'n tekst wordt overal
+     geweigerd (`env_substitutie`), dus ook in `v` van een `switch`, in `to` van een `change`-regel en in een
+     `inject`; een tekst die het patroon alleen bevat blijft toegestaan.
    - *Eigen verbinding per `http request`* (herstelpoging 2, R-VEILIG-2): elke `http request`-node heeft
      `persist: true` (`http_instelling` als het ontbreekt). Zonder eigen agent gebruikt got de globale agent van
      Node.js, en die volgde met `NODE_USE_ENV_PROXY=1` of `NODE_OPTIONS=--use-env-proxy` de proxy uit de omgeving,

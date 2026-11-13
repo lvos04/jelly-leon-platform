@@ -65,8 +65,9 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
    `switch_bron`), en een regel vergelijkt alleen met een vaste soort (zonder `vt` maakt Node-RED er zelf `num` of
    `str` van) of met JSONata uit de bundels; `env`, `msg`, `flow`, `global`, `prev`, een onbekende operator en vrije
    JSONata worden geweigerd (`switch_regel`). Een `debug` voert nooit JSONata uit (`targetType` en `statusType` niet
-   `jsonata`; `debug_jsonata`). Ook geweigerd (`change_regel`): een regel die geen
-   object is, en de oude vorm van de `change`-node zonder lijst `rules` (Node-RED maakt die zelf tot een
+   `jsonata`; `debug_jsonata`). Een tekst die precies `${NAAM}` of `$(NAAM)` is, vervangt Node-RED door een instelling
+   of omgevingsvariabele; die wordt in elk veld geweigerd (`env_substitutie`). Ook geweigerd (`change_regel`): een
+   regel die geen object is, en de oude vorm van de `change`-node zonder lijst `rules` (Node-RED maakt die zelf tot een
    regel). Elke `http request` krijgt van zijn route-node `msg.followRedirects = false` (`redirect_niet_uit` als het
    ontbreekt; een andere waarde is `verzoek_overschreven`): gemeten bij deze digest stuurt Node-RED bij een
    doorverwijzing naar een andere host of poort de bearer-kop met het token mee. Geen adressen, tokens of

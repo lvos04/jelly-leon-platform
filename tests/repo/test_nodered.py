@@ -585,6 +585,20 @@ AFGEWEZEN = {
     "debug-targettype-jsonata": (lambda: _debug(targetType="jsonata", complete="$flowContext('__proto__')"),
                                  "debug_jsonata"),
     "debug-statustype-jsonata": (lambda: _debug(statusType="jsonata", statusVal="payload"), "debug_jsonata"),
+    # KLEIN-50 (vervolgpunt R-VEILIG-3 van S-P2-410): Node-RED vervangt elke tekstwaarde die precies ${NAAM} of
+    # $(NAAM) is door een instelling of omgevingsvariabele (flows/util.js mapEnvVarProperties). Zo kon een bundel een
+    # omgevingsvariabele van de container lezen en in de payload naar de Hub sturen, ook met een vaste soort 'str'.
+    "switch-regel-v-env-substitutie": (lambda: _switch(rules=[{"t": "eq", "v": "${HOME}", "vt": "str"}]),
+                                       "env_substitutie"),
+    "switch-regel-v-env-substitutie-oud": (lambda: _switch(rules=[{"t": "eq", "v": "$(HOME)", "vt": "str"}]),
+                                           "env_substitutie"),
+    "change-to-env-substitutie": (lambda: _regel("jlp-hs-bouw", "meting", to="${HOME}", tot="str"),
+                                  "env_substitutie"),
+    "change-to-env-substitutie-oud": (lambda: _regel("jlp-hs-bouw", "meting", to="$(HOME)", tot="str"),
+                                      "env_substitutie"),
+    "inject-v-env-substitutie": (lambda: _inject({"p": "payload", "v": "${HOME}", "vt": "str"}), "env_substitutie"),
+    "inject-v-env-substitutie-oud": (lambda: _inject({"p": "payload", "v": "$(HOME)", "vt": "str"}),
+                                     "env_substitutie"),
 }
 
 
@@ -610,6 +624,17 @@ def test_property_names_in_change_rules_are_plain_or_refused() -> None:
         assert not nf.EIGENSCHAP_RE.fullmatch(fout), fout
     # 'msg.url' heeft wel de eenvoudige vorm; de wortel 'msg' wordt apart geweigerd (Node-RED haalt 'msg.' eraf)
     assert nf.EIGENSCHAP_RE.fullmatch("msg.url") and "change_regel" in _codes(AFGEWEZEN["change-msg-url"][0]())
+
+
+def test_env_substitution_is_refused_only_in_the_form_node_red_replaces() -> None:
+    """KLEIN-50: alleen een tekst die precies ${NAAM} of $(NAAM) is (zonder witruimte) vervangt Node-RED; die wordt
+    geweigerd, in elk veld. Een tekst die het patroon alleen bevat en de bundels uit Git blijven toegestaan."""
+    assert all(nf.lint(nodes) == [] for nodes in nf.bundels_in_git().values())
+    for tekst in ("${HOME}", "$(HOME)", "${a.b}", "$(x-y)", "${a}b}"):
+        assert "env_substitutie" in _codes(_regel("jlp-hs-bouw", "meting", to=tekst, tot="str")), tekst
+        assert "env_substitutie" in _codes(_met("c", type="comment", info=tekst)), tekst
+    for tekst in ("x${HOME}", "${HOME} ", "${ HOME}", "${}", "$()", "$HOME", "${HOME}\n", "{HOME}"):
+        assert nf.lint(_regel("jlp-hs-bouw", "meting", to=tekst, tot="str")) == [], tekst
 
 
 @pytest.mark.parametrize("geval", sorted(AFGEWEZEN))

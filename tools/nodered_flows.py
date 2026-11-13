@@ -131,6 +131,11 @@ GEHEIM_RE = re.compile(r"(svc_[A-Za-z0-9_-]{20,}|enr_[A-Za-z0-9_-]{20,}|eyJ[A-Za
                        r"|-----BEGIN|\$2[aby]\$\d\d\$)")
 ADRES_RE = re.compile(r"([a-z][a-z0-9+.-]*://|\b\d{1,3}(\.\d{1,3}){3}\b)")
 ONVEILIG_IN_FLOWS_ENV = re.compile(r"[\s$*?\\`'~<>|;&()]")
+# Node-RED vervangt bij het starten van een node elke tekstwaarde die precies ${NAAM} of $(NAAM) is (zonder witruimte)
+# door een instelling of omgevingsvariabele (flows/util.js mapEnvVarProperties), in elk veld en ongeacht de soort. Een
+# bundel kon zo een omgevingsvariabele van de container lezen en naar de Hub sturen; lint weigert die vorm daarom in
+# elke tekst (KLEIN-50, vervolgpunt R-VEILIG-3 van S-P2-410). Een tekst die het patroon alleen bevat blijft toegestaan.
+ENV_SUBSTITUTIE_RE = re.compile(r"\$\{\S+\}|\$\(\S+\)")
 # Besluit C-11 (gebruiker, 2026-11-11): geen anonieme toegang tot de editor en de Admin-API, ook niet lezen; en volgens
 # besluit C-12 geen gebruiker of geheim in het manifest. adminAuth is daarom precies dit (geen ``default``).
 ADMIN_AUTH = {"type": "credentials", "users": []}
@@ -302,6 +307,9 @@ def lint(nodes: list[Node]) -> list[str]:
             uit.append(f"adres_in_bundel: '{tekst[:40]}' — adressen komen alleen uit $env('HUB_URL')")
         if "$globalContext" in tekst or re.search(r"\$env\((?!'HUB_URL'\))", tekst):
             uit.append("jsonata_bron: alleen $env('HUB_URL') en de context van de eigen flow zijn toegestaan")
+        if ENV_SUBSTITUTIE_RE.fullmatch(tekst):
+            uit.append(f"env_substitutie: '{tekst[:40]}' — Node-RED vervangt een tekst die precies ${{NAAM}} of "
+                       "$(NAAM) is door een instelling of omgevingsvariabele; nooit env")
     for node in nodes:
         ntype = node.get("type")
         if ntype == "change":
