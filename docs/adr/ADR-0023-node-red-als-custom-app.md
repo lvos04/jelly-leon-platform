@@ -121,9 +121,10 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
      hetzelfde id als een eigen node (Node-RED gaf zo'n dubbele `http request` het token van de eigen node; gemeten in de
      herreview), met `wires` die niet precies een lijst van lijsten met node-ids is (Node-RED leest ook een geneste
      lijst of een object met `length` als draad), of met een eigen id ergens als tekst (een draad, of een veld als
-     `links` of `scope`). Staat zo'n node er vóór de import, dan weigert de import zonder te schrijven (N10, vier
-     vormen); ziet het teruglezen er een, dan gaan de flows van vóór de import terug. Wat een beheerder ná de import
-     zelf in de editor wijzigt, valt daarbuiten (zie "Uitgaand verkeer").
+     `links`, `scope` of `_alias`, ook als lijst; `_alias` vastgelegd in KLEIN-55). Staat zo'n node er vóór de
+     import, dan weigert de import zonder te schrijven (N10, vier vormen); ziet het teruglezen er een, dan gaan de
+     flows van vóór de import terug. Wat een beheerder ná de import zelf in de editor wijzigt, valt daarbuiten (zie
+     "Uitgaand verkeer").
    - *Oude vorm van de `change`-node:* een `change`-node zonder lijst `rules` (met `action`/`property`/`to`, die
      Node-RED zelf tot een regel maakt) wordt geweigerd (`change_regel`), net als een regel die geen object is.
    - *Doorverwijzingen:* gemeten bij deze digest stuurt de `http request`-node bij een doorverwijzing (307 en 302)

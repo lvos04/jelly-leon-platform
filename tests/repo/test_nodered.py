@@ -982,6 +982,13 @@ def _vreemde_inject(nid: str, draden: Any) -> dict[str, Any]:
             "repeat": "2", "once": True, "wires": draden}
 
 
+def _vreemde_http_request(veld: str, waarde: Any) -> dict[str, Any]:
+    """Een vreemde http request op een vreemd tabblad met een eigen id (geen draad) en één extra veld."""
+    return {"id": "vreemd-http", "type": "http request", "z": "vreemd-tab", "method": "POST", "ret": "obj",
+            "paytoqs": "ignore", "url": "https://elders.invalid/alias", "tls": "", "persist": True, "proxy": "",
+            "authType": "bearer", "headers": [], veld: waarde, "wires": [[]]}
+
+
 VREEMDE_VORMEN: dict[str, list[dict[str, Any]]] = {
     # R-VEILIG-3 van de herreview (herstelpoging 2): Node-RED gebruikt ook deze vormen als draad, of geeft een vreemde
     # node met een eigen id het credential van de eigen node; de eerste controle zag ze niet.
@@ -997,6 +1004,10 @@ VREEMDE_VORMEN: dict[str, list[dict[str, Any]]] = {
     "draad-andere-vorm": [VREEMDE_DRAAD[0], _vreemde_inject("vreemd-tik", [[{"id": "vreemd-ander"}]])],
     "eigen-id-in-ander-veld": [VREEMDE_DRAAD[0], {"id": "vreemd-link", "type": "link out", "z": "vreemd-tab",
                                                   "mode": "link", "links": ["jlp-hs-stuur"], "wires": []}],
+    # KLEIN-55 (A-07): een vreemde http request met ``_alias`` op een eigen id (als tekst en als lijst); de weg is
+    # dicht via "eigen id als tekst", hier expliciet vastgelegd
+    "alias-als-tekst": [VREEMDE_DRAAD[0], _vreemde_http_request("_alias", "jlp-hs-stuur")],
+    "alias-als-lijst": [VREEMDE_DRAAD[0], _vreemde_http_request("_alias", ["jlp-hs-stuur"])],
 }
 
 
@@ -1028,8 +1039,12 @@ def test_the_foreign_node_check_finds_the_reason() -> None:
     assert "dubbel id" in redenen["dubbel-id-inject"] and "dubbel id" in redenen["dubbel-id-http-request"]
     for vorm in ("geneste-lijst", "array-achtig-object", "draad-andere-vorm"):
         assert "'wires'" in redenen[vorm], vorm
-    for vorm in ("geneste-lijst", "array-achtig-object", "eigen-id-in-ander-veld"):
+    for vorm in ("geneste-lijst", "array-achtig-object", "eigen-id-in-ander-veld", "alias-als-tekst",
+                 "alias-als-lijst"):
         assert "noemt jlp-hs-stuur" in redenen[vorm], vorm
+    # zonder het eigen id in ``_alias`` is dezelfde vreemde http request geen vreemde node die iets raakt
+    assert nf._vreemde_draden([*copy.deepcopy(eigen), _vreemde_http_request("_alias", "vreemd-ander")],
+                              {"jlp-hartslag"}) == []
     # de eigen tabbladen van de andere bundels en de globale instellingen zijn geen vreemde node die iets raakt
     alle = [n for nodes in nf.bundels_in_git().values() for n in nodes]
     assert nf._vreemde_draden([*alle, *copy.deepcopy(VORIGE_FLOWS)], {"jlp-hartslag"}) == []

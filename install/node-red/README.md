@@ -171,7 +171,7 @@ export NODERED_BEHEER_WACHTWOORD=…   # wachtwoord van de Node-RED-beheerder
 export NODERED_HUB_TOKEN=…           # service-token van de Hub
 python tools/nodered_flows.py importeer --url <adres van Node-RED> --gebruiker <beheerder> --hub-url <base-URL van de Hub>
 python tools/nodered_flows.py exporteer --url <adres van Node-RED> --gebruiker <beheerder> --naar <map>
-python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere versie>  # herstel van een oude versie
+python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere versie>  # herstel van een oude versie (vanaf een versie na 1.2.0)
 ```
 
 - **Import:** eerst `lint`; dan één `POST /flows` met de bundels, de Hub-URL als globale omgevingsvariabele `HUB_URL`
