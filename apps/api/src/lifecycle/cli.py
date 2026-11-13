@@ -17,12 +17,14 @@ import sys
 from pathlib import Path
 
 from lifecycle.config import ConfigError, Settings, load_settings
+from lifecycle.logfilter import install_log_filter, uvicorn_log_config
 
 log = logging.getLogger("lifecycle")
 
 
 def _setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    install_log_filter()  # KLEIN-36: vangnet tegen de DETAIL-regel van PostgreSQL
     logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
     # contract 1.3 §3.7: geen Hub-adres van een mislukte koppelpoging in de log; httpx logt elk verzoek met de URL
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -91,6 +93,7 @@ def cmd_api() -> int:
         proxy_headers=False,
         server_header=False,
         log_level="info",
+        log_config=uvicorn_log_config(),
     )
     return 0
 

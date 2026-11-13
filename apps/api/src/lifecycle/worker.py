@@ -24,6 +24,7 @@ import time
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import DBAPIError
 
 from lifecycle import APP_ID, __version__
 from lifecycle.app import HttpClientFactory, default_http_client_factory
@@ -40,6 +41,7 @@ from lifecycle.enrollment import (
 from lifecycle.hublink import HubLinkStore, now_iso
 from lifecycle.idempotency import Idempotency
 from lifecycle.keyrotation import poll as poll_key_rotations
+from lifecycle.logfilter import db_error_text
 from lifecycle.models import WorkerHeartbeat
 from lifecycle.outbox import emit, push_pending
 from lifecycle.replay import ReplayCache
@@ -234,6 +236,8 @@ class Worker:
         while not self.stop.is_set():
             try:
                 self.tick()
+            except DBAPIError as exc:  # KLEIN-36: zonder de DETAIL-regel van PostgreSQL
+                log.error("worker-ronde mislukt; volgende ronde gaat door: %s", db_error_text(exc))
             except Exception:
                 log.exception("worker-ronde mislukt; volgende ronde gaat door")
             self.stop.wait(self.settings.worker_interval_seconds)
