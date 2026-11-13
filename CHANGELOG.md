@@ -2,6 +2,7 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Schematest manifest draait in CI** (A-26): `test_manifest_valid_against_appstore_schema` leest het schema van appstore-en-fork op de gepinde commit uit `APPSTORE_BRON` en faalt in CI als de bron ontbreekt; `tests/repo` draait met `-rs`.
 - **Node-RED-lint weigert env-substitutie** (KLEIN-50): een tekst die precies `${NAAM}` of `$(NAAM)` is (Node-RED vult daar een omgevingsvariabele in) geeft `env_substitutie`.
 - **Databasefout zonder DETAIL van PostgreSQL in de log** (KLEIN-36): API en worker loggen bij een DBAPIError alleen soort, sqlstate, constraint en tabel; logfilter als vangnet.
 - **Databasefout zonder parameterwaarden** (KLEIN-28, V-094): de engines van API, worker en migraties staan op

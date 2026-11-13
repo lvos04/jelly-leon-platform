@@ -32,7 +32,7 @@ test-sim:
 	cd e2e/simulators && ../../$(PY) -m pytest -q
 
 test-repo:
-	$(PY) -m pytest -q tests/repo
+	$(PY) -m pytest -q -rs tests/repo
 
 # Installeerbare manifesten (install/manifests, ADR-0014): validator van appstore-en-fork in een eigen venv
 # (gecommitte inhoud via git archive, alleen lezen; APPSTORE=<checkout> om een andere bron te kiezen).

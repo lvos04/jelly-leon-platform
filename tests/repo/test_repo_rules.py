@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "deploy/manifest/jelly-leon-platform.manifest.yaml"
-APPSTORE_SCHEMA = ROOT.parent / "appstore-en-fork/apps/api/src/appstore/manifest/manifest-v1.schema.json"
+# Schema van de eigenaar van de manifeststandaard op de gepinde commit (KOPIE.json, gelijk aan ASF_COMMIT in de CI),
+# uit dezelfde bron als test_validator_kopie: APPSTORE_BRON (CI: de checkout van de validatorstap), anders
+# ../appstore-en-fork. Met VALIDATOR_BRON_VERPLICHT=1 (CI) faalt de test als de bron ontbreekt (geen skip).
+APPSTORE_BRON = Path(os.environ.get("APPSTORE_BRON") or ROOT.parent / "appstore-en-fork")
+APPSTORE_SCHEMA = "apps/api/src/appstore/manifest/manifest-v1.schema.json"
+APPSTORE_PIN = ROOT / "apps/api/src/appstore/KOPIE.json"
 FORBIDDEN_HOST_PATHS = ("/", "/mnt", "/etc", "/var/run", "/root", "/var/run/docker.sock")
 
 
@@ -70,13 +77,27 @@ def test_manifest_rules_section_9() -> None:
     assert not [p for p in params if p.upper().startswith("HUB_")]
 
 
-@pytest.mark.skipif(not APPSTORE_SCHEMA.exists(), reason="schema van appstore-en-fork niet naast deze repo")
+def _appstore_schema() -> dict[str, Any]:
+    commit = json.loads(APPSTORE_PIN.read_text(encoding="utf-8"))["bron_commit"]
+    r = subprocess.run(["git", "-C", str(APPSTORE_BRON), "show", f"{commit}:{APPSTORE_SCHEMA}"], capture_output=True,
+                       text=True, check=False)
+    if r.returncode != 0:
+        if os.environ.get("VALIDATOR_BRON_VERPLICHT") == "1":
+            pytest.fail(f"schema van appstore-en-fork@{commit} niet beschikbaar in {APPSTORE_BRON}")
+        pytest.skip(f"schema van appstore-en-fork@{commit} niet beschikbaar in {APPSTORE_BRON}; in CI verplicht")
+    schema = json.loads(r.stdout)
+    assert isinstance(schema, dict)
+    return schema
+
+
 def test_manifest_valid_against_appstore_schema() -> None:
     import jsonschema
 
-    schema = json.loads(APPSTORE_SCHEMA.read_text(encoding="utf-8"))
-    errors = [e.message for e in jsonschema.Draft202012Validator(schema).iter_errors(load_manifest())]
-    assert errors == []
+    validator = jsonschema.Draft202012Validator(_appstore_schema())
+    assert [e.message for e in validator.iter_errors(load_manifest())] == []
+    # negatief: het schema moet een kapot manifest ook echt weigeren (anders bewijst groen niets)
+    kapot = {**load_manifest(), "install": {"method": "compose"}}
+    assert list(validator.iter_errors(kapot)), "schema weigert install.method compose niet"
 
 
 def _jl_manifest() -> str | None:

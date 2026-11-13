@@ -105,7 +105,7 @@ jobs:
           MANIFEST_VALIDATOR_VERPLICHT: "1"
           APPSTORE_BRON: ${{ runner.temp }}/appstore
           VALIDATOR_BRON_VERPLICHT: "1"
-        run: python -m pytest -q tests/repo
+        run: python -m pytest -q -rs tests/repo  # -rs: reden van elke skip zichtbaar in de log (A-26)
       - name: OpenAPI-drift
         run: |
           python -m lifecycle export-openapi /tmp/openapi.json
