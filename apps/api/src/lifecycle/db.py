@@ -17,7 +17,10 @@ def normalize_url(url: str) -> str:
 
 
 def make_engine(url: str) -> Engine:
-    return create_engine(normalize_url(url), pool_pre_ping=True, pool_size=5, max_overflow=5)
+    # hide_parameters: een databasefout zet geen parameterwaarden (mogelijk geheimen) in de foutmelding of log (V-094).
+    return create_engine(
+        normalize_url(url), pool_pre_ping=True, pool_size=5, max_overflow=5, hide_parameters=True
+    )
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:

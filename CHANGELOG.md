@@ -2,6 +2,8 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Databasefout zonder parameterwaarden** (KLEIN-28, V-094): de engines van API, worker en migraties staan op
+  `hide_parameters=True`; een databasefout noemt geen parameterwaarden meer in fout of log.
 - Lifecycle-dienst (`lifecycle`): FastAPI + SQLAlchemy 2 + Alembic + eigen PostgreSQL 16; statusmachine als
   datamodel; `/lifecycle/v1` en connectorcontract; uitvoering (installeren/bijwerken/terugzetten/verwijderen/
   verhuizen) geeft eerlijk `capability_unavailable` tot P2.

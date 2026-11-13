@@ -28,7 +28,8 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     section = config.get_section(config.config_ini_section, {})
     section["sqlalchemy.url"] = normalize_url(section.get("sqlalchemy.url", ""))
-    connectable = engine_from_config(section, prefix="sqlalchemy.", poolclass=pool.NullPool)
+    # hide_parameters: geen parameterwaarden in foutmelding of log (V-094).
+    connectable = engine_from_config(section, prefix="sqlalchemy.", poolclass=pool.NullPool, hide_parameters=True)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
