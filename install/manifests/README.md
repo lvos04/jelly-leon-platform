@@ -42,6 +42,13 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
 
+Controlelijsten (`install/checklists/`): per I-document zonder installatie precies één lijst, met de bestandsnaam van
+het document (`I0x_NAAM.md` → `../checklists/I0x_NAAM.checklist.yaml`); geen document heeft twee lijsten. Naast I01 en
+I02 krijgen de documenten van de bestaande apps (I03, I04, I05 en I15 tot en met I20) zo'n lijst
+(`docs/adr/ADR-0027-controlelijsten-bestaande-apps.md`). Een lijst installeert niets en vervangt geen manifest of
+import; ze beschrijft alleen de weg via de TrueNAS-webinterface of het formulier van de standaard Custom App, nooit een
+terminal of YAML. Elke nieuwe lijst krijgt een rij in de tabel hierboven (naam en document) in de stap die haar maakt.
+
 Keuze Custom App of catalogusapp en digests: `docs/adr/ADR-0014-manifesten-p1.md`; contract 1.3 (monitorplan,
 `post_install_checks`, `stopped_snapshot` voor Gotify en Uptime Kuma, `install.reason` en `same_as_host` voor Authentik,
 restrisico zonder no-new-privileges, `accepted_findings`): `docs/adr/ADR-0019-contract-1-3.md`. Node-RED als Custom

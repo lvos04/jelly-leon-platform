@@ -2,6 +2,12 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Controlelijsten voor de bestaande apps voorbereid** (S-P3-400, ADR-0027): `tools/checklists.py` en
+  `tests/repo/test_checklists.py` gelden voor elke lijst in `install/checklists/` (geen vaste namen I01/I02 en geen
+  vaste acht stappen meer; het aantal stappen is het aantal Excel-taken van het document). Nieuwe regel, ook in
+  `python tools/checklists.py`: een lijst per bestaand document, met de bestandsnaam van het document; een tweede lijst
+  voor hetzelfde document faalt. De negatieve tests en de simulatortest lopen over alle lijsten. De lijsten I03, I04,
+  I05 en I15 tot en met I20 zelf volgen in eigen stappen.
 - **Schematest manifest draait in CI** (A-26): `test_manifest_valid_against_appstore_schema` leest het schema van appstore-en-fork op de gepinde commit uit `APPSTORE_BRON` en faalt in CI als de bron ontbreekt; `tests/repo` draait met `-rs`.
 - **Node-RED-lint weigert env-substitutie** (KLEIN-50): een tekst die precies `${NAAM}` of `$(NAAM)` is (Node-RED vult daar een omgevingsvariabele in) geeft `env_substitutie`.
 - **Databasefout zonder DETAIL van PostgreSQL in de log** (KLEIN-36): API en worker loggen bij een DBAPIError alleen soort, sqlstate, constraint en tabel; logfilter als vangnet.
