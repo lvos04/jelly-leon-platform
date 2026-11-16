@@ -36,19 +36,32 @@ geschreven voor precies de twee bestanden van I01 en I02 (de test eiste die twee
    op 2026-11-16: alleen I05, met "Compose stack", "Eerste YAML" en een installatiescript), dan beschrijft de lijst de
    weg via de TrueNAS-webinterface of via het formulier van de standaard Custom App, en legt zij de afwijking van het
    document vast in `afwijking_van_document_nl` (ADR-0015 besluit 3). Bestaat die weg nog niet, dan zegt de stap dat
-   eerlijk in zijn validatie en blokkade; een terminal of YAML is nooit een tussenoplossing.
+   eerlijk in zijn validatie en blokkade; een terminal of YAML is nooit een tussenoplossing. `tools/checklists.py`
+   weigert een YAML-, compose- of scriptweg (`YAML`, `.yml`, `compose`, `install.sh` en elk `.sh`-script) in
+   `uitvoeren_nl`, `bij_fout_nl` en `handmatig_ui_pad_nl`. Titel en acceptatie zijn de letterlijke Excel-tekst en mogen
+   die woorden dragen: de titels en acceptaties van de Excel-taken I05-05-02 en I05-05-03, die YAML noemen, blijven
+   letterlijk staan (besluit Z-18, zonder besluit optie 1). De weg zelf staat in `uitvoeren_nl` (het formulier van de
+   standaard Custom App) en de afwijking van het document in `afwijking_van_document_nl`, dat de woorden ook mag noemen.
 5. **Een lijst per document, met de naam van het document.** Elke lijst in `install/checklists/` hoort bij precies één
    bestaand document onder `docs/platform-v2/03_INSTALLATIE/`; de bestandsnaam is de documentnaam met
    `.checklist.yaml` in plaats van `.md` (`I03_MEDIAGUARD.md` → `I03_MEDIAGUARD.checklist.yaml`), en geen document
    heeft twee lijsten. `tools/checklists.py` (functies `controleer_lijst` en `controleer_alle`, dus ook
    `python tools/checklists.py` en `make manifesten`) faalt bij een tweede lijst, een afwijkende bestandsnaam of een
-   document dat niet bestaat; `main` faalt ook bij een map zonder lijsten.
+   document dat niet bestaat; `main` faalt ook bij een map zonder lijsten. Hooguit één lijst per document: de regel
+   eist niet dat elk document al een lijst heeft (die komen per stap). Elk ander bestand in `install/checklists/`
+   (bijvoorbeeld `.yml` of een naam zonder `.checklist.yaml`) is een fout, zodat geen lijst de controle ontloopt.
+   Een lijst is alleen voor documenten zonder installatie: heeft het document al een installeerbaar manifest in
+   `install/manifests/` (een manifest met `install.method` `custom_app` of `catalog_app` dat het document in `docs`
+   noemt, zoals `gotify.manifest.yaml` voor I13), dan faalt de lijst. Het manifest van het platform zelf
+   (`deploy/manifest/`) valt hier niet onder.
 6. **Gereedschap en test zonder vaste namen of aantallen.** De test leest de lijsten uit de map (`cl.lijsten()`) en
    vergelijkt het aantal stappen met het aantal Excel-taken van het eigen document (5, 6 of 8 voor deze documenten).
    De ondergrens blijft: I01 en I02 moeten er altijd zijn, zodat de test nooit op nul lijsten slaagt. De negatieve
    tests (`_mutate`) gelden voor elke lijst; de simulatortest roept de methoden van elke lijst aan en eist nog steeds
-   dat er minstens één versie-afhankelijke methode is getest. De test voor account-stappen blijft specifiek voor I02
-   (OneDrive).
+   dat er minstens één versie-afhankelijke methode is getest. De test leest de map `install/checklists/` ook zelf
+   (niet via `cl.lijsten()`), zodat een bestand dat het gereedschap overslaat opvalt. De test voor account-stappen
+   loopt over elk paar (lijst, stap) met `OneDrive` of `account` in `uitvoeren_nl` en `handmatig_bewijs` in `wijze`,
+   met als ondergrens de OneDrive-controle I02-02-02.
 
 ## Schema (bouwpunt 4): geen wijziging
 
@@ -58,6 +71,14 @@ Gemeten op 2026-11-16 in `docs/platform-v2/EXCEL_TAKEN.json`: de 59 taken van de
 past op het patroon van `document`; `id` (`^I[0-9]{2}$`) laat I03 tot en met I20 toe. Geen verplicht veld mist een
 zinnige waarde voor een bestaande app (`besluiten` mag leeg zijn; `eigenaar_repo` is de repo waarin de lijst staat).
 Alleen de beschrijvende tekst (`description`) van het schema is bijgewerkt; dat is geen formaatwijziging.
+
+Ook gemeten tegen de tekstregels van `tools/checklists.py` (de lijst neemt titel en acceptatie letterlijk over, dus
+moeten die door de regels heen): de terminalregel ving eerst de acceptatie van I03-03-02 ("Geen recursieve chmod/chown
+op bibliotheek, …"), zodat een I03-lijst nooit groen kon worden. De regel is daarom verfijnd, niet verzwakt: een gewoon
+Nederlands lidwoord, voorzetsel of voegwoord direct na de commandonaam is geen argument; een opdracht als
+`chown -R 568:568 /data` blijft een fout, en alles tussen backticks ook. Een test haalt alle titels en acceptaties uit
+`EXCEL_TAKEN.json` door de terminal- en de voorbeeldregel, en een proeflijst per document van dit ADR met de letterlijke
+Excel-teksten is groen.
 
 ## Gevolgen
 

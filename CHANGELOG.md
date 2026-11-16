@@ -6,8 +6,16 @@
   `tests/repo/test_checklists.py` gelden voor elke lijst in `install/checklists/` (geen vaste namen I01/I02 en geen
   vaste acht stappen meer; het aantal stappen is het aantal Excel-taken van het document). Nieuwe regel, ook in
   `python tools/checklists.py`: een lijst per bestaand document, met de bestandsnaam van het document; een tweede lijst
-  voor hetzelfde document faalt. De negatieve tests en de simulatortest lopen over alle lijsten. De lijsten I03, I04,
-  I05 en I15 tot en met I20 zelf volgen in eigen stappen.
+  voor hetzelfde document faalt. De negatieve tests en de simulatortest lopen over alle lijsten (de test voor
+  account-stappen nog niet; zie het herstel hieronder). De lijsten I03, I04, I05 en I15 tot en met I20 zelf volgen in
+  eigen stappen.
+- **Controlelijsten: herstel na review** (S-P3-400, ADR-0027): de terminalregel weigert de letterlijke Excel-acceptatie
+  van I03-03-02 ("chmod/chown op") niet meer; `chown -R 568:568 /data` en alles tussen backticks blijven fout. Nieuw in
+  `python tools/checklists.py`: een YAML-, compose- of scriptweg in `uitvoeren_nl`, `bij_fout_nl` of
+  `handmatig_ui_pad_nl` faalt (titel en acceptatie blijven de Excel-tekst, Z-18 optie 1); een lijst voor een document
+  met een installeerbaar manifest in `install/manifests/` faalt; elk ander bestand in `install/checklists/` faalt. De
+  test leest die map zelf. Rechtgezet: de test voor account-stappen liep alleen over I02-02-02; nu over elk paar (lijst,
+  stap) met een account-stap (ondergrens I02-02-02).
 - **Schematest manifest draait in CI** (A-26): `test_manifest_valid_against_appstore_schema` leest het schema van appstore-en-fork op de gepinde commit uit `APPSTORE_BRON` en faalt in CI als de bron ontbreekt; `tests/repo` draait met `-rs`.
 - **Node-RED-lint weigert env-substitutie** (KLEIN-50): een tekst die precies `${NAAM}` of `$(NAAM)` is (Node-RED vult daar een omgevingsvariabele in) geeft `env_substitutie`.
 - **Databasefout zonder DETAIL van PostgreSQL in de log** (KLEIN-36): API en worker loggen bij een DBAPIError alleen soort, sqlstate, constraint en tabel; logfilter als vangnet.
