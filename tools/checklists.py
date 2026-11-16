@@ -11,10 +11,16 @@ niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
 - precies de Excel-taken van het document dekt, in volgorde, met dezelfde titel en hetzelfde acceptatiecriterium;
 - alleen **alleen-lezen** TrueNAS-methoden noemt (het platform wijzigt hier niets; wijzigingen doet de gebruiker in de
   TrueNAS-web-UI of ze volgen later als goedgekeurde R1/R2-actie via de executor);
-- geen terminalopdrachten en geen voorbeeldwaarden (IP-adres, poolnaam) bevat;
+- geen terminalopdrachten en geen voorbeeldwaarden (IP-adres, poolnaam) bevat, en in ``uitvoeren_nl``,
+  ``bij_fout_nl`` en ``handmatig_ui_pad_nl`` nooit een YAML-, compose- of scriptweg noemt (titel en acceptatie zijn de
+  letterlijke Excel-tekst en mogen zulke woorden dragen; besluit Z-18 optie 1);
 - per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware));
 - hoort bij precies één bestaand document onder ``03_INSTALLATIE/``: de bestandsnaam is de documentnaam met
-  ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten.
+  ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten;
+- niet hoort bij een document dat al een installeerbaar manifest heeft in ``install/manifests/`` (``docs``-veld van
+  een manifest met ``install.method`` ``custom_app`` of ``catalog_app``).
+
+Elk ander bestand in ``install/checklists/`` (bijvoorbeeld ``.yml`` of zonder ``.checklist``) is een fout.
 
 Gebruik: ``python tools/checklists.py`` (exitcode 0 = alles in orde).
 """
@@ -32,6 +38,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKLIST_DIR = ROOT / "install" / "checklists"
+MANIFEST_DIR = ROOT / "install" / "manifests"
+INSTALLEERBAAR = frozenset({"custom_app", "catalog_app"})
 SCHEMA = ROOT / "schemas" / "checklist-v1.schema.json"
 DOCS = ROOT / "docs" / "platform-v2"
 EXCEL = DOCS / "EXCEL_TAKEN.json"
@@ -45,8 +53,18 @@ SCHRIJVEND = re.compile(
     r"\.(create|update|delete|start|stop|redeploy|rollback|upgrade|clone|sync|setperm|set_|do_|run|restart|"
     r"login_with_api_key|login_ex|job_abort|subscribe)\b"
 )
-#: Terminalopdrachten horen niet in een controlelijst voor de gebruiker (contract §1: geen terminal).
-TERMINAL = re.compile(r"(`[^`]+`|\b(ls|stat|sudo|ssh|zfs|zpool|docker|chown|chmod|midclt|rm)\s+-?[\w/])")
+#: Terminalopdrachten horen niet in een controlelijst voor de gebruiker (contract §1: geen terminal): alles tussen
+#: backticks, en een commando uit de lijst gevolgd door een vlag, een pad of een argument. Een gewoon Nederlands
+#: lidwoord, voorzetsel of voegwoord na de commandonaam is geen argument: de letterlijke Excel-acceptatie
+#: "Geen recursieve chmod/chown op bibliotheek" (I03-03-02) is tekst, "chown -R 568:568 /data" blijft een opdracht.
+GEWOON_WOORD = r"(?i:op|of|en|in|met|van|voor|naar|bij|aan|niet|nooit|geen|is|zijn|wordt|de|het|een|zonder)\b"
+TERMINAL = re.compile(
+    rf"(`[^`]+`|\b(ls|stat|sudo|ssh|zfs|zpool|docker|chown|chmod|midclt|rm)\s+(?!{GEWOON_WOORD})-?[\w/])"
+)
+#: Nooit YAML, compose of een installatiescript als weg (contract §1/§2, regel R5): alleen TrueNAS-webinterface of het
+#: formulier van de standaard Custom App. Geldt voor de velden die de weg beschrijven, niet voor titel en acceptatie.
+YAML_WEG = re.compile(r"yaml|\byml\b|compose|\.sh\b", re.I)
+WEG_VELDEN = ("uitvoeren_nl", "bij_fout_nl", "handmatig_ui_pad_nl")
 VOORBEELD = re.compile(r"(\b\d{1,3}(\.\d{1,3}){3}\b|/mnt/(tank|pool|data)\b|\btank\b)")
 ACCOUNT_STAP = re.compile(r"OneDrive|account", re.I)
 ECHT_NODIG = frozenset({"NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)"})
@@ -61,8 +79,25 @@ def excel_taken() -> dict[str, list[dict[str, Any]]]:
     return taken
 
 
+def inhoud(map_: Path = CHECKLIST_DIR) -> list[Path]:
+    """Alles in de map (bestanden en mappen), los van het naampatroon van een lijst."""
+    return sorted(map_.iterdir()) if map_.is_dir() else []
+
+
 def lijsten(map_: Path = CHECKLIST_DIR) -> list[Path]:
-    return sorted(map_.glob("*.checklist.yaml"))
+    return [p for p in inhoud(map_) if p.is_file() and p.name.endswith(".checklist.yaml")]
+
+
+def documenten_met_manifest(map_: Path = MANIFEST_DIR) -> dict[str, list[str]]:
+    """Documentnummer (``I13``) → installeerbare manifesten in ``map_`` die dat document in ``docs`` noemen."""
+    uit: dict[str, list[str]] = {}
+    for p in sorted(map_.glob("*.manifest.yaml")) if map_.is_dir() else []:
+        data = yaml.safe_load(p.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or (data.get("install") or {}).get("method") not in INSTALLEERBAAR:
+            continue
+        for doc in data.get("docs") or []:
+            uit.setdefault(str(doc).split("_", 1)[0], []).append(p.name)
+    return uit
 
 
 def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]]) -> list[str]:
@@ -107,6 +142,10 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
                 fout.append(f"{sid}: {naam} is geen alleen-lezen-methode")
         if not set(stap["besluiten"]) <= set(data["besluiten"]):
             fout.append(f"{sid}: besluit niet in de lijst van de controlelijst")
+        for veld in WEG_VELDEN:
+            if YAML_WEG.search(str(stap.get(veld, ""))):
+                fout.append(f"{sid}: YAML-, compose- of scriptweg in {veld} (alleen TrueNAS-webinterface of het "
+                            "formulier van de standaard Custom App)")
         for veld in ("uitvoeren_nl", "acceptatie_nl", "bij_fout_nl", "handmatig_ui_pad_nl"):
             tekst = str(stap.get(veld, ""))
             if TERMINAL.search(tekst):
@@ -130,12 +169,18 @@ def bestandsnaam(document: str) -> str:
     return Path(document).stem + ".checklist.yaml"
 
 
-def controleer_alle(map_: Path = CHECKLIST_DIR) -> dict[str, list[str]]:
-    """Elke lijst afzonderlijk (``controleer_lijst``) én de verzameling: één lijst per document, naam = document."""
+def controleer_alle(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR) -> dict[str, list[str]]:
+    """Elke lijst afzonderlijk (``controleer_lijst``) én de verzameling: één lijst per document, naam = document,
+    geen lijst naast een installeerbaar manifest, en geen ander bestand in de map."""
     taken = excel_taken()
+    met_manifest = documenten_met_manifest(manifesten)
     uitkomst: dict[str, list[str]] = {}
     per_document: dict[str, list[str]] = {}
-    for p in lijsten(map_):
+    gevonden = lijsten(map_)
+    for p in inhoud(map_):
+        if p not in gevonden:
+            uitkomst[p.name] = [f"geen controlelijst: in {map_.name}/ hoort alleen <DOCUMENT>.checklist.yaml"]
+    for p in gevonden:
         data = yaml.safe_load(p.read_text(encoding="utf-8"))
         fout = controleer_lijst(data, taken)
         document = data.get("document") if isinstance(data, dict) else None
@@ -143,6 +188,9 @@ def controleer_alle(map_: Path = CHECKLIST_DIR) -> dict[str, list[str]]:
             per_document.setdefault(document, []).append(p.name)
             if p.name != bestandsnaam(document):
                 fout.append(f"bestandsnaam past niet bij het document: verwacht {bestandsnaam(document)}")
+            if namen := met_manifest.get(Path(document).name[:3]):
+                fout.append(f"document {document} heeft een installeerbaar manifest ({', '.join(namen)}): een "
+                            "controlelijst is alleen voor documenten zonder installatie")
         uitkomst[p.name] = fout
     for document, namen in per_document.items():
         if len(namen) > 1:
@@ -151,8 +199,8 @@ def controleer_alle(map_: Path = CHECKLIST_DIR) -> dict[str, list[str]]:
     return uitkomst
 
 
-def main(map_: Path = CHECKLIST_DIR) -> int:
-    uitkomst = controleer_alle(map_)
+def main(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR) -> int:
+    uitkomst = controleer_alle(map_, manifesten)
     if not uitkomst:
         print(f"FOUT geen controlelijsten gevonden in {map_}")
     for naam, fout in uitkomst.items():

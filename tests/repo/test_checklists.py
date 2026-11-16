@@ -4,9 +4,15 @@ Alle tests gelden voor elke lijst in ``install/checklists/`` (``cl.lijsten()``),
 
 - Vorm (JSON Schema), dekking van precies de Excel-taken met titel/acceptatie/risico uit de Excel, alleen-lezen
   TrueNAS-methoden, geen terminal, geen voorbeeldwaarden, eerlijke validatie per stap (``tools/checklists.py``).
-- Verzameling: elke lijst hoort bij precies één document onder ``03_INSTALLATIE/`` (bestandsnaam = documentnaam) en
-  geen document heeft twee lijsten (ook ``python tools/checklists.py`` faalt dan).
-- Negatieve tests: elke overtreding wordt herkend, in elke lijst.
+- Verzameling: elke lijst hoort bij precies één document onder ``03_INSTALLATIE/`` (bestandsnaam = documentnaam),
+  geen document heeft twee lijsten, een document met een installeerbaar manifest in ``install/manifests/`` heeft geen
+  lijst, en elk ander bestand in ``install/checklists/`` is een fout (ook ``python tools/checklists.py`` faalt dan).
+  De test leest de map zelf, los van ``cl.lijsten()``.
+- Tekstregels: de letterlijke Excel-titels en -acceptaties van alle documenten gaan door de terminal- en
+  voorbeeldregel; een YAML-, compose- of scriptweg wordt geweigerd in ``uitvoeren_nl``, ``bij_fout_nl`` en
+  ``handmatig_ui_pad_nl`` (titel, acceptatie en afwijking mogen de Excel-woorden dragen; Z-18 optie 1).
+- Negatieve tests: elke overtreding wordt herkend, in elke lijst; de account-regel voor elke account-stap van elke
+  lijst.
 - Simulator: elke genoemde methode bestaat in het TrueNAS-profiel waarvoor ze geldt en is aan te roepen met de
   alleen-lezen-key van de Hub (25.04.2.6 en 25.10.8) — en een methode die in een profiel niet bestaat, wordt daar ook
   echt geweigerd (``-32601``), zodat de versie-indeling klopt.
@@ -41,7 +47,8 @@ def test_checklists_are_valid_and_cover_the_excel_tasks() -> None:
     uitkomst = cl.controleer_alle()
     # ondergrens (V-003): nooit groen op nul lijsten; I01 en I02 blijven er altijd
     assert {"I01_TRUENAS_BASIS.checklist.yaml", "I02_BACKUP_EN_RESTORE.checklist.yaml"} <= set(uitkomst)
-    assert set(uitkomst) == {p.name for p in cl.lijsten()}
+    # de map zelf lezen (niet via cl.lijsten()): elk bestand in install/checklists/ is gecontroleerd en groen
+    assert set(uitkomst) == {p.name for p in cl.CHECKLIST_DIR.iterdir()}
     assert uitkomst == {naam: [] for naam in uitkomst}
     taken = cl.excel_taken()
     documenten: Counter[str] = Counter()
@@ -120,6 +127,94 @@ def test_an_empty_folder_is_never_green(tmp_path: Path) -> None:
     assert cl.main(tmp_path) == 1
 
 
+@pytest.mark.parametrize("vreemd", ["I19_SEERR.checklist.yml", "I19_SEERR.yaml", "LEESMIJ.md"])
+def test_any_other_file_in_the_folder_fails(tmp_path: Path, vreemd: str) -> None:
+    """R-TECH-1: een bestand dat geen ``<DOCUMENT>.checklist.yaml`` is, ontloopt de controle niet."""
+    for naam in LIJSTEN:
+        _kopie(tmp_path, naam)
+    _neplijst(tmp_path, "03_INSTALLATIE/I19_SEERR.md", naam=vreemd)
+    uitkomst = cl.controleer_alle(tmp_path)
+    assert set(uitkomst) == {p.name for p in tmp_path.iterdir()}
+    assert any("geen controlelijst" in f for f in uitkomst[vreemd]), uitkomst
+    assert cl.main(tmp_path) == 1
+
+
+def _neplijst(map_: Path, document: str, wijzig: Any = None, naam: str | None = None) -> Path:
+    """Proeflijst voor ``document`` met de letterlijke Excel-taken, op de stappen van I01 (alleen in tmp_path)."""
+    basis = _load("I01_TRUENAS_BASIS.checklist.yaml")
+    data = copy.deepcopy(basis)
+    data.update(id=Path(document).name[:3], document=document, titel_nl=f"Proeflijst {Path(document).stem}")
+    data["stappen"] = []
+    for i, taak in enumerate(cl.excel_taken()[document]):
+        stap = copy.deepcopy(basis["stappen"][min(i, len(basis["stappen"]) - 1)])
+        stap.update(id=taak["ID"], titel_nl=taak["Taak"], acceptatie_nl=taak["Acceptatie"], risico=taak["Risico"])
+        data["stappen"].append(stap)
+    if wijzig is not None:
+        wijzig(data)
+    pad = map_ / (naam or cl.bestandsnaam(document))
+    pad.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return pad
+
+
+#: De documenten van ADR-0027 (bestaande apps); hun lijsten volgen in S-P3-410…440.
+BESTAANDE_APPS = ["I03_MEDIAGUARD", "I04_MEDIA_SOURCE_OPTIMIZER", "I05_MY_HOUSE", "I15_IMMICH", "I16_PROWLARR",
+                  "I17_SABNZBD", "I18_QBITTORRENT", "I19_SEERR", "I20_BAZARR"]
+
+
+def test_the_literal_excel_texts_of_every_document_pass_the_text_rules() -> None:
+    """R-MANIFEST-1: de lijst moet titel en acceptatie letterlijk uit de Excel nemen, dus mogen de terminal- en de
+    voorbeeldregel geen Excel-tekst weigeren (anders kan zo'n lijst nooit groen worden)."""
+    taken = [t for ts in cl.excel_taken().values() for t in ts]
+    assert len(taken) >= 100, len(taken)
+    gezien = {t["ID"]: t["Acceptatie"] for t in taken}
+    assert "chown" in gezien["I03-03-02"], gezien.get("I03-03-02")  # het geval dat eerder fout ging
+    for taak in taken:
+        for veld in ("Taak", "Acceptatie"):
+            tekst = str(taak[veld])
+            assert not cl.TERMINAL.search(tekst), (taak["ID"], veld, tekst)
+            assert not cl.VOORBEELD.search(tekst), (taak["ID"], veld, tekst)
+
+
+def test_lists_with_the_literal_excel_texts_of_the_existing_apps_pass(tmp_path: Path) -> None:
+    """R-MANIFEST-1/-2 en Z-18 optie 1: een lijst per document van ADR-0027 met de letterlijke Excel-titels en
+    -acceptaties is groen, ook I03 (chmod/chown in de acceptatie) en I05 ("TrueNAS Install via YAML" als titel, YAML in
+    de afwijking); de weg zelf staat in uitvoeren_nl zonder YAML."""
+
+    def i05(d: dict[str, Any]) -> None:
+        stap = next(s for s in d["stappen"] if s["id"] == "I05-05-03")
+        assert "YAML" in stap["titel_nl"]
+        stap["afwijking_van_document_nl"] = ("Het document noemt Install via YAML; de weg is het formulier van de "
+                                             "standaard Custom App (Z-18: optie 1, zonder besluit).")
+
+    for doc in BESTAANDE_APPS:
+        _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md", wijzig=i05 if doc.startswith("I05") else None)
+    uitkomst = cl.controleer_alle(tmp_path)
+    assert uitkomst == {f"{doc}.checklist.yaml": [] for doc in BESTAANDE_APPS}, uitkomst
+    assert cl.main(tmp_path) == 0
+
+
+def test_a_list_for_a_document_with_an_installable_manifest_fails(tmp_path: Path) -> None:
+    """R-MANIFEST-3: I13 (Gotify) heeft ``install/manifests/gotify.manifest.yaml``; een lijst installeert niets en is
+    alleen voor documenten zonder installatie."""
+    _neplijst(tmp_path, "03_INSTALLATIE/I13_GOTIFY.md")
+    fout = cl.controleer_alle(tmp_path)["I13_GOTIFY.checklist.yaml"]
+    assert any("installeerbaar manifest" in f and "gotify.manifest.yaml" in f for f in fout), fout
+    assert cl.main(tmp_path) == 1
+
+
+def test_an_installable_manifest_for_an_existing_list_makes_it_fail(tmp_path: Path) -> None:
+    lijsten, manifesten = tmp_path / "checklists", tmp_path / "manifests"
+    lijsten.mkdir()
+    manifesten.mkdir()
+    _kopie(lijsten, "I01_TRUENAS_BASIS.checklist.yaml")
+    assert cl.controleer_alle(lijsten, manifesten) == {"I01_TRUENAS_BASIS.checklist.yaml": []}
+    (manifesten / "proef.manifest.yaml").write_text(yaml.safe_dump(
+        {"app_id": "proef", "install": {"method": "custom_app"}, "docs": ["I01_TRUENAS_BASIS"]}), encoding="utf-8")
+    fout = cl.controleer_alle(lijsten, manifesten)["I01_TRUENAS_BASIS.checklist.yaml"]
+    assert any("installeerbaar manifest" in f for f in fout), fout
+    assert cl.main(lijsten, manifesten) == 1
+
+
 def _mutate(naam: str, wijzig: Any) -> list[str]:
     data = copy.deepcopy(_load(naam))
     wijzig(data)
@@ -150,6 +245,21 @@ MUTATIES = [
     ("acceptatie herschreven", lambda d: _stap(d, 1).update(acceptatie_nl="Alles groen."), "acceptatie ≠ Excel"),
     ("terminal", lambda d: _stap(d, 2).update(uitvoeren_nl="Voer `ls -l /dev/dri` uit op de NAS."),
      "terminalopdracht"),
+    ("terminal chown", lambda d: _stap(d, 2).update(uitvoeren_nl="Zet de rechten met chown -R 568:568 /data."),
+     "terminalopdracht"),
+    ("terminal met subcommando",
+     lambda d: _stap(d, 2).update(uitvoeren_nl="Lees de pools met midclt call pool.query."), "terminalopdracht"),
+    ("terminal tussen backticks",
+     lambda d: _stap(d, 2).update(uitvoeren_nl="Voer `cat /etc/os-release` uit op de NAS."), "terminalopdracht"),
+    ("YAML-weg", lambda d: _stap(d, 2).update(
+        uitvoeren_nl="Open Apps > Discover Apps > Install via YAML en plak de compose-YAML uit de repo."),
+     "YAML-, compose- of scriptweg in uitvoeren_nl"),
+    ("YAML-weg in het menupad",
+     lambda d: _stap(d, 2).update(handmatig_ui_pad_nl="Apps > Discover Apps > Install via YAML"),
+     "YAML-, compose- of scriptweg in handmatig_ui_pad_nl"),
+    ("installatiescript bij fout",
+     lambda d: _stap(d, 2).update(bij_fout_nl="Draai install.sh opnieuw voor de geheimen."),
+     "YAML-, compose- of scriptweg in bij_fout_nl"),
     ("voorbeeld-IP", lambda d: _stap(d, 3).update(uitvoeren_nl="Verbind met wss://192.168.1.10/api/current."),
      "voorbeeldwaarde"),
     ("voorbeeldpool", lambda d: _stap(d, 6).update(uitvoeren_nl="Maak datasets onder /mnt/tank/apps aan."),
@@ -168,12 +278,27 @@ def test_violations_are_detected(naam: str, beschrijving: str, wijzig: Any, verw
     assert any(verwacht in f for f in fout), (naam, beschrijving, fout)
 
 
-def test_account_steps_are_never_claimed_without_the_account() -> None:
-    def wijzig(d: dict[str, Any]) -> None:
-        d["stappen"][1]["validatie_nu"] = ["NIET GEVALIDEERD (echte NAS)"]  # I02-02-02: controle in OneDrive
+#: Elk paar (lijst, stap) met een account-stap: OneDrive/account in uitvoeren_nl en bewijs met de hand.
+ACCOUNT_STAPPEN = [
+    (naam, stap["id"])
+    for naam in LIJSTEN
+    for stap in _load(naam)["stappen"]
+    if cl.ACCOUNT_STAP.search(stap["uitvoeren_nl"]) and "handmatig_bewijs" in stap["wijze"]
+]
 
-    fout = _mutate("I02_BACKUP_EN_RESTORE.checklist.yaml", wijzig)
-    assert any("NIET GEVALIDEERD (account)" in f for f in fout), fout
+
+def test_the_account_steps_are_found() -> None:
+    # ondergrens (V-003): de OneDrive-controle I02-02-02 is er altijd
+    assert ("I02_BACKUP_EN_RESTORE.checklist.yaml", "I02-02-02") in ACCOUNT_STAPPEN, ACCOUNT_STAPPEN
+
+
+@pytest.mark.parametrize(("naam", "stap_id"), ACCOUNT_STAPPEN, ids=[s for _, s in ACCOUNT_STAPPEN])
+def test_account_steps_are_never_claimed_without_the_account(naam: str, stap_id: str) -> None:
+    def wijzig(d: dict[str, Any]) -> None:
+        next(s for s in d["stappen"] if s["id"] == stap_id)["validatie_nu"] = ["NIET GEVALIDEERD (echte NAS)"]
+
+    fout = _mutate(naam, wijzig)
+    assert any(f.startswith(f"{stap_id}: ") and "NIET GEVALIDEERD (account)" in f for f in fout), fout
 
 
 # ------------------------------------------------------------------ tegen de TrueNAS-simulator (alleen lezen)
