@@ -1,14 +1,20 @@
-"""Controlelijsten (eigen formaat ``checklist v1``) voor I-documenten zonder installatie: I01 en I02 (ADR-0015).
+"""Controlelijsten (eigen formaat ``checklist v1``) voor I-documenten zonder installatie (ADR-0015, ADR-0027).
 
-De manifeststandaard (contract 1.2 §9) kent alleen ``custom_app`` en ``catalog_app``. I01 (TrueNAS-basis) en I02
-(back-up en herstel) installeren niets; ze worden een controlelijst die:
+I01 (TrueNAS-basis) en I02 (back-up en herstel) zijn de eerste; de documenten van de bestaande apps (I03, I04, I05 en
+I15 tot en met I20) krijgen een lijst in hetzelfde formaat. Niets hier geldt alleen voor bepaalde namen of aantallen:
+elke lijst in ``install/checklists/`` wordt op dezelfde regels gecontroleerd.
+
+De manifeststandaard (contract 1.2 §9) kent alleen ``custom_app`` en ``catalog_app``. Een controlelijst installeert
+niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
 
 - het JSON Schema ``schemas/checklist-v1.schema.json`` volgt;
 - precies de Excel-taken van het document dekt, in volgorde, met dezelfde titel en hetzelfde acceptatiecriterium;
 - alleen **alleen-lezen** TrueNAS-methoden noemt (het platform wijzigt hier niets; wijzigingen doet de gebruiker in de
   TrueNAS-web-UI of ze volgen later als goedgekeurde R1/R2-actie via de executor);
 - geen terminalopdrachten en geen voorbeeldwaarden (IP-adres, poolnaam) bevat;
-- per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware)).
+- per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware));
+- hoort bij precies één bestaand document onder ``03_INSTALLATIE/``: de bestandsnaam is de documentnaam met
+  ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten.
 
 Gebruik: ``python tools/checklists.py`` (exitcode 0 = alles in orde).
 """
@@ -27,7 +33,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CHECKLIST_DIR = ROOT / "install" / "checklists"
 SCHEMA = ROOT / "schemas" / "checklist-v1.schema.json"
-EXCEL = ROOT / "docs" / "platform-v2" / "EXCEL_TAKEN.json"
+DOCS = ROOT / "docs" / "platform-v2"
+EXCEL = DOCS / "EXCEL_TAKEN.json"
 
 #: Alleen-lezen-methoden: het laatste segment moet hierin staan (en nooit in SCHRIJVEND).
 LEZEND = frozenset({
@@ -54,8 +61,8 @@ def excel_taken() -> dict[str, list[dict[str, Any]]]:
     return taken
 
 
-def lijsten() -> list[Path]:
-    return sorted(CHECKLIST_DIR.glob("*.checklist.yaml"))
+def lijsten(map_: Path = CHECKLIST_DIR) -> list[Path]:
+    return sorted(map_.glob("*.checklist.yaml"))
 
 
 def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]]) -> list[str]:
@@ -65,9 +72,11 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
         fout.append(f"schema: {'/'.join(map(str, err.path)) or '(root)'}: {err.message}")
     if fout:
         return fout
+    if not (DOCS / data["document"]).is_file():
+        fout.append(f"document bestaat niet onder docs/platform-v2/: {data['document']}")
     doc_taken = taken.get(data["document"], [])
     if not doc_taken:
-        return [f"geen Excel-taken voor {data['document']}"]
+        return [*fout, f"geen Excel-taken voor {data['document']}"]
     if not str(Path(data["document"]).name).startswith(data["id"] + "_"):
         fout.append("id past niet bij het document")
     stappen = data["stappen"]
@@ -116,13 +125,36 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
     return fout
 
 
-def controleer_alle() -> dict[str, list[str]]:
+def bestandsnaam(document: str) -> str:
+    """De enige toegestane bestandsnaam van de lijst bij ``document`` (``03_INSTALLATIE/I03_X.md`` → ``I03_X…``)."""
+    return Path(document).stem + ".checklist.yaml"
+
+
+def controleer_alle(map_: Path = CHECKLIST_DIR) -> dict[str, list[str]]:
+    """Elke lijst afzonderlijk (``controleer_lijst``) én de verzameling: één lijst per document, naam = document."""
     taken = excel_taken()
-    return {p.name: controleer_lijst(yaml.safe_load(p.read_text(encoding="utf-8")), taken) for p in lijsten()}
+    uitkomst: dict[str, list[str]] = {}
+    per_document: dict[str, list[str]] = {}
+    for p in lijsten(map_):
+        data = yaml.safe_load(p.read_text(encoding="utf-8"))
+        fout = controleer_lijst(data, taken)
+        document = data.get("document") if isinstance(data, dict) else None
+        if isinstance(document, str):
+            per_document.setdefault(document, []).append(p.name)
+            if p.name != bestandsnaam(document):
+                fout.append(f"bestandsnaam past niet bij het document: verwacht {bestandsnaam(document)}")
+        uitkomst[p.name] = fout
+    for document, namen in per_document.items():
+        if len(namen) > 1:
+            for naam in namen:
+                uitkomst[naam].append(f"document {document} heeft twee lijsten: {', '.join(namen)}")
+    return uitkomst
 
 
-def main() -> int:
-    uitkomst = controleer_alle()
+def main(map_: Path = CHECKLIST_DIR) -> int:
+    uitkomst = controleer_alle(map_)
+    if not uitkomst:
+        print(f"FOUT geen controlelijsten gevonden in {map_}")
     for naam, fout in uitkomst.items():
         print(f"{'OK  ' if not fout else 'FOUT'} {naam}")
         for f in fout:
