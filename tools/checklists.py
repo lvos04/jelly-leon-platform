@@ -57,7 +57,7 @@ SCHRIJVEND = re.compile(
 #: backticks, en een commando uit de lijst gevolgd door een vlag, een pad of een argument. Een gewoon Nederlands
 #: lidwoord, voorzetsel of voegwoord na de commandonaam is geen argument: de letterlijke Excel-acceptatie
 #: "Geen recursieve chmod/chown op bibliotheek" (I03-03-02) is tekst, "chown -R 568:568 /data" blijft een opdracht.
-GEWOON_WOORD = r"(?i:op|of|en|in|met|van|voor|naar|bij|aan|niet|nooit|geen|is|zijn|wordt|de|het|een|zonder)\b"
+GEWOON_WOORD = r"(?i:op|of|en|in|met|van|voor|naar|bij|aan|niet|nooit|geen|is|zijn|wordt|de|het|een|zonder)(?=\s|$)"
 TERMINAL = re.compile(
     rf"(`[^`]+`|\b(ls|stat|sudo|ssh|zfs|zpool|docker|chown|chmod|midclt|rm)\s+(?!{GEWOON_WOORD})-?[\w/])"
 )

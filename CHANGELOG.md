@@ -10,7 +10,7 @@
   account-stappen nog niet; zie het herstel hieronder). De lijsten I03, I04, I05 en I15 tot en met I20 zelf volgen in
   eigen stappen.
 - **Controlelijsten: herstel na review** (S-P3-400, ADR-0027): de terminalregel weigert de letterlijke Excel-acceptatie
-  van I03-03-02 ("chmod/chown op") niet meer; `chown -R 568:568 /data` en alles tussen backticks blijven fout. Nieuw in
+  van I03-03-02 ("chmod/chown op") niet meer; `chown -R 568:568 /data`, `rm de/oude/map` (lijstwoord alleen gevolgd door witruimte, KLEIN-97) en alles tussen backticks blijven fout. Nieuw in
   `python tools/checklists.py`: een YAML-, compose- of scriptweg in `uitvoeren_nl`, `bij_fout_nl` of
   `handmatig_ui_pad_nl` faalt (titel en acceptatie blijven de Excel-tekst, Z-18 optie 1); een lijst voor een document
   met een installeerbaar manifest in `install/manifests/` faalt; elk ander bestand in `install/checklists/` faalt. De

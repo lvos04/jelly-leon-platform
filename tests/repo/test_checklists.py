@@ -251,6 +251,8 @@ MUTATIES = [
      lambda d: _stap(d, 2).update(uitvoeren_nl="Lees de pools met midclt call pool.query."), "terminalopdracht"),
     ("terminal tussen backticks",
      lambda d: _stap(d, 2).update(uitvoeren_nl="Voer `cat /etc/os-release` uit op de NAS."), "terminalopdracht"),
+    ("terminal met lijstwoord als pad",
+     lambda d: _stap(d, 2).update(uitvoeren_nl="Ruim op met rm de/oude/map."), "terminalopdracht"),
     ("YAML-weg", lambda d: _stap(d, 2).update(
         uitvoeren_nl="Open Apps > Discover Apps > Install via YAML en plak de compose-YAML uit de repo."),
      "YAML-, compose- of scriptweg in uitvoeren_nl"),
