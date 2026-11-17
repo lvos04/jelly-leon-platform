@@ -340,7 +340,7 @@ def check_evidence_row(row: dict[str, Any], tasks: set[str], punten: set[str]) -
 def test_evidence_json_follows_section_11() -> None:
     tasks = {t["ID"] for t in json.loads((ROOT / "docs/platform-v2/EXCEL_TAKEN.json").read_text(encoding="utf-8"))}
     punten = _contractpunten()
-    assert len(punten) == 14, punten
+    assert len(punten) == 15, punten
     seen: set[str] = set()
     for row in _evidence():
         assert row["id"] not in seen, row["id"]

@@ -685,9 +685,9 @@
   "validatie": "Unit-getest",
   "bewijs": "commit e2a649c; docs/platform-v2/PLATFORM_CONTRACTEN.md + CONTRACT_1.3_CONFORMITEIT.md byte-gelijk aan ai-server-manager@0a7143b (CONTRACT_KOPIE.json, tools/contract_kopie.py); tests/repo/test_contract_kopie.py (pin, bron op de gepinde commit, driftregel, negatieve gevallen); tests/repo/test_repo_rules.py::test_evidence_json_follows_section_11, ::test_evidence_check_rejects_section_11_violations; GitHub Actions-run 42783537307 (commit 5c5f67c) groen: test, statuspagina, image en rooktest",
   "blokkade": "",
-  "opmerking": "",
+  "opmerking": "kopie aanvulling C-12, bron e88a290",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-10"
+  "bijgewerkt": "2026-11-17"
  },
  {
   "id": "C1.3-JLP-14",
