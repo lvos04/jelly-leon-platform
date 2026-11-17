@@ -708,5 +708,85 @@
   "opmerking": "Gevonden: outbox en tokenrotatie volgden Retry-After bij 429/503 niet (§5) en de rotatie werd bij een storing elke 5 s opnieuw geprobeerd; de statuspagina gaf 429 zonder Retry-After; CUSTOM_APP.md noemde nog de 1.2-code hub_link_onleesbaar; de rooktest draaide tegen de 1.2-Hub. Alles gerepareerd en getest.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-10"
+ },
+ {
+  "id": "I03-03-01",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-01)",
+  "blokkade": "Gebruiker moet op de echte NAS ingestelde image, tag en digest met MediaGuard en releasegegevens vergelijken; verschillen vastleggen zonder automatische update.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-02",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-02); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance",
+  "blokkade": "Gebruiker moet op de echte NAS opslag, gebruiker, rechten, vrije ruimte en GPU-diagnose controleren; werkelijk toegewezen hardware vaststellen.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-03",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-03); tests/repo/test_checklists.py::test_i03_backup_precedes_update_and_rollback_preserves_progress; tests/repo/test_checklists.py::test_i03_missing_safety_condition_is_detected",
+  "blokkade": "Volledige herstelbundle inclusief core, encoder, vier afzonderlijke forkback-ups, sleutels en passende snapshot op geïsoleerde teststack herstellen en voortgang vergelijken. Dekking en veilige herstelweg moeten per onderdeel worden aangetoond; geen volledige forkbundel geclaimd.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Back-upgate blokkeert de update tot consistentie en volledig proefherstel inclusief alle forks zijn bewezen; een snapshot alleen is onvoldoende.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-04",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-04); tests/repo/test_checklists.py::test_i03_backup_precedes_update_and_rollback_preserves_progress; tests/repo/test_checklists.py::test_i03_missing_safety_condition_is_detected",
+  "blokkade": "Vóór een echte NAS-update: volledig herstelbewijs van I03-03-03 plus upgradebewijs voor de exacte release/digest op gevulde vorige database, inclusief terugzetten. Vorige image en passende snapshot samen bewaren. Ononderbroken Emby-koppeling en behoud van voortgang eerst aantonen; anders niet bijwerken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Releasegebonden bewijs en veilige beschikbaarheid blijven voorwaarden; niet alleen NAS-test nodig zolang deze ontbreken. Geen huidige of beoogde image-versie gemeten.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-05",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-05)",
+  "blokkade": "Gebruiker moet met de bestaande diensten op de NAS de Seerr/Prowlarr/SAB-routering en een eigen toegestane proefaanvraag vergelijken; ontbrekende en dubbele downloads uitsluiten.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-06",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-06); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance",
+  "blokkade": "Gebruiker moet met eigen proefbestand en echte GPU de encodekwaliteit, HDR/DV, kijkpauze, noodstop en herstel zonder verlies van origineel of voortgang meten.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-07",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-07); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance",
+  "blokkade": "Gebruiker moet op een eigen echte telefoon koppelen, melding, push, dagoverzicht, offline actualiteit en intrekken van uitsluitend de proefkoppeling controleren.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
+ },
+ {
+  "id": "I03-03-08",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-08); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance",
+  "blokkade": "Hub-UI uit S-P3-070 en volledige adapterlevering eerst afronden; daarna viewer-sleutel via de Hub-UI en vergelijking van dezelfde toegestane statusvelden met MediaGuard op echte Hub/NAS. Geen account of dienst benaderd; statusvergelijking niet uitgevoerd.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: Hub-UI/adapter zijn vervolgwerk. In validatie_nu geen nieuwe Hub-waarde zolang B-6/ASF-15 ontbreekt; de EVIDENCE-waarde is wel toegestaan door contract §11.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-17"
  }
 ]
