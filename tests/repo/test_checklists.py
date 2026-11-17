@@ -100,7 +100,8 @@ def _i03_veiligheid(data: dict[str, Any]) -> None:
     """Bewaar de inhoudelijke gates van I03; de algemene validator bewaakt vorm en Excel-teksten."""
     backup, update = data["stappen"][2:4]
     assert backup["blokkeert_volgende"] is True
-    for tekst in ("encoder", "vier forks", "versleuteld", "proefherstel", "I03-03-04"):
+    for tekst in ("encoder", "vier forks", "versleuteld", "proefherstel", "I03-03-04", "Back-up nu",
+                  "Versleutelde herstelbundel", "Herstelcode instellen", "Nu bundel maken", "apart"):
         assert tekst in backup["uitvoeren_nl"], tekst
     for tekst in ("I03-03-03", "upgradebewijs van die release", "gevulde database", "vorige image-versie",
                   "passende snapshot", "Custom App", "gebruiker", "Emby-koppeling", "niet bijwerken"):
@@ -119,6 +120,9 @@ def test_i03_backup_precedes_update_and_rollback_preserves_progress() -> None:
 @pytest.mark.parametrize(("index", "veld", "tekst"), [
     (2, "blokkeert_volgende", None),
     (2, "uitvoeren_nl", "vier forks"),
+    (2, "uitvoeren_nl", "Back-up nu"),
+    (2, "uitvoeren_nl", "Versleutelde herstelbundel"),
+    (2, "uitvoeren_nl", "Herstelcode instellen"),
     (2, "uitvoeren_nl", "proefherstel"),
     (3, "uitvoeren_nl", "upgradebewijs van die release"),
     (3, "uitvoeren_nl", "passende snapshot"),

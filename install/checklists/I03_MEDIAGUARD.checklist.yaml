@@ -59,7 +59,11 @@ stappen:
     titel_nl: Back-up inclusief forks
     uitvoeren_nl: >-
       Vóór I03-03-04 maakt de gebruiker een consistente online core-back-up via MediaGuard → Instellingen →
-      Systeem & back-ups → Back-ups → Nu back-uppen. Neem de encoder en alle vier forks mee: controleer hun
+      Systeem & back-ups → Back-ups (core-database) → Back-up nu. Gebruik daarnaast de aparte kaart
+      Versleutelde herstelbundel: kies Herstelcode instellen als die nog niet is ingesteld, bewaar de eenmalig
+      getoonde herstelcode apart en veilig, en kies Nu bundel maken. Bewaar de bundel ook buiten de NAS.
+      Deze acties bewijzen nog geen volledig herstel; een terminalvrije controle- en herstelweg voor de bundel
+      is nog niet aangetoond. Neem de encoder en alle vier forks mee: controleer hun
       eigen back-ups en de bijpassende appdata-snapshot via TrueNAS. Forkback-ups staan afzonderlijk in
       Sonarr/Radarr → System → Backup. Bewaar brongeheimen versleuteld, met herstelgegevens apart.
       Doe een proefherstel van de volledige herstelbundle in een geïsoleerde testomgeving met eigen opslag;
