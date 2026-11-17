@@ -146,7 +146,7 @@ stappen:
   - id: I03-03-07
     titel_nl: Android meldingen
     uitvoeren_nl: >-
-      Indien de gebruiker dit wil, gebruikt die de eigen release-app op een eigen telefoon en volgt de
+      Indien de gebruiker dit wil, gebruikt die de al geïnstalleerde app of de APK uit de CI op een eigen telefoon en volgt de
       MediaGuard-koppeling in de app. Test een melding, push, dagoverzicht en de actualiteit zonder verbinding.
       Ontkoppel uitsluitend de eigen proefkoppeling en controleer dat intrekken werkt; behoud bestaande
       koppelingen. Bewaar geschoond bewijs zonder koppelgegevens, sleutels of kijkgedrag.
@@ -177,4 +177,4 @@ stappen:
     bewijs: [datum, gemaskeerde_output, status, hub_meting]
     bij_fout_nl: Stop hier; laat de status onbekend en behoud de bestaande inrichting; geen ruimere sleutel gebruiken om de controle te laten slagen.
     blokkeert_volgende: true
-    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (echte Hub)]

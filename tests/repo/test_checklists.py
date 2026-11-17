@@ -146,7 +146,7 @@ def test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance() -> None:
     for stap in data["stappen"]:
         assert stap["wijze"] and not stap.get("truenas_methoden")
         assert "Sim-getest" not in stap["validatie_nu"]
-        assert "NIET GEVALIDEERD (echte Hub)" not in stap["validatie_nu"]  # B-6 volgt afzonderlijk
+        assert ("NIET GEVALIDEERD (echte Hub)" in stap["validatie_nu"]) == (stap["id"] == "I03-03-08")
     for index in (1, 5, 6):
         assert "NIET GEVALIDEERD (hardware)" in data["stappen"][index]["validatie_nu"]
     hub = data["stappen"][7]
@@ -537,3 +537,9 @@ def test_i04_hersteloverdracht_mutatie_wordt_geweigerd() -> None:
     stap["uitvoeren_nl"] = stap["uitvoeren_nl"].replace("stop dan hier.", "ga dan toch verder.")
     with pytest.raises(AssertionError):
         _i04_veiligheid(data)
+
+
+def test_i03_android_herkomst_zonder_onuitgebrachte_release() -> None:
+    tekst = _load("I03_MEDIAGUARD.checklist.yaml")["stappen"][6]["uitvoeren_nl"]
+    assert "de al geïnstalleerde app of de APK uit de CI" in tekst
+    assert "eigen release-app" not in tekst

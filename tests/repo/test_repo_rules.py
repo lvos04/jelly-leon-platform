@@ -427,3 +427,18 @@ def test_i03_proefomgeving_is_geen_alleen_nas_claim() -> None:
     for rij in rijen:
         if rij["id"] in ("I03-03-05", "I03-03-06"):
             assert "alleen nas-test nodig" not in rij["opmerking"].lower(), rij["id"]
+
+
+def test_klein105_bewijs_en_accountoordeel() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    geselecteerd = [r for r in rijen if r["id"].startswith(("I03-03-", "I04-04-"))]
+    assert len(geselecteerd) == 16
+    for rij in geselecteerd:
+        for tekst in ("040f4ea", "25fec3a", "cbf74db", "44186697403", "N-P6-05",
+                      "test_i03_i04_geen_te_ruime_nas_claim", "test_i03_proefomgeving_is_geen_alleen_nas_claim",
+                      "test_i04_hersteloverdracht_mutatie_wordt_geweigerd",
+                      "test_menupaden_gebruiken_letterlijke_bronnamen"):
+            assert tekst in rij["bewijs"], (rij["id"], tekst)
+        assert "NIET GEVALIDEERD (account)" not in rij["validatie"]
+    hub = next(r for r in geselecteerd if r["id"] == "I03-03-08")
+    assert "zolang B-6/ASF-15 ontbreekt" not in hub["opmerking"]
