@@ -1,0 +1,206 @@
+# I04 Media Source Optimizer — bestaande installatie behouden; deze lijst voert niets uit.
+checklist_version: "1"
+kind: checklist
+install:
+  method: none
+id: I04
+titel_nl: Media Source Optimizer — versie, veilige proeven, back-up en Hub-controle
+document: 03_INSTALLATIE/I04_MEDIA_SOURCE_OPTIMIZER.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: >-
+  De bestaande installatie blijft de terugval. Alle kijkgeschiedenis, de MediaGuard-voortgang en de bestaande
+  Emby-koppeling blijven beschikbaar; Emby blijft ongewijzigd werken. Geen mediaserveroverstap of directe
+  databasewijziging door het platform. Versies, datasets, adressen en sleutels zijn onbekend tot de gebruiker
+  ze vaststelt. Deze lijst is statisch gecontroleerd, niet functioneel uitgevoerd. Bewaar uitsluitend geschoond
+  bewijs zonder geheimen, adressen, gebruikersgegevens of kijkgedrag. Toestemming voor echte proeven volgt uit
+  T-12; deze lijst geeft die toestemming niet. Iedere muterende proef vereist vooraf het volledige herstelbewijs
+  van I04-04-07, ook al staat die controle later in de documentvolgorde.
+stappen:
+  - id: I04-04-01
+    titel_nl: Installed tag vastleggen
+    uitvoeren_nl: >-
+      De gebruiker leest in TrueNAS de image, tag en digest van de bestaande app en vergelijkt die met MSO →
+      Back-up & updates → MSO-core → Versie en Schemaversie en de kaart Databasemigraties. Vergelijk dit met de
+      beoogde release, release/VERSION, wijzigingsnotities en CI in de bronrepository. Leg het verschil tussen
+      draaiende release en ontwikkelkandidaat vast; de versies in de Excel-titel of acceptatie zijn geen gemeten
+      productieversies. Geen onuitgebrachte tag installeren of automatische update starten.
+    acceptatie_nl: Verschil 1.5.0/1.6 kandidaat duidelijk.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → bestaande Media Source Optimizer-app → Edit → Image
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; zonder vastgestelde draaiende en beoogde versie, schema en releasebewijs geen update of volgende proef.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De gebruiker leest de versie en migraties in de webinterface. De oudere versieaanbeveling in het document
+      wordt niet als actuele of werkelijk geïnstalleerde image overgenomen.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-02
+    titel_nl: Image en dataset controleren
+    uitvoeren_nl: >-
+      De gebruiker vergelijkt het bestaande standaard Custom App-formulier met de werkelijk vastgestelde image,
+      opslagkoppeling voor appdata, poorttoewijzing en procesrechten; geen verhoogde rechten of tweede database
+      toevoegen. Lees in Back-up & updates de kaart Onderdelen. Controleer persistentie na herstart uitsluitend
+      op een eigen geïsoleerde testkopie, met eigen opslag en het herstelbewijs van I04-04-07 vooraf. Geen reboot
+      van de NAS en geen herstart van andere apps. Bij schema-onverenigbaarheid geen oudere image op nieuwere
+      gegevens starten; bewaar vorige image én bijpassende snapshot samen.
+    acceptatie_nl: Start en persistentie op reboot zonder permission issues.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → bestaande Media Source Optimizer-app → Edit → Storage Configuration en Resources
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; wijzig geen bestaande opslag, rechten of diensten om een fout te omzeilen; behoud de bestaande installatie.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De vaste image uit het document is geen gemeten releasepin. Een herstartproef op een testkopie vervangt
+      geen NAS-rebootacceptatie; die blijft open tot een afzonderlijk door de gebruiker gepland veilig moment.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-03
+    titel_nl: Koppeling MediaGuard
+    uitvoeren_nl: >-
+      Controleer de bestaande verbinding in MSO → Instellingen → Verbindingen → MediaGuard. Gebruik uitsluitend
+      een eigen viewer-sleutel voor alleen lezen; bewaar die alleen in het geheime veld van de eigen app, nooit
+      in bewijs of het Custom App-formulier. De knop Test controleert de verbinding; een geslaagde verbinding
+      bewijst nog geen bevoegdheid voor herstelacties. Controleer op een geïsoleerde testkopie met eigen
+      testdienst dat MSO zelfstandig blijft werken als MediaGuard onbereikbaar is; maak daarvoor geen bestaande
+      dienst onbereikbaar. Geen herzoek, noodstop of schrijfrechten in de bestaande MediaGuard-installatie.
+      De Emby-koppeling en MediaGuard-voortgang blijven ongewijzigd beschikbaar.
+    acceptatie_nl: MSO connected en als MediaGuard offline is zelfstandige modus.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; behoud de bestaande koppeling en laat ontbrekende mogelijkheden onbekend; geen ruimere sleutel als omweg.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De operator-, zoek- en noodstopproeven uit het document worden hier niet uitgevoerd. Deze controle is
+      alleen lezen; muterende MediaGuard-acties volgen uitsluitend hun eigen toegestane werkstap en akkoord.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-04
+    titel_nl: Prowlarr en clients live
+    uitvoeren_nl: >-
+      T-12 is een voorafgaande gate: de gebruiker geeft de toegestane testbronnen op en geeft uitdrukkelijk
+      toestemming voor deze proef met echte diensten. Zonder dat akkoord niets versturen of activeren.
+      Controleer eerst MSO → Instellingen → Verbindingen voor Prowlarr, SABnzbd en qBittorrent met Test en leg
+      de echte dienstversies afgeschermd vast. Onderzoek vervolgens uitsluitend de toegestane testketen:
+      Newznab/Torznab-categorieën zonder recursieve zoeklus, SAB-serverstatus en regels voor private trackers.
+      Geen automatische verwijdering van media of datasets; geen verkeerde categorie, dubbele eigenaar of
+      wijziging aan bestaande downloads. Voor een muterende proef is I04-04-07 vooraf vereist.
+    acceptatie_nl: Geen recursive search, geen verkeerde auto-delete.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; ontbrekend T-12-akkoord of ontbrekende testbronnen blokkeren deze liveproef; geen bestaande download of dienst wijzigen.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-05
+    titel_nl: Autopilot policies
+    uitvoeren_nl: >-
+      Controleer in MSO → Instellingen → systeem → Bedrijfsmodus eerst Alleen-lezen en in Automatisering de
+      bestaande beleidsinstellingen en voorstellen. Alleen-lezen geeft geen toestemming voor handmatige
+      downloads of herzoek; die acties blijven buiten deze controle. Activeer Autopilot niet op bestaande
+      diensten. Bewijs op een geïsoleerde proefomgeving na I04-04-07 dat risicovolle wijzigingen vooraf het
+      akkoord op precies die wijziging vragen, de laatste werkende server behouden blijft en automatisch
+      verwijderen van bestanden uit staat. Controleer status en terugdraaien, inclusief weigering bij drift.
+      Bewaar de eigenaarsverdeling; geen tweede aansturing van Prowlarr of clients en geen wijziging van Emby
+      of MediaGuard-voortgang. Iedere echte vervolgproef wacht op de daarvoor vereiste toestemming.
+    acceptatie_nl: Geen files automatisch verwijderen, statuses en rollback zichtbaar.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; zonder bewijs van veilige beleidsgrenzen en terugdraaien geen automatische acties activeren; behoud de bestaande stand.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De lijst activeert geen beleidsinstelling op echte diensten. De voorgestelde activering in het document
+      blijft afhankelijk van een geïsoleerde veiligheidsproef en uitdrukkelijk akkoord per risicovolle wijziging.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-06
+    titel_nl: 1.6.0 veranderingen accepteren
+    uitvoeren_nl: >-
+      T-12 is een voorafgaande gate: de gebruiker bepaalt de toegestane testbronnen en geeft toestemming voor
+      de echte dienstproeven. Controleer vóór enige activering de exacte kandidaatimage en het herstelbewijs
+      van I04-04-07. Meet SAB-foutclassificatie, afhandeling van de standaardcategorie, terugdraaien bij drift
+      en de getoonde meetuitkomsten tegen uitsluitend die toegestane diensten. Bekijk Automatisering →
+      Voetafdruk en vergelijk origineel, MSO-wijziging en huidige stand; een scherm alleen bewijst geen veilige
+      terugzetting. Leg dienstversies en alle uitkomsten in een geschoond proefrapport vast voordat de kandidaat
+      live gaat. Een versie in de titel of een test met een nep-dienst bewijst geen productiegeschiktheid.
+    acceptatie_nl: Proefrapport met echte serviceversies voordat 1.6 live gaat.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; zonder T-12-akkoord, testbronnen en volledig proefrapport geen livegang of automatische acties; behoud de bestaande installatie.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-07
+    titel_nl: MSO backup/migrate
+    uitvoeren_nl: >-
+      Deze gate moet vóór elke muterende proef of update zijn bewezen. De gebruiker maakt in MSO → Back-up &
+      updates → Back-ups met Back-up maken een back-up en controleert dat de taak voltooid is en de back-up
+      in de lijst verschijnt. Geheimen meenemen staat standaard uit; als de gebruiker die optie bewust kiest,
+      hoort de back-up uitsluitend in afgeschermde opslag. Bewaar ook de bijbehorende sleutels en appdata;
+      versleutelde waarden alleen bewijzen geen herstelbaarheid. Leg de vorige image met digest en passende
+      snapshot samen vast. Laat vóór een update de exacte kandidaat en het migratie- en terugzetbewijs beoordelen.
+      Doe volledig proefherstel uitsluitend in een vooraf aantoonbaar geïsoleerde testomgeving met eigen opslag,
+      zonder netwerkverbinding met bestaande diensten of Emby. De kopie moet de back-up, registratie en passende
+      sleutels bevatten; ontbreekt een aantoonbare veilige overdracht via de webinterface, stop dan hier.
+      Gebruik daar Back-ups → Terugzetten en de gevraagde bevestiging; controleer database, instellingen,
+      ontsleutelbaarheid en audit en toon aan: geen dubbele taken, downloads of herzoek na herstel.
+      Start nooit een oudere image op een database van een nieuwere versie. Een schemaweigering niet omzeilen;
+      terugval vereist de vorige image én bijpassende snapshot samen, zonder nieuwere voortgang te overschrijven.
+      De afhandeling van S-P3-205 is geen geleverd herstelbewijs voor deze installatie; de gate blijft gelden.
+    acceptatie_nl: Geen dubbele jobs/herzoek na restore.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Datasets → vastgestelde appdata-dataset → Data Protection → Snapshots
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Stop hier; zonder volledig geïsoleerd proefherstel, passende sleutels en veilige terugval geen update of
+      muterende proef. Herstel nooit over productiegegevens of nieuwere voortgang; bestaande diensten blijven werken.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De database-export uit het document loopt via Back-up maken in de app. Geen terminalroute. Een upload- of
+      exportknop voor de volledige herstelset is niet vastgesteld; de veilige overdracht naar een testkopie moet
+      eerst worden aangetoond. De zichtbare knop Terugzetten is geen functioneel herstelbewijs.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I04-04-08
+    titel_nl: Hub koppelen
+    uitvoeren_nl: >-
+      Deze controle wacht op S-P3-220: MSO levert de gescopete machine-sleutel nog niet. Er is nog geen
+      vastgestelde scherm- of knopnaam voor het aanmaken daarvan. Na aantoonbare levering maakt de gebruiker
+      in de eigen MSO-webinterface een machine-sleutel met uitsluitend read-scope en voert die in de Hub-UI in;
+      de Hub bewaart hem in de vault. Gebruik geen menselijk wachtwoord, sessiecookie of CSRF-sessie in de Hub,
+      geen enrollment en geen sleutel in het Custom App-formulier of bewijs. Controleer op de echte Hub de KPI's,
+      meldingen en voorstellen tegen MSO, inclusief bron en meettijd. De Hub doet geen directe schrijfacties
+      naar SABnzbd, qBittorrent of Prowlarr; eigenaarschap blijft bij de bestaande eigenaar. Latere
+      changes:approve-rechten vereisen hun eigen levering en controle van wijzigingshash en eenmalige verwerking;
+      de acceptatie over gelijktijdige goedkeuring is met alleen read niet bewezen. Beproef dat uitsluitend
+      afzonderlijk in de geïsoleerde omgeving na die levering. Zolang bouw, koppeling of bewijs ontbreekt is de
+      status onbekend en niet gevalideerd; geen gesimuleerd succes of ruimere toegang als terugval.
+    acceptatie_nl: Owner matrix intact en geen race bij gelijktijdige goedkeuring.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; zonder gescopete machine-sleutel en bewijs van eigenaarschap en gelijktijdigheid blijft de Hub-koppeling onbekend; geen toegang verruimen.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      De scoped connector uit het document is geen bestaande functie. Alleen de toekomstige gebruikersroute
+      wordt beschreven; machine-sleutel, Hub-adapter en goedkeuringsketen moeten eerst aantoonbaar geleverd zijn.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (echte Hub)]

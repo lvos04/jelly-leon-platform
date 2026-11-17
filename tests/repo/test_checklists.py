@@ -168,6 +168,74 @@ def test_i03_one_character_change_in_acceptance_is_rejected(tmp_path: Path) -> N
     assert cl.main(tmp_path) == 1
 
 
+def _i04_veiligheid(data: dict[str, Any]) -> None:
+    """Bewaar akkoord, terugval en de nog ontbrekende gescopete Hub-toegang."""
+    for stap in data["stappen"]:
+        assert stap["blokkeert_volgende"] is True
+        assert not stap.get("truenas_methoden")
+        assert "Sim-getest" not in stap["validatie_nu"]
+        assert ("NIET GEVALIDEERD (echte Hub)" in stap["validatie_nu"]) == (stap["id"] == "I04-04-08")
+    for index in (3, 5):
+        stap = data["stappen"][index]
+        assert "T-12" in stap["uitvoeren_nl"] and "T-12" in stap["bij_fout_nl"]
+        assert "toestemming" in stap["uitvoeren_nl"] and "testbronnen" in stap["uitvoeren_nl"]
+        assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+    backup = data["stappen"][6]
+    for tekst in ("Back-up maken", "Terugzetten", "geïsoleerde", "sleutels", "vorige image", "snapshot",
+                  "geen dubbele", "nieuwere", "niet omzeilen"):
+        assert tekst in backup["uitvoeren_nl"], tekst
+    hub = data["stappen"][7]
+    assert hub["wijze"] == ["handmatig_bewijs"]
+    for tekst in ("S-P3-220", "nog niet", "machine-sleutel", "read", "Hub-UI", "vault", "geen enrollment",
+                  "menselijk wachtwoord", "CSRF", "geen directe", "onbekend", "gelijktijdige goedkeuring"):
+        assert tekst in hub["uitvoeren_nl"], tekst
+
+
+def test_i04_is_delivered_with_literal_tasks_and_safety_gates() -> None:
+    data = _load("I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml")
+    assert data["aanpak"] == "behouden_en_valideren"
+    assert len(data["stappen"]) == 8
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+    _i04_veiligheid(data)
+
+
+@pytest.mark.parametrize(("index", "veld", "tekst"), [
+    (3, "uitvoeren_nl", "T-12"),
+    (3, "bij_fout_nl", "T-12"),
+    (5, "uitvoeren_nl", "toestemming"),
+    (5, "bij_fout_nl", "T-12"),
+    (6, "blokkeert_volgende", None),
+    (6, "uitvoeren_nl", "snapshot"),
+    (6, "uitvoeren_nl", "niet omzeilen"),
+    (7, "uitvoeren_nl", "nog niet"),
+    (7, "uitvoeren_nl", "machine-sleutel"),
+    (7, "uitvoeren_nl", "geen directe"),
+])
+def test_i04_missing_safety_condition_is_detected(index: int, veld: str, tekst: str | None) -> None:
+    data = copy.deepcopy(_load("I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml"))
+    stap = data["stappen"][index]
+    if tekst is None:
+        stap[veld] = False
+    else:
+        assert tekst in stap[veld]
+        stap[veld] = stap[veld].replace(tekst, "ontbreekt")
+    with pytest.raises(AssertionError):
+        _i04_veiligheid(data)
+
+
+def test_i04_one_character_change_in_acceptance_is_rejected(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        origineel = stap["acceptatie_nl"]
+        stap["acceptatie_nl"] = "X" + origineel[1:]
+        assert sum(a != b for a, b in zip(origineel, stap["acceptatie_nl"], strict=True)) == 1
+
+    naam = "I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("I04-04-01: acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
 @pytest.mark.parametrize("naam", LIJSTEN)
 def test_a_copy_with_one_step_less_than_the_excel_tasks_fails(tmp_path: Path, naam: str) -> None:
     _kopie(tmp_path, naam, wijzig=lambda d: d["stappen"].pop())

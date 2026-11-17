@@ -788,5 +788,85 @@
   "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: Hub-UI/adapter zijn vervolgwerk. In validatie_nu geen nieuwe Hub-waarde zolang B-6/ASF-15 ontbreekt; de EVIDENCE-waarde is wel toegestaan door contract §11.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-17"
- }
+ },
+  {
+    "id": "I04-04-01",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "Gebruiker moet draaiende image/tag/digest, schema en migraties op de echte NAS met de beoogde release en CI vergelijken; geen imageversie gemeten.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering van deze versiecontrole: alleen NAS-test nodig; geen draaiende release vastgesteld.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-02",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "Gebruiker moet op de echte NAS image, opslag, rechten, poort en onderdelen controleren. Geïsoleerde herstartproef en veilige NAS-rebootacceptatie blijven open; vooraf herstelbewijs van I04-04-07 nodig.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering van deze configuratiecontrole: alleen NAS-test nodig; een testkopie vervangt geen rebootacceptatie.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-03",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "Gebruiker moet de bestaande viewer-koppeling alleen-lezen controleren en zelfstandige werking bij een onbereikbare eigen testdienst bewijzen, zonder bestaande MediaGuard of Emby te onderbreken.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering: alleen NAS-test nodig, inclusief een geïsoleerde eigen testdienst; geen functionele koppel- of uitvalproef in deze sessie.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-04",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "T-12: gebruiker moet toegestane testbronnen opgeven en uitdrukkelijk toestemming geven voor de echte dienstproef; dienstversies, lusvrije categorieën en geen verkeerde verwijdering aantonen. Herstelgate vooraf bij mutaties.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Uitvoering wacht op T-12 en echte diensten. Na het vereiste akkoord en herstelbewijs: alleen NAS-test nodig voor deze livecontrole.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-05",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "Geïsoleerde proef van Alleen-lezen, beleidsgrenzen, laatste server, goedkeuring per wijziging, status en driftveilig terugdraaien nodig. Geen Autopilot op bestaande diensten geactiveerd of getest.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: de geïsoleerde beleids- en terugzetproef is hier niet uitgevoerd; echte activering vereist apart akkoord.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-06",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "T-12: gebruiker moet testbronnen en toestemming leveren; exact kandidaatimage en herstelbewijs vooraf controleren, daarna SAB-fouten, categorieafhandeling, Voetafdruk, driftveilig terugdraaien en meetuitkomsten tegen echte diensten rapporteren vóór livegang.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Uitvoering wacht op T-12, releasegebonden herstelbewijs en echte diensten; geen productiegeschiktheid uit checklisttests afleiden.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-07",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "Volledig geïsoleerd proefherstel met passende sleutels, geregistreerde back-up, eigen appdata en vorige image plus passende snapshot moet eerst aantoonbaar via de webinterface kunnen worden uitgevoerd. Geen dubbele taken of herzoek na herstel bewijzen; S-P3-205 is geen installatiegebonden herstelbewijs.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: veilige volledige overdracht, ontsleutelbaarheid en proefherstel moeten eerst worden aangetoond. De zichtbare terugzetknop is geen functioneel bewijs.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  },
+  {
+    "id": "I04-04-08",
+    "status": "Bezig",
+    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+    "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
+    "blokkade": "S-P3-220 moet eerst machine-sleutels met scopes leveren, daarna Hub-UI/adapter en afzonderlijke goedkeuringsketen aantonen. Vervolgens op echte Hub/NAS status en eigenaarschap vergelijken; gelijktijdige goedkeuring is niet bewezen met alleen read. Geen menselijk wachtwoord of sessie als omweg.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: machine-authenticatie en Hub-/goedkeuringsleveringen ontbreken nog. Scherm- en knopnaam voor sleutelbeheer ONBEKEND; geen bestaande machine-sleutel geclaimd.",
+    "repo": "jelly-leon-platform",
+    "bijgewerkt": "2026-11-17"
+  }
 ]
