@@ -34,6 +34,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 |---|---|---|---|---|
 | I01 | `../checklists/I01_TRUENAS_BASIS.checklist.yaml` | controlelijst | — | 8 stappen, alleen-lezen-methoden per TrueNAS-versie, geen terminal |
 | I02 | `../checklists/I02_BACKUP_EN_RESTORE.checklist.yaml` | controlelijst | — | 8 stappen; OneDrive-stappen NIET GEVALIDEERD (account) |
+| I03 | `../checklists/I03_MEDIAGUARD.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I03_MEDIAGUARD.md`; 8 handmatige controles, back-up vóór update, releasegebonden upgradebewijs en vorige image én passende snapshot; Hub-UI wacht op S-P3-070; NIET GEVALIDEERD (echte NAS/hardware) |
 | I07 | `beszel-hub.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel@sha256:8514a69d…d695b770` | 568:568; meetdekking: `BESZEL_MEETDEKKING.md` |
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
@@ -87,7 +88,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 |---|---|---|---|---|---|
 | I01 | TrueNAS basis | behouden en valideren | — (host; alleen lezen via API) | — | **P1: controlelijst** |
 | I02 | OneDrive / ZFS / herstel | inrichten en testen | — (TrueNAS-taken in de web-UI; methode D04) | — | **P1: controlelijst** |
-| I03 | MediaGuard | upgrade na versiecontrole | bestaande app behouden (import, B08-002) | — | P3 (import) |
+| I03 | MediaGuard | upgrade na versiecontrole | bestaande app behouden (import, B08-002) | — | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I04 | Media Source Optimizer | behouden, 1.6-gate | bestaand; eigen alles-in-één image als Custom App | — | P3 (import) |
 | I05 | my_house | installeren met apparaatgate | eigen image(s) als Custom App | — | P3 |
 | I06 | Jellyfin | behouden, later fork | bestaand behouden (import) | community · 1.3.24 · 12.4 | P4 (import) |

@@ -1,0 +1,176 @@
+# I03 MediaGuard — bestaande installatie behouden; deze lijst voert niets uit.
+checklist_version: "1"
+kind: checklist
+install:
+  method: none
+id: I03
+titel_nl: MediaGuard — versie, back-up, veilige update en controles
+document: 03_INSTALLATIE/I03_MEDIAGUARD.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: >-
+  De bestaande installatie blijft de terugval. MediaGuard-voortgang, alle kijkgeschiedenis en de bestaande
+  Emby-koppeling blijven beschikbaar; Emby blijft ongewijzigd werken. Geen mediaserveroverstap en geen directe
+  databasewijziging door het platform. Deze lijst beschrijft handmatige controles, geen uitgevoerde acceptatie.
+  Werkelijke versies, datasets, apparaten en sleutels zijn onbekend tot de gebruiker ze vaststelt.
+  Bewaar alleen geschoond bewijs zonder sleutels, adressen, gebruikersgegevens of kijkgedrag.
+stappen:
+  - id: I03-03-01
+    titel_nl: Release en huidige draaiende versie bepalen
+    uitvoeren_nl: >-
+      De gebruiker leest in TrueNAS bij de bestaande app de ingestelde image, tag en digest en vergelijkt deze
+      met MediaGuard → Instellingen → Systeem & back-ups → Technische details tonen → MediaGuard-core.
+      Vergelijk de beoogde release en de wijzigingsnotities in de bronrepository; leg verschillen en de vorige
+      image-versie vast in afgeschermd bewijs. Geen automatische update en geen versie afleiden uit deze lijst.
+    acceptatie_nl: Installed en latest beide bekend, verschillen geregistreerd.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Image
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; onbekende versies of ontbrekende releasegegevens blokkeren iedere update.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I03-03-02
+    titel_nl: Datamappen inspecteren
+    uitvoeren_nl: >-
+      De gebruiker vergelijkt in het bestaande Custom App-formulier opslagkoppelingen, datasets, gebruiker,
+      rechten en beschikbare ruimte met de technische details van MediaGuard. Controleer in de AV1-instellingen
+      de GPU-diagnose met het werkelijk toegewezen apparaat; geen apparaat uit het brondocument als gemeten aannemen.
+      Wijzig geen bibliotheekrechten, opslag, netwerk of Emby-koppeling. Bewaar het resultaat zonder privégegevens.
+    acceptatie_nl: Geen recursieve chmod/chown op bibliotheek, GPU test slaagt.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Storage Configuration en Resources
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, schermafdruk, status]
+    bij_fout_nl: Stop hier; ontbrekende rechten, ruimte of GPU-bewijs blokkeren de volgende stap; behoud de bestaande inrichting.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      Inspectie gebeurt via TrueNAS en MediaGuard, zonder terminal of recursieve rechtenwijziging. De GPU-identiteit
+      in het document is geen meetgegeven; de gebruiker stelt het toegewezen apparaat zelf vast.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I03-03-03
+    titel_nl: Back-up inclusief forks
+    uitvoeren_nl: >-
+      Vóór I03-03-04 maakt de gebruiker een consistente online core-back-up via MediaGuard → Instellingen →
+      Systeem & back-ups → Back-ups → Nu back-uppen. Neem de encoder en alle vier forks mee: controleer hun
+      eigen back-ups en de bijpassende appdata-snapshot via TrueNAS. Forkback-ups staan afzonderlijk in
+      Sonarr/Radarr → System → Backup. Bewaar brongeheimen versleuteld, met herstelgegevens apart.
+      Doe een proefherstel van de volledige herstelbundle in een geïsoleerde testomgeving met eigen opslag;
+      geen verbinding of schrijfactie naar de bestaande diensten of Emby. Vergelijk core, encoder, vier forks,
+      voortgang en ontsleutelbaarheid vóór en na; een lege database telt niet als bewijs.
+      Alleen een snapshot van draaiende databases is geen consistentiebewijs. Ontbreekt een onderdeel of een
+      veilige herstelweg, dan blijft I03-03-04 geblokkeerd en blijft de bestaande installatie ongemoeid.
+    acceptatie_nl: Consistente herstelbundle op teststack hersteld.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Datasets → vastgestelde appdata-dataset → Data Protection → Snapshots
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; zonder volledig proefherstel inclusief voortgang en alle forks geen update of wijziging van de bestaande installatie.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I03-03-04
+    titel_nl: Veilige update naar 1.2.2
+    uitvoeren_nl: >-
+      Alleen na het volledige herstelbewijs van I03-03-03 en het upgradebewijs van die release: controleer dat
+      dit bewijs de exacte kandidaatimage met digest betreft, op een gevulde database van de vorige release,
+      met Upgrade: niets verloren en terugzetten: niets verloren. Bewaar de vorige image-versie én de passende
+      snapshot van vóór de update samen als terugval; nooit de oude image op gemigreerde gegevens starten.
+      De gebruiker doet de update zelf in het formulier van de bestaande standaard Custom App, met de exact
+      gecontroleerde imagepin. Leg eerst de voortgang vast en controleer die daarna, naast core, web, recovery,
+      encoder en alle forks. De bestaande Emby-koppeling blijft ononderbroken beschikbaar en Emby blijft werken;
+      kan dat niet vooraf worden aangetoond, dan niet bijwerken. Geen serveroverstap, directe databasewijziging,
+      netwerk- of opslagwijziging. Bij ontbreken van bewijs of veilige terugval blijft de oude installatie werken.
+    acceptatie_nl: Core, web, recovery, encoder, forks healthy na migratie.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Image → gecontroleerde tag en digest → Update
+    besluiten: []
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Stop hier; geen verdere wijziging. Behoud logs en voortgangsbewijs. Terugval vereist de vorige image én
+      passende snapshot samen, eerst bewezen in de geïsoleerde proefomgeving. Geen herstel over nieuwere voortgang
+      heen en geen onderbreking van de Emby-koppeling; ontbreekt die veilige weg, behoud de bestaande installatie.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: >-
+      Geen vaste imagepin of hostnetwerkkeuze uit het oude document overnemen. Alleen de gebruiker kan na
+      releasegebonden upgrade- en herstelbewijs via het bestaande formulier bijwerken. De algemene hersteltekst
+      geeft hier geen toestemming om Emby of zijn koppeling te stoppen of nieuwere voortgang te overschrijven.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I03-03-05
+    titel_nl: Seerr/Prowlarr en clients
+    uitvoeren_nl: >-
+      De gebruiker controleert in de eigen webinterfaces de bestaande Seerr-routering naar alle vier forks,
+      Prowlarr-indexers en SAB-categorieën. Vergelijk de aanvraag- en downloadstatus vóór en na een afzonderlijk
+      toegestane proefaanvraag in de testomgeving. Behoud bestaande eigenaars en instellingen; geen dubbele
+      aansturing, nieuwe automatische downloads of wijziging aan Emby en de MediaGuard-voortgang.
+    acceptatie_nl: Geen verdwijnende of dubbele downloads.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; bij ontbrekende of dubbele aanvragen geen volgende proef en geen wijziging aan bestaande routes.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I03-03-06
+    titel_nl: AV1 en noodstop
+    uitvoeren_nl: >-
+      Alleen met toestemming voor één eigen proefbestand test de gebruiker in de MediaGuard-webinterface de
+      encode, kwaliteitsmeting, HDR/DV-integriteit, toegewezen GPU-werkbaan, kijkpauze en noodstop.
+      Gebruik een kopie in de geïsoleerde testomgeving; behoud het origineel en controleer het herstel en het
+      voortgangsjournaal. Test een falende kwaliteitsmeting: het origineel blijft behouden. Geen productiemedia
+      vervangen, geen voortgang wissen en geen wijziging van de bestaande Emby-koppeling.
+    acceptatie_nl: Origineel behouden bij falende kwaliteitsmeting; geen ongeoorloofd bestandverlies.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, schermafdruk, status]
+    bij_fout_nl: Stop de eigen proef via de noodstop in de testomgeving; behoud origineel, journaal en herstelbewijs; bestaande diensten blijven ongemoeid.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I03-03-07
+    titel_nl: Android meldingen
+    uitvoeren_nl: >-
+      Indien de gebruiker dit wil, gebruikt die de eigen release-app op een eigen telefoon en volgt de
+      MediaGuard-koppeling in de app. Test een melding, push, dagoverzicht en de actualiteit zonder verbinding.
+      Ontkoppel uitsluitend de eigen proefkoppeling en controleer dat intrekken werkt; behoud bestaande
+      koppelingen. Bewaar geschoond bewijs zonder koppelgegevens, sleutels of kijkgedrag.
+    acceptatie_nl: Meldingen op telefoon en unpair/revoke werken.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, schermafdruk, status]
+    bij_fout_nl: Stop hier; zonder bewijs van melding en intrekken blijft deze controle open; raak andere telefoonkoppelingen niet aan.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I03-03-08
+    titel_nl: Hub-API integratie
+    uitvoeren_nl: >-
+      Deze controle wacht op de Hub-UI uit S-P3-070; die levering is nog niet als afgerond vastgesteld.
+      Na die levering maakt de gebruiker in MediaGuard een eigen viewer-sleutel voor alleen lezen en voert die
+      eenmaal in de Hub-UI in; de Hub bewaart hem in de vault, nooit in het Custom App-formulier of in bewijs.
+      Controleer dat de Hub dezelfde status toont als MediaGuard, met bron en meettijd; vergelijk alleen de
+      toegestane statusvelden en aantallen, zonder sessies, titels, gebruikers of apparaten op te slaan.
+      Controleer dat eigenaargegevens en voortgang gelijk blijven en de bestaande Emby-koppeling blijft werken.
+      Geen enrollment en geen schrijfrechten. Zolang koppeling of statusvergelijking ontbreekt: onbekend en
+      niet gevalideerd, geen gesimuleerd succes. Een echte Hub-proef is nog niet uitgevoerd.
+    acceptatie_nl: Hub toont status gelijk MediaGuard, geen owner data veranderd.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status, hub_meting]
+    bij_fout_nl: Stop hier; laat de status onbekend en behoud de bestaande inrichting; geen ruimere sleutel gebruiken om de controle te laten slagen.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]

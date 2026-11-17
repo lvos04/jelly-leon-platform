@@ -88,6 +88,82 @@ def test_copies_of_the_real_lists_pass_in_a_separate_folder(tmp_path: Path) -> N
     assert cl.main(tmp_path) == 0
 
 
+def test_i03_is_delivered_with_the_literal_excel_tasks() -> None:
+    data = _load("I03_MEDIAGUARD.checklist.yaml")
+    assert data["aanpak"] == "behouden_en_valideren"
+    taken = cl.excel_taken()["03_INSTALLATIE/I03_MEDIAGUARD.md"]
+    assert len(data["stappen"]) == len(taken) == 8
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+
+
+def _i03_veiligheid(data: dict[str, Any]) -> None:
+    """Bewaar de inhoudelijke gates van I03; de algemene validator bewaakt vorm en Excel-teksten."""
+    backup, update = data["stappen"][2:4]
+    assert backup["blokkeert_volgende"] is True
+    for tekst in ("encoder", "vier forks", "versleuteld", "proefherstel", "I03-03-04"):
+        assert tekst in backup["uitvoeren_nl"], tekst
+    for tekst in ("I03-03-03", "upgradebewijs van die release", "gevulde database", "vorige image-versie",
+                  "passende snapshot", "Custom App", "gebruiker", "Emby-koppeling", "niet bijwerken"):
+        assert tekst in update["uitvoeren_nl"], tekst
+    assert update["blokkeert_volgende"] is True
+    assert "vorige image" in update["bij_fout_nl"] and "snapshot" in update["bij_fout_nl"]
+    assert "voortgang" in update["bij_fout_nl"]
+    assert "handmatig_in_truenas_ui" in update["wijze"]
+    assert update["handmatig_ui_pad_nl"]
+
+
+def test_i03_backup_precedes_update_and_rollback_preserves_progress() -> None:
+    _i03_veiligheid(_load("I03_MEDIAGUARD.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "veld", "tekst"), [
+    (2, "blokkeert_volgende", None),
+    (2, "uitvoeren_nl", "vier forks"),
+    (2, "uitvoeren_nl", "proefherstel"),
+    (3, "uitvoeren_nl", "upgradebewijs van die release"),
+    (3, "uitvoeren_nl", "passende snapshot"),
+    (3, "uitvoeren_nl", "Emby-koppeling"),
+    (3, "bij_fout_nl", "voortgang"),
+])
+def test_i03_missing_safety_condition_is_detected(index: int, veld: str, tekst: str | None) -> None:
+    data = copy.deepcopy(_load("I03_MEDIAGUARD.checklist.yaml"))
+    stap = data["stappen"][index]
+    if tekst is None:
+        stap[veld] = False
+    else:
+        assert tekst in stap[veld]
+        stap[veld] = stap[veld].replace(tekst, "ontbreekt")
+    with pytest.raises(AssertionError):
+        _i03_veiligheid(data)
+
+
+def test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance() -> None:
+    data = _load("I03_MEDIAGUARD.checklist.yaml")
+    for stap in data["stappen"]:
+        assert stap["wijze"] and not stap.get("truenas_methoden")
+        assert "Sim-getest" not in stap["validatie_nu"]
+        assert "NIET GEVALIDEERD (echte Hub)" not in stap["validatie_nu"]  # B-6 volgt afzonderlijk
+    for index in (1, 5, 6):
+        assert "NIET GEVALIDEERD (hardware)" in data["stappen"][index]["validatie_nu"]
+    hub = data["stappen"][7]
+    assert hub["wijze"] == ["handmatig_bewijs"]
+    for tekst in ("viewer-sleutel", "Hub-UI", "S-P3-070", "nog niet", "dezelfde status", "alleen lezen"):
+        assert tekst in hub["uitvoeren_nl"], tekst
+
+
+def test_i03_one_character_change_in_acceptance_is_rejected(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        origineel = stap["acceptatie_nl"]
+        stap["acceptatie_nl"] = "X" + origineel[1:]
+        assert sum(a != b for a, b in zip(origineel, stap["acceptatie_nl"], strict=True)) == 1
+
+    naam = "I03_MEDIAGUARD.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("I03-03-01: acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
 @pytest.mark.parametrize("naam", LIJSTEN)
 def test_a_copy_with_one_step_less_than_the_excel_tasks_fails(tmp_path: Path, naam: str) -> None:
     _kopie(tmp_path, naam, wijzig=lambda d: d["stappen"].pop())
