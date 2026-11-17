@@ -755,7 +755,7 @@
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-05)",
   "blokkade": "Gebruiker moet met de bestaande diensten op de NAS de Seerr/Prowlarr/SAB-routering en een eigen toegestane proefaanvraag vergelijken; ontbrekende en dubbele downloads uitsluiten.",
-  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Een toegestane proefaanvraag in een testomgeving en controle van de bestaande diensten zijn nog nodig; geen Sim-getest-claim voor de handmatige acceptatie.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-17"
  },
@@ -765,7 +765,7 @@
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-06); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance",
   "blokkade": "Gebruiker moet met eigen proefbestand en echte GPU de encodekwaliteit, HDR/DV, kijkpauze, noodstop en herstel zonder verlies van origineel of voortgang meten.",
-  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Een geïsoleerde proef met eigen bestand en echte GPU en de resterende controles zijn nog nodig; geen Sim-getest-claim voor de handmatige acceptatie.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-17"
  },

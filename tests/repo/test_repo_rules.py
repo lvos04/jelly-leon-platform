@@ -420,3 +420,10 @@ def test_i03_i04_te_ruime_nas_claim_wordt_geweigerd(afhankelijkheid: str) -> Non
     rij["opmerking"] = "alleen NAS-test nodig"
     with pytest.raises(AssertionError, match="I04-04-02"):
         _controleer_nas_claim(rijen)
+
+
+def test_i03_proefomgeving_is_geen_alleen_nas_claim() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    for rij in rijen:
+        if rij["id"] in ("I03-03-05", "I03-03-06"):
+            assert "alleen nas-test nodig" not in rij["opmerking"].lower(), rij["id"]
