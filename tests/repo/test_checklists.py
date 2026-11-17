@@ -650,3 +650,51 @@ def test_i16_stopzin_wordt_bewaakt(index: int) -> None:
     data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
     with pytest.raises(AssertionError):
         _i16_veiligheid(data)
+
+
+I17_GATES = [
+    (0, "Config → Categories"),
+    (0, "tv/tv-anime/movies/movies-anime"),
+    (1, "geen blinde retries"),
+    (2, "laatste werkende server blijft beschermd"),
+    (2, "preview/readback/rollback"),
+    (2, "bij ontbrekend herstelbewijs, stop dan hier"),
+    (3, "geen bestaande bestanden verplaatsen of verwijderen"),
+    (3, "I17-17-05"),
+    (4, "Config → General → Backup → Create backup"),
+    (4, "Config → General → Backup → Restore backup"),
+    (4, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (4, "nooit op de bestaande SABnzbd"),
+    (5, "Alleen na het volledige herstelbewijs van I17-17-05"),
+    (5, "vorige image én passende configuratie/database"),
+    (5, "Emby blijft werken"),
+    (5, "bij ontbrekend herstelbewijs, stop dan hier"),
+]
+
+
+def _i17_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, set(), set())
+    for index, tekst in I17_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+    assert "MediaGuard-voortgang" in data["toelichting_nl"]
+
+
+def test_i17_letterlijke_taken_en_ketenbescherming() -> None:
+    _i17_veiligheid(_load("I17_SABNZBD.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I17_GATES)
+def test_i17_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I17_SABNZBD.checklist.yaml"))
+    assert tekst in data["stappen"][index]["uitvoeren_nl"]
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i17_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(6))
+def test_i17_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I17_SABNZBD.checklist.yaml"))
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i17_veiligheid(data)

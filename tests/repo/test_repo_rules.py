@@ -484,3 +484,15 @@ def test_i16_te_ruime_nas_claim_wordt_geweigerd() -> None:
     next(r for r in rijen if r["id"] == "I16-16-04")["opmerking"] = "alleen NAS-test nodig"
     with pytest.raises(AssertionError, match="I16-16-04"):
         _controleer_bestaande_app_bewijs(rijen, "I16", {1, 2}, {5}, set())
+
+
+def test_i17_bewijsgrenzen() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    _controleer_bestaande_app_bewijs(rijen, "I17", {1}, set(), set())
+
+
+def test_i17_te_ruime_nas_claim_wordt_geweigerd() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    next(r for r in rijen if r["id"] == "I17-17-05")["opmerking"] = "alleen NAS-test nodig"
+    with pytest.raises(AssertionError, match="I17-17-05"):
+        _controleer_bestaande_app_bewijs(rijen, "I17", {1}, set(), set())

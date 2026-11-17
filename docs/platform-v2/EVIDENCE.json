@@ -988,5 +988,65 @@
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-01",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Gebruiker moet op de echte NAS bestaande categorieën, eigenaars, versie en opslag lezen en wildcard-misrouting uitsluiten.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Voor deze uitsluitend lezende controle: alleen NAS-test nodig.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-02",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Oorzaaklabels tegen SABnzbd en MSO vergelijken; ontbrekende foutgevallen vereisen eerst T-12-testbronnen, herstelbewijs I17-17-05 en een geïsoleerde diagnoseproef.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-03",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "T-12, volledig herstelbewijs I17-17-05 en geïsoleerde preview/readback/rollback-, drift- en laatste-serverproef eerst aantonen; geen providerstoring op bestaande diensten veroorzaken.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-04",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Werkelijke opslagmappings eerst lezen; daarna T-12, herstelbewijs I17-17-05 en geïsoleerde import/hardlinkproef met eigen bestand aantonen, zonder productiemedia te wijzigen.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-05",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Veilige terminalvrije overdracht van de volledige versleutelde configuratiekopie en geïsoleerd proefherstel met geblokkeerde productieroutes eerst aantonen; geen geslaagd herstel geclaimd.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I17-17-06",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I17_SABNZBD.checklist.yaml; tests/repo/test_checklists.py::test_i17_letterlijke_taken_en_ketenbescherming; tests/repo/test_checklists.py::test_i17_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i17_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Volledig herstelbewijs I17-17-05, T-12 en een versiegebonden geïsoleerde eind-tot-eind-, compatibiliteits- en terugzetproef eerst aantonen; daarna afzonderlijk akkoord voor productie.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
  }
 ]

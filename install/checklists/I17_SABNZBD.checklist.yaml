@@ -1,0 +1,180 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I17
+titel_nl: SABnzbd — categorieën, herstel en veilige controles
+document: 03_INSTALLATIE/I17_SABNZBD.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'SABnzbd blijft de bestaande Usenet-client. Emby blijft werken en de bestaande Emby-koppeling, alle
+  kijkgeschiedenis en MediaGuard-voortgang blijven beschikbaar. Geen wijziging van bestaande routes, providers,
+  sleutels, downloads of bestanden door het platform. Muterende proeven uitsluitend op eigen opslag, zonder verbinding
+  met bestaande diensten. Bewijs bevat geen providersleutels, wachtwoorden, privé-adressen of downloadtitels. Bronbediening:
+  SABnzbd 5.1.3 (a647f73426cb70ad60ae7964b96c2d5e939b4727): sabnzbd/skintext.py, interfaces/Config/templates/_inc_header_uc.tmpl,
+  config_cat.tmpl, config_folders.tmpl, config_general.tmpl en interfaces/Glitter/templates/include_menu.tmpl en
+  include_overlays.tmpl. Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/sabnzbd/app.yaml. Dit is geen
+  gemeten installatieversie. De Engelse schermnamen gelden voor die bron; stel bij een afwijkende installatie eerst
+  de bijpassende bron vast.'
+stappen:
+- id: I17-17-01
+  titel_nl: Categorie inventaris
+  uitvoeren_nl: De gebruiker leest SABnzbd → Config → Categories en vergelijkt de bestaande MediaGuard-categorieën
+    tv/tv-anime/movies/movies-anime en de MSO-categorieën mso-* met de eigen instellingen van MediaGuard en MSO.
+    Controleer concrete categorieën en eigenaars; geen wildcard als universele route aannemen. Leg versie, image-digest
+    en opslag uit TrueNAS vast zonder instellingen op te slaan. Geen categorie maken, verwijderen of hernoemen en
+    geen bestaande download verplaatsen. Alleen geschoonde aantallen en verschillen vastleggen.
+  acceptatie_nl: Geen verkeerde * imports.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij ontbrekende categorieën of wildcard-misrouting geen proefdownload, hernoeming of routewijziging;
+    behoud bestaande downloads.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → bestaande app → Edit → Image en Storage Configuration
+- id: I17-17-02
+  titel_nl: Server status en retry
+  uitvoeren_nl: 'Lees bestaande serverstatus en foutdiagnose in SABnzbd en MSO; onderscheid authenticatiefout, retentie,
+    uitpakken en ontbrekende artikelen. Lees in SABnzbd Status and interface options → Status; de precieze MSO-proefbediening
+    is ONBEKEND. Vergelijk foutlabels met bronstatus, niet met een algemene gezonde melding. Voor nog ontbrekende
+    foutgevallen: na T-12 en herstelbewijs I17-17-05 uitsluitend een geïsoleerde proef met toegestane testbronnen;
+    geen blinde retries en geen bestaande provider uitschakelen. Zonder bewezen oorzaak blijft de diagnose onbekend.'
+  acceptatie_nl: Mislukkingen correct gelabeld.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij onbekende oorzaak geen nieuwe retry of providerwijziging; bestaande diensten blijven
+    bereikbaar.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I17-17-03
+  titel_nl: Veilige settings
+  uitvoeren_nl: De gebruiker inspecteert de bestaande serverprioriteit via SABnzbd → Config → Servers en het bestaande
+    MSO-beleid. De laatste werkende server blijft beschermd. Een latere muterende proef gebeurt uitsluitend na T-12
+    en volledig herstelbewijs I17-17-05 in de geïsoleerde testomgeving, zonder verbinding met de bestaande downloadketen.
+    Laat via MSO preview/readback/rollback voor precies één goedgekeurde wijziging aantonen, inclusief weigering
+    bij drift en bij verlies van de laatste werkende server. Test uitval van één eigen testprovider terwijl de andere
+    testprovider bruikbaar blijft; geen bestaande provider blokkeren. De volledige proef en exacte bediening zijn
+    nog niet aangetoond; bij ontbrekend herstelbewijs, stop dan hier.
+  acceptatie_nl: Download blijft mogelijk bij 1 provider storing.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder T-12, herstelbewijs en aangetoonde bescherming van de laatste werkende server geen
+    wijziging aan serverprioriteit.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I17-17-04
+  titel_nl: Path mappings
+  uitvoeren_nl: De gebruiker vergelijkt alleen-lezen SABnzbd → Config → Folders met de bestaande opslagkoppelingen
+    in TrueNAS bij Storage Configuration en met de MediaGuard-mappings. Stel de echte complete-/incomplete-map en
+    het beoogde filesystem zelf vast; geen poolnaam of hardlinkmogelijkheid uit een voorbeeld afleiden. Bewijs import
+    en bestandsintegriteit alleen na T-12 en volledig herstelbewijs I17-17-05 in de geïsoleerde testomgeving met
+    een eigen proefbestand en vóór/na-vergelijking. Geen productiemount wijzigen; geen bestaande bestanden verplaatsen
+    of verwijderen. Bij afwijking blijven bestaande downloads en de MediaGuard-/Emby-koppeling ongewijzigd.
+  acceptatie_nl: Import werkt zonder verkeerde kopieën.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bewezen mappings en geïsoleerde importproef geen opslagwijziging of bestanden verplaatsen;
+    behoud de bestaande downloadketen.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I17-17-05
+  titel_nl: Backup config
+  uitvoeren_nl: De gebruiker maakt via SABnzbd → Config → General → Backup → Create backup de configuratieback-up.
+    De bron maakt het archief in de ingestelde Backup Folder; deze knop bewijst geen download naar de browser. Bewaar
+    een volledige versleutelde kopie van configuratie, database en sleutels buiten de NAS, met herstelgegevens apart,
+    plus een passend herstelpunt via de TrueNAS-webinterface. Alleen een snapshot van een draaiende database bewijst
+    geen consistentie. De veilige overdracht van het archief via de webinterface is ONBEKEND; ontbreekt een aangetoonde
+    veilige overdracht, stop dan hier. Herstel uitsluitend in de geïsoleerde testomgeving via Config → General →
+    Backup → Restore backup, nooit op de bestaande SABnzbd. Controleer vóór herstel dat eigen opslag wordt gebruikt
+    en uitgaand verkeer naar bestaande providers en apps is geblokkeerd; herstart uitsluitend de eigen testapp wanneer
+    gevraagd. Vergelijk serverlijst, categorieën, instellingen en ontsleutelbaarheid; leeg herstel telt niet.
+  acceptatie_nl: Clientherstel toont dezelfde serverlijst.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder volledige versleutelde kopie, veilige overdracht en herstelbewijs geen muterende
+    proef of update; herstart of overschrijf nooit de bestaande client.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I17-17-06
+  titel_nl: Health en update
+  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I17-17-05 en T-12: vergelijk de SABnzbd-versie in Status
+    and interface options met de door MSO gemeten echte API-versie. Bewijs met één toegestaan proefbestand de volledige
+    download-, categorie- en importketen in de geïsoleerde testomgeving; geen blinde retries. Test een exact gepinde
+    kandidaatimage uitsluitend via het bestaande TrueNAS-formulier van de eigen testapp, na controle van release-
+    en compatibiliteitsnotities. Vergelijk instellingen en aantallen voor en na; bewijs terugval met de vorige image
+    én passende configuratie/database. Nooit de oude image op gemigreerde data starten; bij ontbrekend herstelbewijs,
+    stop dan hier. Een productie-update vraagt apart akkoord en ononderbroken downloadroutes; Emby blijft werken
+    en de MediaGuard-voortgang blijft behouden.'
+  acceptatie_nl: Een eind-tot-eind test download/categorie verwerkt.
+  risico: Middel
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; behoud de bestaande installatie; terugval uitsluitend in de eigen testomgeving met vorige
+    image en passende configuratie/database, zonder bestaande downloads of voortgang te overschrijven.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → eigen geïsoleerde testapp → Edit → Image
