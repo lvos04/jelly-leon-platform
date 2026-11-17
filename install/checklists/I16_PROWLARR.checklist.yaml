@@ -10,22 +10,46 @@ aanpak: behouden_en_valideren
 installatie: geen
 mutaties_door_platform: false
 besluiten: []
-toelichting_nl: 'Prowlarr blijft eigenaar van de indexercatalogus. De bestaande routes, downloads en Emby-koppeling
-  blijven ononderbroken beschikbaar; Emby blijft werken en alle kijkgeschiedenis en MediaGuard-voortgang blijven
-  behouden. Geen wijzigingen door het platform, directe databasewrites of productieproeven. Een testkopie heeft
-  eigen opslag en geen verbinding met bestaande diensten; geen geheimen of bronadressen in openbaar bewijs. Bronbediening:
-  Prowlarr v3.0.0.5737 (b8d1e7753ec1178d56a8d4735479357d259de335): src/NzbDrone.Core/Localization/Core/en.json,
-  frontend/src/Components/Page/Sidebar/PageSidebar.js en frontend/src/System/Backup/Backups.js en BackupRow.js.
-  Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/prowlarr/app.yaml. Dit is geen gemeten installatieversie.
-  De Engelse schermnamen gelden voor die bron; stel bij een afwijkende installatie eerst de bijpassende bron vast.'
+toelichting_nl: >-
+  Prowlarr blijft eigenaar van de indexercatalogus. De bestaande routes, downloads en Emby-koppeling
+  blijven ononderbroken beschikbaar; Emby blijft werken en alle kijkgeschiedenis en MediaGuard-voortgang
+  blijven behouden. Geen wijzigingen door het platform, directe databasewrites of productieproeven. Een
+  testkopie heeft eigen opslag en geen verbinding met bestaande diensten; geen geheimen of bronadressen
+  in openbaar bewijs. Bronbediening: Prowlarr v3.0.0.5737 (b8d1e7753ec1178d56a8d4735479357d259de335):
+  src/NzbDrone.Core/Localization/Core/en.json, frontend/src/Components/Page/Sidebar/PageSidebar.js en
+  frontend/src/System/Backup/Backups.js en BackupRow.js. Catalogusreferentie: truenas/apps@f142a16,
+  ix-dev/community/prowlarr/app.yaml. Dit is geen gemeten installatieversie. De Engelse schermnamen
+  gelden voor die bron; stel bij een afwijkende installatie eerst de bijpassende bron vast.
+  Formulierbron: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/stable/ix-app/questions.yaml en trains/community/prowlarr/app_versions.json (schema 1.5.34).
+  Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html (Application
+  Info) en .ts (editButtonPressed/updateButtonPressed),
+  src/app/pages/apps/components/installed-apps/app-update-dialog/app-update-dialog.component.html
+  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts (setAppForEdit/buildDynamicForm) gebruikt het
+  geïnstalleerde schema. Bij meerdere updatekandidaten verschijnt Version to be updated to; bij één
+  kandidaat vergelijk je de getoonde versies. Dit zijn bronstanden, geen NAS-meting. Ontbreekt de
+  overeenkomstige versiegebonden bediening: ONBEKEND, stop dan hier.
+
 stappen:
 - id: I16-16-01
   titel_nl: Read-only inventaris
-  uitvoeren_nl: De gebruiker leest Indexers → Stats, Settings → Apps en Settings → Tags in de bestaande Prowlarr-webinterface.
-    Leg aantallen, bestaande synchronisatie-eigenaars en versie uit System → Status vast; vergelijk in TrueNAS de
-    ingestelde image, tag, digest en opslag. Geen Test-, sync- of opslagactie uitvoeren; geen tags aanpassen. Neem
-    de API-sleutel niet op in rapporten of screenshots; een noodzakelijke herstelkopie van geheimen blijft versleuteld
-    en privé. Onbekende gegevens blijven onbekend.
+  uitvoeren_nl: >-
+    Stel eerst de installatiesoort vast in Apps → Installed → bestaande Prowlarr-app → Application Info:
+    controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
+    ix-app in stable en heeft Image in het formulier; de catalogusapp prowlarr in community heeft een
+    eigen formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten
+    TrueNAS-/appversie ONBEKEND, stop dan hier. Bij een standaard Custom App lees je de ingestelde
+    image, tag en digest via Edit → Image. Bij een catalogusapp lees je App Version (appversie) en
+    Version (catalogus-/formulierversie) in Application Info; vergelijk Train en de bij die exacte
+    Version horende catalogusbron voor alle images met tags en digests. Zijn die niet aantoonbaar, stop
+    dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te slaan. De gebruiker leest
+    Indexers → Stats, Settings → Apps en Settings → Tags in de bestaande Prowlarr-webinterface. Leg
+    aantallen, bestaande synchronisatie-eigenaars en versie uit System → Status vast; vergelijk in
+    TrueNAS de ingestelde image, tag, digest en opslag. Geen Test-, sync- of opslagactie uitvoeren; geen
+    tags aanpassen. Neem de API-sleutel niet op in rapporten of screenshots; een noodzakelijke
+    herstelkopie van geheimen blijft versleuteld en privé. Onbekende gegevens blijven onbekend.
+
   acceptatie_nl: Geen onverwachte tags aangepast.
   risico: Hoog
   wijze:
@@ -44,7 +68,11 @@ stappen:
   validatie_nu:
   - Unit-getest
   - NIET GEVALIDEERD (echte NAS)
-  handmatig_ui_pad_nl: Apps → bestaande app → Edit → Image en Storage Configuration
+  handmatig_ui_pad_nl: >-
+    Standaard Custom App: Apps → bestaande app → Edit → Image en Storage Configuration; catalogusapp:
+    Apps → bestaande app → Application Info → App Version en Version; opslag via Edit → Storage
+    Configuration
+
 - id: I16-16-02
   titel_nl: Sync eigenaarschap
   uitvoeren_nl: 'Vergelijk uitsluitend de bestaande instellingen van Prowlarr, MediaGuard en MSO: MediaGuard wijzigt
@@ -153,13 +181,21 @@ stappen:
   - NIET GEVALIDEERD (echte Hub)
 - id: I16-16-06
   titel_nl: Upgrade gate
-  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I16-16-03: controleer releasecompatibiliteit van de exacte
-    kandidaatimage met de vier MediaGuard-forks en MSO. Onder T-12 bewijst de gebruiker zoeken en RSS vóór en na
-    de update in de geïsoleerde testomgeving, zonder automatische productieaanvragen of dubbele downloads. Werk
-    uitsluitend de eigen testapp via het bestaande TrueNAS-formulier bij. Bewijs terugval met de vorige image én
-    passende configuratie/database; nooit alleen de oude image op gemigreerde data starten. Geen productie-update
-    zonder apart akkoord, aantoonbare terugval en ononderbroken bestaande downloadketen; bij ontbrekend herstelbewijs,
-    stop dan hier. Emby, zijn koppeling en de MediaGuard-voortgang blijven beschikbaar.'
+  uitvoeren_nl: >-
+    Alleen na het volledige herstelbewijs van I16-16-03: controleer releasecompatibiliteit van de exacte
+    kandidaatimage met de vier MediaGuard-forks en MSO. Onder T-12 bewijst de gebruiker zoeken en RSS
+    vóór en na de update in de geïsoleerde testomgeving, zonder automatische productieaanvragen of
+    dubbele downloads. Werk uitsluitend de eigen testapp volgens de hieronder vastgestelde
+    installatiesoort bij. Bewijs terugval met de vorige image én passende configuratie/database; nooit
+    alleen de oude image op gemigreerde data starten. Geen productie-update zonder apart akkoord,
+    aantoonbare terugval en ononderbroken bestaande downloadketen; bij ontbrekend herstelbewijs, stop
+    dan hier. Emby, zijn koppeling en de MediaGuard-voortgang blijven beschikbaar. Bevestig de
+    installatiesoort van de eigen testapp zoals bij de inventaris; geen ombouw. Standaard Custom App:
+    Edit → Image → Update. Catalogusapp: Application Info → App Version en Version; More Options →
+    Update; kies uitsluitend de exact geteste catalogusversie en alle bijbehorende gepinde images. Is de
+    kandidaat niet beschikbaar, verschijnt Only image(s) will be updated of is de versiegebonden weg
+    ONBEKEND, gebruik Close en stop dan hier.
+
   acceptatie_nl: Zoeken en RSS na update goed.
   risico: Middel
   wijze:
@@ -178,4 +214,7 @@ stappen:
   validatie_nu:
   - Unit-getest
   - NIET GEVALIDEERD (echte NAS)
-  handmatig_ui_pad_nl: Apps → eigen geïsoleerde testapp → Edit → Image
+  handmatig_ui_pad_nl: >-
+    Standaard Custom App: Apps → eigen geïsoleerde testapp → Edit → Image → Update; catalogusapp: Apps →
+    eigen geïsoleerde testapp → Application Info → App Version en Version; daarna More Options → Update
+    → Version to be updated to (indien getoond) → Update

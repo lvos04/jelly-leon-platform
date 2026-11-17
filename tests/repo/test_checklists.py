@@ -698,3 +698,67 @@ def test_i17_stopzin_wordt_bewaakt(index: int) -> None:
     data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
     with pytest.raises(AssertionError):
         _i17_veiligheid(data)
+
+
+CATALOGUSLIJSTEN = [
+    "I15_IMMICH.checklist.yaml", "I16_PROWLARR.checklist.yaml", "I17_SABNZBD.checklist.yaml",
+]
+
+
+def _catalogus_menupaden(data: dict[str, Any]) -> None:
+    """R-MANIFEST-1: ix-app heeft Image; de drie app-eigen catalogusschema's hebben dat veld niet."""
+    inventaris = data["stappen"][0]["uitvoeren_nl"]
+    for tekst in ("Stel eerst de installatiesoort vast", "Application Info", "Name", "Train", "ix-app",
+                  "ONBEKEND", "stop dan hier"):
+        assert tekst in inventaris, tekst
+    for index in (0, 5):
+        stap = data["stappen"][index]
+        standaard, scheiding, catalogus = stap["handmatig_ui_pad_nl"].partition("; catalogusapp: ")
+        assert standaard.startswith("Standaard Custom App: ") and scheiding
+        assert "Edit → Image" in standaard
+        assert "Image" not in catalogus, "catalogusinstallatie heeft geen Image-veld"
+        assert "Application Info → App Version en Version" in catalogus
+        assert stap["blokkeert_volgende"] is True
+        assert "ONBEKEND" in stap["uitvoeren_nl"] and "stop dan hier" in stap["uitvoeren_nl"]
+        if index == 5:
+            for tekst in ("eigen geïsoleerde testapp", "More Options → Update", "Version to be updated to"):
+                assert tekst in catalogus, tekst
+            for tekst in ("Close", "Only image(s) will be updated", "geen ombouw", "niet beschikbaar"):
+                assert tekst in stap["uitvoeren_nl"], tekst
+
+
+@pytest.mark.parametrize("naam", CATALOGUSLIJSTEN)
+def test_catalogus_menupaden_scheiden_installatiesoorten(naam: str) -> None:
+    _catalogus_menupaden(_load(naam))
+
+
+@pytest.mark.parametrize("naam", CATALOGUSLIJSTEN)
+@pytest.mark.parametrize("index", (0, 5))
+@pytest.mark.parametrize("mutatie", ("catalogus-image", "onvoorwaardelijk-image"))
+def test_catalogus_image_pad_wordt_geweigerd(naam: str, index: int, mutatie: str) -> None:
+    data = copy.deepcopy(_load(naam))
+    _catalogus_menupaden(data)  # Eerst een groene nulmeting, zodat de weigering de mutatie bewijst.
+    stap = data["stappen"][index]
+    if mutatie == "catalogus-image":
+        stap["handmatig_ui_pad_nl"] += " → Edit → Image"
+    else:
+        stap["handmatig_ui_pad_nl"] = "Apps → bestaande app → Edit → Image"
+    with pytest.raises(AssertionError):
+        _catalogus_menupaden(data)
+
+
+@pytest.mark.parametrize("naam", CATALOGUSLIJSTEN)
+def test_installatiesoort_onbekend_mag_niet_door(naam: str) -> None:
+    data = copy.deepcopy(_load(naam))
+    _catalogus_menupaden(data)
+    data["stappen"][0]["uitvoeren_nl"] = data["stappen"][0]["uitvoeren_nl"].replace("stop dan hier", "ga door")
+    with pytest.raises(AssertionError):
+        _catalogus_menupaden(data)
+
+
+@pytest.mark.parametrize("naam", ("I03_MEDIAGUARD.checklist.yaml", "I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml"))
+def test_eigen_images_gebruiken_standaard_custom_app(naam: str) -> None:
+    data = _load(naam)
+    assert "Custom App" in data["stappen"][1]["uitvoeren_nl"]
+    assert "Edit → Image" in data["stappen"][0]["handmatig_ui_pad_nl"]
+    assert "catalogusinstallatie" not in data["stappen"][0]["uitvoeren_nl"]

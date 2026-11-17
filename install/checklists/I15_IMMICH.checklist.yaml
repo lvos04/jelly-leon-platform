@@ -10,22 +10,47 @@ aanpak: behouden_en_valideren
 installatie: geen
 mutaties_door_platform: false
 besluiten: []
-toelichting_nl: 'Immich blijft eigenaar van foto''s en database. Bewaar een externe, consistente kopie van alle
-  originelen, externe bibliotheken en database, met sleutels apart. Geen foto''s wissen, reorganiseren, vervangen,
-  herimporteren of schrijfbare productiemount in een testomgeving. Deze lijst installeert niets; de bestaande installatie
-  blijft terugval. Geen geheimen, foto''s, personen of adressen in openbaar bewijs; alleen geschoonde aantallen
-  en uitkomsten. Bronbediening: Immich v3.3.6 (587f549f46f1cd1822a06e16dcccecef04ea4565): i18n/en.json en web/src/routes/admin/maintenance/+page.svelte,
-  web/src/lib/components/maintenance/MaintenanceBackupsList.svelte en MaintenanceBackupEntry.svelte. Catalogusreferentie:
-  truenas/apps@f142a16, ix-dev/community/immich/app.yaml. Dit is geen gemeten installatieversie. Bedieningsnamen
-  hieronder zijn Engels; wijkt de echte versie af, stel de bijbehorende bron eerst vast.'
+toelichting_nl: >-
+  Immich blijft eigenaar van foto's en database. Bewaar een externe, consistente kopie van alle
+  originelen, externe bibliotheken en database, met sleutels apart. Geen foto's wissen, reorganiseren,
+  vervangen, herimporteren of schrijfbare productiemount in een testomgeving. Deze lijst installeert
+  niets; de bestaande installatie blijft terugval. Geen geheimen, foto's, personen of adressen in
+  openbaar bewijs; alleen geschoonde aantallen en uitkomsten. Bronbediening: Immich v3.3.6
+  (587f549f46f1cd1822a06e16dcccecef04ea4565): i18n/en.json en
+  web/src/routes/admin/maintenance/+page.svelte,
+  web/src/lib/components/maintenance/MaintenanceBackupsList.svelte en MaintenanceBackupEntry.svelte.
+  Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/immich/app.yaml. Dit is geen gemeten
+  installatieversie. Bedieningsnamen hieronder zijn Engels; wijkt de echte versie af, stel de
+  bijbehorende bron eerst vast. Formulierbron: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/stable/ix-app/questions.yaml en trains/community/immich/app_versions.json (schema 1.14.62).
+  Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html (Application
+  Info) en .ts (editButtonPressed/updateButtonPressed),
+  src/app/pages/apps/components/installed-apps/app-update-dialog/app-update-dialog.component.html
+  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts (setAppForEdit/buildDynamicForm) gebruikt het
+  geïnstalleerde schema. Bij meerdere updatekandidaten verschijnt Version to be updated to; bij één
+  kandidaat vergelijk je de getoonde versies. Dit zijn bronstanden, geen NAS-meting. Ontbreekt de
+  overeenkomstige versiegebonden bediening: ONBEKEND, stop dan hier.
+
 stappen:
 - id: I15-15-01
   titel_nl: Inventaris
-  uitvoeren_nl: De gebruiker leest de bestaande image, tag, digest en opslagkoppelingen in de TrueNAS-webinterface.
-    Vergelijk met de versie in Immich en Administration → External Libraries. Leg database-schemaversie alleen vast
-    wanneer die aantoonbaar uit bestaande gegevens blijkt; een scherm daarvoor is ONBEKEND. Niets opnieuw importeren
-    of verplaatsen. Leg alleen geschoonde meetresultaten vast. Onbekende schema- of versiegegevens blokkeren een
-    update; geen bibliotheekscan of achtergrondtaak starten.
+  uitvoeren_nl: >-
+    Stel eerst de installatiesoort vast in Apps → Installed → bestaande Immich-app → Application Info:
+    controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
+    ix-app in stable en heeft Image in het formulier; de catalogusapp immich in community heeft een
+    eigen formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten
+    TrueNAS-/appversie ONBEKEND, stop dan hier. Bij een standaard Custom App lees je de ingestelde
+    image, tag en digest via Edit → Image. Bij een catalogusapp lees je App Version (appversie) en
+    Version (catalogus-/formulierversie) in Application Info; vergelijk Train en de bij die exacte
+    Version horende catalogusbron voor alle images met tags en digests. Zijn die niet aantoonbaar, stop
+    dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te slaan. De gebruiker leest
+    de bestaande image, tag, digest en opslagkoppelingen in de TrueNAS-webinterface. Vergelijk met de
+    versie in Immich en Administration → External Libraries. Leg database-schemaversie alleen vast
+    wanneer die aantoonbaar uit bestaande gegevens blijkt; een scherm daarvoor is ONBEKEND. Niets
+    opnieuw importeren of verplaatsen. Leg alleen geschoonde meetresultaten vast. Onbekende schema- of
+    versiegegevens blokkeren een update; geen bibliotheekscan of achtergrondtaak starten.
+
   acceptatie_nl: Niets opnieuw importeren of verplaatsen.
   risico: Hoog
   wijze:
@@ -44,7 +69,11 @@ stappen:
   validatie_nu:
   - Unit-getest
   - NIET GEVALIDEERD (echte NAS)
-  handmatig_ui_pad_nl: Apps → bestaande Immich-app → Edit → Storage Configuration
+  handmatig_ui_pad_nl: >-
+    Standaard Custom App: Apps → bestaande app → Edit → Image en Storage Configuration; catalogusapp:
+    Apps → bestaande app → Application Info → App Version en Version; opslag via Edit → Storage
+    Configuration
+
 - id: I15-15-02
   titel_nl: OneDrive restore
   uitvoeren_nl: 'Verwijs voor de OneDrive-kopie en het proefherstel naar I02-02-02 en I02-02-03. De gebruiker heeft
@@ -154,15 +183,23 @@ stappen:
   - NIET GEVALIDEERD (echte Hub)
 - id: I15-15-06
   titel_nl: Update veilig
-  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I15-15-02: controleer officiële release- en migratienotities
-    voor de gemeten bronversie en kandidaat. Test de exact gepinde kandidaatimage eerst op een volledige geïsoleerde
-    kopie van database én media, zonder verbinding met de productiebibliotheek. Leg voor en na originelen, albums,
-    thumbnails en databaseconsistentie vast en bewijs terugzetten met de vorige image én bijpassende database en
-    mediakopie. De gebruiker wijzigt alleen de eigen testapp via het bestaande TrueNAS-formulier; geen productie-update
-    zonder dit bewijs en een afzonderlijk akkoord. Nooit alleen de oude image op gemigreerde gegevens starten; bij
-    ontbrekend herstelbewijs, stop dan hier. De primaire fotoapp en haar gegevens blijven beschikbaar en ongewijzigd.
-    Bij een catalogusinstallatie: stel de exacte catalogusversie en alle bijbehorende images vast; geen ombouw naar
-    één container.'
+  uitvoeren_nl: >-
+    Alleen na het volledige herstelbewijs van I15-15-02: controleer officiële release- en
+    migratienotities voor de gemeten bronversie en kandidaat. Test de exact gepinde kandidaatimage eerst
+    op een volledige geïsoleerde kopie van database én media, zonder verbinding met de
+    productiebibliotheek. Leg voor en na originelen, albums, thumbnails en databaseconsistentie vast en
+    bewijs terugzetten met de vorige image én bijpassende database en mediakopie. De gebruiker wijzigt
+    alleen de eigen testapp volgens de hieronder vastgestelde installatiesoort; geen productie-update
+    zonder dit bewijs en een afzonderlijk akkoord. Nooit alleen de oude image op gemigreerde gegevens
+    starten; bij ontbrekend herstelbewijs, stop dan hier. De primaire fotoapp en haar gegevens blijven
+    beschikbaar en ongewijzigd. Bij een catalogusinstallatie: stel de exacte catalogusversie en alle
+    bijbehorende images vast; geen ombouw naar één container. Bevestig de installatiesoort van de eigen
+    testapp zoals bij de inventaris; geen ombouw. Standaard Custom App: Edit → Image → Update.
+    Catalogusapp: Application Info → App Version en Version; More Options → Update; kies uitsluitend de
+    exact geteste catalogusversie en alle bijbehorende gepinde images. Is de kandidaat niet beschikbaar,
+    verschijnt Only image(s) will be updated of is de versiegebonden weg ONBEKEND, gebruik Close en stop
+    dan hier.
+
   acceptatie_nl: Na rollback volledige DB consistent.
   risico: Middel
   wijze:
@@ -181,4 +218,7 @@ stappen:
   validatie_nu:
   - Unit-getest
   - NIET GEVALIDEERD (echte NAS)
-  handmatig_ui_pad_nl: Apps → eigen geïsoleerde Immich-testapp
+  handmatig_ui_pad_nl: >-
+    Standaard Custom App: Apps → eigen geïsoleerde testapp → Edit → Image → Update; catalogusapp: Apps →
+    eigen geïsoleerde testapp → Application Info → App Version en Version; daarna More Options → Update
+    → Version to be updated to (indien getoond) → Update
