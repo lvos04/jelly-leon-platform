@@ -16,11 +16,10 @@ permissions:
   contents: read
 
 env:
-  # Validator van appstore-en-fork op één vaste commit voor beide jobs en `make validator-venv` (P-INSTALLATIE punt 1;
-  # review P2, S-P2-395). 1967069 = vertaling met vault-verwijzingen (C1.3-ASF-14) plus het herstel 1fbe145 na de
-  # review daarvan; dezelfde commit als de kopie in apps/api/src/appstore (ADR-0021). Verzetten is een eigen, gemelde
-  # wijziging. Eerder: ongepind de branch-HEAD (laatste groene run met 7b3159d).
-  ASF_COMMIT: 1967069fad62beadf5da9f31160ff4c025a5a7bf
+  # Validator van appstore-en-fork op dezelfde vaste commit als Makefile en de kopie in apps/api/src/appstore.
+  # KLEIN-101: a994c2a omvat W2/W3, accounts, variant B, vault-weigering en B-6 (ADR-0021).
+  # Verzetten is een eigen, gemelde wijziging; de bron wordt alleen gelezen.
+  ASF_COMMIT: a994c2a51f45b81b2c48c6533b0ccf51ba857f5a
 
 concurrency:
   group: ci-${{ github.ref }}

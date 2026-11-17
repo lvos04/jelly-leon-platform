@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .findings import Finding, Severity, error, warning
+from .findings import Finding, Severity, TooManyFindingsError, error, finding_budget, warning
 from .model import Manifest
 from .truenas import AppCreatePayload, parse_version
 
@@ -122,6 +122,27 @@ def analyse(
     inventory: Inventory | None,
     *,
     now: datetime | None = None,
+) -> ConflictReport:
+    """Conflicten tegenover de gemeten inventaris. ADR-0022: één rapport met hooguit ``MAX_FINDINGS`` meldingen (veel
+    hostpaden keer veel volumes gaf er miljoenen); bij de volgende stopt de analyse met de eerste meldingen plus de vaste
+    fout ``te_veel_meldingen``, status ``conflict``."""
+    with finding_budget() as budget:
+        try:
+            return _analyse(manifest, payload, inventory, now=now)
+        except TooManyFindingsError:
+            kept = budget.result()
+    observed = None
+    if inventory is not None:
+        observed = inventory.observed_at if inventory.observed_at.tzinfo else inventory.observed_at.replace(tzinfo=UTC)
+    return ConflictReport(status="conflict", inventory_observed_at=observed, findings=kept)
+
+
+def _analyse(
+    manifest: Manifest,
+    payload: AppCreatePayload | None,
+    inventory: Inventory | None,
+    *,
+    now: datetime | None,
 ) -> ConflictReport:
     findings: list[Finding] = []
     if inventory is None:

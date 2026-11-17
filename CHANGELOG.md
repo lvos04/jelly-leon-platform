@@ -2,6 +2,13 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Manifeststandaard overgenomen** (KLEIN-101, ADR-0021): dienstkopie, CLI en CI gepind op
+  `appstore-en-fork@a994c2a51f45b81b2c48c6533b0ccf51ba857f5a`; weigering van geheimen en accountgegevens,
+  `accounts`, uitgebreide woordenlijst, variant B en weigering van letterlijke kluisverwijzingen in `validate`.
+  Beide checklist-schema's zijn byte-gelijk aan de bron; de lokale controle kent nu
+  `NIET GEVALIDEERD (echte Hub)` (B-6), getoetst tegen contract §11. Nul- en nameting: dezelfde exitcodes en
+  meldingen voor alle negen manifesten en drie controlelijsten; invoer en bewijsstatussen ongewijzigd.
+
 - **Controlelijsten voor de bestaande apps voorbereid** (S-P3-400, ADR-0027): `tools/checklists.py` en
   `tests/repo/test_checklists.py` gelden voor elke lijst in `install/checklists/` (geen vaste namen I01/I02 en geen
   vaste acht stappen meer; het aantal stappen is het aantal Excel-taken van het document). Nieuwe regel, ook in

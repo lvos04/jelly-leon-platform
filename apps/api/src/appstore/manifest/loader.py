@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -78,6 +79,35 @@ def _construct_mapping(loader: _ManifestLoader, node: yaml.MappingNode, deep: bo
 _ManifestLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
 
 _STANDARD_TAG = re.compile(r"^tag:yaml\.org,2002:(str|int|float|bool|null|map|seq)$")
+
+
+def data_limit_findings(data: Any) -> list[Finding]:
+    """Dezelfde grenzen als bij tekst (``MAX_DEPTH``, ``MAX_MANIFEST_BYTES``) voor een manifest dat al als object
+    binnenkomt, zoals het JSON-veld ``manifest`` van ``POST /catalog/v1/validate`` (ADR-0018). De grootte is die van
+    het object als compacte JSON."""
+    stack: list[tuple[Any, int]] = [(data, 1)]
+    while stack:
+        value, depth = stack.pop()
+        if isinstance(value, dict | list):
+            if depth > MAX_DEPTH:
+                return [
+                    error(
+                        "yaml_too_deep",
+                        "",
+                        f"Het manifest is dieper genest dan {MAX_DEPTH} niveaus; dat is nooit een geldig manifest.",
+                    )
+                ]
+            stack.extend((sub, depth + 1) for sub in (value.values() if isinstance(value, dict) else value))
+    size = len(json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8"))
+    if size > MAX_MANIFEST_BYTES:
+        return [
+            error(
+                "manifest_too_large",
+                "",
+                f"Het manifest is {size} bytes; maximaal {MAX_MANIFEST_BYTES} bytes is toegestaan.",
+            )
+        ]
+    return []
 
 
 def load_manifest_text(text: str | bytes) -> tuple[Any, list[Finding]]:

@@ -13,6 +13,7 @@ import hashlib
 import json
 from functools import lru_cache
 from importlib import resources
+from itertools import islice
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -22,10 +23,10 @@ from pydantic import ValidationError as PydanticError
 
 from .. import __version__
 from .canonical import canonical_json, sha256_digest
-from .findings import Finding, Severity, error
+from .findings import MAX_FINDINGS, Finding, Severity, TooManyFindingsError, error, finding_budget
 from .loader import load_manifest_text
 from .model import Manifest
-from .rules import check_manifest
+from .rules import check_manifest, recognised_secret, render_shown, secret_text_findings, shown_key
 
 SCHEMA_FILE = "manifest-v1.schema.json"
 _COMPOSE_KEYS = (
@@ -96,15 +97,28 @@ class ValidationReport(BaseModel):
 
 
 def _path(err: JsonSchemaError) -> str:
-    out = ""
-    for part in err.absolute_path:
-        out += f"[{part}]" if isinstance(part, int) else (f".{part}" if out else str(part))
-    return out
+    """Pad van een schemafout; een sleutel die een waarde kan dragen, staat er niet (ADR-0018, ``shown_key``)."""
+    return render_shown(tuple(p if isinstance(p, int) else str(p) for p in err.absolute_path))
+
+
+def _shown(data: dict[str, Any], err: JsonSchemaError) -> str:
+    """De waarde voor een melding, of een vaste tekst als W2 haar als geheim of accountgegeven herkent (ADR-0016 W2:
+    een schemafout noemt zo'n waarde niet)."""
+    segments = tuple(p if isinstance(p, int) else str(p) for p in err.absolute_path)
+    if recognised_secret(data, segments, err.instance):
+        return "(waarde niet getoond: mogelijk een geheim of accountgegeven)"
+    return repr(err.instance)
 
 
 def _schema_findings(data: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = []
-    errors = sorted(_validator().iter_errors(data), key=lambda e: (list(map(str, e.absolute_path)), e.validator))
+    # ADR-0022: elke schemafout geeft minstens één melding; meer dan MAX_FINDINGS fouten geven dus altijd
+    # te_veel_meldingen. Daarom niet meer dan MAX_FINDINGS + 1 fouten ophalen (en sorteren): zo staan niet alle
+    # schemafouten van een groot manifest tegelijk in het geheugen. Bij hooguit MAX_FINDINGS fouten is alles gelijk.
+    errors = sorted(
+        islice(_validator().iter_errors(data), MAX_FINDINGS + 1),
+        key=lambda e: (list(map(str, e.absolute_path)), e.validator),
+    )
     for err in errors:
         path = _path(err)
         kw = str(err.validator)
@@ -124,11 +138,12 @@ def _schema_findings(data: dict[str, Any]) -> list[Finding]:
                 else []
             )
             for name in extra or ["?"]:
+                shown = shown_key(str(name))
                 findings.append(
                     error(
                         "unknown_field",
-                        f"{path}.{name}" if path else name,
-                        f"Onbekend veld {name!r}; controleer de spelling.",
+                        f"{path}.{shown}" if path else shown,
+                        f"Onbekend veld {shown!r}; controleer de spelling.",
                     )
                 )
         elif kw == "type":
@@ -139,11 +154,11 @@ def _schema_findings(data: dict[str, Any]) -> list[Finding]:
                 error(
                     "invalid_value",
                     path,
-                    f"Ongeldige waarde {err.instance!r}; toegestaan: {', '.join(map(repr, allowed))}.",
+                    f"Ongeldige waarde {_shown(data, err)}; toegestaan: {', '.join(map(repr, allowed))}.",
                 )
             )
         elif kw in ("pattern", "format"):
-            findings.append(error("invalid_format", path, f"Ongeldig formaat: {err.instance!r}."))
+            findings.append(error("invalid_format", path, f"Ongeldig formaat: {_shown(data, err)}."))
         elif kw in ("minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "exclusiveMinimum"):
             findings.append(error("out_of_range", path, f"Waarde buiten bereik ({kw} {err.validator_value})."))
         elif kw == "uniqueItems":
@@ -195,17 +210,30 @@ def _compose_findings(data: dict[str, Any]) -> list[Finding]:
     return out
 
 
+def _header(data: dict[str, Any] | None, *segments: str, text_only: bool = True) -> str | None:
+    """Een kopveld van het rapport (``app_id``, ``version``, ``install.method``), maar niet als W2 de waarde herkent:
+    dan ``None`` (ADR-0018; de waarde staat dan niet in het rapport, de tekst, het antwoord of het bewijs).
+    ``text_only``: alleen een tekst telt (``app_id``, ``version``); anders elke niet-lege waarde, als tekst."""
+    node: Any = data
+    for segment in segments:
+        node = node.get(segment) if isinstance(node, dict) else None
+    if not isinstance(node, str) if text_only else not node:
+        return None
+    if recognised_secret(data, segments, node):
+        return None
+    return str(node)
+
+
 def build_report(data: dict[str, Any] | None, findings: list[Finding], manifest_sha: str | None) -> ValidationReport:
     findings = sorted(findings, key=lambda f: (f.severity is not Severity.ERROR, f.path, f.code))
     errors = sum(1 for f in findings if f.severity is Severity.ERROR)
     accepted = sum(1 for f in findings if f.severity is Severity.WARNING and f.accepted)
     open_warnings = len(findings) - errors - accepted
-    install = data.get("install") if isinstance(data, dict) else None
     return ValidationReport(
         valid=errors == 0,
-        app_id=str(data["app_id"]) if isinstance(data, dict) and isinstance(data.get("app_id"), str) else None,
-        version=str(data["version"]) if isinstance(data, dict) and isinstance(data.get("version"), str) else None,
-        install_method=str(install.get("method")) if isinstance(install, dict) and install.get("method") else None,
+        app_id=_header(data, "app_id"),
+        version=_header(data, "version"),
+        install_method=_header(data, "install", "method", text_only=False),
         manifest_sha256=manifest_sha,
         schema_sha256=schema_sha256(),
         validator_version=__version__,
@@ -257,10 +285,24 @@ def validate_data(data: Any) -> tuple[ValidationReport, Manifest | None]:
             ],
             manifest_sha,
         ), None
+    # ADR-0022: hooguit MAX_FINDINGS meldingen; bij de volgende stopt het verzamelen (fail-closed, geen model)
+    with finding_budget() as budget:
+        try:
+            return _checked(data, manifest_sha)
+        except TooManyFindingsError:
+            return build_report(data, budget.result(), manifest_sha), None
+
+
+def _checked(data: dict[str, Any], manifest_sha: str) -> tuple[ValidationReport, Manifest | None]:
+    """Compose-detectie, schema, tekstregels, model en semantische regels (binnen het budget van ADR-0022)."""
     findings = _compose_findings(data)
     findings.extend(_schema_findings(data))
+    # ADR-0016 W2: tekstregels op de ruwe gegevens, zodat de melding er ook is als het schema faalt; ze houden de
+    # semantische regels niet tegen (op hetzelfde pad kan bv. ook interpolation_forbidden staan)
+    text_findings = secret_text_findings(data)
     if any(f.severity is Severity.ERROR for f in findings):
-        return build_report(data, findings, manifest_sha), None
+        return build_report(data, findings + text_findings, manifest_sha), None
+    findings.extend(text_findings)
     try:
         manifest = Manifest.model_validate(data)
     except PydanticError as exc:  # schema en model horen gelijk te oordelen; zo niet: fout, nooit stil doorlaten

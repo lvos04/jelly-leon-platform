@@ -67,7 +67,10 @@ YAML_WEG = re.compile(r"yaml|\byml\b|compose|\.sh\b", re.I)
 WEG_VELDEN = ("uitvoeren_nl", "bij_fout_nl", "handmatig_ui_pad_nl")
 VOORBEELD = re.compile(r"(\b\d{1,3}(\.\d{1,3}){3}\b|/mnt/(tank|pool|data)\b|\btank\b)")
 ACCOUNT_STAP = re.compile(r"OneDrive|account", re.I)
-ECHT_NODIG = frozenset({"NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)"})
+ECHT_NODIG = frozenset({
+    "NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)",
+    "NIET GEVALIDEERD (echte Hub)",
+})
 
 
 def excel_taken() -> dict[str, list[dict[str, Any]]]:
@@ -107,6 +110,13 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
         fout.append(f"schema: {'/'.join(map(str, err.path)) or '(root)'}: {err.message}")
     if fout:
         return fout
+    # Het gedeelde bronschema is repo-overstijgend. Behoud de aanvullende eisen van deze repo
+    # (voorheen in het lokale schema), zonder de byte-gelijke bronkopie te wijzigen.
+    for veld in ("aanpak", "installatie"):
+        if veld not in data:
+            fout.append(f"{veld}: verplicht voor controlelijsten van deze repo")
+    if data["eigenaar_repo"] != "lvos04/jelly-leon-platform":
+        fout.append("eigenaar_repo: moet lvos04/jelly-leon-platform zijn")
     if not (DOCS / data["document"]).is_file():
         fout.append(f"document bestaat niet onder docs/platform-v2/: {data['document']}")
     doc_taken = taken.get(data["document"], [])
@@ -138,6 +148,8 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
             fout.append(f"{sid}: verwijzing zonder doel")
         for m in methoden:
             naam = m["naam"]
+            if not set(m["versies"]) <= {"25.04", "25.10"}:
+                fout.append(f"{sid}: alleen TrueNAS-bronprofielen 25.04 en 25.10 zijn hier getoetst")
             if SCHRIJVEND.search(naam) or naam.rsplit(".", 1)[-1] not in LEZEND:
                 fout.append(f"{sid}: {naam} is geen alleen-lezen-methode")
         if not set(stap["besluiten"]) <= set(data["besluiten"]):
@@ -156,7 +168,7 @@ def controleer_lijst(data: dict[str, Any], taken: dict[str, list[dict[str, Any]]
         if "Sim-getest" in validatie and not methoden:
             fout.append(f"{sid}: Sim-getest zonder iets dat tegen de simulator draait")
         if not validatie & ECHT_NODIG:
-            fout.append(f"{sid}: elke stap vraagt een echte NAS, hardware of account (nooit alleen Sim-getest)")
+            fout.append(f"{sid}: elke stap vraagt een echte NAS, hardware, account of Hub (nooit alleen Sim-getest)")
         if ACCOUNT_STAP.search(stap["uitvoeren_nl"]) and "handmatig_bewijs" in stap["wijze"] and (
             "NIET GEVALIDEERD (account)" not in validatie
         ):

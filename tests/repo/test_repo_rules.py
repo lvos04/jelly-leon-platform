@@ -216,6 +216,8 @@ def test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make() -> None:
     assert '--validator-commit "$ASF_COMMIT"' in text and "rev-parse HEAD)" not in text
     make = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert re.search(rf"^ASF_COMMIT \?= {pin}$", make, re.M), "Makefile: ASF_COMMIT wijkt af van ci.yml"
+    kopie = json.loads((ROOT / "apps/api/src/appstore/KOPIE.json").read_text(encoding="utf-8"))
+    assert kopie["bron_commit"] == pin, "de dienstkopie en de CLI-validator moeten dezelfde commit gebruiken"
     assert "archive $(ASF_COMMIT) apps/api" in make and "archive HEAD apps/api" not in make
     assert "--validator-commit $(ASF_COMMIT)" in make
 

@@ -74,7 +74,8 @@
         "validatie_nu": {
           "type": "array", "minItems": 1, "uniqueItems": true,
           "items": {"enum": ["Sim-getest", "Unit-getest", "Niet getest", "NIET GEVALIDEERD (echte NAS)",
-                             "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)"]}
+                             "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)",
+                             "NIET GEVALIDEERD (echte Hub)"]}
         }
       }
     }

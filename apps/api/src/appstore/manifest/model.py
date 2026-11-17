@@ -242,6 +242,19 @@ class PostInstallCheck(_Strict):
     beschrijving_nl: str
 
 
+class Account(_Strict):
+    """Aanvulling C-12 (ADR-0016 W1, ADR-0023): een beheerder of dienstaccount dat er moet komen, nooit een waarde.
+    Welke combinaties gelden en of ``controle`` bestaat, toetst ``rules._Rules.accounts``."""
+
+    id: Name
+    rol: Literal["beheerder", "dienst"]
+    aanmaak: Literal["eerste_gebruik", "door_beheerder"]
+    afnemer: Annotated[str, Field(pattern=APP_ID_PATTERN, max_length=40)] | None = None
+    rechten: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.:-]{0,63}$")]] | None = None
+    controle: Name
+    beschrijving_nl: str
+
+
 class Provenance(_Strict):
     source_repo: str | None = None
     source_commit: str | None = None
@@ -280,6 +293,7 @@ class Manifest(_Strict):
     provenance: Provenance | None = None
     accepted_findings: list[AcceptedFinding] = Field(default_factory=list)
     post_install_checks: list[PostInstallCheck] = Field(default_factory=list)
+    accounts: list[Account] = Field(default_factory=list)
 
     def parameter(self, name: str) -> Parameter | None:
         return next((p for p in self.parameters if p.name == name), None)

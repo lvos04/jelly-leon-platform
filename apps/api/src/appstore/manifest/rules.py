@@ -11,10 +11,12 @@ getypte model; er wordt niets uitgevoerd of opgehaald.
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 import unicodedata
 from collections.abc import Iterable, Iterator
-from typing import Any
+from functools import lru_cache
+from typing import Any, NamedTuple
 
 from .findings import Finding, Severity, error, warning
 from .model import (
@@ -129,6 +131,11 @@ FORBIDDEN_MOUNT_PATHS: tuple[str, ...] = (
     "/lib",
     "/lib64",
 )
+#: Strikt koppelpad in de container, gelijk aan de Hub (KLEIN-82; ai-server-manager ``asm_policy.params``,
+#: ``CONTAINERPAD_RE``): "/" gevolgd door delen van ASCII-letters, cijfers en ``. _ @ + -``, gescheiden door één "/";
+#: geen "/" aan het eind. TrueNAS plakt de tmpfs-opties als ``"<mount_path>:<opties>"`` achter het pad, dus ":" en ","
+#: mogen er nooit in. Altijd met ``fullmatch``.
+CONTAINERPAD_RE = re.compile(r"/[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)*")
 _SOCKET_MARKERS = ("docker.sock", "containerd.sock", "podman.sock", "crio.sock", "dockershim.sock", "buildkitd.sock")
 
 #: Linux-capabilities (man 7 capabilities). ``ALL`` is nooit toegestaan.
@@ -225,7 +232,6 @@ _SYSTEM_DATASET_NAMES = frozenset({"ix-applications", "ix-apps", "ix-virt"})
 #: Variabele-interpolatie (compose/shell): ``$VAR``, ``${VAR}``, ``$(cmd)``, ``$$``.
 _INTERPOLATION = re.compile(r"\$[{(A-Za-z_$]")
 
-_SECRET_ENV = re.compile(r"(PASS(WORD|WD)?|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|CREDENTIAL|AUTH_KEY|SALT)$", re.I)
 _PLACEHOLDER = re.compile(r"<[A-Za-z0-9_ -]{1,40}>|\$\{[^}]*\}|\{\{[^}]*\}\}|%\([a-z_]+\)s|\bCHANGEME\b|\bchangeme\b")
 _EXAMPLE_HOSTS = re.compile(
     r"(^|[/@.])(example\.(com|org|net)|truenas\.local|nas\.local|nas\.lan|my-?nas|your-?nas|mynas\.[a-z]+)(\b|$)",
@@ -340,6 +346,13 @@ def host_path_problem(path: str) -> tuple[str, str] | None:
 
 
 def mount_path_problem(path: str) -> str | None:
+    """Controleer een koppelpad in de container (``storage[].mount`` en ``mount_path``/``mountPath`` in de waarden).
+
+    Gelijk aan de Hub (KLEIN-82; ai-server-manager ``asm_policy.params``: ``CONTAINERPAD_RE`` en
+    ``_mount_path_problem``): geen ``.``- of ``..``-deel (:func:`normalize_abs_path`), geen runtime-socket, geen
+    :data:`FORBIDDEN_MOUNT_PATHS` of iets onder ``/proc``, ``/sys`` of ``/dev`` (strenger dan de Hub), en alleen een
+    strikt containerpad (:data:`CONTAINERPAD_RE`).
+    """
     norm = normalize_abs_path(path)
     if norm is None:
         return f"Koppelpad {path!r} is geen genormaliseerd absoluut pad."
@@ -347,6 +360,11 @@ def mount_path_problem(path: str) -> str | None:
         return f"Koppelpad {path!r} is een container-runtime-socket."
     if norm in FORBIDDEN_MOUNT_PATHS or norm.startswith(("/proc/", "/sys/", "/dev/")):
         return f"Koppelpad {norm!r} overschrijft een systeemmap in de container."
+    if not CONTAINERPAD_RE.fullmatch(path):
+        return (
+            f"Koppelpad {path!r} is geen strikt containerpad: '/' gevolgd door delen van letters, cijfers en "
+            "'. _ @ + -' (ASCII), gescheiden door één '/', zonder '/' aan het eind."
+        )
     return None
 
 
@@ -440,7 +458,7 @@ def catalog_value_findings(values: Any, *, host_network_reason: str | None, reso
     out: list[Finding] = []
     reason = (host_network_reason or "").strip()
 
-    def leaf(value: str, path: str, key: str, raw_key: str) -> None:
+    def leaf(value: str, path: str, key: str, place: Place) -> None:
         low = value.lower()
         if any(marker in low for marker in _SOCKET_MARKERS):
             out.append(error("docker_socket_forbidden", path, "Verwijzing naar een container-runtime-socket."))
@@ -481,18 +499,24 @@ def catalog_value_findings(values: Any, *, host_network_reason: str | None, reso
                 out.append(error("mutable_tag_forbidden", path, tag_reason))
         elif not resolved and (example := example_reason(value)):
             out.append(error("example_value_as_real", path, f"Waarde {example}."))
-        if not resolved and _SECRET_ENV.search(raw_key.lower()) and value.strip():
+        if not resolved and place.secret and has_value(value):
             out.append(
                 error("secret_literal_forbidden", path, "Geheim als letterlijke waarde in de catalogus-waarden.")
             )
 
-    def visit(value: Any, path: str, key: str, raw_key: str) -> None:
+    def visit(value: Any, path: str, key: str, place: Place) -> None:
+        """``place``: de plek met wat zij van haar voorouders erft (ADR-0018: wat onder een geheimnaam ligt, erft hem)."""
         if isinstance(value, dict):
             if not resolved and set(value) == {"param"} and isinstance(value["param"], str):
                 return
+            # ADR-0016 W2: de naam van een naam/waarde-paar (``{name, value}``) geldt voor de waarde ernaast
+            pair_name = name_value_pair(value)
             for k, sub in value.items():
-                sub_path = f"{path}.{k}"
+                sub_path = f"{path}.{shown_key(str(k))}"
                 nk = _nk(k)
+                if pair_name is not None and k == "value":
+                    visit(sub, sub_path, nk, place.child(pair_name))
+                    continue
                 if "compose" in nk or nk == "services":
                     out.append(
                         error("compose_forbidden", sub_path, "Compose-configuratie in catalogus-waarden is verboden.")
@@ -515,39 +539,730 @@ def catalog_value_findings(values: Any, *, host_network_reason: str | None, reso
                             error(
                                 "catalog_value_forbidden",
                                 sub_path,
-                                f"Het veld {k!r} (host-namespaces, beveiligingsprofielen, capabilities, sysctls of eigen "
-                                "opdrachten) is in catalogus-waarden verboden.",
+                                f"Het veld {shown_key(str(k))!r} (host-namespaces, beveiligingsprofielen, capabilities, "
+                                "sysctls of eigen opdrachten) is in catalogus-waarden verboden.",
                             )
                         )
                 else:
-                    visit(sub, sub_path, nk, str(k))
+                    visit(sub, sub_path, nk, place.child(str(k)))
         elif isinstance(value, list):
             for idx, sub in enumerate(value):
-                visit(sub, f"{path}[{idx}]", key, raw_key)
+                visit(sub, f"{path}[{idx}]", key, place)
         elif isinstance(value, str):
-            leaf(value, path, key, raw_key)
+            leaf(value, path, key, place)
+        elif not resolved and isinstance(value, int | float) and has_value(value) and place.secret:
+            out.append(
+                error("secret_literal_forbidden", path, "Geheim als letterlijke waarde in de catalogus-waarden.")
+            )
 
-    visit(values, "values", "", "")
+    visit(values, "values", "", Place())
     return out
 
 
-def _param_refs(value: Any, path: str, key: str = "") -> Iterator[tuple[str, str, str]]:
-    """Alle ``{"param": "<naam>"}``-verwijzingen in vrije data (catalogus-``values``), met de genormaliseerde sleutel."""
+def _param_refs(
+    value: Any, path: str, key: str = "", place: Place | None = None
+) -> Iterator[tuple[str, str, str, Place]]:
+    """Alle ``{"param": "<naam>"}``-verwijzingen in vrije data (catalogus-``values``), met de genormaliseerde sleutel en
+    de plek (ADR-0016 W2, ADR-0018): de sleutel zoals hij er staat, of bij de ``value`` van een naam/waarde-paar de
+    tekst onder ``name``, met wat de plek van haar voorouders erft. Het pad toont een sleutel met een waarde niet."""
+    place = place if place is not None else Place()
     if isinstance(value, dict):
         if set(value) == {"param"} and isinstance(value["param"], str):
-            yield path, value["param"], key
+            yield path, value["param"], key, place
             return
+        pair_name = name_value_pair(value)
         for sub_key, sub in value.items():
-            yield from _param_refs(sub, f"{path}.{sub_key}", _nk(sub_key))
+            pair = pair_name is not None and sub_key == "value"
+            name = pair_name if pair and pair_name is not None else str(sub_key)
+            yield from _param_refs(
+                sub, f"{path}.{shown_key(str(sub_key))}", _nk(sub_key), place.child(name, whole=pair)
+            )
     elif isinstance(value, list):
         for idx, sub in enumerate(value):
-            yield from _param_refs(sub, f"{path}[{idx}]", key)
+            yield from _param_refs(sub, f"{path}[{idx}]", key, place)
+
+
+# ---------------------------------------------------------------------------------------------- geheimen (ADR-0016 W2)
+#: Woorden die van een naam een geheimnaam maken (ADR-0016 W2, "Begrippen"): de woorden van de vroegere regel
+#: ``_SECRET_ENV`` (die alleen het eind van de naam bekeek) plus ``WACHTWOORD``. Elk woord telt op elke plek in de naam.
+SECRET_WORDS: tuple[str, ...] = (
+    "PASS",
+    "PASSWD",
+    "PASSWORD",
+    "SECRET",
+    "TOKEN",
+    "API_KEY",
+    "APIKEY",
+    "PRIVATE_KEY",
+    "PRIVATEKEY",
+    "CREDENTIAL",
+    "AUTH_KEY",
+    "SALT",
+    "WACHTWOORD",
+)
+#: Woorden die van een geheimnaam een accountnaam maken (vaste lijst; een uitbreiding is een wijziging van de standaard).
+#: ADR-0020 (besluit BN-1 van de regisseur, aanvulling op ADR-0019) voegt de samenstellingen vanaf ``ADMINISTRATOR`` toe:
+#: als heel naamdeel in een voorouder tellen ze dan weer (``administrator``, ``beheerders``, ``rootuser``). De lijst
+#: blijft open: een nieuwe samenstelling (``sysadmin``) telt pas na een nieuwe uitbreiding. ADR-0023 (contract §9,
+#: aanvulling C-12; besluit BN-490-1) voegt ``INIT``, ``LOGIN`` en ``BASIC_AUTH`` toe.
+ACCOUNT_WORDS: tuple[str, ...] = (
+    "BOOTSTRAP",
+    "DEFAULTUSER",
+    "DEFAULT_USER",
+    "ADMIN",
+    "ROOT",
+    "SUPERUSER",
+    "OWNER",
+    "INITIAL",
+    "SETUP",
+    "BEHEER",
+    "SERVICE_ACCOUNT",
+    "SERVICEACCOUNT",
+    "DIENST",
+    "ADMINISTRATOR",
+    "BEHEERDER",
+    "DIENSTACCOUNT",
+    "BEHEERACCOUNT",
+    "SUPERADMIN",
+    "ROOTUSER",
+    "ADMINUSER",
+    "INIT",
+    "LOGIN",
+    "BASIC_AUTH",
+)
+#: ADR-0023 (contract §9, aanvulling C-12; besluit BN-490-1): aanmeldnamen van een app die alleen als **hele naam** een
+#: accountnaam zijn: de naam van een omgevingsvariabele, van een naam/waarde-paar of van een parameter. Een sleutel in
+#: ``values`` en het laatste deel van een naam met punten tellen niet (vervolgpunt; gemeten: 0 van 22 bestanden).
+LOGIN_NAMES: frozenset[str] = frozenset({"JUPYTER_TOKEN", "PASSWORD"})
+#: Sleutels van een gebruikerslijst: ``users`` (users.js van Node-RED) en de Nederlandse vorm.
+USER_LIST_KEYS = frozenset({"users", "gebruikers"})
+_KEY_PARTS = re.compile(r"[.\[\]]+")
+
+#: T1: een wachtwoordhash. bcrypt in elke vorm die de bcrypt van Node-RED (``@node-rs/bcrypt``, ``users.js``) aanneemt
+#: (ADR-0017: ook ``$2x$``, zonder ``$`` vooraan, met dubbele ``$`` en met kosten als ``+10`` of ``010``), plus de
+#: PHC-vormen ``$argon2…``, ``$scrypt$`` en ``$pbkdf2…`` (ADR-0016 W2). De ``$``-tekens vóór ``2`` staan niet in het
+#: patroon: ``search`` vindt dezelfde hashes, maar zonder ``\$*`` vooraan in lineaire tijd (ADR-0018).
+_BCRYPT = re.compile(r"2[abxy]\$+\+?[0-9]+\$+[./A-Za-z0-9]{53}")
+_PHC = re.compile(r"\$(?:argon2|scrypt\$|pbkdf2)")
+#: JSON-escapes zoals ``JSON.parse`` ze oplost (``\u0024`` → ``$``, ``\/`` → ``/``).
+_JSON_ESCAPE = re.compile(r"\\(?:u([0-9A-Fa-f]{4})|([\"\\/bfnrt]))")
+_SIMPLE_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+#: T2 stap 1: woorden zoals bash ``$FLOWS`` ongequoot splitst (standaard-IFS: spatie, tab, regeleinde).
+_IFS = re.compile(r"[ \t\n]+")
+#: Een define-waarde in de vorm ``sleutel=waarde`` (zoals ``red.js``: ``/^(([^=]+)=(.+)|@(.*))$/``).
+_SETTING = re.compile(r"([^=]+)=(.+)", re.DOTALL)
+#: ADR-0017: een kruisverwijzing in de sleutel van een instelling (``[msg.…]``, ``[msg[…]]``; ``normalisePropertyExpression``
+#: van Node-RED) en een index (``[0]``, ``["0"]``, ``.0``).
+_XREF = re.compile(r"\[\s*msg\s*[.\[]", re.IGNORECASE)
+_INDEX = re.compile(r"\[\s*[\"']?[0-9]+[\"']?\s*\]|\.[0-9]+(?=[.\[]|$)")
+#: T2 stap 2 (vangnet): een ``naam=`` met waarde en het begin van een pad met ``users``/``gebruikers``. Het vangnet
+#: stopt alleen op de IFS-witruimte van bash (spatie, tab, regeleinde): U+00A0 of een stuurteken na de ``=`` is een
+#: waarde (ADR-0018). JSON-sleutels en paden worden in lineaire tijd gelezen (:func:`_json_keys`, :func:`_users_path`).
+_NAME_ASSIGN = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z0-9_]+)[\"'\]]*=(?=[^ \t\n])")
+_USERS_PREFIX = re.compile(r"(?<![A-Za-z0-9_])[\"']?(?:users|gebruikers)[\"']?\]?[.\[]", re.IGNORECASE)
+_PATH_STOP = re.compile(r"[= \t\n]")
+#: Witruimte tussen een JSON-sleutel en de ``:`` (elke witruimte telt: meer sleutels, fail-closed), en JSON-witruimte
+#: na de ``:`` en binnen een lijst of object (alleen die slaat ``JSON.parse`` over).
+_ANY_WS = re.compile(r"\s*")
+_JSON_WS = re.compile(r"[ \t\n\r]*")
+_IFS_CHARS = " \t\n"
+#: Alles wat op een vault-verwijzing lijkt (ook met hoofdletters of midden in een tekst). Een manifest bevat er nooit
+#: een (contract §3.1, ADR-0023 besluit 3); alleen de vertaling zet een verwijzing.
+_VAULT_MARK = re.compile(r"vault://", re.IGNORECASE)
+#: ADR-0018: een tekst die langer is dan dit, toetsen T1 en T2 niet; hij is fail-closed een fout.
+MAX_SECRET_TEXT = 64 * 1024
+#: ADR-0018: hoe een sleutel in een pad of melding staat als hij een ``=`` heeft of als T1/T2 hem herkent.
+HIDDEN_KEY = "<verborgen>"
+
+_R_HASH = "een wachtwoordhash (bcrypt of PHC-vorm)"
+_R_GEHEIMNAAM = "een sleutel met een geheimnaam en een waarde"
+_R_USERS = "een gebruikerslijst (users of gebruikers) met inhoud"
+_R_FILE = "instellingen uit een bestand (@), buiten het zicht van de validator"
+_R_XREF = "een kruisverwijzing ([msg.…]) of een index in de sleutel van een instelling"
+_R_TE_LANG = f"een tekst van meer dan {MAX_SECRET_TEXT} tekens, te lang om op geheimen te toetsen (fail-closed)"
+
+
+def _last_part(name: str) -> str:
+    """Bij een sleutel met punten of ``[n]`` telt het laatste deel (``adminAuth.users[0].password`` → ``password``)."""
+    parts = [p.strip().strip("\"'") for p in _KEY_PARTS.split(name)]
+    parts = [p for p in parts if p]
+    return parts[-1] if parts else ""
+
+
+#: Per woord: elke plek waar het woord (hoofdletterongevoelig) begint, ook overlappend.
+_SECRET_WORD_AT = tuple((word, re.compile(f"(?={re.escape(word)})", re.IGNORECASE)) for word in SECRET_WORDS)
+_ACCOUNT_WORD_AT = tuple((word, re.compile(f"(?={re.escape(word)})", re.IGNORECASE)) for word in ACCOUNT_WORDS)
+
+
+#: ADR-0019: alleen een naam van hooguit zoveel tekens gaat in de cache van :func:`is_secret_name` en :func:`shown_key`
+#: (elk hooguit 4096 namen); een langere naam wordt door :func:`is_secret_name` direct getoetst. Een cache op tekst van
+#: willekeurige lengte hield elke sleutel uit een verzoek vast, tot honderden MiB, tot de dienst herstartte. Elke
+#: doorloop toetst elke naam één keer (de getoonde naam van een plek gaat mee), zodat ook een lange naam lineair blijft.
+CACHED_NAME_MAX = 256
+#: ADR-0021: een sleutel van meer dan zoveel tekens staat in een pad of melding in één vaste vorm, :data:`HIDDEN_KEY`
+#: (zie :func:`shown_key`). Zo draagt geen melding een sleutel van tienduizenden tekens (één verzoek gaf een antwoord
+#: van honderden MiB), en is het tonen van een lange sleutel geen rekenwerk. Gelijk aan :data:`CACHED_NAME_MAX`: elke
+#: sleutel die wel getoond wordt, past in de cache. De regels zelf (geheimnaam, accountwoord, T1) lezen de hele sleutel.
+SHOWN_KEY_MAX = CACHED_NAME_MAX
+
+
+def is_secret_name(name: str) -> bool:
+    """Geheimnaam (ADR-0016 W2, ADR-0018); een korte naam komt uit de cache (ADR-0019, :data:`CACHED_NAME_MAX`)."""
+    return _is_secret_name_cached(name) if len(name) <= CACHED_NAME_MAX else _is_secret_name(name)
+
+
+@lru_cache(maxsize=4096)
+def _is_secret_name_cached(name: str) -> bool:
+    return _is_secret_name(name)
+
+
+def _is_secret_name(name: str) -> bool:
+    """Geheimnaam (ADR-0016 W2, ADR-0018): een van :data:`SECRET_WORDS` staat in de naam, gevolgd door het einde,
+    ``_``, ``-``, ``.`` of een cijfer (``DB_PASSWORD2``, ``ADMIN_TOKEN1``), hoofdletterongevoelig, of door een
+    hoofdletter na een kleine letter (camelCase: ``secretKey``, ``passwordHash``, ``apiKeyValue``; niet
+    ``SECRETS_DIR``, ``TOKENS`` of ``PASSWORDLESS``). Het stuk tekst heeft precies de lengte van het woord: een teken
+    dat met hoofdletters langer wordt (``ß`` → ``SS``) maakt er geen geheimwoord van (``paß``, ``Reisepaß``)."""
+    part = _last_part(name)
+    for word, at in _SECRET_WORD_AT:
+        for m in at.finditer(part):
+            start = m.start()
+            end = start + len(word)
+            if end > len(part) or part[start:end].upper() != word:
+                continue
+            if end == len(part) or part[end] in "_-." or part[end].isdigit():
+                return True
+            if part[end].isupper() and part[end - 1].islower():
+                return True
+    return False
+
+
+def _part_edge(name: str, i: int) -> bool:
+    """Ligt op positie ``i`` een grens tussen twee naamdelen (ADR-0019)? Het begin en het einde van de naam, naast elk
+    teken dat geen letter of cijfer is (``_``, ``-``, ``.``, spatie), tussen een letter en een cijfer, op een
+    camelCase-grens (``adminUser``) en vóór de laatste hoofdletter van een reeks hoofdletters (``ADMINUser``)."""
+    if i <= 0 or i >= len(name):
+        return True
+    before, after = name[i - 1], name[i]
+    if not before.isalnum() or not after.isalnum() or before.isdigit() != after.isdigit():
+        return True
+    if before.islower() and after.isupper():
+        return True
+    return before.isupper() and after.isupper() and i + 1 < len(name) and name[i + 1].islower()
+
+
+def has_account_word(name: str) -> bool:
+    """Staat een van :data:`ACCOUNT_WORDS` als heel naamdeel in de naam (ADR-0019, keuze van de regisseur)? Het woord
+    begint en eindigt op een grens tussen naamdelen (:func:`_part_edge`), eventueel met een meervouds-``s``:
+    ``admin``, ``Admin_ui``, ``adminUser``, ``root user``, ``admins``, ``admin2`` wel; ``phpmyadmin``, ``rootless``,
+    ``groot``, ``administration`` niet. Hoofdletterongevoelig, zonder lengteverschil (zoals :func:`is_secret_name`)."""
+    for word, at in _ACCOUNT_WORD_AT:
+        for m in at.finditer(name):
+            start = m.start()
+            end = start + len(word)
+            if end > len(name) or name[start:end].upper() != word or not _part_edge(name, start):
+                continue
+            if _part_edge(name, end) or (end < len(name) and name[end] in "sS" and _part_edge(name, end + 1)):
+                return True
+    return False
+
+
+def _account_word_inside(name: str) -> bool:
+    """Staat een van :data:`ACCOUNT_WORDS` ergens in de naam, ook midden in een woord (hoofdletterongevoelig)?"""
+    upper = name.upper()
+    return any(word in upper for word in ACCOUNT_WORDS)
+
+
+def is_account_name(name: str) -> bool:
+    """Accountnaam (ADR-0016 W2): een geheimnaam waarin ook een van :data:`ACCOUNT_WORDS` staat, ergens in de naam
+    (``ADMINISTRATOR_PASSWORD``, ``beheerwachtwoord``); bij een sleutel met punten of ``[n]`` in het laatste deel, zoals
+    bij een geheimnaam (ADR-0021: ``phpmyadmin.password`` is geen accountnaam). ADR-0019 versmalt dit niet: alleen een
+    accountwoord in een voorouder of in een naam zonder geheimwoord moet een heel naamdeel zijn
+    (:func:`has_account_word`). ADR-0023: ook een aanmeldnaam uit :data:`LOGIN_NAMES` als hele naam; roep dit alleen aan
+    met een hele naam (omgevingsvariabele of parameter), nooit met een sleutel in ``values``."""
+    return is_secret_name(name) and (_account_word_inside(_last_part(name)) or is_login_name(name))
+
+
+def is_login_name(name: str) -> bool:
+    """Is de hele naam een aanmeldnaam uit :data:`LOGIN_NAMES` (ADR-0023)? Hoofdletterongevoelig, zonder lengteverschil
+    (zoals :func:`is_secret_name`)."""
+    upper = name.upper()
+    return len(upper) == len(name) and upper in LOGIN_NAMES
+
+
+def param_name_counts(param: Parameter) -> bool:
+    """Gelden de naamregels voor de naam van deze parameter? Niet voor type ``boolean`` zonder geheimmarkering
+    (ADR-0019; uitleg (a): een geheim is nooit een boolean). Een boolean die zelf als geheim is gemarkeerd
+    (:func:`is_marked_secret`) valt er wel onder (ADR-0021): het manifest noemt hem een geheim. De regels voor de plek
+    zelf gelden altijd."""
+    return param.type != "boolean" or is_marked_secret(param)
+
+
+class Place(NamedTuple):
+    """Een plek in ``values`` met wat zij van haar voorouders erft (ADR-0018). Een plek is een **geheimplek** als haar
+    eigen naam of de naam van een voorouder een geheimnaam is (wat onder een geheimnaam ligt, erft die naam: een object
+    net als een lijst), en een **accountplek** als zij een geheimplek is en haar eigen naam een accountnaam is of haar
+    eigen naam of een voorouder een accountwoord als heel naamdeel heeft (``admin.password``, ``adminUser.password``,
+    ``admin_password.x``; ADR-0019). De naam is een sleutel, of bij de ``value`` van een naam/waarde-paar de tekst
+    onder ``name``. Elke naam wordt één keer getoetst (lineair, ook voor een naam die te lang is voor de cache;
+    ADR-0019); een naam van meer dan :data:`SHOWN_KEY_MAX` tekens wordt nooit getoond (ADR-0021). ``whole``: de naam is
+    de hele naam van een omgevingsvariabele (de ``name`` van een naam/waarde-paar of van ``values.envs``); dan telt ook
+    een aanmeldnaam uit :data:`LOGIN_NAMES` (ADR-0023), bij een sleutel niet."""
+
+    #: de eigen naam van de plek
+    name: str = ""
+    #: de naam die haar een geheimplek maakt (de eigen naam of die van de dichtstbijzijnde voorouder), of ``""``
+    secret_name: str = ""
+    #: de eigen naam of een voorouder heeft een accountwoord (ADR-0019: als heel naamdeel, of een accountnaam)
+    account_word: bool = False
+    #: ``secret_name`` zoals hij in een melding staat (:func:`shown_key`), één keer berekend
+    shown_secret: str = ""
+
+    def child(self, name: str, *, whole: bool = False) -> Place:
+        secret = is_secret_name(name)
+        return Place(
+            name,
+            name if secret else self.secret_name,
+            self.account_word
+            or has_account_word(name)
+            or (secret and _account_word_inside(_last_part(name)))
+            or (whole and is_login_name(name)),
+            shown_key(name) if secret else self.shown_secret,
+        )
+
+    @property
+    def secret(self) -> bool:
+        return self.secret_name != ""
+
+    @property
+    def account(self) -> bool:
+        return self.secret and self.account_word
+
+
+def shown_key(key: str) -> str:
+    """Een sleutel zoals hij in een pad of melding staat. Met een ``=`` of met iets dat T1 of T2 herkent, staat er
+    :data:`HIDDEN_KEY`, want zo'n sleutel kan zelf een waarde dragen (ADR-0018). Een sleutel van meer dan
+    :data:`SHOWN_KEY_MAX` tekens staat er ook als :data:`HIDDEN_KEY` (ADR-0021: één vaste vorm, zonder de sleutel te
+    lezen). Elke andere sleutel komt uit de cache (ADR-0019)."""
+    return _shown_key_cached(key) if len(key) <= SHOWN_KEY_MAX else HIDDEN_KEY
+
+
+@lru_cache(maxsize=4096)
+def _shown_key_cached(key: str) -> str:
+    return HIDDEN_KEY if "=" in key or secret_text_reasons(key, settings=True) else key
+
+
+def is_marked_secret(param: Parameter) -> bool:
+    """Parameter met een geheimmarkering (``secret: true``, ``type: secret_ref`` of ``source: secret``/``generated``);
+    een parameter zonder markering is een gewone parameter (ADR-0016 W2)."""
+    return param.secret or param.type == "secret_ref" or param.source in ("secret", "generated")
+
+
+def marked_account_param(param: Parameter) -> bool:
+    """ADR-0022 (besluit B-2, volgt uit C-12 "strikt zonder"): een parameter met een geheimmarkering
+    (:func:`is_marked_secret`) waarvan de eigen naam een accountwoord als heel naamdeel heeft (:func:`has_account_word`:
+    ``admin_pw``, ``root_key``, ``beheer_code``) is de aanmelding van een beheerder of dienstaccount, net als een
+    parameter met een accountnaam: ``account_gegevens_verboden`` op elke plek, ook op een plek zonder accountwoord.
+    Een accountwoord als deel van een woord telt niet (``phpmyadmin_pw``), en een gewone parameter zonder
+    geheimmarkering ook niet."""
+    return is_marked_secret(param) and has_account_word(param.name)
+
+
+def has_value(value: Any) -> bool:
+    """Niet-lege waarde (ADR-0016 W2, ADR-0018): elke tekst behalve de lege tekst (ook alleen spaties, U+00A0 of
+    stuurtekens: bash, ``nopt`` en de apps zien die als waarde), een getal of een niet-lege lijst of object. Ja/nee en
+    ``null`` tellen niet: een geheim is nooit een boolean."""
+    if value is None or isinstance(value, bool):
+        return False
+    if isinstance(value, str):
+        return value != ""
+    if isinstance(value, list | dict):
+        return len(value) > 0
+    return True
+
+
+def name_value_pair(value: dict[Any, Any]) -> str | None:
+    """De naam van een naam/waarde-paar in ``values`` (een object met ``name`` en ``value``, zoals
+    ``additional_envs`` van Authentik), of ``None``."""
+    name = value.get("name")
+    return name if isinstance(name, str) and "value" in value else None
+
+
+def has_password_hash(text: str) -> bool:
+    """T1: een wachtwoordhash in de tekst zoals hij er staat (zie :data:`_BCRYPT` en :data:`_PHC`)."""
+    return bool(_BCRYPT.search(text) or _PHC.search(text))
+
+
+def _unescape(text: str) -> str:
+    def repl(m: re.Match[str]) -> str:
+        return chr(int(m.group(1), 16)) if m.group(1) else _SIMPLE_ESCAPES[m.group(2)]
+
+    return _JSON_ESCAPE.sub(repl, text)
+
+
+def _json_or_text(raw: str) -> Any:
+    """Zoals ``red.js``: de waarde gaat door ``JSON.parse``; lukt dat niet, dan blijft het tekst."""
+    try:
+        return json.loads(raw)
+    except (ValueError, RecursionError):
+        return raw
+
+
+def _decoded_reasons(value: Any) -> list[str]:
+    """T2 stap 1 op een gedecodeerde waarde: geheimnaam met waarde, gebruikerslijst met inhoud of een hash (T1)."""
+    reasons: list[str] = []
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            for key, sub in item.items():
+                text = str(key)
+                if is_secret_name(text) and has_value(sub):
+                    reasons.append(_R_GEHEIMNAAM)
+                if _last_part(text).lower() in USER_LIST_KEYS and isinstance(sub, list | dict) and sub:
+                    reasons.append(_R_USERS)
+                if has_password_hash(text):
+                    reasons.append(_R_HASH)
+                stack.append(sub)
+        elif isinstance(item, list):
+            stack.extend(item)
+        elif isinstance(item, str) and has_password_hash(item):
+            reasons.append(_R_HASH)
+    return reasons
+
+
+def t2_setting_reasons(text: str) -> list[str]:
+    """T2 stap 1 (ADR-0016 W2): de tekst splitsen zoals bash en elk woord decoderen zoals Node-RED, zonder optielijst.
+
+    Het deel na de eerste ``=`` van een woord met ``-`` vooraan, en elk woord zonder ``-`` vooraan met een ``=``, telt
+    als instelling (ook een los woord: fail-closed). Een instelling of woord dat met ``@`` begint, leest een bestand.
+    Een woord zonder ``-`` en ``=`` dat met ``{`` of ``[`` begint, wordt als JSON gelezen. ADR-0017: een kruisverwijzing
+    of index in de sleutel is ook een fout. Geeft de redenen, nooit de waarde."""
+    reasons: list[str] = []
+    for word in _IFS.split(text):
+        if not word:
+            continue
+        candidate: str | None = None
+        if word.startswith("-"):
+            if "=" in word:
+                candidate = word.split("=", 1)[1]
+                if candidate.startswith("@"):
+                    reasons.append(_R_FILE)
+                    continue
+        elif word.startswith("@"):
+            reasons.append(_R_FILE)
+            continue
+        elif "=" in word:
+            candidate = word
+        elif word[0] in "{[":
+            reasons.extend(_decoded_reasons(_json_or_text(word)))
+            continue
+        setting = _SETTING.fullmatch(candidate) if candidate is not None else None
+        if setting is None:
+            continue
+        key, value = setting.group(1), _json_or_text(setting.group(2))
+        if _XREF.search(key) or _INDEX.search(key):
+            reasons.append(_R_XREF)
+        if is_secret_name(key) and has_value(value):
+            reasons.append(_R_GEHEIMNAAM)
+        if _last_part(key).lower() in USER_LIST_KEYS and isinstance(value, list | dict) and value:
+            reasons.append(_R_USERS)
+        if has_password_hash(key):
+            reasons.append(_R_HASH)
+        reasons.extend(_decoded_reasons(value))
+    return reasons
+
+
+def _closing_quotes(text: str) -> list[int]:
+    """Per positie ``p``: de positie van de ``"`` die een JSON-tekst sluit waarvan de inhoud op ``p`` begint, of -1.
+
+    Hetzelfde als ``"((?:[^"\\]|\\.)*)"`` vanaf elke ``"`` (een ``\\`` slaat het volgende teken over, behalve een
+    regeleinde), maar één keer van rechts naar links gelezen: lineair, ook als geen enkele tekst sluit (ADR-0018)."""
+    n = len(text)
+    close = [-1] * (n + 2)
+    for p in range(n - 1, -1, -1):
+        ch = text[p]
+        if ch == '"':
+            close[p] = p
+        elif ch == "\\":
+            close[p] = close[p + 2] if p + 1 < n and text[p + 1] != "\n" else -1
+        else:
+            close[p] = close[p + 1]
+    return close
+
+
+def _skip(pattern: re.Pattern[str], text: str, pos: int) -> int:
+    """Positie na de witruimte die ``pattern`` vanaf ``pos`` vindt (het patroon kan leeg zijn)."""
+    m = pattern.match(text, pos)
+    return m.end() if m else pos
+
+
+def _json_keys(text: str, close: list[int]) -> Iterator[tuple[str, int]]:
+    """Elke JSON-sleutel ``"naam":`` in de tekst, met de positie van de waarde erna, in dezelfde volgorde als een
+    zoektocht van links naar rechts die bij elke ``"`` opnieuw begint (ook binnen een andere tekst: fail-closed), in
+    lineaire tijd."""
+    n = len(text)
+    after: dict[int, int] = {}
+    pos = 0
+    while (start := text.find('"', pos)) >= 0:
+        end = close[start + 1]
+        if end >= 0 and end not in after:
+            colon = _skip(_ANY_WS, text, end + 1)
+            after[end] = _skip(_JSON_WS, text, colon + 1) if colon < n and text[colon] == ":" else -1
+        value_at = after.get(end, -1) if end >= 0 else -1
+        if value_at < 0:
+            pos = start + 1
+            continue
+        yield text[start + 1 : end], value_at
+        pos = value_at
+
+
+def _json_value_follows(text: str, pos: int, close: list[int], *, containers_only: bool) -> bool:
+    """Staat er na een JSON-sleutel een niet-lege waarde (alleen lijst/object bij ``containers_only``)? Een tekst
+    telt zodra zij niet leeg is (ADR-0018: niet strippen); een tekst die niet sluit, telt ook (fail-closed)."""
+    if pos >= len(text):
+        return False
+    rest = text[pos]
+    if rest in "[{":
+        inner = _skip(_JSON_WS, text, pos + 1)
+        return inner < len(text) and text[inner] != ("]" if rest == "[" else "}")
+    if containers_only:
+        return False
+    if rest == '"':
+        end = close[pos + 1]
+        return end < 0 or end > pos + 1
+    if text.startswith(("true", "false", "null"), pos):
+        return False
+    return rest not in ",}]"
+
+
+def _users_path(text: str) -> bool:
+    """Een pad met een deel ``users``/``gebruikers`` (ook tussen aanhalingstekens of haken) gevolgd door ``[`` of
+    ``.``, vóór een ``=`` met een waarde; het pad stopt bij de eerste ``=`` of IFS-witruimte. Lineair: elk begin van
+    een pad hergebruikt de eerste stop die al gevonden is."""
+    stop = -1
+    for m in _USERS_PREFIX.finditer(text):
+        if stop < m.end():
+            found = _PATH_STOP.search(text, m.end())
+            if found is None:
+                return False
+            stop = found.start()
+        if text[stop] == "=" and stop + 1 < len(text) and text[stop + 1] not in _IFS_CHARS:
+            return True
+    return False
+
+
+def t2_safety_net_reasons(text: str) -> list[str]:
+    """T2 stap 2, het vangnet (ADR-0016 W2): los van stap 1, op de tekst zelf én op dezelfde tekst met alle
+    JSON-escapes opgelost. Een JSON-sleutel met een geheimnaam en een waarde, een JSON-sleutel ``users``/``gebruikers``
+    met inhoud, een ``naam=`` met waarde waarin ``naam`` een geheimnaam is, een pad met een deel ``users`` of
+    ``gebruikers`` vóór een ``=`` met waarde, en een hash volgens T1. Alles in lineaire tijd (ADR-0018)."""
+    reasons: list[str] = []
+    for variant in dict.fromkeys((text, _unescape(text))):
+        if '"' in variant:
+            close = _closing_quotes(variant)
+            for raw_key, value_at in _json_keys(variant, close):
+                key = _unescape(raw_key)
+                if is_secret_name(key) and _json_value_follows(variant, value_at, close, containers_only=False):
+                    reasons.append(_R_GEHEIMNAAM)
+                if _last_part(key).lower() in USER_LIST_KEYS and _json_value_follows(
+                    variant, value_at, close, containers_only=True
+                ):
+                    reasons.append(_R_USERS)
+        if any(is_secret_name(m.group(1)) for m in _NAME_ASSIGN.finditer(variant)):
+            reasons.append(_R_GEHEIMNAAM)
+        if _users_path(variant):
+            reasons.append(_R_USERS)
+        if has_password_hash(variant):
+            reasons.append(_R_HASH)
+    return reasons
+
+
+def secret_text_reasons(text: str, *, settings: bool) -> list[str]:
+    """Tekstregels van ADR-0016 W2: T1 op elke tekst; met ``settings`` ook T2 (stap 1 en het vangnet). Elke reden
+    één keer, in vaste volgorde. Een tekst langer dan :data:`MAX_SECRET_TEXT` wordt niet getoetst maar geweigerd
+    (ADR-0018, fail-closed)."""
+    if len(text) > MAX_SECRET_TEXT:
+        return [_R_TE_LANG]
+    reasons = t2_setting_reasons(text) + t2_safety_net_reasons(text) if settings else []
+    if has_password_hash(text):
+        reasons.append(_R_HASH)
+    return list(dict.fromkeys(reasons))
+
+
+def secret_text_finding(path: str, reasons: list[str]) -> Finding:
+    return error(
+        "account_gegevens_verboden",
+        path,
+        "Geheim of accountgegevens in een tekst: "
+        + "; ".join(reasons)
+        + ". Een wachtwoord, wachtwoordhash, geheime sleutel of gebruikerslijst hoort nooit in een manifest of in het "
+        "Custom App-formulier; een beheerder of dienstaccount komt er via de app zelf (ADR-0016).",
+    )
+
+
+def render_shown(segments: tuple[str | int, ...]) -> str:
+    """Pad voor een melding, bv. ``values.voorbeeld.x``; een sleutel die een waarde kan dragen of te lang is, staat er
+    als :data:`HIDDEN_KEY` (:func:`shown_key`, ADR-0018, ADR-0021)."""
+    out = ""
+    for s in segments:
+        out += f"[{s}]" if isinstance(s, int) else (f".{shown_key(s)}" if out else shown_key(s))
+    return out
+
+
+class PathNode(NamedTuple):
+    """Eén stap van een pad als gelinkte keten (ADR-0021): de ouder en het eigen segment. Een doorloop zet zo per
+    knooppunt alleen deze twee verwijzingen op de stapel, geen kopie van het hele pad; de tekst van het pad
+    (:func:`shown_path`) en de plek als reeks (:func:`path_segments`) worden pas gemaakt als ze nodig zijn (bij een
+    melding of bij het opzoeken van een plek). ``None`` is de wortel."""
+
+    parent: PathNode | None
+    #: een sleutel van een object, of de positie in een lijst
+    segment: Any
+    #: ``True`` voor een positie in een lijst (``[3]``), ``False`` voor een sleutel (``.naam``)
+    in_list: bool = False
+
+
+def path_segments(node: PathNode | None) -> tuple[Any, ...]:
+    """De plek als reeks sleutels en lijstposities, van de wortel naar ``node``."""
+    out: list[Any] = []
+    while node is not None:
+        out.append(node.segment)
+        node = node.parent
+    out.reverse()
+    return tuple(out)
+
+
+def shown_path(node: PathNode | None) -> str:
+    """Pad voor een melding, zoals :func:`render_shown`: elke sleutel via :func:`shown_key`. Alleen aanroepen als er
+    een melding is (ADR-0021); het pad is dan hooguit zo lang als de diepte keer :data:`SHOWN_KEY_MAX`."""
+    chain: list[PathNode] = []
+    while node is not None:
+        chain.append(node)
+        node = node.parent
+    parts: list[str] = []
+    filled = False  # staat er al tekst? Dan komt er een punt vóór een sleutel (zoals in :func:`render_shown`)
+    for step in reversed(chain):
+        if step.in_list:
+            part = f"[{step.segment}]"
+        else:
+            key = shown_key(str(step.segment))
+            part = f".{key}" if filled else key
+        filled = filled or part != ""
+        parts.append(part)
+    return "".join(parts)
+
+
+def _settings_place(segments: tuple[str | int, ...]) -> bool:
+    """Waar ook T2 geldt: ``custom_app.env[].value``, elke tekst in ``values`` en ``default``/``example`` van een
+    parameter (ADR-0016 W2)."""
+    if segments[:1] == ("values",):
+        return True
+    if len(segments) == 4 and segments[:2] == ("custom_app", "env") and segments[3] == "value":
+        return True
+    return len(segments) == 3 and segments[0] == "parameters" and segments[2] in ("default", "example")
+
+
+def _text_children(
+    value: dict[Any, Any] | list[Any], node: PathNode | None, depth: int, in_values: bool
+) -> Iterator[tuple[Any, PathNode, int, bool]]:
+    """De kinderen van een object of lijst, van achter naar voren (de volgorde waarin :func:`secret_text_findings` ze
+    altijd al las), elk met een eigen :class:`PathNode`. Lui: er staat nooit meer dan één kind per niveau klaar."""
+    if isinstance(value, dict):
+        for key, sub in reversed(value.items()):
+            yield sub, PathNode(node, str(key)), depth + 1, in_values or (depth == 0 and str(key) == "values")
+    else:
+        for idx in range(len(value) - 1, -1, -1):
+            yield value[idx], PathNode(node, idx, True), depth + 1, in_values
+
+
+def vault_ref_finding(path: str, *, key: bool) -> Finding:
+    """ADR-0023 besluit 3: een kluisverwijzing in het manifest; de melding noemt het pad, nooit de tekst."""
+    return error(
+        "vault_ref_not_allowed",
+        path,
+        ("In een sleutel van dit object staat" if key else "Hier staat")
+        + " een kluisverwijzing (vault://). Een manifest noemt alleen de parameter; de verwijzing zet alleen de "
+        "vertaling, voor een geheime parameter van de eigen app (contract §3.1, ADR-0023).",
+    )
+
+
+def secret_text_findings(data: Any) -> list[Finding]:
+    """Tekstregels T1 en T2 van ADR-0016 W2 (``account_gegevens_verboden``) op de ruwe gegevens, net als
+    ``validator._compose_findings``, zodat de melding er ook is als het schema al faalt. Een sleutel valt onder de
+    naamregels; alleen op een sleutel in ``values`` geldt daarnaast T1 (ADR-0018). Elke tekst geeft hooguit één
+    melding, met het pad en de reden, nooit de waarde. ADR-0023 besluit 3: een kluisverwijzing in een tekst of in een
+    sleutel in ``values`` geeft daarnaast ``vault_ref_not_allowed``. ADR-0021: de doorloop houdt per niveau één rij kinderen bij en
+    per knooppunt alleen de ouder en het segment (:class:`PathNode`); het getoonde pad wordt pas bij een melding
+    gemaakt. Geheugen en rekentijd hangen zo niet af van de lengte van het pad keer het aantal knooppunten."""
+    out: list[Finding] = []
+    first: list[tuple[Any, PathNode | None, int, bool]] = [(data, None, 0, False)]
+    stack: list[Iterator[tuple[Any, PathNode | None, int, bool]]] = [iter(first)]
+    while stack:
+        item = next(stack[-1], None)
+        if item is None:
+            stack.pop()
+            continue
+        value, node, depth, in_values = item
+        if isinstance(value, dict):
+            if in_values:
+                for key in value:
+                    if reasons := secret_text_reasons(str(key), settings=False):
+                        out.append(secret_text_finding(shown_path(PathNode(node, str(key))), reasons))
+                    if _VAULT_MARK.search(str(key)):
+                        out.append(vault_ref_finding(shown_path(node), key=True))
+            stack.append(_text_children(value, node, depth, in_values))
+        elif isinstance(value, list):
+            stack.append(_text_children(value, node, depth, in_values))
+        elif isinstance(value, str):
+            # buiten ``values`` geldt T2 alleen op een plek van 3 of 4 segmenten diep (:func:`_settings_place`)
+            settings = in_values or (depth in (3, 4) and _settings_place(path_segments(node)))
+            if reasons := secret_text_reasons(value, settings=settings):
+                out.append(secret_text_finding(shown_path(node), reasons))
+            if _VAULT_MARK.search(value):
+                out.append(vault_ref_finding(shown_path(node), key=False))
+    return out
+
+
+def recognised_secret(data: Any, segments: tuple[str | int, ...], instance: Any) -> bool:
+    """Herkent W2 de waarde van een schemafout als geheim of accountgegeven? Dan noemt de melding haar niet (ADR-0016
+    W2): onder ``accounts``, een geheimnaam als sleutel of als ``name`` op het pad, of een tekst waarin T1 of T2 iets
+    vindt."""
+    if segments[:1] == ("accounts",):
+        return True
+    node: Any = data
+    for segment in segments:
+        if isinstance(node, dict):
+            name = node.get("name") if node is not data else None  # de naam van de app zelf telt niet
+            if isinstance(name, str) and is_secret_name(name):
+                return True
+            if isinstance(segment, str) and is_secret_name(segment):
+                return True
+            node = node.get(segment)
+        elif isinstance(node, list) and isinstance(segment, int) and 0 <= segment < len(node):
+            node = node[segment]
+        else:
+            break
+    texts: list[str] = []
+    stack = [instance]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            texts.extend(str(k) for k in item)
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+        elif isinstance(item, str):
+            texts.append(item)
+    return any(secret_text_reasons(text, settings=True) for text in texts)
 
 
 # ---------------------------------------------------------------------------------------------- regels
 #: contract 1.3 §9: restrisico dat een upstream-image als Custom App in ``privilege_reason`` noemt
 NNP_RISK_NL = "zonder no-new-privileges kan een setuid-programma binnen de container root worden"
 _HUB_RESERVED = re.compile(r"^hub_", re.I)
+#: ADR-0016 W1: de grens van ``validate_manifest_meta`` in het beleid van de Hub voor de tekst van een controle die een
+#: account noemt (het schema laat 1000 toe). Vervalt zodra contract en beleid dezelfde grens hebben.
+ACCOUNT_CHECK_MAX = 500
 
 
 class _Rules:
@@ -568,7 +1283,53 @@ class _Rules:
             self.acceptable.add(len(self.out))
         self.out.append(warning(code, path, msg))
 
-    def ref(self, ref: ParamRef, path: str, allowed_types: Iterable[str], what: str) -> Parameter | None:
+    def account_value(self, path: str, shown: str) -> None:
+        """N3 (ADR-0016 W2, ADR-0018, ADR-0019, ADR-0021, ADR-0022): een accountplek krijgt haar waarde via
+        ``value_from`` of ``{param}``, van welke parameter ook, of een parameter met een accountnaam wordt gebruikt, of een
+        parameter met een geheimnaam of een geheimmarkering komt op een plek met een accountwoord, of een parameter met
+        een geheimmarkering en een accountwoord in de eigen naam wordt gebruikt. Niet te accepteren; op dit pad geen
+        ``secret_in_form``. ``shown`` is de naam zoals hij in de melding staat (:func:`shown_key`)."""
+        self.err(
+            "account_gegevens_verboden",
+            path,
+            f"{shown} is de aanmelding van een beheerder of dienstaccount; die komt nooit via het manifest of "
+            "het Custom App-formulier, ook niet als geheim dat de Hub maakt. De beheerder zet het account in de app "
+            "zelf (ADR-0016, besluit 1 en 3).",
+        )
+
+    def plain_secret_value(self, path: str, shown: str, param: Parameter) -> None:
+        """N2 (ADR-0016 W2, ADR-0018): een geheimplek krijgt haar waarde van een gewone parameter (zonder
+        geheimmarkering), of een gewone parameter met een geheimnaam wordt gebruikt (dan is ``shown`` leeg)."""
+        who = (
+            f"{shown} lijkt een geheim, maar krijgt zijn waarde van de gewone parameter {param.name!r}"
+            if shown
+            else f"De gewone parameter {param.name!r} heeft een geheimnaam"
+        )
+        self.err(
+            "secret_in_form",
+            path,
+            f"{who}; zo komt het geheim in het formulier of de waarden. Een geheim maakt de app zelf, of de Hub "
+            "(source generated + secret true).",
+        )
+
+    def param_name_rules(self, path: str, param: Parameter) -> bool:
+        """ADR-0018: de naam van een gebruikte parameter telt ook. Een accountnaam geeft N3 (ook bij een geheim dat de
+        Hub maakt), net als een geheimmarkering met een accountwoord in de eigen naam (ADR-0022,
+        :func:`marked_account_param`); een geheimnaam zonder geheimmarkering geeft N2. Niet bij type ``boolean`` zonder
+        geheimmarkering (ADR-0019, ADR-0021). Geeft ``True`` als er een fout is gemeld."""
+        if not param_name_counts(param):
+            return False
+        if is_account_name(param.name) or marked_account_param(param):
+            self.account_value(path, shown_key(param.name))
+            return True
+        if is_secret_name(param.name) and not is_marked_secret(param):
+            self.plain_secret_value(path, "", param)
+            return True
+        return False
+
+    def ref(
+        self, ref: ParamRef, path: str, allowed_types: Iterable[str], what: str, *, name_rules: bool = True
+    ) -> Parameter | None:
         param = self.params.get(ref.param)
         self.used_params.add(ref.param)
         if param is None:
@@ -581,6 +1342,8 @@ class _Rules:
                 path,
                 f"{what} verwacht een parameter van type {' of '.join(allowed)}; {ref.param!r} is {param.type!r}.",
             )
+        if name_rules:
+            self.param_name_rules(path, param)
         return param
 
     # -- hoofdroute
@@ -601,6 +1364,7 @@ class _Rules:
         self.risk_and_upgrade()
         self.meta()
         self.contract_1_3()
+        self.accounts()
         for name, param in self.params.items():
             if name not in self.used_params and param.decision is None:
                 self.warn("parameter_unused", f"parameters[{name}]", f"Parameter {name!r} wordt nergens gebruikt.")
@@ -677,6 +1441,66 @@ class _Rules:
                 "er een monitorplan van dat de beheerder in Uptime Kuma overneemt.",
             )
 
+    # -- accounts (aanvulling C-12, ADR-0016 W1, ADR-0023 besluit 1)
+    def accounts(self) -> None:
+        """W1: de combinaties uit de tabel van ADR-0016, de genoemde controle en haar lengte. Een melding noemt het pad en
+        de regel, nooit de waarde van een veld (V-094)."""
+        accounts = self.m.accounts
+        checks = {c.id: idx for idx, c in enumerate(self.m.post_install_checks)}
+        has_admin = any(a.rol == "beheerder" for a in accounts)
+        ids: set[str] = set()
+        admin_seen = False
+        too_long: set[int] = set()
+        for idx, a in enumerate(accounts):
+            path = f"accounts[{idx}]"
+            bad: list[tuple[str, str]] = []
+            if a.id in ids:
+                self.err("duplicate_name", f"{path}.id", "Deze account-id staat al eerder in accounts.")
+            ids.add(a.id)
+            if a.rol == "beheerder":
+                if admin_seen:
+                    bad.append(("rol", "een manifest heeft hooguit één beheerder"))
+                admin_seen = True
+                if a.aanmaak != "eerste_gebruik":
+                    bad.append(("aanmaak", "een beheerder ontstaat alleen met aanmaak 'eerste_gebruik'"))
+                bad += [
+                    (f, f"een beheerder heeft geen {f} (hij heeft alle rechten)")
+                    for f in ("afnemer", "rechten")
+                    if getattr(a, f) is not None
+                ]
+            else:
+                if a.aanmaak != "door_beheerder":
+                    bad.append(("aanmaak", "een dienstaccount ontstaat alleen met aanmaak 'door_beheerder'"))
+                if a.afnemer is None:
+                    bad.append(
+                        ("afnemer", "een dienstaccount noemt zijn afnemer (de app_id die de aanmelding gebruikt)")
+                    )
+                elif a.afnemer == self.m.app_id:
+                    bad.append(("afnemer", "de afnemer is de app zelf; een dienstaccount is voor een andere app"))
+                if a.rechten is None:
+                    bad.append(("rechten", "een dienstaccount noemt zijn rechten in de app"))
+                if not has_admin:
+                    bad.append(("rol", "een dienstaccount vraagt een beheerder in hetzelfde manifest die het maakt"))
+            for field, why in bad:
+                self.err("account_ongeldig", f"{path}.{field}", f"Ongeldig account: {why} (ADR-0016 W1).")
+            check = checks.get(a.controle)
+            if check is None:
+                self.err(
+                    "account_controle_ontbreekt",
+                    f"{path}.controle",
+                    "Het account noemt een controle die niet in post_install_checks staat; die controle zegt de "
+                    "beheerder wat hij doet en houdt de app tot de bevestiging 'niet gezond' (ADR-0016 W1).",
+                )
+            elif len(self.m.post_install_checks[check].beschrijving_nl) > ACCOUNT_CHECK_MAX and check not in too_long:
+                too_long.add(check)
+                self.err(
+                    "account_controle_te_lang",
+                    f"post_install_checks[{check}].beschrijving_nl",
+                    f"Deze controle wordt door een account genoemd en haar beschrijving is langer dan {ACCOUNT_CHECK_MAX} "
+                    "tekens; het beleid van de Hub weigert dat (ADR-0016 W1). Verwijs naar de rechten in het manifest "
+                    "in plaats van ze op te sommen.",
+                )
+
     def accept(self) -> None:
         """``accepted_findings`` (contract 1.3 §9): alleen waarschuwingen uit de vaste lijst, alleen waar de voorwaarde
         geldt (``secret_in_form`` alleen bij een parameter met ``source: generated`` en ``secret: true``). Een
@@ -727,6 +1551,16 @@ class _Rules:
                 )
             if isinstance(p.default, str) and (reason := example_reason(p.default)):
                 self.err("example_value_as_real", f"{path}.default", f"Default van {p.name!r} {reason}.")
+            if is_secret_name(p.name) and not is_marked_secret(p):
+                # N1 (ADR-0016 W2): een geheimnaam zonder geheimmarkering met een letterlijke waarde in het manifest
+                field = next((f for f in ("default", "example") if has_value(getattr(p, f))), None)
+                if field is not None:
+                    self.err(
+                        "secret_literal_forbidden",
+                        f"{path}.{field}",
+                        f"Parameter {p.name!r} lijkt een geheim en heeft een letterlijke {field}; de waarde van een "
+                        "geheim staat nooit in het manifest.",
+                    )
             if p.type in ("path", "dataset") and p.source not in ("dataset_picker", "wizard"):
                 self.err(
                     "host_path_param_wrong_source",
@@ -889,7 +1723,7 @@ class _Rules:
                 low = env.value.lower()
                 if env.name.upper() == "DOCKER_HOST" or any(marker in low for marker in _SOCKET_MARKERS):
                     self.err("docker_socket_forbidden", path, f"{env.name} verwijst naar een container-runtime-socket.")
-                if _SECRET_ENV.search(env.name) and env.value.strip():
+                if is_secret_name(env.name) and has_value(env.value):  # N1 (ADR-0016 W2)
                     self.err(
                         "secret_literal_forbidden",
                         path,
@@ -911,8 +1745,32 @@ class _Rules:
                     f"{path}.value_from",
                     ("string", "integer", "boolean", "port", "url", "timezone", "duration", "secret_ref", "dataset"),
                     f"Omgevingsvariabele {env.name}",
+                    name_rules=False,  # per plek één code: de naam van de plek en die van de parameter samen
                 )
-                if param is not None and param.hub_generated_secret:
+                names = param is not None and param_name_counts(param)  # ADR-0019: niet bij een gewone boolean
+                if is_account_name(env.name):
+                    self.account_value(path, shown_key(env.name))
+                elif param is not None and names and is_account_name(param.name):
+                    self.account_value(path, shown_key(param.name))
+                elif param is not None and names and is_secret_name(param.name) and has_account_word(env.name):
+                    # ADR-0019: een parameter met een geheimnaam op een plek met een accountwoord (ADMIN_PW)
+                    self.account_value(path, shown_key(param.name))
+                elif param is not None and is_marked_secret(param) and has_account_word(env.name):
+                    # ADR-0021: ook een parameter met een geheimmarkering zonder geheimwoord in de naam (admin_pw)
+                    self.account_value(path, shown_key(param.name))
+                elif param is not None and marked_account_param(param):
+                    # ADR-0022: een geheimmarkering met een accountwoord in de eigen naam, ook onder een gewone naam (X)
+                    self.account_value(path, shown_key(param.name))
+                elif param is not None and param.hub_generated_secret and not is_secret_name(env.name):
+                    # ADR-0023 besluit 4 (variant B): alleen onder een geheimnaam kan de validator een aanmelding uitsluiten
+                    self.err(
+                        "secret_in_form",
+                        path,
+                        f"{env.name} krijgt een geheim dat de Hub maakt ({param.name!r}), maar de naam is geen geheimnaam; "
+                        "dan kan de validator niet uitsluiten dat het de aanmelding van een beheerder of dienstaccount is "
+                        "(fail-closed, ADR-0023). Kies een naam met een geheimwoord en zonder accountwoord.",
+                    )
+                elif param is not None and param.hub_generated_secret:
                     # contract 1.3 §3.1 a: de Hub maakt het geheim (vault) en geeft het alleen in de values mee
                     self.warn(
                         "secret_in_form",
@@ -921,14 +1779,16 @@ class _Rules:
                         "nooit in het manifest, een log of evidence.",
                         acceptable=True,
                     )
-                elif param is not None and (
-                    param.type == "secret_ref" or param.source in ("secret", "generated") or param.secret
-                ):
+                elif param is not None and is_marked_secret(param):
                     self.err(
                         "secret_in_form",
                         path,
                         f"{env.name} zou een geheim ({param.name!r}) in het Custom App-formulier zetten; dat is verboden.",
                     )
+                elif param is not None and is_secret_name(env.name):
+                    self.plain_secret_value(path, shown_key(env.name), param)
+                elif param is not None and names and is_secret_name(param.name):
+                    self.plain_secret_value(path, "", param)
         # gpu (contract 1.2 §9: privileges.gpu is het maximum), run_as, tijdzone, portal
         if isinstance(ca.gpu, ParamRef):
             self.ref(ca.gpu, "custom_app.gpu", ("gpu",), "GPU")
@@ -993,9 +1853,24 @@ class _Rules:
         self.out.extend(
             catalog_value_findings(m.values, host_network_reason=m.network.host_network_reason, resolved=False)
         )
-        for path, name, key in _param_refs(m.values, "values"):
+        for path, name, key, where in _param_refs(m.values, "values"):
             param = self.params.get(name)
             self.used_params.add(name)
+            names = param is not None and param_name_counts(param)  # ADR-0019: niet bij een gewone boolean
+            # ADR-0018: een accountplek (ook via een voorouder) of een parameter met een accountnaam; ADR-0019: ook een
+            # parameter met een geheimnaam op een plek waarvan de eigen naam of een voorouder een accountwoord heeft;
+            # ADR-0021: op zo'n plek ook een parameter met een geheimmarkering zonder geheimwoord in de naam;
+            # ADR-0022: op elke plek een parameter met een geheimmarkering en een accountwoord in de eigen naam
+            account = where.account or (
+                param is not None
+                and (
+                    (names and is_account_name(param.name))
+                    or marked_account_param(param)
+                    or (where.account_word and ((names and is_secret_name(param.name)) or is_marked_secret(param)))
+                )
+            )
+            if account:
+                self.account_value(path, where.shown_secret if where.account else shown_key(name))
             if param is None:
                 self.err("unknown_parameter", path, f"Waarde verwijst naar onbekende parameter {name!r}.")
                 continue
@@ -1018,7 +1893,9 @@ class _Rules:
                     path,
                     "Apparaten en koppelpaden moeten letterlijk (en dus beoordeelbaar) in het manifest staan.",
                 )
-            if param.source in ("secret", "generated") or param.type == "secret_ref" or param.secret:
+            if account:
+                continue  # N3 staat er al; geen waarschuwing secret_in_form op dit pad
+            if is_marked_secret(param):
                 self.warn(
                     "secret_in_form",
                     path,
@@ -1027,6 +1904,10 @@ class _Rules:
                     + (" De Hub maakt het (vault, contract 1.3 §3.1 a)." if param.hub_generated_secret else ""),
                     acceptable=param.hub_generated_secret,
                 )
+            elif where.secret:
+                self.plain_secret_value(path, where.shown_secret, param)
+            elif names and is_secret_name(param.name):
+                self.plain_secret_value(path, "", param)
 
     # -- netwerk
     def network(self) -> None:
@@ -1245,7 +2126,7 @@ def _hub_names_in_values(value: Any, path: str) -> Iterator[str]:
         if isinstance(name, str) and _HUB_RESERVED.match(name):
             yield f"{path}.name"
         for key, item in value.items():
-            sub = f"{path}.{key}"
+            sub = f"{path}.{shown_key(str(key))}"
             if isinstance(key, str) and _HUB_RESERVED.match(key):
                 yield sub
             yield from _hub_names_in_values(item, sub)

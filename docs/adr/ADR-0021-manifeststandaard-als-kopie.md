@@ -54,3 +54,28 @@ conflictanalyse al gebouwd en getest. Tot nu toe gebruikte deze repo de validato
   van de regisseur; `KOPIE.json`), zodat CI en de planner met dezelfde code oordelen. De planner geeft geen
   `trusted_app_id` mee: het manifest van een plan komt van de aanvrager. Een geheim krijgt daar dus geen
   vault-verwijzing en een installatieplan met geheimen blijft geblokkeerd (ADR-0022 besluit 11, ADR-0025 besluit 7).
+
+## Overname KLEIN-101 (2026-11-17, na S-P3-490)
+
+- Kopie, `Makefile` en CI-pin staan nu op **`a994c2a51f45b81b2c48c6533b0ccf51ba857f5a`** van
+  `appstore-en-fork`. Overgenomen via `python tools/validator_kopie.py bijwerken --bron ../appstore-en-fork
+  --ref a994c2a51f45b81b2c48c6533b0ccf51ba857f5a`; de bron is alleen met Git gelezen. Alle 17 bestanden onder
+  het kopiepatroon zijn op die commit vergeleken met de sha256 in `KOPIE.json` en de lokale bytes.
+- Hiermee komen ook de tussenliggende weigeringen van geheimen en accountgegevens (W2/W3), `accounts`,
+  de woordenlijst met INIT/LOGIN/BASIC_AUTH en de hele namen JUPYTER_TOKEN/PASSWORD, variant B voor een geheim
+  van de Hub in een Custom App-env en `vault_ref_not_allowed` in `validate` mee (ADR-0023 van de bron).
+  De planner blijft zonder `trusted_app_id` werken; de nieuwe weigeringen worden niet lokaal afgezwakt.
+- `schemas/checklist-v1.schema.json` is eveneens byte-gelijk overgenomen van die commit en is gelijk aan de
+  schemakopie in de dienst. Dat schema kent `NIET GEVALIDEERD (echte Hub)` (B-6). De lokale controle behoudt
+  haar aanvullende regels voor Excel-dekking, eigenaar, verzameling en eerlijke validatie. De voorheen lokale
+  schema-eisen (verplichte `aanpak`/`installatie`, vaste eigenaar, bronprofielen 25.04/25.10) staan nu als
+  aanvullende controles in `tools/checklists.py`, met negatieve tests. Het gedeelde schema kent ook
+  `Niet getest` en `NIET GEVALIDEERD (Mac/Xcode)`; elke lokale stap blijft een echte controle vragen. `ECHT_NODIG` kent
+  nu ook de Hub-waarde. `tests/repo/test_checklist_contract.py` vergelijkt de waarden met contract §11 en toetst
+  de Hub-waarde en een ongeldige variant met de lokale controle en de gepinde CLI.
+- Nul- en nameting van dezelfde negen manifesten en drie controlelijsten staan in de ketenmap KLEIN-101.
+  Exitcodes en meldingen zijn per bestand gelijk; alleen de manifest-schemahash wijzigt. Geen invoerbestand
+  aangepast. De bestaande drie strict-weigeringen wegens gedocumenteerde waarschuwingen blijven bestaan
+  (I23-kopieën en Beszel-agent; `overgang-1.3.yaml`); `make manifesten` bewaakt de exacte overgang.
+  I03, I04 en het Node-RED-manifest zijn buiten het wijzigingsbereik gehouden. Geen statusverhoging of
+  acceptatie op echte diensten.
