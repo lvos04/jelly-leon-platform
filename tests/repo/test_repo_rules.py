@@ -442,3 +442,33 @@ def test_klein105_bewijs_en_accountoordeel() -> None:
         assert "NIET GEVALIDEERD (account)" not in rij["validatie"]
     hub = next(r for r in geselecteerd if r["id"] == "I03-03-08")
     assert "zolang B-6/ASF-15 ontbreekt" not in hub["opmerking"]
+
+
+def _controleer_bestaande_app_bewijs(
+    rijen: list[dict[str, Any]], app: str, alleen_nas: set[int], hub: set[int], account: set[int],
+) -> None:
+    geselecteerd = [r for r in rijen if r["id"].startswith(app + "-")]
+    assert len(geselecteerd) == 6
+    for nummer, rij in enumerate(geselecteerd, 1):
+        assert rij["status"] == "Bezig", rij["id"]
+        waarden = set(rij["validatie"].split("; "))
+        assert "Unit-getest" in waarden and "Sim-getest" not in waarden
+        assert "NIET GEVALIDEERD (echte NAS)" in waarden
+        assert ("NIET GEVALIDEERD (echte Hub)" in waarden) == (nummer in hub)
+        assert ("NIET GEVALIDEERD (account)" in waarden) == (nummer in account)
+        if "alleen nas-test nodig" in rij["opmerking"].lower():
+            assert nummer in alleen_nas, rij["id"]
+        assert "N-P6-05" in rij["bewijs"]
+        assert rij["blokkade"]
+
+
+def test_i15_bewijsgrenzen() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2})
+
+
+def test_i15_te_ruime_nas_claim_wordt_geweigerd() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    next(r for r in rijen if r["id"] == "I15-15-02")["opmerking"] = "alleen NAS-test nodig"
+    with pytest.raises(AssertionError, match="I15-15-02"):
+        _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2})

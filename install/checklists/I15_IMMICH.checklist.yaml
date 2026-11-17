@@ -1,0 +1,184 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I15
+titel_nl: Immich — inventaris, fotoherstel en veilige controles
+document: 03_INSTALLATIE/I15_IMMICH.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'Immich blijft eigenaar van foto''s en database. Bewaar een externe, consistente kopie van alle
+  originelen, externe bibliotheken en database, met sleutels apart. Geen foto''s wissen, reorganiseren, vervangen,
+  herimporteren of schrijfbare productiemount in een testomgeving. Deze lijst installeert niets; de bestaande installatie
+  blijft terugval. Geen geheimen, foto''s, personen of adressen in openbaar bewijs; alleen geschoonde aantallen
+  en uitkomsten. Bronbediening: Immich v3.3.6 (587f549f46f1cd1822a06e16dcccecef04ea4565): i18n/en.json en web/src/routes/admin/maintenance/+page.svelte,
+  web/src/lib/components/maintenance/MaintenanceBackupsList.svelte en MaintenanceBackupEntry.svelte. Catalogusreferentie:
+  truenas/apps@f142a16, ix-dev/community/immich/app.yaml. Dit is geen gemeten installatieversie. Bedieningsnamen
+  hieronder zijn Engels; wijkt de echte versie af, stel de bijbehorende bron eerst vast.'
+stappen:
+- id: I15-15-01
+  titel_nl: Inventaris
+  uitvoeren_nl: De gebruiker leest de bestaande image, tag, digest en opslagkoppelingen in de TrueNAS-webinterface.
+    Vergelijk met de versie in Immich en Administration → External Libraries. Leg database-schemaversie alleen vast
+    wanneer die aantoonbaar uit bestaande gegevens blijkt; een scherm daarvoor is ONBEKEND. Niets opnieuw importeren
+    of verplaatsen. Leg alleen geschoonde meetresultaten vast. Onbekende schema- of versiegegevens blokkeren een
+    update; geen bibliotheekscan of achtergrondtaak starten.
+  acceptatie_nl: Niets opnieuw importeren of verplaatsen.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bekende versie, opslag en schema geen update, scan of import; behoud de bestaande
+    fotobibliotheek.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → bestaande Immich-app → Edit → Storage Configuration
+- id: I15-15-02
+  titel_nl: OneDrive restore
+  uitvoeren_nl: 'Verwijs voor de OneDrive-kopie en het proefherstel naar I02-02-02 en I02-02-03. De gebruiker heeft
+    hiervoor het eigen OneDrive-account nodig. Controleer vóór herstel dat foto''s én database, externe bibliotheken
+    en herstelgegevens consistent en buiten de NAS beschikbaar zijn; een databasedump bevat geen foto''s. Herstel
+    uitsluitend in de geïsoleerde testomgeving met eigen opslag en dezelfde bronversie, nooit op de bestaande installatie.
+    In die eigen Immich-testkopie: Administration → Maintenance → Restore database backup → Select from computer
+    → Restore. De veilige overdracht van de volledige mediakopie via de webinterface is ONBEKEND; ontbreekt een
+    aangetoonde veilige overdracht, stop dan hier. Vergelijk originelen, leesbaarheid, thumbnails, albums en aantallen
+    met het afgeschermde voorrapport. Een lege database of één leesbare foto bewijst geen volledig herstel. Bewaar
+    de bron en de externe kopie ongewijzigd; dit is de herstelgate voor I15-15-06.'
+  acceptatie_nl: Media en albums correct zonder dataverlies.
+  risico: Hoog
+  wijze:
+  - verwijzing
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder consistente volledige externe kopie, veilige overdracht en bewezen herstel geen
+    vervolgmutatie; overschrijf nooit productiefoto's of database.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (account)
+  verwijzing:
+  - install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml#I02-02-02
+  - install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml#I02-02-03
+- id: I15-15-03
+  titel_nl: Performance en permissions
+  uitvoeren_nl: De gebruiker meet bestaande processor- en geheugenbelasting en rechten via de TrueNAS-webinterface;
+    lees de bestaande taakstatus in Immich zonder nieuwe AI/ML-, scan- of zoektaken te starten. Vergelijk met een
+    afgesproken nulmeting; observeer geheugenuitval en bereikbaarheid. Geen rechtenwijziging en geen extra zoekindexbelasting
+    op de primaire fotoapp. De echte limieten en gebruikte apparaten zijn ONBEKEND totdat ze zijn gemeten.
+  acceptatie_nl: Geen OOM of permanente uitval.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij geheugenuitval, onbekende rechten of onvoldoende ruimte geen extra indexbelasting;
+    behoud de bestaande inrichting.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I15-15-04
+  titel_nl: Hub connector opt-in
+  uitvoeren_nl: 'Deze controle wacht op de nog niet gebouwde Immich-adapter en de bijbehorende Hub-bediening; er
+    is nu geen connector of knop aangetoond. Alleen na afzonderlijke opt-in van de gebruiker: lees uitsluitend toegestane
+    recente-foto-metadata en albumaantallen via Immich, geen face embeddings of fotokopieën. Vergelijk toegestane
+    velden met Immich; de Hub bewaart een benodigde gescopete sleutel alleen in de vault. Zolang levering of toestemming
+    ontbreekt blijft de status onbekend; geen nagebootst succes of wijziging van foto''s en database.'
+  acceptatie_nl: Hub toont alleen toegestane metadata.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder adapter en opt-in blijft de Hub-status onbekend; verruim nooit toegang en kopieer
+    geen foto's of biometrie.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (echte Hub)
+- id: I15-15-05
+  titel_nl: SSO evaluatie
+  uitvoeren_nl: Deze evaluatie wacht op de nog niet gebouwde Immich-adapter en aangetoonde Hub-/SSO-ondersteuning.
+    Geen bestaande login, proxy, rol of toegang wijzigen. Stel de werkelijke Immich-versie, ondersteunde aanmeldfuncties
+    en rolgrenzen eerst vast; een bijpassend SSO-scherm is ONBEKEND. Een latere afzonderlijke proef gebeurt uitsluitend
+    in de geïsoleerde testomgeving met behoud van de bestaande aanmeldweg. Test toegangsweigering zonder sessie
+    en zonder juiste rol; een proxy mag nooit authenticatie omzeilen. Deze evaluatie vraagt geen nieuwe externe
+    aanmelding.
+  acceptatie_nl: Geen bypass via proxy.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bewezen ondersteuning en rolweigering geen SSO-wijziging; de bestaande login blijft
+    beschikbaar.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (echte Hub)
+- id: I15-15-06
+  titel_nl: Update veilig
+  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I15-15-02: controleer officiële release- en migratienotities
+    voor de gemeten bronversie en kandidaat. Test de exact gepinde kandidaatimage eerst op een volledige geïsoleerde
+    kopie van database én media, zonder verbinding met de productiebibliotheek. Leg voor en na originelen, albums,
+    thumbnails en databaseconsistentie vast en bewijs terugzetten met de vorige image én bijpassende database en
+    mediakopie. De gebruiker wijzigt alleen de eigen testapp via het bestaande TrueNAS-formulier; geen productie-update
+    zonder dit bewijs en een afzonderlijk akkoord. Nooit alleen de oude image op gemigreerde gegevens starten; bij
+    ontbrekend herstelbewijs, stop dan hier. De primaire fotoapp en haar gegevens blijven beschikbaar en ongewijzigd.
+    Bij een catalogusinstallatie: stel de exacte catalogusversie en alle bijbehorende images vast; geen ombouw naar
+    één container.'
+  acceptatie_nl: Na rollback volledige DB consistent.
+  risico: Middel
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; behoud de bestaande installatie; terugval in de testomgeving vereist vorige image en passende
+    database én media samen, zonder nieuwere foto's te overschrijven.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → eigen geïsoleerde Immich-testapp

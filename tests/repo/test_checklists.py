@@ -543,3 +543,64 @@ def test_i03_android_herkomst_zonder_onuitgebrachte_release() -> None:
     tekst = _load("I03_MEDIAGUARD.checklist.yaml")["stappen"][6]["uitvoeren_nl"]
     assert "de al geïnstalleerde app of de APK uit de CI" in tekst
     assert "eigen release-app" not in tekst
+
+
+def _bestaande_app_basis(data: dict[str, Any], hub: set[int], account: set[int]) -> None:
+    assert data["aanpak"] == "behouden_en_valideren"
+    assert data["install"] == {"method": "none"}
+    assert data["installatie"] == "geen" and data["mutaties_door_platform"] is False
+    assert len(data["stappen"]) == 6
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+    for nummer, stap in enumerate(data["stappen"], 1):
+        assert not stap.get("truenas_methoden")
+        assert "Sim-getest" not in stap["validatie_nu"]
+        assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+        assert ("NIET GEVALIDEERD (echte Hub)" in stap["validatie_nu"]) == (nummer in hub)
+        assert ("NIET GEVALIDEERD (account)" in stap["validatie_nu"]) == (nummer in account)
+        assert stap["blokkeert_volgende"] is True
+        assert stap["bij_fout_nl"].startswith("Stop hier;")
+
+
+I15_GATES = [
+    (0, "Niets opnieuw importeren of verplaatsen"),
+    (1, "uitsluitend in de geïsoleerde testomgeving"),
+    (1, "foto's én database"),
+    (1, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (1, "nooit op de bestaande installatie"),
+    (3, "wacht op de nog niet gebouwde Immich-adapter"),
+    (3, "geen face embeddings"),
+    (4, "wacht op de nog niet gebouwde Immich-adapter"),
+    (5, "Alleen na het volledige herstelbewijs van I15-15-02"),
+    (5, "vorige image én bijpassende database en mediakopie"),
+    (5, "bij ontbrekend herstelbewijs, stop dan hier"),
+]
+
+
+def _i15_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, {4, 5}, {2})
+    herstel = data["stappen"][1]
+    assert "verwijzing" in herstel["wijze"]
+    assert "install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml#I02-02-03" in herstel["verwijzing"]
+    for index, tekst in I15_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+
+
+def test_i15_letterlijke_taken_en_fotobescherming() -> None:
+    _i15_veiligheid(_load("I15_IMMICH.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I15_GATES)
+def test_i15_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I15_IMMICH.checklist.yaml"))
+    assert tekst in data["stappen"][index]["uitvoeren_nl"]
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i15_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(6))
+def test_i15_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I15_IMMICH.checklist.yaml"))
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i15_veiligheid(data)

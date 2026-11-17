@@ -868,5 +868,65 @@
     "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Niet alleen NAS-test nodig: machine-authenticatie en Hub-/goedkeuringsleveringen ontbreken nog. Scherm- en knopnaam voor sleutelbeheer ONBEKEND; geen bestaande machine-sleutel geclaimd.",
     "repo": "jelly-leon-platform",
     "bijgewerkt": "2026-11-18"
-  }
+  },
+ {
+  "id": "I15-15-01",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Gebruiker moet versie, image-digest, opslag en database-schema van de bestaande NAS-installatie vaststellen.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Voor deze uitsluitend lezende controle: alleen NAS-test nodig.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I15-15-02",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05; N-P6-02",
+  "blokkade": "Gebruiker moet met het eigen OneDrive-account de consistente kopie van foto's, externe bibliotheken en database verifiëren (I02-02-02/03); veilige terminalvrije overdracht en volledig geïsoleerd herstel nog aantonen; N-P6-02 en N-P6-05.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I15-15-03",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Gebruiker moet de nulmeting van belasting, geheugen en rechten op de echte NAS vastleggen, zonder extra taken te starten.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Voor deze uitsluitend lezende controle: alleen NAS-test nodig.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I15-15-04",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Immich-adapter, opt-in en bijpassende Hub-bediening ontbreken; daarna toegestane metadata met de echte Hub en NAS vergelijken.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I15-15-05",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Immich-adapter en aantoonbare SSO-/Hub-ondersteuning ontbreken; versiegebonden rol-/weigeringstest in een geïsoleerde omgeving en behoud van de bestaande login eerst aantonen.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I15-15-06",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eindcommit en CI-run worden vastgelegd in het ketenrapport S-P3-420/RAPPORT-A-BOUW.md; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "Volledig herstelbewijs I15-15-02, veilige overdracht en releasegebonden migratie/terugzetbewijs op een volledige kopie eerst aantonen; daarna pas afzonderlijk akkoord voor een productie-update.",
+  "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ }
 ]
