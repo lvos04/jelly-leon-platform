@@ -604,3 +604,49 @@ def test_i15_stopzin_wordt_bewaakt(index: int) -> None:
     data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
     with pytest.raises(AssertionError):
         _i15_veiligheid(data)
+
+
+I16_GATES = [
+    (0, "Indexers → Stats"),
+    (0, "Settings → Apps"),
+    (1, "MediaGuard wijzigt alleen de eigen tags"),
+    (1, "geen tweede reconciler"),
+    (2, "System → Backup → Backup Now"),
+    (2, "uitgaand verkeer naar bestaande diensten geblokkeerd"),
+    (2, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (3, "lusdetectie is eigendom van MSO"),
+    (3, "T-12"),
+    (4, "Hub-/MSO-meldingsketen is nog niet volledig aangetoond"),
+    (5, "Alleen na het volledige herstelbewijs van I16-16-03"),
+    (5, "vorige image én passende configuratie/database"),
+    (5, "bij ontbrekend herstelbewijs, stop dan hier"),
+]
+
+
+def _i16_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, {5}, set())
+    for index, tekst in I16_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+    assert "Emby blijft werken" in data["toelichting_nl"]
+    assert "MediaGuard-voortgang" in data["toelichting_nl"]
+
+
+def test_i16_letterlijke_taken_en_ketenbescherming() -> None:
+    _i16_veiligheid(_load("I16_PROWLARR.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I16_GATES)
+def test_i16_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I16_PROWLARR.checklist.yaml"))
+    assert tekst in data["stappen"][index]["uitvoeren_nl"]
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i16_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(6))
+def test_i16_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I16_PROWLARR.checklist.yaml"))
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i16_veiligheid(data)

@@ -1,0 +1,181 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I16
+titel_nl: Prowlarr — inventaris, eigenaarschap en veilige controles
+document: 03_INSTALLATIE/I16_PROWLARR.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'Prowlarr blijft eigenaar van de indexercatalogus. De bestaande routes, downloads en Emby-koppeling
+  blijven ononderbroken beschikbaar; Emby blijft werken en alle kijkgeschiedenis en MediaGuard-voortgang blijven
+  behouden. Geen wijzigingen door het platform, directe databasewrites of productieproeven. Een testkopie heeft
+  eigen opslag en geen verbinding met bestaande diensten; geen geheimen of bronadressen in openbaar bewijs. Bronbediening:
+  Prowlarr v3.0.0.5737 (b8d1e7753ec1178d56a8d4735479357d259de335): src/NzbDrone.Core/Localization/Core/en.json,
+  frontend/src/Components/Page/Sidebar/PageSidebar.js en frontend/src/System/Backup/Backups.js en BackupRow.js.
+  Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/prowlarr/app.yaml. Dit is geen gemeten installatieversie.
+  De Engelse schermnamen gelden voor die bron; stel bij een afwijkende installatie eerst de bijpassende bron vast.'
+stappen:
+- id: I16-16-01
+  titel_nl: Read-only inventaris
+  uitvoeren_nl: De gebruiker leest Indexers → Stats, Settings → Apps en Settings → Tags in de bestaande Prowlarr-webinterface.
+    Leg aantallen, bestaande synchronisatie-eigenaars en versie uit System → Status vast; vergelijk in TrueNAS de
+    ingestelde image, tag, digest en opslag. Geen Test-, sync- of opslagactie uitvoeren; geen tags aanpassen. Neem
+    de API-sleutel niet op in rapporten of screenshots; een noodzakelijke herstelkopie van geheimen blijft versleuteld
+    en privé. Onbekende gegevens blijven onbekend.
+  acceptatie_nl: Geen onverwachte tags aangepast.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; ontbrekende inventaris of onverwachte tags blokkeren de volgende stap; behoud alle bestaande
+    koppelingen.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → bestaande app → Edit → Image en Storage Configuration
+- id: I16-16-02
+  titel_nl: Sync eigenaarschap
+  uitvoeren_nl: 'Vergelijk uitsluitend de bestaande instellingen van Prowlarr, MediaGuard en MSO: MediaGuard wijzigt
+    alleen de eigen tags anime/normal en de bijbehorende eigen arr-koppelingen; Prowlarr blijft cataloguseigenaar.
+    MSO mag uitsluitend zijn eigen indexer beheren na afzonderlijke goedkeuring van precies die wijziging. Controleer
+    op dubbele sturing of tag-drift; geen tweede reconciler, geen handmatige synchronisatie en geen bestaande koppelingen
+    overnemen. Deze controle activeert of herconfigureert niets; de bestaande downloadketen blijft beschikbaar.'
+  acceptatie_nl: Geen tweevoudige reconciler.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij tag-drift of dubbele sturing geen synchronisatie of eigendomsoverdracht; de bestaande
+    downloadketen blijft werken.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I16-16-03
+  titel_nl: Backups
+  uitvoeren_nl: De gebruiker maakt in Prowlarr via System → Backup → Backup Now een appback-up en haalt die via
+    de back-uprij op. Bewaar configuratie, database en brongeheimen versleuteld buiten de NAS; herstelgegevens apart.
+    Maak via TrueNAS een passend herstelpunt; alleen een snapshot van een draaiende database bewijst geen consistentie.
+    Bewijs herstel via System → Backup → Restore Backup uitsluitend in een eigen testkopie met eigen opslag en uitgaand
+    verkeer naar bestaande diensten geblokkeerd. Controleer vóór het starten dat geen arr-, MSO- of Emby-route bereikbaar
+    is. Veilige terminalvrije overdracht is ONBEKEND totdat zij is aangetoond; ontbreekt een aangetoonde veilige
+    overdracht, stop dan hier. Vergelijk indexers, apps, tags en ontsleutelbaarheid met het voorrapport; een lege
+    database telt niet. Nooit herstellen over de bestaande app of nieuwere downloadgegevens.
+  acceptatie_nl: Restore test slaagt.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder volledige versleutelde kopie, veilige overdracht en geïsoleerd herstel geen update
+    of muterende proef; bestaande diensten blijven ongemoeid.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I16-16-04
+  titel_nl: MSO integration
+  uitvoeren_nl: 'Verwijs naar MSO voor Newznab/Torznab-capabilities en lusweigering: lusdetectie is eigendom van
+    MSO, niet van een tweede platformreconciler. De bron bevat cycle_detected/skipped_cycle en weigering van de
+    eigen MSO-indexer; dat bewijst geen live pariteit. Na T-12 en het herstelbewijs van I16-16-03 doet de gebruiker
+    een afzonderlijk toegestane proef in de geïsoleerde testomgeving. Laat een terugkerende bron weigeren zonder
+    herhaalde verzoeklus of wijziging van de bestaande indexers. De precieze proefbediening en volledige geïsoleerde
+    proef zijn ONBEKEND; zolang die ontbreken, stop hier. Geen echte bron of bestaande downloadroute gebruiken als
+    ongeautoriseerde proef.'
+  acceptatie_nl: Cycle detection verhindert verzoekloop.
+  risico: Middel
+  wijze:
+  - verwijzing
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder T-12, herstelbewijs en aangetoonde lusweigering geen echte integratieproef of ruimere
+    schrijfrechten.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  verwijzing:
+  - install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml#I04-04-04
+- id: I16-16-05
+  titel_nl: Health alerts
+  uitvoeren_nl: De gebruiker leest Prowlarr → System → Status → Health en vergelijkt bronstatus en meettijd met
+    de bedoelde Hub-/MSO-meldingen. De Hub-/MSO-meldingsketen is nog niet volledig aangetoond; eerst de ontbrekende
+    levering en de geïsoleerde proef vaststellen. Proeven met verbindingsfouten, indexeruitval en snelheidslimieten
+    uitsluitend met toegestane testbronnen, zonder bestaande providers uit te schakelen. Zolang echte overdracht
+    of bronstatus ontbreekt blijft de melding onbekend, geen groen of nagebootst succes. Wijzig de bestaande koppeling
+    met Emby of MediaGuard niet.
+  acceptatie_nl: Alert met bronstatus.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; ontbrekende bronstatus of meldingslevering blijft onbekend; onderbreek geen provider of
+    bestaande koppeling om een fout te forceren.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (echte Hub)
+- id: I16-16-06
+  titel_nl: Upgrade gate
+  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I16-16-03: controleer releasecompatibiliteit van de exacte
+    kandidaatimage met de vier MediaGuard-forks en MSO. Onder T-12 bewijst de gebruiker zoeken en RSS vóór en na
+    de update in de geïsoleerde testomgeving, zonder automatische productieaanvragen of dubbele downloads. Werk
+    uitsluitend de eigen testapp via het bestaande TrueNAS-formulier bij. Bewijs terugval met de vorige image én
+    passende configuratie/database; nooit alleen de oude image op gemigreerde data starten. Geen productie-update
+    zonder apart akkoord, aantoonbare terugval en ononderbroken bestaande downloadketen; bij ontbrekend herstelbewijs,
+    stop dan hier. Emby, zijn koppeling en de MediaGuard-voortgang blijven beschikbaar.'
+  acceptatie_nl: Zoeken en RSS na update goed.
+  risico: Middel
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; behoud de bestaande installatie; herstel alleen de eigen testkopie met vorige image en
+    passende configuratie/database, zonder bestaande downloads te overschrijven.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: Apps → eigen geïsoleerde testapp → Edit → Image

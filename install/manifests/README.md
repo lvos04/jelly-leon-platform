@@ -37,6 +37,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I03 | `../checklists/I03_MEDIAGUARD.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I03_MEDIAGUARD.md`; 8 handmatige controles, back-up vóór update, releasegebonden upgradebewijs en vorige image én passende snapshot; Hub-UI wacht op S-P3-070; NIET GEVALIDEERD (echte NAS/hardware) |
 | I04 | `../checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I04_MEDIA_SOURCE_OPTIMIZER.md`; 8 handmatige controles, T-12 bij stappen 4/6, herstelgate vóór mutaties; machine-sleutel wacht op S-P3-220; NIET GEVALIDEERD (echte NAS/Hub) |
 | I15 | `../checklists/I15_IMMICH.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I15_IMMICH.md`; 6 handmatige controles; foto- en databaseherstel uitsluitend geïsoleerd; OneDrive-account bij stap 2; adapter/Hub wacht bij stappen 4/5; Bezig, NIET GEVALIDEERD (echte NAS/account/Hub) |
+| I16 | `../checklists/I16_PROWLARR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I16_PROWLARR.md`; 6 handmatige controles; MediaGuard alleen eigen tags, geen tweede reconciler; MSO-lus en herstel afzonderlijk bewijzen; Hub-meldingsketen open; Bezig, NIET GEVALIDEERD (echte NAS/Hub) |
 | I07 | `beszel-hub.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel@sha256:8514a69d…d695b770` | 568:568; meetdekking: `BESZEL_MEETDEKKING.md` |
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
@@ -103,7 +104,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |
 | I14 | PostgreSQL + pgvector | alleen bij AI-search | ingebouwd in `zoeken-en-persoonlijke-ai` (alles-in-één) | (community `postgres` bestaat, niet nodig) | n.v.t. |
 | I15 | Immich | behouden en beschermen | bestaand behouden (import) | community · 1.14.62 · v3.3.6 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
-| I16 | Prowlarr | behouden | bestaand (import) | community · 1.5.34 · 3.0.0.5737 | P3 (import) |
+| I16 | Prowlarr | behouden | bestaand (import) | community · 1.5.34 · 3.0.0.5737 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I17 | SABnzbd | behouden | bestaand (import) | community · 1.3.22 · 5.1.3 | P3 (import) |
 | I18 | qBittorrent | behouden | bestaand (import) | community · 1.4.21 · 5.3.0 | P3 (import) |
 | I19 | Seerr | behouden, via MediaGuard | bestaand (import) | community · 1.0.20 · v3.5.1 | P3 (import) |
