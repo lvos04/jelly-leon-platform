@@ -283,7 +283,7 @@ STATUS_DECISION = {"Open", "Ingevuld", "Getest", "Geblokkeerd", "N.v.t."}
 # contract 1.3 §11 (A33): vaste lijst; meerdere waarden gescheiden door "; "; toelichting hoort in 'opmerking'
 VALIDATIE = {"Sim-getest", "Unit-getest", "Intel-iGPU-getest (ontwikkelmachine)", "NIET GEVALIDEERD (echte NAS)",
              "NIET GEVALIDEERD (hardware)", "NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (Mac/Xcode)",
-             "Sim-geslaagd", "Sim-mislukt", "Niet getest"}
+             "NIET GEVALIDEERD (echte Hub)", "Sim-geslaagd", "Sim-mislukt", "Niet getest"}
 NIET_GEVALIDEERD = re.compile(r"NIET GEVALIDEERD \([^)]*\)")
 CONTRACTPUNT = re.compile(r"C1\.3-JLP-\d\d")
 REVIEW = re.compile(r"REVIEW-jelly-leon-platform-[a-z0-9][a-z0-9.-]*")
@@ -350,12 +350,34 @@ def test_evidence_json_follows_section_11() -> None:
     assert {f"C1.3-JLP-{n:02d}" for n in range(1, 14)} <= seen
 
 
+def test_vaste_lijst_is_de_tabel_van_paragraaf_11() -> None:
+    """De vaste lijst volgt de contractkopie: een waarde erbij of eraf zonder contracttekst is rood (C12-6)."""
+    tekst = (ROOT / "docs/platform-v2/PLATFORM_CONTRACTEN.md").read_text(encoding="utf-8")
+    begin = tekst.index("## 11. Bewijs en Excel")
+    p11 = tekst[begin : tekst.index("## 12.", begin)]
+    in_tabel: set[str] = set()
+    for ruw in p11.splitlines():
+        regel = ruw.strip()
+        if regel.startswith("| `"):
+            in_tabel.update(re.findall(r"`([^`]+)`", regel.split(" | ")[0]))
+    assert in_tabel == VALIDATIE, f"verschil met contract §11: {sorted(in_tabel ^ VALIDATIE)}"
+
+
+def test_evidence_check_accepts_echte_hub() -> None:
+    """Positief: NIET GEVALIDEERD (echte Hub) (C-12) is geldig in validatie en, consistent, in blokkade."""
+    rij = {"id": "C1.3-JLP-13", "status": "Bezig", "validatie": "Unit-getest; NIET GEVALIDEERD (echte Hub)",
+           "bewijs": "x", "blokkade": "Hub-koppeling alleen met de Hub-simulator: NIET GEVALIDEERD (echte Hub).",
+           "opmerking": "", "repo": "jelly-leon-platform", "bijgewerkt": "2026-11-17"}
+    check_evidence_row(rij, set(), _contractpunten())
+
+
 @pytest.mark.parametrize("fout", [
     {"validatie": ""},
     {"validatie": "Sim-getest; ok"},
     {"status": "Gereed"},
     {"status": "Bezig", "validatie": "Niet getest"},
     {"status": "Geblokkeerd", "validatie": "Sim-getest", "blokkade": "NIET GEVALIDEERD (echte NAS): pool nodig."},
+    {"validatie": "Unit-getest", "blokkade": "NIET GEVALIDEERD (echte Hub): alleen de Hub-simulator."},
     {"id": "C1.3-JLP-99"},
     {"id": "REVIEW-andere-repo-contract"},
     {"validatie": "Sim-geslaagd"},
