@@ -805,7 +805,7 @@
     "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
     "blokkade": "Gebruiker moet op de echte NAS image, opslag, rechten, poort en onderdelen controleren. Geïsoleerde herstartproef en veilige NAS-rebootacceptatie blijven open; vooraf herstelbewijs van I04-04-07 nodig.",
-    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering van deze configuratiecontrole: alleen NAS-test nodig; een testkopie vervangt geen rebootacceptatie.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Herstelbewijs van I04-04-07 en de geïsoleerde herstartproef zijn nog nodig; een testkopie vervangt geen rebootacceptatie.",
     "repo": "jelly-leon-platform",
     "bijgewerkt": "2026-11-17"
   },
@@ -815,7 +815,7 @@
     "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
     "blokkade": "Gebruiker moet de bestaande viewer-koppeling alleen-lezen controleren en zelfstandige werking bij een onbereikbare eigen testdienst bewijzen, zonder bestaande MediaGuard of Emby te onderbreken.",
-    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering: alleen NAS-test nodig, inclusief een geïsoleerde eigen testdienst; geen functionele koppel- of uitvalproef in deze sessie.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. De geïsoleerde uitvalproef met een eigen testdienst en de echte NAS-controle zijn nog nodig; geen functionele koppel- of uitvalproef in deze sessie.",
     "repo": "jelly-leon-platform",
     "bijgewerkt": "2026-11-17"
   },
@@ -825,7 +825,7 @@
     "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected",
     "blokkade": "T-12: gebruiker moet toegestane testbronnen opgeven en uitdrukkelijk toestemming geven voor de echte dienstproef; dienstversies, lusvrije categorieën en geen verkeerde verwijdering aantonen. Herstelgate vooraf bij mutaties.",
-    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Uitvoering wacht op T-12 en echte diensten. Na het vereiste akkoord en herstelbewijs: alleen NAS-test nodig voor deze livecontrole.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Uitvoering wacht op T-12 en echte diensten. Het vereiste akkoord en herstelbewijs moeten eerst worden verkregen.",
     "repo": "jelly-leon-platform",
     "bijgewerkt": "2026-11-17"
   },

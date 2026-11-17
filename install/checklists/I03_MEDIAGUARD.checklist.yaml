@@ -45,7 +45,7 @@ stappen:
     acceptatie_nl: Geen recursieve chmod/chown op bibliotheek, GPU test slaagt.
     risico: Hoog
     wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
-    handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Storage Configuration en Resources
+    handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Storage Configuration en Resources Configuration
     besluiten: []
     bewijs: [nas_versie, image_digest, datum, schermafdruk, status]
     bij_fout_nl: Stop hier; ontbrekende rechten, ruimte of GPU-bewijs blokkeren de volgende stap; behoud de bestaande inrichting.

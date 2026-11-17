@@ -391,3 +391,32 @@ def test_evidence_check_rejects_section_11_violations(fout: dict[str, str]) -> N
     check_evidence_row(goed, set(), _contractpunten())
     with pytest.raises(AssertionError):
         check_evidence_row({**goed, **fout}, set(), _contractpunten())
+
+
+def _controleer_nas_claim(rijen: list[dict[str, Any]]) -> None:
+    geselecteerd = {r["id"]: r for r in rijen if r["id"].startswith(("I03-03-", "I04-04-"))}
+    assert len(geselecteerd) == 16
+    for id_, rij in geselecteerd.items():
+        opmerking = rij["opmerking"].lower()
+        if "alleen nas-test nodig" not in opmerking or "niet alleen nas-test nodig" in opmerking:
+            continue
+        tekst = (rij["blokkade"] + " " + rij["opmerking"]).lower()
+        extra = ("eerst afronden", "eerst aantonen", "herstelbewijs", "herstelgate", "geïsoleerde")
+        assert not any(woord in tekst for woord in extra), id_
+        for verwijzing in re.findall(r"I0[34]-0[34]-\d\d", tekst.upper()):
+            assert "niet alleen nas-test nodig" not in geselecteerd[verwijzing]["opmerking"].lower(), id_
+
+
+def test_i03_i04_geen_te_ruime_nas_claim() -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    _controleer_nas_claim(rijen)
+
+
+@pytest.mark.parametrize("afhankelijkheid", ["herstelbewijs ontbreekt", "zie I04-04-07"])
+def test_i03_i04_te_ruime_nas_claim_wordt_geweigerd(afhankelijkheid: str) -> None:
+    rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
+    rij = next(r for r in rijen if r["id"] == "I04-04-02")
+    rij["blokkade"] = afhankelijkheid
+    rij["opmerking"] = "alleen NAS-test nodig"
+    with pytest.raises(AssertionError, match="I04-04-02"):
+        _controleer_nas_claim(rijen)

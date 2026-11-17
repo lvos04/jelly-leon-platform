@@ -53,7 +53,7 @@ stappen:
     acceptatie_nl: Start en persistentie op reboot zonder permission issues.
     risico: Hoog
     wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
-    handmatig_ui_pad_nl: Apps → bestaande Media Source Optimizer-app → Edit → Storage Configuration en Resources
+    handmatig_ui_pad_nl: Apps → bestaande Media Source Optimizer-app → Edit → Storage Configuration en Resources Configuration
     besluiten: []
     bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
     bij_fout_nl: Stop hier; wijzig geen bestaande opslag, rechten of diensten om een fout te omzeilen; behoud de bestaande installatie.
@@ -66,7 +66,7 @@ stappen:
   - id: I04-04-03
     titel_nl: Koppeling MediaGuard
     uitvoeren_nl: >-
-      Controleer de bestaande verbinding in MSO → Instellingen → Verbindingen → MediaGuard. Gebruik uitsluitend
+      Controleer de bestaande verbinding in MSO → Instellingen → Verbindingen → MediaGuard Ultimate. Gebruik uitsluitend
       een eigen viewer-sleutel voor alleen lezen; bewaar die alleen in het geheime veld van de eigen app, nooit
       in bewijs of het Custom App-formulier. De knop Test controleert de verbinding; een geslaagde verbinding
       bewijst nog geen bevoegdheid voor herstelacties. Controleer op een geïsoleerde testkopie met eigen

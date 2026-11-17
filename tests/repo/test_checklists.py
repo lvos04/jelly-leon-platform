@@ -184,6 +184,7 @@ def _i04_veiligheid(data: dict[str, Any]) -> None:
     for tekst in ("Back-up maken", "Terugzetten", "geïsoleerde", "sleutels", "vorige image", "snapshot",
                   "geen dubbele", "nieuwere", "niet omzeilen"):
         assert tekst in backup["uitvoeren_nl"], tekst
+    assert "ontbreekt een aantoonbare veilige overdracht via de webinterface, stop dan hier." in backup["uitvoeren_nl"]
     hub = data["stappen"][7]
     assert hub["wijze"] == ["handmatig_bewijs"]
     for tekst in ("S-P3-220", "nog niet", "machine-sleutel", "read", "Hub-UI", "vault", "geen enrollment",
@@ -515,3 +516,24 @@ def test_checklists_are_kind_checklist_for_the_appstore_validator() -> None:
                                                  capture_output=True, text=True, check=False).stdout)
         assert als_manifest["valid"] is False
         assert "checklist_not_installable" in {f["code"] for f in als_manifest["findings"]}
+
+
+def test_i04_stop_bij_ontbrekende_hersteloverdracht() -> None:
+    tekst = _load("I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml")["stappen"][6]["uitvoeren_nl"]
+    assert "ontbreekt een aantoonbare veilige overdracht via de webinterface, stop dan hier." in tekst
+
+
+def test_menupaden_gebruiken_letterlijke_bronnamen() -> None:
+    for naam in ("I03_MEDIAGUARD.checklist.yaml", "I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml"):
+        assert "Storage Configuration en Resources Configuration" in _load(naam)["stappen"][1]["handmatig_ui_pad_nl"]
+    mso = _load("I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml")
+    assert "Verbindingen → MediaGuard Ultimate" in mso["stappen"][2]["uitvoeren_nl"]
+
+
+def test_i04_hersteloverdracht_mutatie_wordt_geweigerd() -> None:
+    data = copy.deepcopy(_load("I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml"))
+    stap = data["stappen"][6]
+    assert "stop dan hier." in stap["uitvoeren_nl"]
+    stap["uitvoeren_nl"] = stap["uitvoeren_nl"].replace("stop dan hier.", "ga dan toch verder.")
+    with pytest.raises(AssertionError):
+        _i04_veiligheid(data)
