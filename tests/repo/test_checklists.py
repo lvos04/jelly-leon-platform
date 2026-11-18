@@ -705,7 +705,7 @@ def test_i17_stopzin_wordt_bewaakt(index: int) -> None:
 
 CATALOGUSLIJSTEN = [
     "I15_IMMICH.checklist.yaml", "I16_PROWLARR.checklist.yaml", "I17_SABNZBD.checklist.yaml",
-    "I18_QBITTORRENT.checklist.yaml",
+    "I18_QBITTORRENT.checklist.yaml", "I19_SEERR.checklist.yaml",
 ]
 
 
@@ -848,6 +848,68 @@ def test_i18_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
         stap["acceptatie_nl"] = "X" + stap["acceptatie_nl"][1:]
 
     naam = "I18_QBITTORRENT.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
+I19_GATES = [
+    (0, "Settings → Services"),
+    (0, "Seerr"),
+    (0, "vier forks"),
+    (0, "bestaande Emby-koppeling"),
+    (1, "eigenaar MediaGuard"),
+    (1, "uitsluitend geïsoleerd"),
+    (2, "Requests"),
+    (2, "geen bestaande aanvraag of media verwijderen"),
+    (3, "settings.json"),
+    (3, "SQLite of PostgreSQL"),
+    (3, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (3, "bestaande Seerr niet stoppen"),
+    (4, "Hub toont aanvragen alleen"),
+    (4, "geen tweede aanvraagmotor"),
+    (5, "Alleen na het volledige herstelbewijs van I19-19-04"),
+    (5, "vorige image én passende database en configuratie"),
+]
+
+
+def _i19_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, {5}, set())
+    _catalogus_menupaden(data)
+    for index, tekst in I19_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+    for tekst in ("Emby blijft werken", "MediaGuard-voortgang", "geen Overseerr- of Jellyseerr-migratie"):
+        assert tekst in data["toelichting_nl"], tekst
+
+
+def test_i19_letterlijke_taken_en_aanvraagbescherming() -> None:
+    _i19_veiligheid(_load("I19_SEERR.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I19_GATES)
+def test_i19_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I19_SEERR.checklist.yaml"))
+    _i19_veiligheid(data)
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i19_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(6))
+def test_i19_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I19_SEERR.checklist.yaml"))
+    _i19_veiligheid(data)
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i19_veiligheid(data)
+
+
+def test_i19_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        stap["acceptatie_nl"] = "X" + stap["acceptatie_nl"][1:]
+
+    naam = "I19_SEERR.checklist.yaml"
     _kopie(tmp_path, naam, wijzig=wijzig)
     assert any("acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
     assert cl.main(tmp_path) == 1

@@ -40,6 +40,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I16 | `../checklists/I16_PROWLARR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I16_PROWLARR.md`; 6 handmatige controles; MediaGuard alleen eigen tags, geen tweede reconciler; MSO-lus en herstel afzonderlijk bewijzen; Hub-meldingsketen open; Bezig, NIET GEVALIDEERD (echte NAS/Hub) |
 | I17 | `../checklists/I17_SABNZBD.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I17_SABNZBD.md`; 6 handmatige controles; categorie-eigenaars behouden, laatste server beschermd; back-upoverdracht en geïsoleerd herstel nog aantonen; Bezig, NIET GEVALIDEERD (echte NAS) |
 | I18 | `../checklists/I18_QBITTORRENT.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I18_QBITTORRENT.md`; 6 handmatige controles; private guard, VPN-binding en seedpayload behouden; hersteloverdracht en functionele proeven open; Bezig, NIET GEVALIDEERD (echte NAS) |
+| I19 | `../checklists/I19_SEERR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I19_SEERR.md`; 6 handmatige controles; aanvragen via MediaGuard, Hub alleen viewer; hersteloverdracht en functionele proeven open; Bezig, NIET GEVALIDEERD (echte NAS/Hub) |
 | I07 | `beszel-hub.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel@sha256:8514a69d…d695b770` | 568:568; meetdekking: `BESZEL_MEETDEKKING.md` |
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
@@ -109,7 +110,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I16 | Prowlarr | behouden | bestaand (import) | community · 1.5.34 · 3.0.0.5737 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I17 | SABnzbd | behouden | bestaand (import) | community · 1.3.22 · 5.1.3 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I18 | qBittorrent | behouden | bestaand (import) | community · 1.4.21 · 5.3.0 | **P3: controlelijst**; herstel en import blijven afzonderlijk werk |
-| I19 | Seerr | behouden, via MediaGuard | bestaand (import) | community · 1.0.20 · v3.5.1 | P3 (import) |
+| I19 | Seerr | behouden, via MediaGuard | bestaand (import) | community · 1.0.20 · v3.5.1 | **P3: controlelijst**; herstel en import blijven afzonderlijk werk |
 | I20 | Bazarr | behouden tot parity | bestaand (import) | community · 1.3.18 · 1.6.2 | P3 (import) |
 | I21 | Tailscale / Cloudflared | behouden, scope verstrengen | bestaand (import) | community `tailscale` 1.4.26 · v1.104.4; `cloudflared` 2.0.36 · 2026.10.7 | P5 (import) |
 | I22 | Navidrome (optioneel) | niet automatisch | catalogusapp alleen na besluit D18 | community · 1.3.23 · 0.64.2 | P4 (optioneel) |

@@ -1,0 +1,207 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I19
+titel_nl: Seerr — behoud, controle en veilige terugval
+document: 03_INSTALLATIE/I19_SEERR.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'Seerr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
+  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus, media
+  of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen of titels.
+  Bij qBittorrent geen interface- of adreswaarden voorschrijven. Muterende proeven alleen geïsoleerd na herstelbewijs,
+  T-12 en toestemming, nooit op de bestaande installatie. ONBEKEND betekent: stop dan hier en laat de ontbrekende
+  versiegebonden bediening of veilige hersteloverdracht eerst aantonen. Bronbediening: Seerr v3.5.1 op commit
+  564bfb08b54caa374bddaf820abfd226e5e69151; seerr-team/seerr: src/components/Settings/SettingsLayout.tsx (Services,
+  About), SettingsServices.tsx (Radarr Settings, Sonarr Settings), SonarrModal/index.tsx en RadarrModal/index.tsx
+  (servervelden), SettingsAbout/index.tsx (Version, Data Directory), Layout/Sidebar/index.tsx (Settings, Requests),
+  RequestList/index.tsx en docs/using-seerr/backups.md. De catalogus voert seerr met titel Seerr; geen Overseerr-
+  of Jellyseerr-migratie afleiden uit de documentnaam. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/seerr/app.yaml en questions.yaml, trains/community/seerr/app_versions.json (catalogusversie
+  1.0.20), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html;
+  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse
+  labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de bijpassende bron;
+  anders stoppen.'
+stappen:
+- id: I19-19-01
+  titel_nl: MediaGuard inrichting
+  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande Seerr-app → Application
+    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
+    ix-app in stable en heeft Image in het formulier; de catalogusapp seerr in community heeft een eigen formulier
+    zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND, stop
+    dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image. Bij
+    een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
+    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
+    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
+    slaan. Controleer Seerr → Settings → About → Version en Data Directory. Vergelijk Settings → Services →
+    Radarr Settings en Sonarr Settings met de vier forks uit de bestaande MediaGuard-inrichting: series, anime-series,
+    films en anime-films. Lees bestaande serveradressen, profielen en mappen zonder op te slaan; toon geen
+    API Key. Vier gezonde services vragen afzonderlijk bewijs; een lijst is geen gezondheidstest. Geen defaults,
+    profielen of de bestaande Emby-koppeling veranderen. Is de bestaande app Overseerr/Jellyseerr of een afwijkende
+    Seerr-versie: ONBEKEND, stop dan hier tot de juiste bron is vastgesteld; geen migratie uitvoeren.'
+  acceptatie_nl: Test vier services gezond.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bekende appidentiteit, mapping van vier forks en afzonderlijk gezondheidsbewijs
+    geen aanvraag of wijziging.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: 'Standaard Custom App: Apps → bestaande app → Edit → Image en Storage Configuration;
+    catalogusapp: Apps → bestaande app → Application Info → App Version en Version; opslag via Edit → Storage
+    Configuration'
+- id: I19-19-02
+  titel_nl: Anime routing
+  uitvoeren_nl: Lees de bestaande anime-routering bij eigenaar MediaGuard en Seerr → Settings → Services →
+    Sonarr Settings; vergelijk Anime Series Type, Anime Quality Profile en Anime Root Folder met de bedoelde
+    anime-fork en categorie. Niet aannemen dat Seerr zelf vier standaardroutes kan kiezen. Een aanvraagproef
+    via de bestaande MediaGuard-keten gebeurt uitsluitend geïsoleerd na I19-19-04, T-12 en toestemming, met
+    eigen testinstanties en toegestane testbronnen. Vergelijk gekozen fork, profiel, categorie en aanvraagstatus;
+    geen bestaande aanvraag indienen of profiel overschrijven. De precieze MediaGuard-proefbediening is ONBEKEND,
+    stop dan hier tot die aantoonbaar is.
+  acceptatie_nl: Geen verkeerde instance.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij onbekende routering geen aanvraag naar productie en geen wijziging van defaults
+    of categorieën.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I19-19-03
+  titel_nl: Request lifecycle
+  uitvoeren_nl: Lees bestaande aanvraagstatus uitsluitend in Seerr → Requests en vergelijk met de MediaGuard-status.
+    Bewijs de volledige levenscyclus aanvragen, ophalen, geleverd, bewust verwijderd, retry en stop alleen
+    in de geïsoleerde testomgeving na volledig herstelbewijs I19-19-04, T-12 en toestemming. Gebruik uitsluitend
+    eigen testaanvragen en testmedia. Bewijs na polling dat een bewust verwijderde testtitel niet terugkomt,
+    inclusief oorspronkelijke blokkade en hervatten na de proef; geen bestaande aanvraag of media verwijderen
+    en geen poller op productie stoppen. De versiegebonden MediaGuard-bediening voor de gehele proef is ONBEKEND,
+    stop dan hier tot die aantoonbaar is.
+  acceptatie_nl: Verwijderde titel komt niet terug na polling.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder volledige geïsoleerde levenscyclusproef geen retry, stop of verwijdering op
+    bestaande diensten.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I19-19-04
+  titel_nl: Backups
+  uitvoeren_nl: Stel eerst via Seerr → Settings → About → Data Directory en de bestaande configuratie vast
+    of SQLite of PostgreSQL wordt gebruikt. Bewaar een volledige consistente versleutelde kopie van settings.json,
+    de requestdatabase, sleutels en herstelgegevens apart buiten de NAS, plus passende herstelpunten. De upstream-back-upbeschrijving
+    onderscheidt de volledige datamap/snapshot van database-export; een live bestandskopie bewijst geen consistentie.
+    Een terminalvrije export, veilige overdracht en herstel in een aparte testapp zijn ONBEKEND; ontbreekt
+    een aangetoonde veilige overdracht, stop dan hier. Voor deze controle de bestaande Seerr niet stoppen.
+    Herstel uitsluitend geïsoleerd met eigen opslag en geblokkeerde verbindingen naar bestaande arrs, mediaservers,
+    meldingen en gebruikers. Vergelijk aantallen aanvragen, status, profielen, blokkades en ontsleutelbaarheid;
+    leeg herstel telt niet. Behoud de bestaande Emby-koppeling en MediaGuard-voortgang.
+  acceptatie_nl: Herstel vragen en status correct.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder consistente externe back-up en aantoonbare weboverdracht geen herstel of update;
+    bestaande Seerr blijft werken.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I19-19-05
+  titel_nl: Hub/Jellyfin links
+  uitvoeren_nl: De Hub toont aanvragen alleen via de bestaande MediaGuard-viewerstatus; geen tweede aanvraagmotor
+    en geen tweede Seerr-sync in Hub of Jelly Leon. Vergelijk dezelfde aanvraag en status met Seerr → Requests
+    en de MediaGuard-bron. Alleen bestaande gescopete leestoegang gebruiken; geen sleutels in rapporten of
+    links. De volledige Hub-/spelerweergave en het terugkeerpad zijn nog niet aangetoond; de versiegebonden
+    bediening is ONBEKEND, stop dan hier. Een ontbrekende of verouderde meting blijft onbekend en wordt niet
+    gezond verklaard. NIET GEVALIDEERD (echte Hub); de bestaande Emby-koppeling blijft ongewijzigd.
+  acceptatie_nl: Geen tweede request engine.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder aangetoonde viewerketen en echte Hub-proef geen aanvraagmotor bouwen of schrijftoegang
+    toevoegen.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (echte Hub)
+- id: I19-19-06
+  titel_nl: Update
+  uitvoeren_nl: 'Alleen na het volledige herstelbewijs van I19-19-04 en T-12: test de gepinde kandidaat in
+    de eigen geïsoleerde testapp, met eigen database en geblokkeerde productieroutes. Vergelijk Seerr-versie,
+    API-contract, aanvragen, status, defaults en profielen voor/na; geen profieloverschrijving. Bewijs terugval
+    met de vorige image én passende database en configuratie; geen oude image op gemigreerde data. Emby blijft
+    werken; bij ontbrekend herstelbewijs, stop dan hier. Bevestig de installatiesoort van de eigen testapp
+    zoals bij de inventaris; geen ombouw. Standaard Custom App: Edit → Image → Update. Catalogusapp: Application
+    Info → App Version en Version; More Options → Update; kies uitsluitend de exact geteste catalogusversie
+    en alle bijbehorende gepinde images. Is de kandidaat niet beschikbaar, verschijnt Only image(s) will be
+    updated of is de versiegebonden weg ONBEKEND, gebruik Close en stop dan hier. Bij meerdere kandidaten:
+    Version to be updated to; bij één kandidaat vergelijk je de getoonde versies. Een productie-update vraagt
+    apart akkoord en behoud van alle bestaande koppelingen.'
+  acceptatie_nl: Geen nieuwe profieloverschrijving.
+  risico: Middel
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder volledig herstel- en compatibiliteitsbewijs geen update; behoud bestaande
+    aanvragen, profielen en Emby-koppeling.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: 'Standaard Custom App: Apps → eigen geïsoleerde testapp → Edit → Image → Update; catalogusapp:
+    Apps → eigen geïsoleerde testapp → Application Info → App Version en Version; daarna More Options → Update
+    → Version to be updated to (indien getoond) → Update'
