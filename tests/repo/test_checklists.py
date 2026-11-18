@@ -661,6 +661,9 @@ I17_GATES = [
     (2, "bij ontbrekend herstelbewijs, stop dan hier"),
     (3, "geen bestaande bestanden verplaatsen of verwijderen"),
     (3, "I17-17-05"),
+    (4, "Config → Folders → Backup Folder"),
+    (4, "Is Backup Folder leeg, stop dan hier"),
+    (4, "Completed Download Folder"),
     (4, "Config → General → Backup → Create backup"),
     (4, "Config → General → Backup → Restore backup"),
     (4, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
@@ -711,6 +714,13 @@ def _catalogus_menupaden(data: dict[str, Any]) -> None:
     for tekst in ("Stel eerst de installatiesoort vast", "Application Info", "Name", "Train", "ix-app",
                   "ONBEKEND", "stop dan hier"):
         assert tekst in inventaris, tekst
+    # Ook de uitvoertekst kan een onjuist pad introduceren terwijl het aparte UI-veld klopt.
+    catalogus_inventaris = inventaris.partition("Bij een catalogusapp")[2].partition(";")[0]
+    assert catalogus_inventaris and "Image" not in catalogus_inventaris
+    assert "Application Info" in catalogus_inventaris
+    catalogus_update = data["stappen"][5]["uitvoeren_nl"].partition("Catalogusapp:")[2]
+    assert catalogus_update and "Edit → Image" not in catalogus_update
+    assert "More Options → Update" in catalogus_update
     for index in (0, 5):
         stap = data["stappen"][index]
         standaard, scheiding, catalogus = stap["handmatig_ui_pad_nl"].partition("; catalogusapp: ")
@@ -762,3 +772,21 @@ def test_eigen_images_gebruiken_standaard_custom_app(naam: str) -> None:
     assert "Custom App" in data["stappen"][1]["uitvoeren_nl"]
     assert "Edit → Image" in data["stappen"][0]["handmatig_ui_pad_nl"]
     assert "catalogusinstallatie" not in data["stappen"][0]["uitvoeren_nl"]
+
+
+@pytest.mark.parametrize("naam", CATALOGUSLIJSTEN)
+@pytest.mark.parametrize(("index", "mutatie"), [
+    (0, "Bij een catalogusapp lees je de image, tag en digest via Edit → Image"),
+    (5, "Catalogusapp: Edit → Image → Update"),
+])
+def test_catalogus_uitvoertekst_image_pad_wordt_geweigerd(naam: str, index: int, mutatie: str) -> None:
+    data = copy.deepcopy(_load(naam))
+    _catalogus_menupaden(data)
+    tekst = data["stappen"][index]["uitvoeren_nl"]
+    begin = "Bij een catalogusapp" if index == 0 else "Catalogusapp:"
+    eind = ";" if index == 0 else "; kies"
+    voor, scheiding, rest = tekst.partition(begin)
+    assert scheiding and eind in rest
+    data["stappen"][index]["uitvoeren_nl"] = voor + mutatie + eind + rest.split(eind, 1)[1]
+    with pytest.raises(AssertionError):
+        _catalogus_menupaden(data)

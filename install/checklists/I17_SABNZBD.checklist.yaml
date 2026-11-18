@@ -152,7 +152,10 @@ stappen:
   - NIET GEVALIDEERD (echte NAS)
 - id: I17-17-05
   titel_nl: Backup config
-  uitvoeren_nl: De gebruiker maakt via SABnzbd → Config → General → Backup → Create backup de configuratieback-up.
+  uitvoeren_nl: Controleer eerst SABnzbd → Config → Folders → Backup Folder zonder iets op te slaan.
+    Is Backup Folder leeg, stop dan hier; de bron valt anders terug op Completed Download Folder in de downloadketen.
+    Alleen met een reeds ingestelde en gecontroleerde Backup Folder maakt de gebruiker via
+    SABnzbd → Config → General → Backup → Create backup de configuratieback-up.
     De bron maakt het archief in de ingestelde Backup Folder; deze knop bewijst geen download naar de browser. Bewaar
     een volledige versleutelde kopie van configuratie, database en sleutels buiten de NAS, met herstelgegevens apart,
     plus een passend herstelpunt via de TrueNAS-webinterface. Alleen een snapshot van een draaiende database bewijst
