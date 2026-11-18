@@ -1,0 +1,200 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I18
+titel_nl: qBittorrent — behoud, controle en veilige terugval
+document: 03_INSTALLATIE/I18_QBITTORRENT.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'qBittorrent blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande
+  Emby-koppeling en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus,
+  media of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen
+  of titels. Bij qBittorrent geen interface- of adreswaarden voorschrijven. Muterende proeven uitsluitend met
+  eigen opslag en toegestane testbronnen, zonder verbinding met bestaande diensten, na T-12, passend herstelbewijs
+  en uitdrukkelijke toestemming voor precies die proef. Niet op de echte installatie uitvoeren. ONBEKEND betekent:
+  stop dan hier en laat de ontbrekende versiegebonden bediening of veilige hersteloverdracht eerst aantonen.
+  Bronbediening: qBittorrent 5.3.0 op commit 9213075dd5f7b352208361c6a84c1c115efc898e; qbittorrent/qBittorrent:
+  src/webui/www/private/index.html (Tools, Help, Options..., About), views/preferencesToolbar.html (Downloads,
+  BitTorrent, Advanced), views/preferences.html (Default Save Path:, Seeding Limits, Excluded file names, Network
+  interface:, Optional IP address to bind to:) en views/about.html. Een aparte WebAPI-versiemeting via een
+  webscherm is ONBEKEND; daarvoor geen knop verzinnen. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/qbittorrent/app.yaml en questions.yaml, trains/community/qbittorrent/app_versions.json (catalogusversie
+  1.4.21), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html
+  en ../app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse labels, geen gemeten installatieversies.
+  Controleer bij een afwijkende versie eerst de bijpassende bron; anders stoppen.'
+stappen:
+- id: I18-18-01
+  titel_nl: Client inventory
+  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande qBittorrent-app → Application
+    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
+    ix-app in stable en heeft Image in het formulier; de catalogusapp qbittorrent in community heeft een eigen
+    formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND,
+    stop dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image.
+    Bij een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
+    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
+    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
+    slaan. Lees qBittorrent → Help → About voor de appversie. Vergelijk Tools → Options... → Downloads → Default
+    Save Path:, BitTorrent → Seeding Limits en de bestaande categorieën met het MSO-clientoverzicht en de eigen
+    trackerregels. Leg WebAPI-versie alleen vast uit bestaande aantoonbare MSO-inzage; een bijpassende webbediening
+    is ONBEKEND, stop dan hier als deze ontbreekt. Leg uitsluitend geschoonde aantallen en verschillen vast;
+    geen torrent verplaatsen of verwijderen en geen instellingen opslaan.'
+  acceptatie_nl: Geen onverwachte move of delete.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bekende versie, opslag, API-versie en trackerregels geen volgende proef; behoud
+    alle torrents.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: 'Standaard Custom App: Apps → bestaande app → Edit → Image en Storage Configuration;
+    catalogusapp: Apps → bestaande app → Application Info → App Version en Version; opslag via Edit → Storage
+    Configuration'
+- id: I18-18-02
+  titel_nl: MSO policies
+  uitvoeren_nl: Dit is alleen de controle van het bestaande MSO-beleid, geen beleidswijziging. Lees het MSO-overzicht
+    van clientbeleid, verplichtingen en hardlinkbewaking en vergelijk met qBittorrent → Tools → Options...
+    → BitTorrent → Seeding Limits. Bewaar read-only als uitgangspunt; private-trackerverplichtingen, minimale
+    ratio en seedtijd zijn door de gebruiker vast te stellen, geen algemene waarden overnemen. De precieze
+    versiegebonden MSO-webbediening en de echte private-trackerproef zijn ONBEKEND; stop dan hier tot die aantoonbaar
+    zijn. Geen torrent verplaatsen of verwijderen, geen tracker benaderen en geen tuning toepassen.
+  acceptatie_nl: Geen private torrent policy breached.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij ontbrekende beleidsinzage of private guard geen tuning; behoud bestaande seedverplichtingen.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I18-18-03
+  titel_nl: Torrent executables preventie
+  uitvoeren_nl: Lees uitsluitend qBittorrent → Tools → Options... → Downloads → Excluded file names; niets
+    aanvinken of opslaan. Vergelijk de door MSO gemeten capability met de echte qBittorrent-/WebAPI-versie.
+    Bewijs uitsluiting van uitvoerbare bestanden én behoud van toegestane media alleen na herstelbewijs I18-18-06,
+    T-12 en toestemming in een geïsoleerde testomgeving met toegestane testbronnen; geen bestaande torrent,
+    tracker of payload gebruiken. De precieze MSO-proefbediening is ONBEKEND, stop dan hier tot die aantoonbaar
+    is. Geen blokkade op productiedownloads invoeren en geen bestanden verwijderen.
+  acceptatie_nl: Geen false exclusion van media.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder herstelbewijs en geïsoleerde capabilityproef geen uitsluitingen toepassen;
+    geen bestaande downloads wijzigen.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I18-18-04
+  titel_nl: Netwerk/VPN binding
+  uitvoeren_nl: 'Inspecteer uitsluitend qBittorrent → Tools → Options... → Advanced → Network interface: en
+    Optional IP address to bind to:, zonder iets te wijzigen of op te slaan. De gebruiker stelt zelf de bestaande
+    VPN-/DNS-policy, de werkelijke binding en gewenste trackerbereikbaarheid vast; geen interface- of adreswaarden
+    uit voorbeelden overnemen. Alleen een gekozen veld bewijst geen lekvrije verbinding. Een terminalvrije,
+    geïsoleerde DNS-/verkeerslekproef zonder bestaande downloads of verbindingen te onderbreken is ONBEKEND;
+    stop dan hier tot die is aangetoond. Geen VPN, netwerkinterface of bestaande client stoppen of herstarten.'
+  acceptatie_nl: Geen publieke verkeerde interface.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder bewezen binding en lekproef geen netwerk- of VPN-wijziging; lopende downloads
+    blijven werken.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I18-18-05
+  titel_nl: Seeding en AV1 overlap
+  uitvoeren_nl: 'Controleer alleen het bestaande MSO-/MediaGuard-beleid en de seedingstatus: integrity.never_rewrite_seeding
+    blijft vergrendeld en de actieve torrent-payload blijft intact. Lees qBittorrent → Tools → Options... →
+    BitTorrent → Seeding Limits en vergelijk geschoonde aantallen en bestandsgrootten met de bestaande MSO-/MediaGuard-inzage.
+    Een hardlink bewijst niet dat herschrijven veilig is. Geen torrent verplaatsen of verwijderen, geen hercontrole
+    of AV1-rewrite op een seedingbestand starten. De exacte gezamenlijke webweergave en integriteitsproef zijn
+    ONBEKEND; stop dan hier. Een latere proef uitsluitend geïsoleerd na I18-18-06 en T-12, met eigen kopieën.'
+  acceptatie_nl: Actieve torrent payload blijft intact.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; bij overlap of onbekende integriteit geen rewrite, verplaatsing of verwijdering;
+    behoud payload en seedstatus.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I18-18-06
+  titel_nl: Backup/update
+  uitvoeren_nl: 'Stel eerst een consistente versleutelde back-up veilig van configuratie, torrentmetadata,
+    hervatstatus en payload; herstelgegevens apart buiten de NAS. Een actieve snapshot bewijst geen consistentie.
+    Export/import en veilige weboverdracht naar de testapp zijn ONBEKEND; ontbreekt een aangetoonde veilige
+    overdracht, stop dan hier. Voor deze checklist nooit de bestaande downloadclient stoppen. Pas na volledig
+    herstelbewijs en T-12: test de exact gepinde kandidaat geïsoleerd met eigen opslag en geblokkeerde productieroutes.
+    Vergelijk WebAPI-contract, aantallen, categorieën, seedstatus en payload voor/na. Bewijs terugval met de
+    vorige image én passende configuratie, torrentstatus en payload; geen oude image op gemigreerde data. Emby
+    blijft werken; bij ontbrekend herstelbewijs, stop dan hier. Bevestig de installatiesoort van de eigen testapp;
+    geen ombouw. Standaard Custom App: Edit → Image → Update. Catalogusapp: Application Info → App Version
+    en Version; More Options → Update; kies de exact geteste catalogusversie en gepinde images. Is de kandidaat
+    niet beschikbaar, verschijnt Only image(s) will be updated of is de weg ONBEKEND, gebruik Close en stop
+    dan hier. Productie-update alleen na apart akkoord en behoud van de keten.'
+  acceptatie_nl: Geen torrents verloren na update.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder consistente externe kopie, veilige overdracht en proefherstel geen update;
+    behoud bestaande client en alle downloads.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: 'Standaard Custom App: Apps → eigen geïsoleerde testapp → Edit → Image → Update; catalogusapp:
+    Apps → eigen geïsoleerde testapp → Application Info → App Version en Version; daarna More Options → Update
+    → Version to be updated to (indien getoond) → Update'

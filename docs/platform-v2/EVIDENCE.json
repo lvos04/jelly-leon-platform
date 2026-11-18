@@ -1048,5 +1048,65 @@
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-01",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder bekende versie, opslag, API-versie en trackerregels geen volgende proef; behoud alle torrents. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-02",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "bij ontbrekende beleidsinzage of private guard geen tuning; behoud bestaande seedverplichtingen. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-03",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder herstelbewijs en geïsoleerde capabilityproef geen uitsluitingen toepassen; geen bestaande downloads wijzigen. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-04",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder bewezen binding en lekproef geen netwerk- of VPN-wijziging; lopende downloads blijven werken. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-05",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "bij overlap of onbekende integriteit geen rewrite, verplaatsing of verwijdering; behoud payload en seedstatus. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I18-18-06",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I18_QBITTORRENT.checklist.yaml; tests/repo/test_checklists.py::test_i18_letterlijke_taken_en_downloadbescherming; tests/repo/test_checklists.py::test_i18_veiligheidsmutatie_wordt_geweigerd, ::test_i18_stopzin_wordt_bewaakt, ::test_i18_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder consistente externe kopie, veilige overdracht en proefherstel geen update; behoud bestaande client en alle downloads. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
  }
 ]

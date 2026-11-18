@@ -705,6 +705,7 @@ def test_i17_stopzin_wordt_bewaakt(index: int) -> None:
 
 CATALOGUSLIJSTEN = [
     "I15_IMMICH.checklist.yaml", "I16_PROWLARR.checklist.yaml", "I17_SABNZBD.checklist.yaml",
+    "I18_QBITTORRENT.checklist.yaml",
 ]
 
 
@@ -790,3 +791,63 @@ def test_catalogus_uitvoertekst_image_pad_wordt_geweigerd(naam: str, index: int,
     data["stappen"][index]["uitvoeren_nl"] = voor + mutatie + eind + rest.split(eind, 1)[1]
     with pytest.raises(AssertionError):
         _catalogus_menupaden(data)
+
+
+I18_GATES = [
+    (0, "Help → About"),
+    (0, "geen torrent verplaatsen of verwijderen"),
+    (1, "alleen de controle"),
+    (1, "private-trackerverplichtingen"),
+    (2, "Downloads → Excluded file names"),
+    (2, "geen bestaande torrent"),
+    (3, "Advanced → Network interface:"),
+    (3, "Optional IP address to bind to:"),
+    (3, "stop dan hier"),
+    (4, "integrity.never_rewrite_seeding"),
+    (4, "payload blijft intact"),
+    (5, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (5, "nooit de bestaande downloadclient stoppen"),
+    (5, "vorige image én passende configuratie, torrentstatus en payload"),
+]
+
+
+def _i18_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, set(), set())
+    _catalogus_menupaden(data)
+    for index, tekst in I18_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+    for tekst in ("Emby blijft werken", "MediaGuard-voortgang", "geen interface- of adreswaarden"):
+        assert tekst in data["toelichting_nl"], tekst
+
+
+def test_i18_letterlijke_taken_en_downloadbescherming() -> None:
+    _i18_veiligheid(_load("I18_QBITTORRENT.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I18_GATES)
+def test_i18_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I18_QBITTORRENT.checklist.yaml"))
+    _i18_veiligheid(data)
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i18_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(6))
+def test_i18_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I18_QBITTORRENT.checklist.yaml"))
+    _i18_veiligheid(data)
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i18_veiligheid(data)
+
+
+def test_i18_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        stap["acceptatie_nl"] = "X" + stap["acceptatie_nl"][1:]
+
+    naam = "I18_QBITTORRENT.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
