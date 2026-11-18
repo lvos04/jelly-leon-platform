@@ -18,37 +18,38 @@ toelichting_nl: >-
   in openbaar bewijs. Bronbediening: Prowlarr v3.0.0.5737 (b8d1e7753ec1178d56a8d4735479357d259de335):
   src/NzbDrone.Core/Localization/Core/en.json, frontend/src/Components/Page/Sidebar/PageSidebar.js en
   frontend/src/System/Backup/Backups.js en BackupRow.js. Catalogusreferentie: truenas/apps@f142a16,
-  ix-dev/community/prowlarr/app.yaml. Dit is geen gemeten installatieversie. De Engelse schermnamen
-  gelden voor die bron; stel bij een afwijkende installatie eerst de bijpassende bron vast.
-  Formulierbron: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
-  ix-dev/stable/ix-app/questions.yaml en trains/community/prowlarr/app_versions.json (schema 1.5.34).
-  Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  ix-dev/community/prowlarr/app.yaml; ix-dev/community/prowlarr/ix_values.yaml (images en digests). Dit
+  is geen gemeten installatieversie. De Engelse schermnamen gelden voor die bron; stel bij een
+  afwijkende installatie eerst de bijpassende bron vast. Formulierbron:
+  truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4, ix-dev/stable/ix-app/questions.yaml en
+  trains/community/prowlarr/app_versions.json (schema 1.5.34). Webbron:
+  truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
   src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html (Application
   Info) en .ts (editButtonPressed/updateButtonPressed),
   src/app/pages/apps/components/installed-apps/app-update-dialog/app-update-dialog.component.html
-  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts (setAppForEdit/buildDynamicForm) gebruikt het
-  geïnstalleerde schema. Bij meerdere updatekandidaten verschijnt Version to be updated to; bij één
-  kandidaat vergelijk je de getoonde versies. Dit zijn bronstanden, geen NAS-meting. Ontbreekt de
-  overeenkomstige versiegebonden bediening: ONBEKEND, stop dan hier.
+  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts
+  (setAppForEdit/buildDynamicForm) gebruikt het geïnstalleerde schema. Bij meerdere updatekandidaten
+  verschijnt Version to be updated to; bij één kandidaat vergelijk je de getoonde versies. Dit zijn
+  bronstanden, geen NAS-meting. Ontbreekt de overeenkomstige versiegebonden bediening: ONBEKEND, stop
+  dan hier.
 
 stappen:
 - id: I16-16-01
   titel_nl: Read-only inventaris
   uitvoeren_nl: >-
-    Stel eerst de installatiesoort vast in Apps → Installed → bestaande Prowlarr-app → Application Info:
-    controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
-    ix-app in stable en heeft Image in het formulier; de catalogusapp prowlarr in community heeft een
-    eigen formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten
-    TrueNAS-/appversie ONBEKEND, stop dan hier. Bij een standaard Custom App lees je de ingestelde
-    image, tag en digest via Edit → Image. Bij een catalogusapp lees je App Version (appversie) en
-    Version (catalogus-/formulierversie) in Application Info; vergelijk Train en de bij die exacte
-    Version horende catalogusbron voor alle images met tags en digests. Zijn die niet aantoonbaar, stop
-    dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te slaan. De gebruiker leest
-    Indexers → Stats, Settings → Apps en Settings → Tags in de bestaande Prowlarr-webinterface. Leg
-    aantallen, bestaande synchronisatie-eigenaars en versie uit System → Status vast; vergelijk in
-    TrueNAS de ingestelde image, tag, digest en opslag. Geen Test-, sync- of opslagactie uitvoeren; geen
-    tags aanpassen. Neem de API-sleutel niet op in rapporten of screenshots; een noodzakelijke
-    herstelkopie van geheimen blijft versleuteld en privé. Onbekende gegevens blijven onbekend.
+    Stel eerst de installatiesoort vast: Apps → Installed → bestaande Prowlarr-app → Application Info:
+    Name en Train; Edit alleen lezen. ix-app in stable = standaard Custom App met Image; prowlarr in
+    community = catalogusapp zonder Image. Installatiesoort of versiebediening ONBEKEND: stop dan hier.
+    Bij een standaard Custom App: Edit → Image Configuration → Image: Repository en Tag; staat er geen
+    @sha256-digest in Tag, stop dan hier. Bij een catalogusapp lees je App Version en Version in
+    Application Info; vergelijk Train en exact die Version met de catalogusbron voor alle images, tags
+    en digests. Zijn die niet aantoonbaar, stop dan hier. Opslag: Edit → Storage Configuration, niet
+    opslaan. De gebruiker leest Indexers → Stats, Settings → Apps en Settings → Tags in de bestaande
+    Prowlarr-webinterface. Leg aantallen, bestaande synchronisatie-eigenaars en versie uit System →
+    Status vast; vergelijk in TrueNAS de ingestelde image, tag, digest en opslag. Geen Test-, sync- of
+    opslagactie uitvoeren; geen tags aanpassen. Neem de API-sleutel niet op in rapporten of screenshots;
+    een noodzakelijke herstelkopie van geheimen blijft versleuteld en privé. Onbekende gegevens blijven
+    onbekend.
 
   acceptatie_nl: Geen onverwachte tags aangepast.
   risico: Hoog

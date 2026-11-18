@@ -10,39 +10,47 @@ aanpak: behouden_en_valideren
 installatie: geen
 mutaties_door_platform: false
 besluiten: []
-toelichting_nl: 'Bazarr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
-  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus, media
-  of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen of titels.
-  Muterende proeven alleen geïsoleerd na herstelbewijs, T-12 en toestemming, nooit op de bestaande installatie.
-  ONBEKEND betekent: stop dan hier en laat de ontbrekende versiegebonden bediening of veilige hersteloverdracht
-  eerst aantonen. Bronbediening: Bazarr 1.6.2 op commit 8c68f16a1e12f8e7985baeb73fb4199b5149108a; morpheus65535/bazarr:
-  frontend/src/Router/index.tsx (Settings, Languages, Providers, System, Backups, Status), pages/Settings/Languages/General.tsx
-  en Profiles.tsx, pages/System/Backups/index.tsx (Backup Now) en table.tsx (download via Name, Restore, Restore
-  Backup, Cancel), bazarr/utilities/backup.py (backup_to_zip, restore_from_backup). Een back-up bevat configuratie/database,
-  geen volledige mediabibliotheek of alle ondertitelbestanden. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
-  ix-dev/community/bazarr/app.yaml en questions.yaml, trains/community/bazarr/app_versions.json (catalogusversie
-  1.3.18), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
-  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html;
-  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse
-  labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de bijpassende bron;
-  anders stoppen.'
+toelichting_nl: >-
+  Bazarr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
+  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus,
+  media of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen,
+  gebruikersnamen of titels. Muterende proeven alleen geïsoleerd na herstelbewijs, T-12 en toestemming,
+  nooit op de bestaande installatie. ONBEKEND betekent: stop dan hier en laat de ontbrekende
+  versiegebonden bediening of veilige hersteloverdracht eerst aantonen. Bronbediening: Bazarr 1.6.2 op
+  commit 8c68f16a1e12f8e7985baeb73fb4199b5149108a; morpheus65535/bazarr: frontend/src/Router/index.tsx
+  (Settings, Languages, Providers, System, Backups, Status), pages/Settings/Languages/General.tsx en
+  Profiles.tsx, pages/System/Backups/index.tsx (Backup Now) en table.tsx (download via Name, Restore,
+  Restore Backup, Cancel), bazarr/utilities/backup.py (backup_to_zip, restore_from_backup). Een back-up
+  bevat configuratie/database, geen volledige mediabibliotheek of alle ondertitelbestanden.
+  Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/bazarr/app.yaml en questions.yaml, ix-dev/community/bazarr/ix_values.yaml (images en
+  digests), trains/community/bazarr/app_versions.json (catalogusversie 1.3.18),
+  ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts,
+  app-update-dialog/app-update-dialog.component.html;
+  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met
+  Engelse labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de
+  bijpassende bron; anders stoppen.
+
 stappen:
 - id: I20-20-01
   titel_nl: Inventaris
-  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande Bazarr-app → Application
-    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
-    ix-app in stable en heeft Image in het formulier; de catalogusapp bazarr in community heeft een eigen formulier
-    zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND, stop
-    dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image. Bij
-    een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
-    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
-    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
-    slaan. Lees Bazarr → System → Status → Bazarr Version en Database Engine. Vergelijk Settings → Languages
-    → Selection en Settings → Languages → Profiles met de Nederlandse taalprioriteit; inspecteer Settings →
-    Providers zonder sleutels te tonen of iets op te slaan. Leg bestaande synchronisatie en verkeerde-spoordetectie
-    alleen vast uit versiegebonden, aantoonbare bediening. Die complete proefbediening is ONBEKEND, stop dan
-    hier als zij niet aantoonbaar is. Geen providers veranderen, ondertitels zoeken, synchroniseren of opnieuw
-    downloaden; behoud bestaande NL-ondertitels.'
+  uitvoeren_nl: >-
+    Stel eerst de installatiesoort vast: Apps → Installed → bestaande Bazarr-app → Application Info:
+    Name en Train; Edit alleen lezen. ix-app in stable = standaard Custom App met Image; bazarr in
+    community = catalogusapp zonder Image. Installatiesoort of versiebediening ONBEKEND: stop dan hier.
+    Bij een standaard Custom App: Edit → Image Configuration → Image: Repository en Tag; staat er geen
+    @sha256-digest in Tag, stop dan hier. Bij een catalogusapp lees je App Version en Version in
+    Application Info; vergelijk Train en exact die Version met de catalogusbron voor alle images, tags
+    en digests. Zijn die niet aantoonbaar, stop dan hier. Opslag: Edit → Storage Configuration, niet
+    opslaan. Lees Bazarr → System → Status → Bazarr Version en Database Engine. Vergelijk Settings →
+    Languages → Selection en Settings → Languages → Profiles met de Nederlandse taalprioriteit;
+    inspecteer Settings → Providers zonder sleutels te tonen of iets op te slaan. Leg bestaande
+    synchronisatie en verkeerde-spoordetectie alleen vast uit versiegebonden, aantoonbare bediening. Die
+    complete proefbediening is ONBEKEND, stop dan hier als zij niet aantoonbaar is. Geen providers
+    veranderen, ondertitels zoeken, synchroniseren of opnieuw downloaden; behoud bestaande
+    NL-ondertitels.
+
   acceptatie_nl: Geen regressie van NL ondertitels.
   risico: Hoog
   wijze:

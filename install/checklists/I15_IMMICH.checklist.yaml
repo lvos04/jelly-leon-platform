@@ -19,37 +19,38 @@ toelichting_nl: >-
   (587f549f46f1cd1822a06e16dcccecef04ea4565): i18n/en.json en
   web/src/routes/admin/maintenance/+page.svelte,
   web/src/lib/components/maintenance/MaintenanceBackupsList.svelte en MaintenanceBackupEntry.svelte.
-  Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/immich/app.yaml. Dit is geen gemeten
-  installatieversie. Bedieningsnamen hieronder zijn Engels; wijkt de echte versie af, stel de
-  bijbehorende bron eerst vast. Formulierbron: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  Catalogusreferentie: truenas/apps@f142a16, ix-dev/community/immich/app.yaml;
+  ix-dev/community/immich/ix_values.yaml (images en digests). Dit is geen gemeten installatieversie.
+  Bedieningsnamen hieronder zijn Engels; wijkt de echte versie af, stel de bijbehorende bron eerst vast.
+  Formulierbron: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
   ix-dev/stable/ix-app/questions.yaml en trains/community/immich/app_versions.json (schema 1.14.62).
   Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
   src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html (Application
   Info) en .ts (editButtonPressed/updateButtonPressed),
   src/app/pages/apps/components/installed-apps/app-update-dialog/app-update-dialog.component.html
-  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts (setAppForEdit/buildDynamicForm) gebruikt het
-  geïnstalleerde schema. Bij meerdere updatekandidaten verschijnt Version to be updated to; bij één
-  kandidaat vergelijk je de getoonde versies. Dit zijn bronstanden, geen NAS-meting. Ontbreekt de
-  overeenkomstige versiegebonden bediening: ONBEKEND, stop dan hier.
+  (Update/Close); src/app/pages/apps/components/app-wizard/app-wizard.component.ts
+  (setAppForEdit/buildDynamicForm) gebruikt het geïnstalleerde schema. Bij meerdere updatekandidaten
+  verschijnt Version to be updated to; bij één kandidaat vergelijk je de getoonde versies. Dit zijn
+  bronstanden, geen NAS-meting. Ontbreekt de overeenkomstige versiegebonden bediening: ONBEKEND, stop
+  dan hier.
 
 stappen:
 - id: I15-15-01
   titel_nl: Inventaris
   uitvoeren_nl: >-
-    Stel eerst de installatiesoort vast in Apps → Installed → bestaande Immich-app → Application Info:
-    controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
-    ix-app in stable en heeft Image in het formulier; de catalogusapp immich in community heeft een
-    eigen formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten
-    TrueNAS-/appversie ONBEKEND, stop dan hier. Bij een standaard Custom App lees je de ingestelde
-    image, tag en digest via Edit → Image. Bij een catalogusapp lees je App Version (appversie) en
-    Version (catalogus-/formulierversie) in Application Info; vergelijk Train en de bij die exacte
-    Version horende catalogusbron voor alle images met tags en digests. Zijn die niet aantoonbaar, stop
-    dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te slaan. De gebruiker leest
-    de bestaande image, tag, digest en opslagkoppelingen in de TrueNAS-webinterface. Vergelijk met de
-    versie in Immich en Administration → External Libraries. Leg database-schemaversie alleen vast
-    wanneer die aantoonbaar uit bestaande gegevens blijkt; een scherm daarvoor is ONBEKEND. Niets
-    opnieuw importeren of verplaatsen. Leg alleen geschoonde meetresultaten vast. Onbekende schema- of
-    versiegegevens blokkeren een update; geen bibliotheekscan of achtergrondtaak starten.
+    Stel eerst de installatiesoort vast: Apps → Installed → bestaande Immich-app → Application Info:
+    Name en Train; Edit alleen lezen. ix-app in stable = standaard Custom App met Image; immich in
+    community = catalogusapp zonder Image. Installatiesoort of versiebediening ONBEKEND: stop dan hier.
+    Bij een standaard Custom App: Edit → Image Configuration → Image: Repository en Tag; staat er geen
+    @sha256-digest in Tag, stop dan hier. Bij een catalogusapp lees je App Version en Version in
+    Application Info; vergelijk Train en exact die Version met de catalogusbron voor alle images, tags
+    en digests. Zijn die niet aantoonbaar, stop dan hier. Opslag: Edit → Storage Configuration, niet
+    opslaan. De gebruiker leest de bestaande image, tag, digest en opslagkoppelingen in de
+    TrueNAS-webinterface. Vergelijk met de versie in Immich en Administration → External Libraries. Leg
+    database-schemaversie alleen vast wanneer die aantoonbaar uit bestaande gegevens blijkt; een scherm
+    daarvoor is ONBEKEND. Niets opnieuw importeren of verplaatsen. Leg alleen geschoonde meetresultaten
+    vast. Onbekende schema- of versiegegevens blokkeren een update; geen bibliotheekscan of
+    achtergrondtaak starten.
 
   acceptatie_nl: Niets opnieuw importeren of verplaatsen.
   risico: Hoog

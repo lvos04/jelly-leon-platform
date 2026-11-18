@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterator
@@ -562,6 +563,7 @@ def _bestaande_app_basis(data: dict[str, Any], hub: set[int], account: set[int],
 
 
 I15_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "Niets opnieuw importeren of verplaatsen"),
     (1, "uitsluitend in de geïsoleerde testomgeving"),
     (1, "foto's én database"),
@@ -607,6 +609,7 @@ def test_i15_stopzin_wordt_bewaakt(index: int) -> None:
 
 
 I16_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "Indexers → Stats"),
     (0, "Settings → Apps"),
     (1, "MediaGuard wijzigt alleen de eigen tags"),
@@ -653,6 +656,7 @@ def test_i16_stopzin_wordt_bewaakt(index: int) -> None:
 
 
 I17_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "Config → Categories"),
     (0, "tv/tv-anime/movies/movies-anime"),
     (1, "geen blinde retries"),
@@ -713,8 +717,17 @@ def _catalogus_menupaden(data: dict[str, Any], update_index: int | None = 5) -> 
     """ix-app heeft Image; de app-eigen catalogusschema's hebben dat veld niet (I20 heeft geen updatestap)."""
     inventaris = data["stappen"][0]["uitvoeren_nl"]
     for tekst in ("Stel eerst de installatiesoort vast", "Application Info", "Name", "Train", "ix-app",
-                  "ONBEKEND", "stop dan hier"):
+                  "ONBEKEND", "stop dan hier", "Zijn die niet aantoonbaar, stop dan hier",
+                  "Edit → Image Configuration → Image: Repository en Tag",
+                  "staat er geen @sha256-digest in Tag, stop dan hier"):
         assert tekst in inventaris, tekst
+    # Elke zin van elke stap, ongeacht positie, hoofdletters of het gebruikte lidwoord.
+    # Splits alleen op zinsgrenzen: punten binnen versies/adressen zijn geen zinsgrens.
+    for stap in data["stappen"]:
+        for zin in re.split(r"[.!?](?:\s+|$)", stap["uitvoeren_nl"]):
+            assert not ("catalogusapp" in zin.casefold() and "Edit → Image" in zin), (
+                "catalogusinstallatie heeft geen Image-veld", zin
+            )
     # Ook de uitvoertekst kan een onjuist pad introduceren terwijl het aparte UI-veld klopt.
     catalogus_inventaris = inventaris.partition("Bij een catalogusapp")[2].partition(";")[0]
     assert catalogus_inventaris and "Image" not in catalogus_inventaris
@@ -796,7 +809,69 @@ def test_catalogus_uitvoertekst_image_pad_wordt_geweigerd(naam: str, index: int,
         _catalogus_menupaden(data)
 
 
+# Engelse applabels, zelfstandig nagelezen op deze vaste bronstanden (geen live acceptatie).
+# I18: src/webui/www/private/{index.html,views/preferencesToolbar.html,views/preferences.html}.
+# I19: src/components/{Settings/{SettingsLayout.tsx,SettingsServices.tsx,SettingsAbout/index.tsx,
+# SonarrModal/index.tsx,RadarrModal/index.tsx},Layout/Sidebar/index.tsx}; src/i18n/locale/en.json.
+# I20: frontend/src/{Router/index.tsx,pages/Settings/Languages/Layout.tsx,
+# pages/System/{Status/index.tsx,Backups/index.tsx,Backups/table.tsx}}.
+# Een labelwijziging vraagt opnieuw broncontrole en aanpassing van deze tabel.
+APPLABELS = {
+    "I18": ("9213075dd5f7b352208361c6a84c1c115efc898e", {
+        0: ("Help → About", "Tools → Options... → Downloads → Default Save Path:", "BitTorrent → Seeding Limits"),
+        1: ("Tools → Options... → BitTorrent → Seeding Limits",),
+        2: ("Tools → Options... → Downloads → Excluded file names",),
+        3: ("Tools → Options... → Advanced → Network interface:", "Optional IP address to bind to:"),
+        4: ("Tools → Options... → BitTorrent → Seeding Limits",),
+    }),
+    "I19": ("564bfb08b54caa374bddaf820abfd226e5e69151", {
+        0: ("Settings → About → Version", "Data Directory", "Settings → Services",
+            "Radarr Settings / Sonarr Settings → de server → Edit", "Hostname or IP Address", "API Key",
+            "Cancel", "Save Changes"),
+        1: ("Settings → Services → Sonarr Settings → de server → Edit (Edit Sonarr Server)",
+            "Anime Series Type", "Anime Quality Profile", "Anime Root Folder", "Cancel", "Save Changes"),
+        2: ("Requests",),
+        3: ("Settings → About → Data Directory",),
+        4: ("Requests",),
+    }),
+    "I20": ("8c68f16a1e12f8e7985baeb73fb4199b5149108a", {
+        0: ("System → Status → Bazarr Version", "Database Engine", "Settings → Languages → Selection",
+            "Settings → Languages → Profiles", "Settings → Providers"),
+        1: ("System → Providers",),
+        3: ("System → Status → Database Engine", "System → Backups → Backup Now", "Name",
+            "System → Backups → Restore → Restore Backup → Restore", "Cancel"),
+    }),
+}
+
+
+def _applabels(data: dict[str, Any]) -> None:
+    bronstand, stappen = APPLABELS[data["id"]]
+    assert bronstand in data["toelichting_nl"]
+    for index, labels in stappen.items():
+        for label in labels:
+            assert label in data["stappen"][index]["uitvoeren_nl"], (data["id"], index, label, bronstand)
+
+
+@pytest.mark.parametrize("naam", ["I18_QBITTORRENT", "I19_SEERR", "I20_BAZARR"])
+def test_applabels_en_bronstand_worden_per_voorkomen_bewaakt(naam: str) -> None:
+    origineel = _load(naam + ".checklist.yaml")
+    _applabels(origineel)
+    bronstand, stappen = APPLABELS[origineel["id"]]
+    for index, labels in stappen.items():
+        for label in labels:
+            data = copy.deepcopy(origineel)
+            stap = data["stappen"][index]
+            stap["uitvoeren_nl"] = stap["uitvoeren_nl"].replace(label, "onbewezen label")
+            with pytest.raises(AssertionError):
+                _applabels(data)
+    data = copy.deepcopy(origineel)
+    data["toelichting_nl"] = data["toelichting_nl"].replace(bronstand, "onbewezen bronstand")
+    with pytest.raises(AssertionError):
+        _applabels(data)
+
+
 I18_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "Help → About"),
     (0, "geen torrent verplaatsen of verwijderen"),
     (1, "alleen de controle"),
@@ -815,6 +890,7 @@ I18_GATES = [
 
 
 def _i18_veiligheid(data: dict[str, Any]) -> None:
+    _applabels(data)
     _bestaande_app_basis(data, set(), set())
     _catalogus_menupaden(data)
     for index, tekst in I18_GATES:
@@ -857,9 +933,20 @@ def test_i18_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
 
 
 I19_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "Settings → Services"),
     (0, "Seerr"),
     (0, "vier forks"),
+    (0, "Radarr Settings / Sonarr Settings → de server → Edit"),
+    (0, "Controleer bij elke server: Hostname or IP Address moet het LAN-adres van de NAS zijn, "
+        "nooit localhost of een loopbackadres (een adres dat met 127 begint: dat is de container zelf, "
+        "niet de NAS)"),
+    (0, "Is het wel loopback: stop hier, meld het, wijzig niets"),
+    (0, "sluit met Cancel, niet Save Changes"),
+    (0, "Openen start een verbindingstest naar de fork"),
+    (1, "Sonarr Settings → de server → Edit (Edit Sonarr Server)"),
+    (1, "Openen start een verbindingstest naar Sonarr"),
+    (1, "sluit met Cancel, niet Save Changes"),
     (0, "bestaande Emby-koppeling"),
     (1, "eigenaar MediaGuard"),
     (1, "uitsluitend geïsoleerd"),
@@ -877,6 +964,7 @@ I19_GATES = [
 
 
 def _i19_veiligheid(data: dict[str, Any]) -> None:
+    _applabels(data)
     _bestaande_app_basis(data, {5}, set())
     _catalogus_menupaden(data)
     for index, tekst in I19_GATES:
@@ -919,6 +1007,7 @@ def test_i19_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
 
 
 I20_GATES = [
+    (0, "Zijn die niet aantoonbaar, stop dan hier"),
     (0, "System → Status → Bazarr Version"),
     (0, "Settings → Languages → Profiles"),
     (0, "Settings → Providers"),
@@ -944,6 +1033,7 @@ I20_GATES = [
 
 
 def _i20_veiligheid(data: dict[str, Any]) -> None:
+    _applabels(data)
     _bestaande_app_basis(data, set(), set(), aantal=5)
     _catalogus_menupaden(data, update_index=None)
     for index, tekst in I20_GATES:
@@ -1024,3 +1114,100 @@ def test_i18_i19_i20_bewijs_claimt_geen_functionele_acceptatie() -> None:
         assert "NIET GEVALIDEERD (account)" not in r["validatie"]
         assert "alleen NAS-test nodig" not in r["opmerking"]
         assert r["blokkade"] and "geen functionele" in r["opmerking"]
+
+
+# Herstel S-P3-430: deze proeven moeten ook op de oude controlefuncties rood worden.
+@pytest.mark.parametrize(("index", "tekst"), [
+    (0, "Controleer bij elke server: Hostname or IP Address moet het LAN-adres van de NAS zijn, "
+        "nooit localhost of een loopbackadres (een adres dat met 127 begint: dat is de container zelf, "
+        "niet de NAS)"),
+    (0, "Is het wel loopback: stop hier, meld het, wijzig niets"),
+    (0, "Radarr Settings / Sonarr Settings → de server → Edit"),
+    (0, "sluit met Cancel, niet Save Changes"),
+    (1, "Sonarr Settings → de server → Edit (Edit Sonarr Server)"),
+    (1, "Openen start een verbindingstest naar Sonarr"),
+    (1, "sluit met Cancel, niet Save Changes"),
+])
+def test_seerr_herstel_verplichte_leescontrole(index: int, tekst: str) -> None:
+    assert tekst in _load("I19_SEERR.checklist.yaml")["stappen"][index]["uitvoeren_nl"]
+
+
+@pytest.mark.parametrize("naam", [*CATALOGUSLIJSTEN, "I20_BAZARR.checklist.yaml"])
+@pytest.mark.parametrize("index", (0, 1))
+@pytest.mark.parametrize("woord", ("catalogusapp", "CatalogusApp", "CATALOGUSAPP"))
+def test_catalogus_elke_zin_met_image_pad_wordt_geweigerd(naam: str, index: int, woord: str) -> None:
+    data = copy.deepcopy(_load(naam))
+    update = None if data["id"] == "I20" else 5
+    _catalogus_menupaden(data, update)
+    data["stappen"][index]["uitvoeren_nl"] += f" Lees voor de {woord} de image via Edit → Image."
+    with pytest.raises(AssertionError):
+        _catalogus_menupaden(data, update)
+
+
+@pytest.mark.parametrize(("naam", "controle"), [
+    ("I15_IMMICH", _i15_veiligheid),
+    ("I16_PROWLARR", _i16_veiligheid),
+    ("I17_SABNZBD", _i17_veiligheid),
+    ("I18_QBITTORRENT", _i18_veiligheid),
+    ("I19_SEERR", _i19_veiligheid),
+    ("I20_BAZARR", _i20_veiligheid),
+])
+def test_inventarisstopzin_wordt_in_alle_zes_lijsten_bewaakt(naam: str, controle: Any) -> None:
+    data = copy.deepcopy(_load(naam + ".checklist.yaml"))
+    controle(data)
+    stap = data["stappen"][0]
+    stap["uitvoeren_nl"] = stap["uitvoeren_nl"].replace("Zijn die niet aantoonbaar, stop dan hier", "Ga verder")
+    with pytest.raises(AssertionError):
+        controle(data)
+
+
+@pytest.mark.parametrize(("naam", "oud", "nieuw", "controle"), [
+    ("I18_QBITTORRENT.checklist.yaml", "Zijn die niet aantoonbaar, stop dan hier.",
+     "Lees voor de catalogusapp de image, tag en digest via Edit → Image.", _i18_veiligheid),
+    ("I18_QBITTORRENT.checklist.yaml", "BitTorrent → Seeding Limits", "BitTorrent → Share Limits", _i18_veiligheid),
+    ("I19_SEERR.checklist.yaml", "Anime Root Folder", "Anime Root Path", _i19_veiligheid),
+])
+def test_reviewer_mutaties_m1_m2_m3_worden_geweigerd(naam: str, oud: str, nieuw: str, controle: Any) -> None:
+    data = copy.deepcopy(_load(naam))
+    controle(data)
+    assert any(oud in stap["uitvoeren_nl"] for stap in data["stappen"])
+    for stap in data["stappen"]:
+        stap["uitvoeren_nl"] = stap["uitvoeren_nl"].replace(oud, nieuw)
+    with pytest.raises(AssertionError):
+        controle(data)
+
+
+@pytest.mark.parametrize("naam", [*CATALOGUSLIJSTEN, "I20_BAZARR.checklist.yaml"])
+def test_image_digest_bron_en_custom_app_stop(naam: str) -> None:
+    data = _load(naam)
+    app = {"I15": "immich", "I16": "prowlarr", "I17": "sabnzbd", "I18": "qbittorrent",
+           "I19": "seerr", "I20": "bazarr"}[data["id"]]
+    assert f"ix-dev/community/{app}/ix_values.yaml (images en digests)" in data["toelichting_nl"]
+    tekst = data["stappen"][0]["uitvoeren_nl"]
+    assert "Edit → Image Configuration → Image: Repository en Tag" in tekst
+    assert "staat er geen @sha256-digest in Tag, stop dan hier" in tekst
+
+
+@pytest.mark.parametrize(("index", "veld", "voorvoegsel"), [
+    (0, "uitvoeren_nl", "niet "),
+    (0, "uitvoeren_nl", "gebruik "),
+    (0, "bij_fout_nl", "niet "),
+    (1, "uitvoeren_nl", "niet "),
+])
+def test_loopbackverbod_is_geen_toestemming_voor_adreswaarden(index: int, veld: str, voorvoegsel: str) -> None:
+    data = copy.deepcopy(_load("I19_SEERR.checklist.yaml"))
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+    adres = ".".join(("127", "0", "0", "1"))
+    verbod = f"{voorvoegsel}{adres} of localhost (loopback van de container)"
+    if index == 0 and veld == "uitvoeren_nl":
+        # Vervang de zin zodat de proef niet alleen de schemalimiet voor tekstlengte raakt.
+        data["stappen"][index][veld] = verbod
+    else:
+        data["stappen"][index][veld] += " " + verbod
+    assert any("voorbeeldwaarde" in fout for fout in cl.controleer_lijst(data, cl.excel_taken()))
+
+
+@pytest.mark.parametrize("naam", [*CATALOGUSLIJSTEN, "I20_BAZARR.checklist.yaml"])
+def test_zes_lijsten_bevatten_geen_letterlijk_ipv4_adres(naam: str) -> None:
+    tekst = (cl.CHECKLIST_DIR / naam).read_text(encoding="utf-8")
+    assert not re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", tekst), naam

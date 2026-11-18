@@ -10,39 +10,47 @@ aanpak: behouden_en_valideren
 installatie: geen
 mutaties_door_platform: false
 besluiten: []
-toelichting_nl: 'qBittorrent blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande
-  Emby-koppeling en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus,
-  media of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen
-  of titels. Bij qBittorrent geen interface- of adreswaarden voorschrijven. Muterende proeven uitsluitend met
-  eigen opslag en toegestane testbronnen, zonder verbinding met bestaande diensten, na T-12, passend herstelbewijs
-  en uitdrukkelijke toestemming voor precies die proef. Niet op de echte installatie uitvoeren. ONBEKEND betekent:
-  stop dan hier en laat de ontbrekende versiegebonden bediening of veilige hersteloverdracht eerst aantonen.
-  Bronbediening: qBittorrent 5.3.0 op commit 9213075dd5f7b352208361c6a84c1c115efc898e; qbittorrent/qBittorrent:
-  src/webui/www/private/index.html (Tools, Help, Options..., About), views/preferencesToolbar.html (Downloads,
-  BitTorrent, Advanced), views/preferences.html (Default Save Path:, Seeding Limits, Excluded file names, Network
-  interface:, Optional IP address to bind to:) en views/about.html. Een aparte WebAPI-versiemeting via een
-  webscherm is ONBEKEND; daarvoor geen knop verzinnen. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
-  ix-dev/community/qbittorrent/app.yaml en questions.yaml, trains/community/qbittorrent/app_versions.json (catalogusversie
-  1.4.21), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
-  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html
-  en ../app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse labels, geen gemeten installatieversies.
-  Controleer bij een afwijkende versie eerst de bijpassende bron; anders stoppen.'
+toelichting_nl: >-
+  qBittorrent blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande
+  Emby-koppeling en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads,
+  aanvraagstatus, media of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden,
+  privé-adressen, gebruikersnamen of titels. Bij qBittorrent geen interface- of adreswaarden
+  voorschrijven. Muterende proeven uitsluitend met eigen opslag en toegestane testbronnen, zonder
+  verbinding met bestaande diensten, na T-12, passend herstelbewijs en uitdrukkelijke toestemming voor
+  precies die proef. Niet op de echte installatie uitvoeren. ONBEKEND betekent: stop dan hier en laat de
+  ontbrekende versiegebonden bediening of veilige hersteloverdracht eerst aantonen. Bronbediening:
+  qBittorrent 5.3.0 op commit 9213075dd5f7b352208361c6a84c1c115efc898e; qbittorrent/qBittorrent:
+  src/webui/www/private/index.html (Tools, Help, Options..., About), views/preferencesToolbar.html
+  (Downloads, BitTorrent, Advanced), views/preferences.html (Default Save Path:, Seeding Limits,
+  Excluded file names, Network interface:, Optional IP address to bind to:) en views/about.html. Een
+  aparte WebAPI-versiemeting via een webscherm is ONBEKEND; daarvoor geen knop verzinnen.
+  Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/qbittorrent/app.yaml en questions.yaml, ix-dev/community/qbittorrent/ix_values.yaml
+  (images en digests), trains/community/qbittorrent/app_versions.json (catalogusversie 1.4.21),
+  ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts,
+  app-update-dialog/app-update-dialog.component.html en ../app-wizard/app-wizard.component.ts. Dit zijn
+  vaste bronstanden met Engelse labels, geen gemeten installatieversies. Controleer bij een afwijkende
+  versie eerst de bijpassende bron; anders stoppen.
+
 stappen:
 - id: I18-18-01
   titel_nl: Client inventory
-  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande qBittorrent-app → Application
-    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
-    ix-app in stable en heeft Image in het formulier; de catalogusapp qbittorrent in community heeft een eigen
-    formulier zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND,
-    stop dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image.
-    Bij een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
-    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
-    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
-    slaan. Lees qBittorrent → Help → About voor de appversie. Vergelijk Tools → Options... → Downloads → Default
-    Save Path:, BitTorrent → Seeding Limits en de bestaande categorieën met het MSO-clientoverzicht en de eigen
-    trackerregels. Leg WebAPI-versie alleen vast uit bestaande aantoonbare MSO-inzage; een bijpassende webbediening
-    is ONBEKEND, stop dan hier als deze ontbreekt. Leg uitsluitend geschoonde aantallen en verschillen vast;
-    geen torrent verplaatsen of verwijderen en geen instellingen opslaan.'
+  uitvoeren_nl: >-
+    Stel eerst de installatiesoort vast: Apps → Installed → bestaande qBittorrent-app → Application
+    Info: Name en Train; Edit alleen lezen. ix-app in stable = standaard Custom App met Image;
+    qbittorrent in community = catalogusapp zonder Image. Installatiesoort of versiebediening ONBEKEND:
+    stop dan hier. Bij een standaard Custom App: Edit → Image Configuration → Image: Repository en Tag;
+    staat er geen @sha256-digest in Tag, stop dan hier. Bij een catalogusapp lees je App Version en
+    Version in Application Info; vergelijk Train en exact die Version met de catalogusbron voor alle
+    images, tags en digests. Zijn die niet aantoonbaar, stop dan hier. Opslag: Edit → Storage
+    Configuration, niet opslaan. Lees qBittorrent → Help → About voor de appversie. Vergelijk Tools →
+    Options... → Downloads → Default Save Path:, BitTorrent → Seeding Limits en de bestaande categorieën
+    met het MSO-clientoverzicht en de eigen trackerregels. Leg WebAPI-versie alleen vast uit bestaande
+    aantoonbare MSO-inzage; een bijpassende webbediening is ONBEKEND, stop dan hier als deze ontbreekt.
+    Leg uitsluitend geschoonde aantallen en verschillen vast; geen torrent verplaatsen of verwijderen en
+    geen instellingen opslaan.
+
   acceptatie_nl: Geen onverwachte move of delete.
   risico: Hoog
   wijze:

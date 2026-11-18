@@ -10,40 +10,51 @@ aanpak: behouden_en_valideren
 installatie: geen
 mutaties_door_platform: false
 besluiten: []
-toelichting_nl: 'Seerr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
-  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus, media
-  of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen of titels.
-  Bij qBittorrent geen interface- of adreswaarden voorschrijven. Muterende proeven alleen geïsoleerd na herstelbewijs,
-  T-12 en toestemming, nooit op de bestaande installatie. ONBEKEND betekent: stop dan hier en laat de ontbrekende
-  versiegebonden bediening of veilige hersteloverdracht eerst aantonen. Bronbediening: Seerr v3.5.1 op commit
-  564bfb08b54caa374bddaf820abfd226e5e69151; seerr-team/seerr: src/components/Settings/SettingsLayout.tsx (Services,
-  About), SettingsServices.tsx (Radarr Settings, Sonarr Settings), SonarrModal/index.tsx en RadarrModal/index.tsx
-  (servervelden), SettingsAbout/index.tsx (Version, Data Directory), Layout/Sidebar/index.tsx (Settings, Requests),
-  RequestList/index.tsx en docs/using-seerr/backups.md. De catalogus voert seerr met titel Seerr; geen Overseerr-
-  of Jellyseerr-migratie afleiden uit de documentnaam. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
-  ix-dev/community/seerr/app.yaml en questions.yaml, trains/community/seerr/app_versions.json (catalogusversie
-  1.0.20), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
-  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html;
-  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse
-  labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de bijpassende bron;
-  anders stoppen.'
+toelichting_nl: >-
+  Seerr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
+  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus,
+  media of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen,
+  gebruikersnamen of titels. Bij qBittorrent geen interface- of adreswaarden voorschrijven. Muterende
+  proeven alleen geïsoleerd na herstelbewijs, T-12 en toestemming, nooit op de bestaande installatie.
+  ONBEKEND betekent: stop dan hier en laat de ontbrekende versiegebonden bediening of veilige
+  hersteloverdracht eerst aantonen. Bronbediening: Seerr v3.5.1 op commit
+  564bfb08b54caa374bddaf820abfd226e5e69151; seerr-team/seerr: src/components/Settings/SettingsLayout.tsx
+  (Services, About), SettingsServices.tsx (Radarr Settings, Sonarr Settings), SonarrModal/index.tsx en
+  RadarrModal/index.tsx (servervelden), SettingsAbout/index.tsx (Version, Data Directory),
+  Layout/Sidebar/index.tsx (Settings, Requests), RequestList/index.tsx en docs/using-seerr/backups.md.
+  De catalogus voert seerr met titel Seerr; geen Overseerr- of Jellyseerr-migratie afleiden uit de
+  documentnaam. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/seerr/app.yaml en questions.yaml, ix-dev/community/seerr/ix_values.yaml (images en
+  digests), trains/community/seerr/app_versions.json (catalogusversie 1.0.20),
+  ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts,
+  app-update-dialog/app-update-dialog.component.html;
+  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met
+  Engelse labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de
+  bijpassende bron; anders stoppen.
+
 stappen:
 - id: I19-19-01
   titel_nl: MediaGuard inrichting
-  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande Seerr-app → Application
-    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
-    ix-app in stable en heeft Image in het formulier; de catalogusapp seerr in community heeft een eigen formulier
-    zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND, stop
-    dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image. Bij
-    een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
-    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
-    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
-    slaan. Controleer Seerr → Settings → About → Version en Data Directory. Vergelijk Settings → Services →
-    Radarr Settings en Sonarr Settings met de vier forks uit de bestaande MediaGuard-inrichting: series, anime-series,
-    films en anime-films. Lees bestaande serveradressen, profielen en mappen zonder op te slaan; toon geen
-    API Key. Vier gezonde services vragen afzonderlijk bewijs; een lijst is geen gezondheidstest. Geen defaults,
-    profielen of de bestaande Emby-koppeling veranderen. Is de bestaande app Overseerr/Jellyseerr of een afwijkende
-    Seerr-versie: ONBEKEND, stop dan hier tot de juiste bron is vastgesteld; geen migratie uitvoeren.'
+  uitvoeren_nl: >-
+    Stel eerst de installatiesoort vast: Apps → Installed → Seerr-app → Application Info: Name en
+    Train; Edit alleen lezen. ix-app in stable = standaard Custom App met Image; seerr in
+    community = catalogusapp zonder Image. Installatiesoort of versiebediening ONBEKEND: stop dan
+    hier. Bij een standaard Custom App: Edit → Image Configuration → Image: Repository en Tag;
+    staat er geen @sha256-digest in Tag, stop dan hier. Bij een catalogusapp: App Version en
+    Version in Application Info; vergelijk Train en die Version met de catalogusbron voor alle
+    images, tags en digests. Zijn die niet aantoonbaar, stop dan hier. Opslag: Edit → Storage
+    Configuration, niet opslaan. Lees Seerr → Settings → About → Version en Data Directory.
+    Vergelijk vier forks (series, anime-series, films, anime-films) met MediaGuard: Settings →
+    Services → Radarr Settings / Sonarr Settings → de server → Edit. Controleer bij elke server:
+    Hostname or IP Address moet het LAN-adres van de NAS zijn, nooit localhost of een
+    loopbackadres (een adres dat met 127 begint: dat is de container zelf, niet de NAS). Is het
+    wel loopback: stop hier, meld het, wijzig niets. Lees profielen en mappen; toon geen API Key;
+    sluit met Cancel, niet Save Changes. Openen start een verbindingstest naar de fork. Vier
+    gezonde services vragen afzonderlijk bewijs. Geen defaults, profielen of de bestaande
+    Emby-koppeling veranderen. Overseerr/Jellyseerr of andere Seerr-versie: ONBEKEND, stop dan
+    hier; geen migratie.
+
   acceptatie_nl: Test vier services gezond.
   risico: Hoog
   wijze:
@@ -67,13 +78,17 @@ stappen:
     Configuration'
 - id: I19-19-02
   titel_nl: Anime routing
-  uitvoeren_nl: Lees de bestaande anime-routering bij eigenaar MediaGuard en Seerr → Settings → Services →
-    Sonarr Settings; vergelijk Anime Series Type, Anime Quality Profile en Anime Root Folder met de bedoelde
-    anime-fork en categorie. Niet aannemen dat Seerr zelf vier standaardroutes kan kiezen. Een aanvraagproef
-    via de bestaande MediaGuard-keten gebeurt uitsluitend geïsoleerd na I19-19-04, T-12 en toestemming, met
-    eigen testinstanties en toegestane testbronnen. Vergelijk gekozen fork, profiel, categorie en aanvraagstatus;
-    geen bestaande aanvraag indienen of profiel overschrijven. De precieze MediaGuard-proefbediening is ONBEKEND,
-    stop dan hier tot die aantoonbaar is.
+  uitvoeren_nl: >-
+    Lees de bestaande anime-routering bij eigenaar MediaGuard en Seerr → Settings → Services → Sonarr
+    Settings → de server → Edit (Edit Sonarr Server); alleen lezen. Openen start een verbindingstest
+    naar Sonarr; sluit met Cancel, niet Save Changes; vergelijk Anime Series Type, Anime Quality Profile
+    en Anime Root Folder met de bedoelde anime-fork en categorie. Niet aannemen dat Seerr zelf vier
+    standaardroutes kan kiezen. Een aanvraagproef via de bestaande MediaGuard-keten gebeurt uitsluitend
+    geïsoleerd na I19-19-04, T-12 en toestemming, met eigen testinstanties en toegestane testbronnen.
+    Vergelijk gekozen fork, profiel, categorie en aanvraagstatus; geen bestaande aanvraag indienen of
+    profiel overschrijven. De precieze MediaGuard-proefbediening is ONBEKEND, stop dan hier tot die
+    aantoonbaar is.
+
   acceptatie_nl: Geen verkeerde instance.
   risico: Hoog
   wijze:
