@@ -448,7 +448,7 @@ class NoderedRooktest(UpstreamRooktest):
     def n3_beheer(self) -> None:
         with self.stap("N3", "Beheerdersmodus (wegwerpaccount); exec/function voeren niets uit (I10-10-02)") as s:
             hash_ = sh("docker", "run", "--rm", "--network", "none", "--entrypoint", "node", self.app.image, "-e",
-                       "console.log(require('bcryptjs').hashSync(process.argv[1], 8))", self.wachtwoord).strip()
+                       "console.log(require('bcryptjs').hashSync(process.argv[1], 8))", "--", self.wachtwoord).strip()
             leeg = '"users":[]'
             eis(self.manifest_flows.count(leeg) == 1, "FLOWS uit het manifest heeft geen lege gebruikerslijst")
             gebruiker = json.dumps({"username": self.gebruiker, "password": hash_, "permissions": "*"},

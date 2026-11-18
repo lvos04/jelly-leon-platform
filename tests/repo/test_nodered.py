@@ -1285,3 +1285,37 @@ def test_saved_report_is_complete_and_honest() -> None:
     assert not nf.GEHEIM_RE.search(tekst) and "Gereed" not in tekst
     assert set(re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", tekst)) <= {"127.0.0.1"}, "adres in het rapport (V-097)"
     assert "/home/" not in tekst and "/tmp/" not in tekst
+
+
+def test_rooktest_beheer_geeft_beginkoppelteken_door_als_waarde(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Een wegwerpwaarde mag met '-' beginnen; Node mag haar niet als optie lezen (CI S-P3-430)."""
+    import subprocess
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    import nodered_rooktest as rook
+
+    class HashGecontroleerd(Exception):
+        pass
+
+    # Geen Docker of echte aanmelding: alleen de Node-argumentparser van de hash-aanroep uitvoeren.
+    waarde = "-expliciete-proefwaarde"
+    proef = object.__new__(rook.NoderedRooktest)
+    proef.app = SimpleNamespace(image="testimage")
+    proef.wachtwoord = waarde
+    monkeypatch.setattr(proef, "stap", lambda *_: nullcontext(SimpleNamespace(details={})))
+
+    def hash_aanroep(*args: str, **_: Any) -> str:
+        assert args[:3] == ("docker", "run", "--rm")
+        index = args.index("-e")
+        argumenten = [*args[index:]]
+        # De expresstekst vervangen, niet de argumentindeling: bcrypt hoort bij de echte imageproef.
+        argumenten[1] = "process.stdout.write(process.argv[1])"
+        resultaat = subprocess.run(["node", *argumenten], capture_output=True, text=True, check=False)
+        assert resultaat.returncode == 0, "Node leest de proefwaarde ten onrechte als optie"
+        assert resultaat.stdout == waarde
+        raise HashGecontroleerd
+
+    monkeypatch.setattr(rook, "sh", hash_aanroep)
+    with pytest.raises(HashGecontroleerd):
+        proef.n3_beheer()
