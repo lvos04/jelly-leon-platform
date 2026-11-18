@@ -1,0 +1,175 @@
+checklist_version: '1'
+kind: checklist
+install:
+  method: none
+id: I20
+titel_nl: Bazarr — behoud, controle en veilige terugval
+document: 03_INSTALLATIE/I20_BAZARR.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: []
+toelichting_nl: 'Bazarr blijft de bestaande app. Emby blijft werken; alle kijkgeschiedenis, de bestaande Emby-koppeling
+  en MediaGuard-voortgang blijven beschikbaar. Geen productie-instellingen, downloads, aanvraagstatus, media
+  of ondertitels wijzigen. Bewijs bevat geen sleutels, wachtwoorden, privé-adressen, gebruikersnamen of titels.
+  Muterende proeven alleen geïsoleerd na herstelbewijs, T-12 en toestemming, nooit op de bestaande installatie.
+  ONBEKEND betekent: stop dan hier en laat de ontbrekende versiegebonden bediening of veilige hersteloverdracht
+  eerst aantonen. Bronbediening: Bazarr 1.6.2 op commit 8c68f16a1e12f8e7985baeb73fb4199b5149108a; morpheus65535/bazarr:
+  frontend/src/Router/index.tsx (Settings, Languages, Providers, System, Backups, Status), pages/Settings/Languages/General.tsx
+  en Profiles.tsx, pages/System/Backups/index.tsx (Backup Now) en table.tsx (download via Name, Restore, Restore
+  Backup, Cancel), bazarr/utilities/backup.py (backup_to_zip, restore_from_backup). Een back-up bevat configuratie/database,
+  geen volledige mediabibliotheek of alle ondertitelbestanden. Catalogusreferentie: truenas/apps@f142a16a1e15da5f8517658f5a9ad34400972fc4,
+  ix-dev/community/bazarr/app.yaml en questions.yaml, trains/community/bazarr/app_versions.json (catalogusversie
+  1.3.18), ix-dev/stable/ix-app/questions.yaml. Webbron: truenas/webui@e85f786463fd2220c138bc6313eed02d53f97616,
+  src/app/pages/apps/components/installed-apps/app-info-card/app-info-card.component.html en .ts, app-update-dialog/app-update-dialog.component.html;
+  src/app/pages/apps/components/app-wizard/app-wizard.component.ts. Dit zijn vaste bronstanden met Engelse
+  labels, geen gemeten installatieversies. Controleer bij een afwijkende versie eerst de bijpassende bron;
+  anders stoppen.'
+stappen:
+- id: I20-20-01
+  titel_nl: Inventaris
+  uitvoeren_nl: 'Stel eerst de installatiesoort vast in Apps → Installed → bestaande Bazarr-app → Application
+    Info: controleer Name en Train en bekijk Edit zonder iets op te slaan. De standaard Custom App gebruikt
+    ix-app in stable en heeft Image in het formulier; de catalogusapp bazarr in community heeft een eigen formulier
+    zonder dat veld. Is de installatiesoort of de bediening voor de gemeten TrueNAS-/appversie ONBEKEND, stop
+    dan hier. Bij een standaard Custom App lees je de ingestelde image, tag en digest via Edit → Image. Bij
+    een catalogusapp lees je App Version (appversie) en Version (catalogus-/formulierversie) in Application
+    Info; vergelijk Train en de bij die exacte Version horende catalogusbron voor alle images met tags en digests.
+    Zijn die niet aantoonbaar, stop dan hier. Lees opslag via Edit → Storage Configuration zonder iets op te
+    slaan. Lees Bazarr → System → Status → Bazarr Version en Database Engine. Vergelijk Settings → Languages
+    → Selection en Settings → Languages → Profiles met de Nederlandse taalprioriteit; inspecteer Settings →
+    Providers zonder sleutels te tonen of iets op te slaan. Leg bestaande synchronisatie en verkeerde-spoordetectie
+    alleen vast uit versiegebonden, aantoonbare bediening. Die complete proefbediening is ONBEKEND, stop dan
+    hier als zij niet aantoonbaar is. Geen providers veranderen, ondertitels zoeken, synchroniseren of opnieuw
+    downloaden; behoud bestaande NL-ondertitels.'
+  acceptatie_nl: Geen regressie van NL ondertitels.
+  risico: Hoog
+  wijze:
+  - handmatig_in_truenas_ui
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder versiegebonden inventaris geen providerwijziging; behoud alle bestaande NL-ondertitels.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  handmatig_ui_pad_nl: 'Standaard Custom App: Apps → bestaande app → Edit → Image en Storage Configuration;
+    catalogusapp: Apps → bestaande app → Application Info → App Version en Version; opslag via Edit → Storage
+    Configuration'
+- id: I20-20-02
+  titel_nl: MediaGuard integration
+  uitvoeren_nl: 'Vergelijk uitsluitend de bestaande MediaGuard-ondertiteladapter met de inventaris in I20-20-01
+    en de bronstatus in Bazarr → System → Providers. Leg vast waar Bazarr nog uniek is: taal, synchronisatie,
+    formaat en terugval. MediaGuard kent zoekbegrenzing en een terugval, maar de echte gecombineerde werking
+    is nog niet aangetoond. Bouw geen tweede ondertitelzoeker; geen bestaande ondertitels overschrijven,
+    downloaden of verwijderen. Een latere duplicaatproef uitsluitend geïsoleerd na I20-20-04, T-12 en toestemming,
+    met eigen media en testdiensten. De precieze gezamenlijke proefbediening is ONBEKEND, stop dan hier tot
+    die aantoonbaar is.'
+  acceptatie_nl: Duplicate subtitle downloads vermijden.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder afgebakend eigenaarschap en duplicaatbewijs geen extra zoekactie of overschrijving.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I20-20-03
+  titel_nl: Retentietest
+  uitvoeren_nl: 'Na volledig herstelbewijs I20-20-04, T-12 en toestemming: laat de gebruiker met eigen geïsoleerde
+    kopieën en echte media en spelers SRT/ASS, anime, multi-audio en DV controleren. Vergelijk vóór/na taal,
+    timing, spoorselectie, bijlagen en lettertypen, hoofdstukken en terugval bij een ontbrekende NL-ondertitel;
+    wijzig bestaande kijkgeschiedenis, hervatpunten, favorieten en spoorkeuzes niet. MediaGuard heeft al retentiecontroles
+    in code; die vervangen geen afspeel- en selectietest op echte spelers. De exacte versiegebonden spelerbediening
+    en toegestane testset zijn ONBEKEND, stop dan hier tot die zijn vastgesteld. Geen conversie, synchronisatie
+    of proefstop op productie uitvoeren. NIET GEVALIDEERD (hardware); geen lege of alleen synthetische test
+    als pariteitsbewijs.'
+  acceptatie_nl: Jellyfin afspeelbare subtitle selection.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder echte media, spelers en vóór/na-vergelijking geen pariteit claimen; behoud
+    kijkgeschiedenis en bestaande ondertitels.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+  - NIET GEVALIDEERD (hardware)
+- id: I20-20-04
+  titel_nl: Backup
+  uitvoeren_nl: 'Controleer eerst Bazarr → System → Status → Database Engine. Bij SQLite: System → Backups
+    → Backup Now; download het gemaakte archief via de bestandsnaam in Name. Controleer dat configuratie én
+    database aanwezig en leesbaar zijn; een archief kan bij een databasefout onvolledig zijn. Bij PostgreSQL
+    bevat dit archief geen database; een volledige terminalvrije database-export is ONBEKEND, stop dan hier.
+    Bewaar de volledige kopie met providersleutels en profielen uitsluitend versleuteld buiten de NAS, herstelgegevens
+    apart; bewaar ondertitels en media afzonderlijk met passende herstelpunten. Het archief bewijst geen volledige
+    mediakopie. Veilige overdracht naar de testapp is ONBEKEND; ontbreekt een aangetoonde veilige overdracht,
+    stop dan hier. Alleen geïsoleerd met eigen opslag en geblokkeerde productieroutes: System → Backups → Restore
+    → Restore Backup → Restore; de eigen testapp herstart. Herstel nooit op de bestaande Bazarr. Vergelijk
+    providers, profielen, database en ontsleutelbaarheid; leeg herstel telt niet. Bij onzekerheid Cancel; geen
+    back-up verwijderen.'
+  acceptatie_nl: Restore verificatie.
+  risico: Hoog
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder volledige consistente versleutelde kopie en veilige hersteloverdracht geen
+    proefherstel; behoud de bestaande Bazarr en alle media.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)
+- id: I20-20-05
+  titel_nl: Decommission gate
+  uitvoeren_nl: 'Dit is een besluit van de gebruiker: Bazarr blijft tot pariteit is aangetoond met MediaGuard
+    en Jelly Leon, zoals A09 voorschrijft. Leg vast dat het platform Bazarr nooit zelf verwijdert of uitschakelt.
+    Controleer alle gevallen uit I20-20-01 tot en met I20-20-04, inclusief echte spelerproeven, Nederlandse
+    synchronisatie, ondertitelselectie en duplicaatpreventie, plus een bewezen back-up en terugvalweg. Er is
+    nog geen volledig pariteitsbewijs; stop dan hier. Een afzonderlijke latere proefstop vraagt een vastgelegd
+    gebruikersbesluit, aantoonbaar ononderbroken Emby-/MediaGuard-koppelingen en een direct bruikbare oude
+    installatie met eigen data intact. Deze checklist voert geen proefstop of decommission uit en geeft geen
+    toestemming om gegevens te verwijderen.'
+  acceptatie_nl: Elke test slaagt, rollback beschikbaar.
+  risico: Middel
+  wijze:
+  - handmatig_bewijs
+  besluiten: []
+  bewijs:
+  - nas_versie
+  - image_digest
+  - datum
+  - gemaskeerde_output
+  - status
+  bij_fout_nl: Stop hier; zonder aangetoonde pariteit, bewezen terugvalweg en gebruikersbesluit geen proefstop;
+    Bazarr blijft behouden.
+  blokkeert_volgende: true
+  validatie_nu:
+  - Unit-getest
+  - NIET GEVALIDEERD (echte NAS)

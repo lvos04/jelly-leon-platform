@@ -545,11 +545,11 @@ def test_i03_android_herkomst_zonder_onuitgebrachte_release() -> None:
     assert "eigen release-app" not in tekst
 
 
-def _bestaande_app_basis(data: dict[str, Any], hub: set[int], account: set[int]) -> None:
+def _bestaande_app_basis(data: dict[str, Any], hub: set[int], account: set[int], aantal: int = 6) -> None:
     assert data["aanpak"] == "behouden_en_valideren"
     assert data["install"] == {"method": "none"}
     assert data["installatie"] == "geen" and data["mutaties_door_platform"] is False
-    assert len(data["stappen"]) == 6
+    assert len(data["stappen"]) == aantal
     assert cl.controleer_lijst(data, cl.excel_taken()) == []
     for nummer, stap in enumerate(data["stappen"], 1):
         assert not stap.get("truenas_methoden")
@@ -709,8 +709,8 @@ CATALOGUSLIJSTEN = [
 ]
 
 
-def _catalogus_menupaden(data: dict[str, Any]) -> None:
-    """R-MANIFEST-1: ix-app heeft Image; de drie app-eigen catalogusschema's hebben dat veld niet."""
+def _catalogus_menupaden(data: dict[str, Any], update_index: int | None = 5) -> None:
+    """ix-app heeft Image; de app-eigen catalogusschema's hebben dat veld niet (I20 heeft geen updatestap)."""
     inventaris = data["stappen"][0]["uitvoeren_nl"]
     for tekst in ("Stel eerst de installatiesoort vast", "Application Info", "Name", "Train", "ix-app",
                   "ONBEKEND", "stop dan hier"):
@@ -719,10 +719,13 @@ def _catalogus_menupaden(data: dict[str, Any]) -> None:
     catalogus_inventaris = inventaris.partition("Bij een catalogusapp")[2].partition(";")[0]
     assert catalogus_inventaris and "Image" not in catalogus_inventaris
     assert "Application Info" in catalogus_inventaris
-    catalogus_update = data["stappen"][5]["uitvoeren_nl"].partition("Catalogusapp:")[2]
-    assert catalogus_update and "Edit → Image" not in catalogus_update
-    assert "More Options → Update" in catalogus_update
-    for index in (0, 5):
+    for fragment in inventaris.replace("catalogusapp:", "Bij een catalogusapp").split("Bij een catalogusapp")[1:]:
+        assert "Image" not in fragment.partition(";")[0], "catalogusinstallatie heeft geen Image-veld"
+    if update_index is not None:
+        catalogus_update = data["stappen"][update_index]["uitvoeren_nl"].partition("Catalogusapp:")[2]
+        assert catalogus_update and "Edit → Image" not in catalogus_update
+        assert "More Options → Update" in catalogus_update
+    for index in ((0,) if update_index is None else (0, update_index)):
         stap = data["stappen"][index]
         standaard, scheiding, catalogus = stap["handmatig_ui_pad_nl"].partition("; catalogusapp: ")
         assert standaard.startswith("Standaard Custom App: ") and scheiding
@@ -913,3 +916,111 @@ def test_i19_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
     _kopie(tmp_path, naam, wijzig=wijzig)
     assert any("acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
     assert cl.main(tmp_path) == 1
+
+
+I20_GATES = [
+    (0, "System → Status → Bazarr Version"),
+    (0, "Settings → Languages → Profiles"),
+    (0, "Settings → Providers"),
+    (1, "geen tweede ondertitelzoeker"),
+    (1, "geen bestaande ondertitels overschrijven"),
+    (2, "SRT/ASS"),
+    (2, "anime"),
+    (2, "multi-audio"),
+    (2, "DV"),
+    (2, "echte media en spelers"),
+    (2, "kijkgeschiedenis"),
+    (3, "System → Backups → Backup Now"),
+    (3, "Database Engine"),
+    (3, "PostgreSQL"),
+    (3, "ontbreekt een aangetoonde veilige overdracht, stop dan hier"),
+    (3, "Restore Backup"),
+    (3, "nooit op de bestaande Bazarr"),
+    (4, "Bazarr blijft tot pariteit is aangetoond"),
+    (4, "het platform Bazarr nooit zelf verwijdert"),
+    (4, "besluit van de gebruiker"),
+    (4, "terugvalweg"),
+]
+
+
+def _i20_veiligheid(data: dict[str, Any]) -> None:
+    _bestaande_app_basis(data, set(), set(), aantal=5)
+    _catalogus_menupaden(data, update_index=None)
+    for index, tekst in I20_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], tekst
+    for index, stap in enumerate(data["stappen"]):
+        assert ("NIET GEVALIDEERD (hardware)" in stap["validatie_nu"]) == (index == 2)
+    for tekst in ("Emby blijft werken", "MediaGuard-voortgang"):
+        assert tekst in data["toelichting_nl"], tekst
+
+
+def test_i20_letterlijke_taken_en_ondertitelbescherming() -> None:
+    _i20_veiligheid(_load("I20_BAZARR.checklist.yaml"))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I20_GATES)
+def test_i20_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load("I20_BAZARR.checklist.yaml"))
+    _i20_veiligheid(data)
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i20_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(5))
+def test_i20_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load("I20_BAZARR.checklist.yaml"))
+    _i20_veiligheid(data)
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i20_veiligheid(data)
+
+
+def test_i20_eentekenmutatie_acceptatie_wordt_geweigerd(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        stap["acceptatie_nl"] = "X" + stap["acceptatie_nl"][1:]
+
+    naam = "I20_BAZARR.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("acceptatie ≠ Excel" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
+def test_i20_zes_stappen_worden_geweigerd(tmp_path: Path) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        zesde = copy.deepcopy(data["stappen"][-1])
+        zesde["id"] = "I20-20-06"
+        data["stappen"].append(zesde)
+        assert len(data["stappen"]) == 6
+
+    naam = "I20_BAZARR.checklist.yaml"
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert any("dekken de Excel-taken niet exact" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
+@pytest.mark.parametrize("veld", ("uitvoeren_nl", "handmatig_ui_pad_nl"))
+def test_i20_catalogus_image_pad_wordt_geweigerd(veld: str) -> None:
+    data = copy.deepcopy(_load("I20_BAZARR.checklist.yaml"))
+    _i20_veiligheid(data)
+    data["stappen"][0][veld] += "; catalogusapp: Edit → Image"
+    with pytest.raises(AssertionError):
+        _i20_veiligheid(data)
+
+
+def test_i18_i19_i20_bewijs_claimt_geen_functionele_acceptatie() -> None:
+    rows = {r["id"]: r for r in json.loads((cl.DOCS / "EVIDENCE.json").read_text())}
+    ids = [t["ID"] for doc, taken in cl.excel_taken().items()
+           if Path(doc).name.startswith(("I18_", "I19_", "I20_")) for t in taken]
+    assert len(ids) == 17 and set(ids) <= rows.keys()
+    for sid in ids:
+        r = rows[sid]
+        assert r["status"] == "Bezig"
+        assert "Unit-getest" in r["validatie"] and "Sim-getest" not in r["validatie"]
+        assert "NIET GEVALIDEERD (echte NAS)" in r["validatie"]
+        assert ("NIET GEVALIDEERD (echte Hub)" in r["validatie"]) == (sid == "I19-19-05")
+        assert ("NIET GEVALIDEERD (hardware)" in r["validatie"]) == (sid == "I20-20-03")
+        assert "NIET GEVALIDEERD (account)" not in r["validatie"]
+        assert "alleen NAS-test nodig" not in r["opmerking"]
+        assert r["blokkade"] and "geen functionele" in r["opmerking"]

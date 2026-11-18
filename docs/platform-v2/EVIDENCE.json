@@ -1168,5 +1168,55 @@
   "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I20-20-01",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder versiegebonden inventaris geen providerwijziging; behoud alle bestaande NL-ondertitels. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I20-20-02",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder afgebakend eigenaarschap en duplicaatbewijs geen extra zoekactie of overschrijving. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I20-20-03",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder echte media, spelers en vóór/na-vergelijking geen pariteit claimen; behoud kijkgeschiedenis en bestaande ondertitels. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I20-20-04",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder volledige consistente versleutelde kopie en veilige hersteloverdracht geen proefherstel; behoud de bestaande Bazarr en alle media. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
+ },
+ {
+  "id": "I20-20-05",
+  "status": "Bezig",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
+  "blokkade": "zonder aangetoonde pariteit, bewezen terugvalweg en gebruikersbesluit geen proefstop; Bazarr blijft behouden. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-18"
  }
 ]
