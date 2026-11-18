@@ -1,12 +1,12 @@
 {
  "uitleg": "Herkomst van de byte-gelijke kopieën van het platformcontract (C1.3-ALG-01). Niet met de hand wijzigen: python tools/contract_kopie.py bijwerken --bron <ai-server-manager> [--ref <commit>].",
  "bron_repo": "lvos04/ai-server-manager",
- "bron_commit": "e88a290c9ad5fef4acf498d05ad3414395a4fcb5",
+ "bron_commit": "7ebed6523dcb643b4f3c8510bda46c918a49ea14",
  "contractversie": "1.3",
  "bestanden": {
   "PLATFORM_CONTRACTEN.md": {
    "pad": "docs/platform-v2/PLATFORM_CONTRACTEN.md",
-   "sha256": "4712dd62c837c2f2594fa4152a925464f6f7481e898473660f09607cc113c511"
+   "sha256": "c06eebdc23b52fd4e3ffa5be18abc481c2fbbf0938d86c58bebb78a870fd8159"
   },
   "CONTRACT_1.3_CONFORMITEIT.md": {
    "pad": "docs/platform-v2/CONTRACT_1.3_CONFORMITEIT.md",

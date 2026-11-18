@@ -31,14 +31,14 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
 3. **Gemeten bronnen (C1.3-JLP-14).** Bij het maken van het plan leest de dienst met zijn service-token:
    - de inventaris: `GET /api/v1/apps` (cursor over één momentopname; bij 409 `snapshot_changed` opnieuw, hooguit 3×)
      en per app `GET /api/v1/apps/{id}` — scope `inventaris.lezen`;
-   - de catalogusbeschikbaarheid `{train, app, version}` → `{beschikbaar: ja|nee|onbekend, gemeten_op}` — scope
-     `catalogus.lezen`. **Het contract noemt geen pad en de Hub heeft de route nog niet.** Voorlopige keuze, op één
-     plek (`hubread.CATALOG_AVAILABILITY_PATH`): `GET /api/v1/catalog/availability?train=&app=&version=`.
+   - de catalogusbeschikbaarheid via `GET /api/v1/catalog/availability?train=<train>&app=<app>&version=<version>`
+     met scope `catalogus.lezen`. Het antwoord bevat `train`, `app`, `version`, `beschikbaar` en `gemeten_op`.
+     Zie [platformcontract §4.4](../platform-v2/PLATFORM_CONTRACTEN.md#catalogusbeschikbaarheid-m3).
    Zonder scope of route → `capability_unavailable`; onbereikbaar, 5xx, 429/503, verouderd of onleesbaar → `unknown`.
    Verouderd is ook een meting ouder dan 900 s of meer dan 2 minuten in de toekomst (§6.2, reden `meting_verouderd`),
    ook als de Hub haar zelf niet zo noemt en ook voor een update- of terugzetplan; een catalogusmeting zonder
    leesbaar tijdstip is `unknown` met reden `meting_zonder_tijdstip` (ADR-0024).
-   Beide blokkeren. `version_unavailable` komt alleen uit een **meting** `nee`; `onbekend` wordt nooit als "aanwezig"
+   Beide blokkeren. `version_unavailable` komt alleen uit een **verse meting** `nee`; `onbekend` wordt nooit als "aanwezig"
    gelezen en er wordt nooit stil een nieuwere versie of `latest` gekozen (§2.2). Uitzondering volgens §2.2: de update
    van een al geïnstalleerde Custom App wijzigt alleen de image; daar is de catalogusmeting geen blokkade.
    De meting gebeurt pas ná de claim van de `Idempotency-Key`: een herhaling of een verzoek zonder sleutel meet niets.
@@ -123,9 +123,17 @@ De ketentest (`apps/api/tests/integration/test_keten_plan_hub_executor_nas.py`) 
 plan bij deze dienst → Hub-stand-in → uitvoerder-stand-in → TrueNAS-simulator, en terug via de readback.
 Alles wat hiermee is aangetoond heet **Sim-getest**; tegen de echte Hub/executor en een echte NAS: NIET GEVALIDEERD.
 
+## M3 catalogusbeschikbaarheid
+
+**2026-11-18 · BESLOTEN door regisseur.** De route en het schema in besluit 3 zijn bindend. Het
+[platformcontract §4.4](../platform-v2/PLATFORM_CONTRACTEN.md#catalogusbeschikbaarheid-m3) legt ook het foutformaat
+en de meetgrenzen vast. `apps/api/src/lifecycle/hubread.py:24–35,167–197,267–283` en
+`e2e/simulators/hub/hub_p2.py:268–279,333–344` zijn de bron voor de bestaande planner en zijn simulator.
+
 ## Open punten (gemeld als contractvragen)
 
-- Pad en vorm van de `catalogus.lezen`-route (§4.4) en de bouw ervan in de Hub.
+- Bouw van de in [M3](#m3-catalogusbeschikbaarheid) afgesproken route in de Hub en interop met de `HubLezer`
+  tegen de Hub-code (ai-server-manager, S-P2-050b).
 - Route, scope en vorm waarmee een dienst (of flow) een `ActionProposal` bij de Hub indient en het resultaat
   terugkrijgt; het voorbeeld `parameters: {"grace_seconds": 30}` in het contract past niet op het lege schema van
   `app.restart` in het beleid van de Hub.
