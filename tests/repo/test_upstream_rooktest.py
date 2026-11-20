@@ -66,3 +66,24 @@ def test_saved_report_is_complete_and_honest() -> None:
     for app_id, image in r["images"].items():  # het rapport hoort bij de huidige manifesten
         assert image == ur.App.uit_manifest(app_id, {"KEY": "x"}).image
     assert not ur.GEHEIM_RE.search(json.dumps(r))
+
+
+@pytest.mark.parametrize(("meting", "geldig"), [
+    ("1 568 568 568 568\n12 568 568 568 568", True),
+    ("1 568 568 568 568\n12 568 0 568 568", False),
+    ("12 568 568 568 568", False),
+    ("1 568", False),
+])
+def test_numerieke_procesrechten_vereisen_pid_1_en_alle_uids(
+    meting: str, geldig: bool, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ur, "sh", lambda *args, **kwargs: meting)
+    proef = ur.UpstreamRooktest(houd=False)
+    try:
+        if geldig:
+            assert proef.alleen_568("testcontainer") == ["568"]
+        else:
+            with pytest.raises(ur.Mislukt):
+                proef.alleen_568("testcontainer")
+    finally:
+        proef.opruimen()

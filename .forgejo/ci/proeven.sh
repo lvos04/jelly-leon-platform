@@ -13,9 +13,10 @@ if [[ $1 == rooktest ]]; then
   exit 0
 fi
 if [[ $1 == upstream ]]; then
-  python tools/upstream_rooktest.py --rapport /rapporten/upstream-rooktest.json
-  python tools/nodered_rooktest.py --rapport /rapporten/nodered-rooktest.json
-  exit 0
+  status=0
+  python tools/upstream_rooktest.py --rapport /rapporten/upstream-rooktest.json || status=$?
+  python tools/nodered_rooktest.py --rapport /rapporten/nodered-rooktest.json || status=$?
+  exit "$status"
 fi
 
 if [[ $1 == image ]]; then

@@ -6,7 +6,7 @@ uit ``custom_app.env`` en **als 568:568** ("Custom User 568"), zonder extra rech
 formulier zet geen ``no-new-privileges`` en geen ``cap_drop``). Daarna per app:
 
 - digest-readback: de lokaal opgehaalde image heeft precies de digest uit het manifest (``RepoDigests``);
-- elk proces in de container draait als 568 (``docker top``);
+- elk proces in de container draait als 568 (numerieke UIDs uit ``/proc``);
 - de healthcheck-route uit het manifest antwoordt, en de kernroutes antwoorden zoals de simulator in
   ``e2e/simulators/<app>`` ze nabootst (zelfde vorm en foutcodes) — een conformiteitscontrole van de simulator;
 - herstart zonder dataverlies (gegevens die vóór de herstart zijn gemaakt, bestaan daarna nog);
@@ -207,10 +207,30 @@ class UpstreamRooktest:
         eis(f"{repo}@{app.digest}" in digests, f"{app.app_id}: digest {app.digest} niet in {digests}")
         return {"digest": app.digest, "readback_klopt": True}
 
-    @staticmethod
-    def alleen_568(cname: str) -> list[str]:
-        regels = sh("docker", "top", cname, "-eo", "uid,pid,comm").strip().splitlines()[1:]
-        uids = sorted({r.split()[0] for r in regels})
+    def alleen_568(self, cname: str) -> list[str]:
+        """Lees de vier UIDs van elk app-proces, ook bij een image zonder shell of een daemon met BusyBox-ps."""
+        script = """
+        for proces in /proc/[0-9]*; do
+            [ "$proces" = "/proc/$$" ] && continue
+            gevonden=
+            while read -r veld echt effectief bewaard bestand; do
+                if [ "$veld" = Uid: ]; then
+                    echo "${proces##*/} $echt $effectief $bewaard $bestand"
+                    gevonden=ja
+                    break
+                fi
+            done < "$proces/status"
+            # Een kortlevend proces mag tijdens het lezen verdwijnen.
+            [ -n "$gevonden" ] || [ ! -d "$proces" ] || exit 1
+        done
+        """
+        uitvoer = sh("docker", "run", "--rm", "--pid", f"container:{cname}", "--network", "none", "--read-only",
+                     "--user", "568:568", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                     "--entrypoint", "sh", self.helper, "-c", script)
+        regels = [regel.split() for regel in uitvoer.splitlines()]
+        eis(any(regel[:1] == ["1"] for regel in regels) and all(len(regel) == 5 for regel in regels),
+            f"{cname}: onvolledige procesmeting")
+        uids = sorted({uid for regel in regels for uid in regel[1:]})
         eis(uids == ["568"], f"{cname}: processen draaien als {uids}, verwacht alleen 568")
         return uids
 
