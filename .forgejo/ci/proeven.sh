@@ -3,18 +3,21 @@ set -euo pipefail
 # De bestaande pytest-modules slaan zonder daemon de imageproeven over.
 docker version --format '{{.Server.Version}}'
 python -m pip install --disable-pip-version-check pip==26.3
+pip install -e 'apps/api[test]'
 if [[ $1 == rooktest ]]; then
-  pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]'
+  pip install -e 'e2e/simulators/truenas[test]'
   bash .forgejo/ci/validator.sh /opt/appstore /opt/validator
   python tools/rooktest.py --hub-image "$HUB_IMAGE" --executor-image "$EXECUTOR_IMAGE" \
     --lifecycle-image "$LIFECYCLE_IMAGE" --validator /opt/validator/bin/jl-manifest \
     --hub-commit "$ASM_COMMIT" --eigen-commit "$GITHUB_SHA" --validator-commit "$ASF_COMMIT" --rapport /rapporten/rooktest.json
+  exit 0
+fi
+if [[ $1 == upstream ]]; then
   python tools/upstream_rooktest.py --rapport /rapporten/upstream-rooktest.json
   python tools/nodered_rooktest.py --rapport /rapporten/nodered-rooktest.json
   exit 0
 fi
 
-pip install -e 'apps/api[test]'
 if [[ $1 == image ]]; then
   loopback=$(getent ahostsv4 localhost | awk 'NR == 1 {print $1}')
   mkdir -p "$TMPDIR/appdata"

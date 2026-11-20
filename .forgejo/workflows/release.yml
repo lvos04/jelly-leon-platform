@@ -42,8 +42,7 @@ jobs:
             --build-arg VERSION="$VERSIE" --build-arg REVISION="$GITHUB_SHA" -t "$LIFECYCLE_IMAGE" .
       - name: Image-E2E met upgrade- en herstelproef
         run: bash .forgejo/ci/dockerproef.sh release
-      - name: SPDX-SBOM van de geteste image maken
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      - name: SPDX-SBOM van de geteste image maken en controleren
         run: bash .forgejo/ci/sbom.sh
       - name: Nieuwe versie naar het Forgejo-register publiceren en digest vastleggen
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

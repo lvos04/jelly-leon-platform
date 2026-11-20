@@ -184,8 +184,10 @@ def test_bounding_set_and_healthcheck_switch_first_section_2_2() -> None:
     assert cmd and json.loads(cmd.group(1)) == ["python", "/usr/local/lib/lifecycle-allinone/healthcheck.py"]
 
 
-@pytest.mark.parametrize("dienst", [".github", ".forgejo"])
-@pytest.mark.parametrize("workflow", ["ci.yml", "release.yml"])
+@pytest.mark.parametrize(("dienst", "workflow"), [
+    (".github", "ci.yml"), (".github", "release.yml"),
+    (".forgejo", "ci.yml"), (".forgejo", "release.yml"), (".forgejo", "bronproeven.yml"),
+])
 def test_workflows_are_valid_yaml_without_secrets_or_latest(dienst: str, workflow: str) -> None:
     """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""
     text = (ROOT / dienst / "workflows" / workflow).read_text(encoding="utf-8")
@@ -244,23 +246,26 @@ def test_release_publishes_only_on_tags_and_never_overwrites() -> None:
 
 def test_forgejo_uses_the_validator_pin_and_only_publishes_on_a_tag_push() -> None:
     workflows = ROOT / ".forgejo/workflows"
-    ci = yaml.safe_load((workflows / "ci.yml").read_text())
+    bronnen = yaml.safe_load((workflows / "bronproeven.yml").read_text())
     kopie = json.loads((ROOT / "apps/api/src/appstore/KOPIE.json").read_text())
-    assert ci["env"]["ASF_COMMIT"] == kopie["bron_commit"]
-    for job, modus in (("broncontrole", "test"), ("rooktest", "rooktest")):
-        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {modus}" for st in ci["jobs"][job]["steps"])
+    assert set(bronnen.get("on", bronnen.get(True))) == {"workflow_dispatch"}
+    assert bronnen["env"]["ASF_COMMIT"] == kopie["bron_commit"]
+    for job, modus in (("broncontrole", "test"), ("installatierooktest", "rooktest")):
+        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {modus}" for st in bronnen["jobs"][job]["steps"])
     bron = (ROOT / ".forgejo/ci/bronnen.sh").read_text()
     assert 'git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"' in bron
 
     release = yaml.safe_load((workflows / "release.yml").read_text())
     job = release["jobs"]["publish"]
     assert job["env"]["REGISTRY_IMAGE"] == "git.medialeon.nl/leon/jelly-leon-platform"
-    for stap in job["steps"]:
-        if stap.get("run") == "bash .forgejo/ci/dockerproef.sh release":
-            assert "if" not in stap
-        if ("REGISTRY_TOKEN" in stap.get("env", {}) or "API_TOKEN" in stap.get("env", {})
-                or "upload-artifact@" in stap.get("uses", "") or stap.get("run") == "bash .forgejo/ci/sbom.sh"):
-            assert stap["if"] == "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')"
+    altijd = {stap.get("run") for stap in job["steps"] if "if" not in stap}
+    assert {"bash .forgejo/ci/dockerproef.sh release", "bash .forgejo/ci/sbom.sh"} <= altijd
+    publicatie = [stap for stap in job["steps"]
+                  if {"REGISTRY_TOKEN", "API_TOKEN"} & stap.get("env", {}).keys()
+                  or "upload-artifact@" in stap.get("uses", "")]
+    assert len(publicatie) == 3  # register, workflowartefact en release met bijlagen
+    tagpush = "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')"
+    assert all(stap["if"] == tagpush for stap in publicatie)
 
 
 def test_compose_only_for_development() -> None:

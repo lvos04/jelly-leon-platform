@@ -139,11 +139,14 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
     from lifecycle.migrations_util import head_revision
 
     assert head_revision() == HEAD, "HEAD in deze test bijwerken na een nieuwe migratie"
-    v2 = build_variant(tmp_path, "v2", MIGRATION_OK)
-    v3 = build_variant(tmp_path, "v3", MIGRATION_FAIL)
+    images: list[str] = []
     port = free_port()
     names: list[str] = []
     try:
+        v2 = build_variant(tmp_path, "v2", MIGRATION_OK)
+        images.append(v2)
+        v3 = build_variant(tmp_path, "v3", MIGRATION_FAIL)
+        images.append(v3)
         # v1 met data
         c1 = run(IMAGE, appdata, port)
         names.append(c1)
@@ -196,5 +199,5 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
     finally:
         for name in names:
             sh("docker", "rm", "-f", name, check=False)
-        for image in (v2, v3):
+        for image in images:
             sh("docker", "rmi", "-f", image, check=False)
