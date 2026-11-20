@@ -1,5 +1,7 @@
 # jelly-leon-platform
 
+[![Forgejo CI](https://git.medialeon.nl/leon/jelly-leon-platform/badges/workflows/ci.yml/badge.svg?branch=ccr-c133d7a0-kuz1cv)](https://git.medialeon.nl/leon/jelly-leon-platform/actions?workflow=ci.yml)
+
 Installatie, updates, terugzetten en verwijderen/verhuizen van het **TrueNAS Home Platform V2** (B08-003, B08-004,
 B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integrale E2E-omgeving.
 
@@ -33,6 +35,8 @@ De dienst heeft alleen een kleine Nederlandse statuspagina op `http://<NAS-adres
 Schermafdrukken: [`docs/screenshots/peil/statuspagina/`](docs/screenshots/peil/statuspagina/).
 
 ## Voor ontwikkelaars
+
+De broncode en CI-runs staan in de [Forgejo-repository](https://git.medialeon.nl/leon/jelly-leon-platform).
 
 ```
 apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-migraties in het pakket), tests

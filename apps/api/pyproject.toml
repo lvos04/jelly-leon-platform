@@ -35,6 +35,9 @@ test = [
   "types-jsonschema==4.26.0.20261006",
 ]
 
+[project.urls]
+Repository = "https://git.medialeon.nl/leon/jelly-leon-platform"
+
 [project.scripts]
 lifecycle = "lifecycle.cli:main"
 

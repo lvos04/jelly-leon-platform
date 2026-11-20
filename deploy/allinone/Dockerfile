@@ -10,7 +10,7 @@
 # procesbewaker zelf als PID 1 (geen root-init zoals dumb-init) — als 568 zonder capabilities en met no_new_privs,
 # omdat het standaard Custom App-formulier no-new-privileges en cap_drop weglaat (contract 1.3 §2.2: eerst de
 # bounding set leeg). Base-images op exacte versie én @sha256-digest (contract §1). De optionele BuildKit-secret
-# 'ca_bundle' is alleen voor bouwomgevingen achter een TLS-proxy; in GitHub Actions blijft hij weg.
+# 'ca_bundle' is alleen voor bouwomgevingen achter een TLS-proxy; in Forgejo Actions blijft hij weg.
 
 ARG PYTHON_IMAGE=docker.io/library/python:3.12.16-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 ARG POSTGRES_IMAGE=docker.io/library/postgres:16.15-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
@@ -41,7 +41,7 @@ ARG VERSION=0.1.0
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="jelly-leon-platform" \
       org.opencontainers.image.description="Lifecycle-dienst TrueNAS Home Platform V2 — alles-in-één (PostgreSQL, API, worker)" \
-      org.opencontainers.image.source="https://github.com/lvos04/jelly-leon-platform" \
+      org.opencontainers.image.source="https://git.medialeon.nl/leon/jelly-leon-platform" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 COPY --from=pg /out/pg/lib /usr/lib/postgresql/16
