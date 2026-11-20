@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ASF_COMMIT: a994c2a51f45b81b2c48c6533b0ccf51ba857f5a
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -20,6 +23,10 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+      - name: Contract-, Peil- en validatorbronnen ophalen
+        env:
+          BRON_TOKEN: ${{ secrets.BRON_LEESTOKEN }}
+        run: bash .forgejo/ci/bronnen.sh test
       - name: Python 3.12 voorbereiden
         run: bash .forgejo/ci/python.sh
       - name: Installeren
@@ -55,9 +62,22 @@ jobs:
         run: python -m pytest -q
       - name: Conformiteit met contract 1.3 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
         run: python -m pytest -q tests/conformance
+      - name: Validator uit de gepinde bron installeren
+        run: bash .forgejo/ci/validator.sh "$RUNNER_TEMP/appstore" "$RUNNER_TEMP/validator"
+      - name: Installeerbare manifesten met de strikte validator controleren
+        env:
+          JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
+        run: python tools/manifesten.py
       - name: Node-RED-flows (make nodered; FLOWS gelijk aan de overrides, bundels door de eigen controle, lock actueel)
         run: make nodered PY=python
-      - name: Repositorycontroles met de bronnen uit deze werkkopie
+      - name: Repositorycontroles met verplichte bron- en manifestvalidatie
+        env:
+          PEIL_BRON: ${{ runner.temp }}/peil-bron
+          PEIL_BRON_VERPLICHT: "1"
+          JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
+          MANIFEST_VALIDATOR_VERPLICHT: "1"
+          APPSTORE_BRON: ${{ runner.temp }}/appstore
+          VALIDATOR_BRON_VERPLICHT: "1"
         run: python -m pytest -q -rs tests/repo
       - name: OpenAPI-drift
         run: |
@@ -151,17 +171,37 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: test
+    env:
+      ASM_COMMIT: 5e2177515714c51ab01f2d1b278d546cebf6733c
+      HUB_IMAGE: jlp-rooktest/ai-server-manager:ci-${{ github.run_id }}
+      EXECUTOR_IMAGE: jlp-rooktest/ai-server-manager-executor:ci-${{ github.run_id }}
+      LIFECYCLE_IMAGE: jlp-rooktest/jelly-leon-platform:ci-${{ github.run_id }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - name: Upstream-images als 568 en Node-RED tegen de Hub-simulator
-        run: bash .forgejo/ci/dockerproef.sh upstream
+      - name: Gepinde Hub, executor en validator ophalen
+        env:
+          BRON_TOKEN: ${{ secrets.BRON_LEESTOKEN }}
+        run: bash .forgejo/ci/bronnen.sh rooktest
+      - name: Images bouwen uit de gepinde bronnen
+        run: |
+          docker buildx build --load -f "$RUNNER_TEMP/asm/deploy/allinone/Dockerfile" --build-arg REVISION="$ASM_COMMIT" \
+            -t "$HUB_IMAGE" "$RUNNER_TEMP/asm"
+          docker buildx build --load -f "$RUNNER_TEMP/asm/deploy/executor/Dockerfile" --build-arg REVISION="$ASM_COMMIT" \
+            -t "$EXECUTOR_IMAGE" "$RUNNER_TEMP/asm"
+          docker buildx build --load -f deploy/allinone/Dockerfile --build-arg VERSION="$(tr -d '[:space:]' < VERSION)" \
+            --build-arg REVISION="$GITHUB_SHA" -t "$LIFECYCLE_IMAGE" .
+      - name: Installatie, upstream-images als 568 en Node-RED tegen simulators beproeven
+        run: bash .forgejo/ci/dockerproef.sh rooktest
       - name: Rookrapporten bewaren
         if: always()
         uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4
         with:
-          name: upstream-en-nodered
+          name: rooktest-p1
           path: ${{ runner.temp }}/rookrapporten/*.json
           if-no-files-found: warn
           retention-days: 14
+      - name: Eigen imagetags opruimen
+        if: always()
+        run: docker image rm "$HUB_IMAGE" "$EXECUTOR_IMAGE" "$LIFECYCLE_IMAGE" || true

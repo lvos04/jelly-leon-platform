@@ -25,7 +25,7 @@ if [[ $modus == rooktest ]]; then
 fi
 status=0
 docker start --attach "$harnas" || status=$?
-if [[ $modus == rooktest || $modus == upstream ]]; then
+if [[ $modus == rooktest ]]; then
   mkdir -p "$RUNNER_TEMP/rookrapporten"
   docker cp "$harnas:/rapporten/." "$RUNNER_TEMP/rookrapporten/"
 fi

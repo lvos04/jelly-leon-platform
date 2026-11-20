@@ -186,7 +186,7 @@ def test_bounding_set_and_healthcheck_switch_first_section_2_2() -> None:
 
 @pytest.mark.parametrize(("dienst", "workflow"), [
     (".github", "ci.yml"), (".github", "release.yml"),
-    (".forgejo", "ci.yml"), (".forgejo", "release.yml"), (".forgejo", "bronproeven.yml"),
+    (".forgejo", "ci.yml"), (".forgejo", "release.yml"),
 ])
 def test_workflows_are_valid_yaml_without_secrets_or_latest(dienst: str, workflow: str) -> None:
     """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""
@@ -244,18 +244,25 @@ def test_release_publishes_only_on_tags_and_never_overwrites() -> None:
     assert run.index("imagetools inspect") < run.index("docker push") and "bestaat al" in run
 
 
-def test_forgejo_uses_the_validator_pin_and_only_publishes_on_a_tag_push() -> None:
-    workflows = ROOT / ".forgejo/workflows"
-    bronnen = yaml.safe_load((workflows / "bronproeven.yml").read_text())
+def test_forgejo_controleert_de_privebronnen_bij_push_en_pull_request() -> None:
+    ci = yaml.safe_load((ROOT / ".forgejo/workflows/ci.yml").read_text())
     kopie = json.loads((ROOT / "apps/api/src/appstore/KOPIE.json").read_text())
-    assert set(bronnen.get("on", bronnen.get(True))) == {"workflow_dispatch"}
-    assert bronnen["env"]["ASF_COMMIT"] == kopie["bron_commit"]
-    for job, modus in (("broncontrole", "test"), ("installatierooktest", "rooktest")):
-        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {modus}" for st in bronnen["jobs"][job]["steps"])
+    assert set(ci.get("on", ci.get(True))) == {"push", "pull_request", "workflow_dispatch"}
+    assert ci["env"]["ASF_COMMIT"] == kopie["bron_commit"]
+    for naam in ("test", "rooktest"):
+        job = ci["jobs"][naam]
+        stap = next(st for st in job["steps"] if st.get("run") == f"bash .forgejo/ci/bronnen.sh {naam}")
+        assert "if" not in job and "if" not in stap and not stap.get("continue-on-error")
+        assert stap["env"]["BRON_TOKEN"] == "${{ secrets.BRON_LEESTOKEN }}"
+    controle = next(st for st in ci["jobs"]["test"]["steps"] if st.get("run") == "python -m pytest -q -rs tests/repo")
+    for vlag in ("PEIL_BRON_VERPLICHT", "MANIFEST_VALIDATOR_VERPLICHT", "VALIDATOR_BRON_VERPLICHT"):
+        assert controle["env"][vlag] == "1"
     bron = (ROOT / ".forgejo/ci/bronnen.sh").read_text()
     assert 'git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"' in bron
 
-    release = yaml.safe_load((workflows / "release.yml").read_text())
+
+def test_forgejo_publiceert_alleen_bij_een_tagpush() -> None:
+    release = yaml.safe_load((ROOT / ".forgejo/workflows/release.yml").read_text())
     job = release["jobs"]["publish"]
     assert job["env"]["REGISTRY_IMAGE"] == "git.medialeon.nl/leon/jelly-leon-platform"
     altijd = {stap.get("run") for stap in job["steps"] if "if" not in stap}

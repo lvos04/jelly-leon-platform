@@ -7,13 +7,11 @@ pip install -e 'apps/api[test]'
 if [[ $1 == rooktest ]]; then
   pip install -e 'e2e/simulators/truenas[test]'
   bash .forgejo/ci/validator.sh /opt/appstore /opt/validator
+  status=0
   python tools/rooktest.py --hub-image "$HUB_IMAGE" --executor-image "$EXECUTOR_IMAGE" \
     --lifecycle-image "$LIFECYCLE_IMAGE" --validator /opt/validator/bin/jl-manifest \
-    --hub-commit "$ASM_COMMIT" --eigen-commit "$GITHUB_SHA" --validator-commit "$ASF_COMMIT" --rapport /rapporten/rooktest.json
-  exit 0
-fi
-if [[ $1 == upstream ]]; then
-  status=0
+    --hub-commit "$ASM_COMMIT" --eigen-commit "$GITHUB_SHA" --validator-commit "$ASF_COMMIT" \
+    --rapport /rapporten/rooktest.json || status=$?
   python tools/upstream_rooktest.py --rapport /rapporten/upstream-rooktest.json || status=$?
   python tools/nodered_rooktest.py --rapport /rapporten/nodered-rooktest.json || status=$?
   exit "$status"
