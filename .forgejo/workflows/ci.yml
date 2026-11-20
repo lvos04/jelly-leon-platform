@@ -19,15 +19,6 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    services:
-      postgres:
-        image: docker.io/library/postgres:16.15-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
-    env:
-      LIFECYCLE_TEST_PG: postgresql+psycopg://postgres@postgres:5432/postgres
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -54,8 +45,8 @@ jobs:
             --exclude '/tests/')
           MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
           MYPYPATH=e2e/simulators/hub:tools mypy --strict --python-version 3.12 tools/nodered_rooktest.py
-      - name: PostgreSQL-verbinding controleren
-        run: python -c 'import os, sqlalchemy as sa; sa.create_engine(os.environ["LIFECYCLE_TEST_PG"]).connect().close()'
+      - name: Eigen PostgreSQL 16 starten en verbinding controleren
+        run: bash .forgejo/ci/postgres.sh start
       - name: Tests lifecycle-dienst (unit + integratie, incl. migraties up/down/up en drift)
         working-directory: apps/api
         run: python -m pytest -q
@@ -67,18 +58,41 @@ jobs:
         run: python -m pytest -q
       - name: Conformiteit met contract 1.3 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
         run: python -m pytest -q tests/conformance
+      - name: Node-RED-flows (make nodered; FLOWS gelijk aan de overrides, bundels door de eigen controle, lock actueel)
+        run: make nodered PY=python
+      - name: OpenAPI-drift
+        run: |
+          python -m lifecycle export-openapi "$RUNNER_TEMP/openapi.json"
+          diff -u docs/openapi/jelly-leon-platform.openapi.json "$RUNNER_TEMP/openapi.json"
+      - name: pip-audit (runtime-lock)
+        run: pip-audit --strict --require-hashes --disable-pip -r apps/api/requirements.lock
+      - name: Eigen testdatabase opruimen
+        if: always()
+        run: bash .forgejo/ci/postgres.sh stop
+
+  broncontrole:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Contract-, Peil- en validatorbronnen ophalen
         env:
           BRON_TOKEN: ${{ github.token }}
         run: bash .forgejo/ci/bronnen.sh test
+      - name: Python 3.12 voorbereiden
+        run: bash .forgejo/ci/python.sh
+      - name: Installeren
+        run: |
+          python -m pip install --upgrade pip==26.3
+          pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
       - name: Validator uit de gepinde bron installeren
         run: bash .forgejo/ci/validator.sh "$RUNNER_TEMP/appstore" "$RUNNER_TEMP/validator"
       - name: Installeerbare manifesten (jl-manifest validate --strict volgens 1.3, overgang exact)
         env:
           JL_MANIFEST: ${{ runner.temp }}/validator/bin/jl-manifest
         run: python tools/manifesten.py
-      - name: Node-RED-flows (make nodered; FLOWS gelijk aan de overrides, bundels door de eigen controle, lock actueel)
-        run: make nodered PY=python
       - name: Manifest-, validator-, controlelijst-, documentatie-, contract- en Peil-kopiecontroles (pin en drift met de bron)
         env:
           PEIL_BRON: ${{ runner.temp }}/peil-bron
@@ -88,12 +102,6 @@ jobs:
           APPSTORE_BRON: ${{ runner.temp }}/appstore
           VALIDATOR_BRON_VERPLICHT: "1"
         run: python -m pytest -q -rs tests/repo  # -rs: reden van elke skip zichtbaar in de log (A-26)
-      - name: OpenAPI-drift
-        run: |
-          python -m lifecycle export-openapi "$RUNNER_TEMP/openapi.json"
-          diff -u docs/openapi/jelly-leon-platform.openapi.json "$RUNNER_TEMP/openapi.json"
-      - name: pip-audit (runtime-lock)
-        run: pip-audit --strict --require-hashes --disable-pip -r apps/api/requirements.lock
 
   statuspagina:
     # Peil-statuspagina 1.1.1 (JP11): HTML per toestand uit de echte dienst (PostgreSQL + Hub-simulator), daarna in
@@ -102,15 +110,6 @@ jobs:
     # herkomstgevallen van contract 1.3 §3.7; schermafdrukken als artefact (geen pixel-baselines, ONTWERPTAAL §12).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      postgres:
-        image: docker.io/library/postgres:16.15-bookworm@sha256:5264710be20f409750ac6dc4e5706dcef929c87e241605463f0f9aefa932a8d9
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
-    env:
-      LIFECYCLE_TEST_PG: postgresql+psycopg://postgres@postgres:5432/postgres
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -126,8 +125,8 @@ jobs:
           pip install -e 'apps/api[test]'
           npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
           (cd tests/ui && npx playwright install --with-deps chromium)
-      - name: PostgreSQL-verbinding controleren
-        run: python -c 'import os, sqlalchemy as sa; sa.create_engine(os.environ["LIFECYCLE_TEST_PG"]).connect().close()'
+      - name: Eigen PostgreSQL 16 starten en verbinding controleren
+        run: bash .forgejo/ci/postgres.sh start
       - name: Statuspagina per toestand renderen (momentopnamen)
         working-directory: apps/api
         env:
@@ -154,6 +153,9 @@ jobs:
           path: ${{ runner.temp }}/schermafdrukken
           if-no-files-found: warn
           retention-days: 14
+      - name: Eigen testdatabase opruimen
+        if: always()
+        run: bash .forgejo/ci/postgres.sh stop
 
   image:
     runs-on: ubuntu-24.04
@@ -180,7 +182,7 @@ jobs:
   rooktest:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    needs: test
+    needs: [test, broncontrole]
     env:
       ASM_COMMIT: 5e2177515714c51ab01f2d1b278d546cebf6733c
       HUB_IMAGE: jlp-rooktest/ai-server-manager:ci-${{ github.run_id }}

@@ -247,8 +247,8 @@ def test_forgejo_uses_the_validator_pin_and_only_publishes_on_a_tag_push() -> No
     ci = yaml.safe_load((workflows / "ci.yml").read_text())
     kopie = json.loads((ROOT / "apps/api/src/appstore/KOPIE.json").read_text())
     assert ci["env"]["ASF_COMMIT"] == kopie["bron_commit"]
-    for job in ("test", "rooktest"):
-        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {job}" for st in ci["jobs"][job]["steps"])
+    for job, modus in (("broncontrole", "test"), ("rooktest", "rooktest")):
+        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {modus}" for st in ci["jobs"][job]["steps"])
     bron = (ROOT / ".forgejo/ci/bronnen.sh").read_text()
     assert 'git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"' in bron
 
