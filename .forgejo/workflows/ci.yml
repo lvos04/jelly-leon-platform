@@ -90,7 +90,9 @@ jobs:
           python -m pip install --upgrade pip==26.3
           pip install -e 'apps/api[test]'
           npm ci --prefix tests/ui --ignore-scripts --no-audit --no-fund
-          (cd tests/ui && npx playwright install --with-deps chromium)
+          export PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/jlp-chromium"
+          echo "PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH" >> "$GITHUB_ENV"
+          node tests/ui/node_modules/playwright/cli.js install --with-deps chromium
       - name: Eigen PostgreSQL 16 starten en verbinding controleren
         run: bash .forgejo/ci/postgres.sh start
       - name: Statuspagina per toestand renderen (momentopnamen)
