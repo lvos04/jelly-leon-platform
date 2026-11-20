@@ -184,10 +184,11 @@ def test_bounding_set_and_healthcheck_switch_first_section_2_2() -> None:
     assert cmd and json.loads(cmd.group(1)) == ["python", "/usr/local/lib/lifecycle-allinone/healthcheck.py"]
 
 
+@pytest.mark.parametrize("dienst", [".github", ".forgejo"])
 @pytest.mark.parametrize("workflow", ["ci.yml", "release.yml"])
-def test_workflows_are_valid_yaml_without_secrets_or_latest(workflow: str) -> None:
+def test_workflows_are_valid_yaml_without_secrets_or_latest(dienst: str, workflow: str) -> None:
     """Review P0: ci.yml was ongeldige YAML (dubbele punt in een stapnaam) en zou op GitHub niet starten."""
-    text = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+    text = (ROOT / dienst / "workflows" / workflow).read_text(encoding="utf-8")
     doc = yaml.safe_load(text)
     assert isinstance(doc, dict) and isinstance(doc.get("jobs"), dict) and doc["jobs"]
     for job in doc["jobs"].values():
@@ -239,6 +240,27 @@ def test_release_publishes_only_on_tags_and_never_overwrites() -> None:
     push = next(st for st in publishing if "docker push" in str(st.get("run", "")))
     run = push["run"]
     assert run.index("imagetools inspect") < run.index("docker push") and "bestaat al" in run
+
+
+def test_forgejo_uses_the_validator_pin_and_only_publishes_on_a_tag_push() -> None:
+    workflows = ROOT / ".forgejo/workflows"
+    ci = yaml.safe_load((workflows / "ci.yml").read_text())
+    kopie = json.loads((ROOT / "apps/api/src/appstore/KOPIE.json").read_text())
+    assert ci["env"]["ASF_COMMIT"] == kopie["bron_commit"]
+    for job in ("test", "rooktest"):
+        assert any(st.get("run") == f"bash .forgejo/ci/bronnen.sh {job}" for st in ci["jobs"][job]["steps"])
+    bron = (ROOT / ".forgejo/ci/bronnen.sh").read_text()
+    assert 'git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"' in bron
+
+    release = yaml.safe_load((workflows / "release.yml").read_text())
+    job = release["jobs"]["publish"]
+    assert job["env"]["REGISTRY_IMAGE"] == "git.medialeon.nl/leon/jelly-leon-platform"
+    for stap in job["steps"]:
+        if stap.get("run") == "bash .forgejo/ci/dockerproef.sh release":
+            assert "if" not in stap
+        if ("REGISTRY_TOKEN" in stap.get("env", {}) or "API_TOKEN" in stap.get("env", {})
+                or "upload-artifact@" in stap.get("uses", "") or stap.get("run") == "bash .forgejo/ci/sbom.sh"):
+            assert stap["if"] == "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')"
 
 
 def test_compose_only_for_development() -> None:

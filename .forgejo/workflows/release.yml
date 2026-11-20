@@ -1,0 +1,72 @@
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      packages: write
+    env:
+      LIFECYCLE_IMAGE: jelly-leon-platform:release-${{ github.run_id }}
+      REGISTRY_IMAGE: git.medialeon.nl/leon/jelly-leon-platform
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Versie en eventuele releasetag controleren
+        id: v
+        run: |
+          versie="$(tr -d '[:space:]' < VERSION)"
+          [[ $versie =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Ongeldige VERSION'; exit 1; }
+          if [[ $GITHUB_REF == refs/tags/* && $GITHUB_REF != "refs/tags/v$versie" ]]; then
+            echo 'Tag komt niet overeen met VERSION'; exit 1
+          fi
+          echo "version=$versie" >> "$GITHUB_OUTPUT"
+      - name: Release-image bouwen
+        env:
+          VERSIE: ${{ steps.v.outputs.version }}
+        run: |
+          docker buildx build --load -f deploy/allinone/Dockerfile \
+            --build-arg VERSION="$VERSIE" --build-arg REVISION="$GITHUB_SHA" -t "$LIFECYCLE_IMAGE" .
+      - name: Image-E2E met upgrade- en herstelproef
+        run: bash .forgejo/ci/dockerproef.sh release
+      - name: SPDX-SBOM van de geteste image maken
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: bash .forgejo/ci/sbom.sh
+      - name: Nieuwe versie naar het Forgejo-register publiceren en digest vastleggen
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          REGISTRY_USER: ${{ vars.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          VERSIE: ${{ steps.v.outputs.version }}
+        run: bash .forgejo/ci/publiceer-image.sh
+      - name: Digest en SBOM bewaren
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4
+        with:
+          name: release-${{ steps.v.outputs.version }}
+          path: |
+            release/digests.json
+            release/sbom.spdx.json
+          if-no-files-found: error
+      - name: Forgejo-release met digest en SBOM
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          API_TOKEN: ${{ github.token }}
+          VERSIE: ${{ steps.v.outputs.version }}
+        run: bash .forgejo/ci/release.sh
+      - name: Eigen imagetag opruimen
+        if: always()
+        run: docker image rm "$LIFECYCLE_IMAGE" || true

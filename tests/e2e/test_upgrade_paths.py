@@ -75,7 +75,7 @@ def build_variant(tmp: Path, tag: str, migration: str) -> str:
     shutil.copy(ROOT / "apps/api/requirements.lock", ctx / "apps/api/requirements.lock")
     shutil.copytree(ROOT / "deploy/allinone", ctx / "deploy/allinone")
     (ctx / f"apps/api/src/lifecycle/migrations/versions/{NEXT}_e2e.py").write_text(migration)
-    image = f"jelly-leon-platform:e2e-{tag}"
+    image = f"jelly-leon-platform:e2e-{tag}-{uuid.uuid4().hex}"
     extra: list[str] = []
     # alleen achter een TLS-proxy (bouwomgeving): CA als BuildKit-secret, nooit in de image
     if ca := os.environ.get("LIFECYCLE_BUILD_CA"):
