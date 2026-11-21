@@ -9,12 +9,17 @@
 # request-node zoekt zelf geen proxy in http_proxy of all_proxy. Tegen de ingebouwde proxy van Node.js
 # (NODE_USE_ENV_PROXY, --use-env-proxy) zorgen de bundels zelf (persist: true); met beide ging het service-token in
 # rooktest N10 alleen naar de Hub (Hub over HTTP; ADR-0023). Zonder
-# beheerder is Node-RED dus helemaal dicht; dat is de bedoelde stand (besluit C-12). FLOWS wordt gemaakt uit
+# beheerder is Node-RED dus helemaal dicht; dat is de bedoelde stand. FLOWS wordt gemaakt uit
 # install/node-red/settings-overrides.json
 # (tools/nodered_flows.py render --check). Op een echte NAS: NIET GEVALIDEERD.
-# Wat dit manifest NIET kan (contractvraag C-5, ADR-0023): een beheerder aanmaken, de flows uit install/node-red/flows
-# plaatsen en het service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden. De
-# beheerder en het dienstaccount komen volgens besluit C-12 via een voorziening zonder geheim (ontwerp S-P2-510).
+# Beheerder en dienstaccount (besluit C-12): de manifeststandaard heeft daarvoor het veld accounts zonder geheim
+# (appstore-en-fork ADR-0016 en ADR-0023, gebouwd in S-P3-490), maar deze officiële image kan geen van de twee
+# aanmaakwijzen leveren (geen eerste-gebruik-venster, dat C-11 ook uitsluit; gebruikers alleen als bcrypt-hash in de
+# instellingen). De gebruiker koos daarom ADR-0016 punt 7, optie A "Wachten" (2026-11-11): dit manifest heeft geen
+# accounts en adminAuth heeft geen gebruikers. Een weg voor de accounts komt er alleen met een nieuw besluit van de
+# gebruiker; tests/repo/test_nodered.py bewaakt deze stand.
+# Wat dit manifest verder NIET kan (contractvraag C-5, ADR-0023): de flows uit install/node-red/flows plaatsen en het
+# service-token van de Hub meegeven — de standaard kent geen afgeleide geheimen of bestanden.
 manifest_version: "1"
 app_id: node-red
 name: Node-RED
@@ -165,7 +170,7 @@ post_install_checks:
     beschrijving_nl: >-
       Met een beheerder: GET /nodes (aangemeld) toont geen exec, function, file, watch, http in, websocket, tcp, udp of
       mqtt. Zonder aanmelding geeft GET /nodes 401 (besluit C-11), en volgens besluit C-12 ("Wachten") is er nog geen
-      beheerder. Deze controle blijft daarom open tot C-12 is uitgevoerd, en zo lang is Node-RED niet gezond; dat is
+      beheerder. Deze controle blijft daarom open tot er een beheerder is, en zo lang is Node-RED niet gezond; dat is
       de bedoelde stand. Bevestig hem niet zonder hem uit te voeren. Wat de beheerder nu wel kan nagaan: dat de digest
       van de geïnstalleerde image gelijk is aan die in docs/platform-v2/bewijs/nodered-rooktest-p2.json (daar toonde
       de rooktest in stap N3, met dezelfde FLOWS en een wegwerpbeheerder, dat alleen kern-nodes geladen zijn), en dat
@@ -174,10 +179,11 @@ post_install_checks:
     soort: handmatig
     beschrijving_nl: >-
       Dit manifest levert geen beheerder en geen flows: zonder beheerder is de editor helemaal dicht, ook voor lezen
-      (besluit C-11), en Node-RED is leeg. De beheerder en het dienstaccount komen volgens besluit C-12 via een
-      voorziening zonder geheim in de manifeststandaard (ontwerp S-P2-510); de flows uit install/node-red/flows, HUB_URL
-      en het service-token van de Hub wachten op dezelfde uitbreiding (C-5, ADR-0023). Tot dan doet Node-RED niets en
-      is dat de bedoeling.
+      (besluit C-11), en Node-RED is leeg. Besluit C-12: de manifeststandaard kent het veld accounts (appstore-en-fork
+      ADR-0023), maar deze image kan er geen beheerder of dienstaccount mee leveren; de gebruiker koos ADR-0016 punt 7
+      van appstore-en-fork, optie A "Wachten". Daarom heeft dit manifest geen accounts; een weg komt er alleen met een
+      nieuw besluit van de gebruiker. De flows uit install/node-red/flows, HUB_URL en het service-token van de Hub
+      wachten op een aangemelde beheerder (C-5, ADR-0023). Tot dan doet Node-RED niets en is dat de bedoeling.
 validation_status: unvalidated
 compatibility:
   truenas_min_version: "24.10.2.2"

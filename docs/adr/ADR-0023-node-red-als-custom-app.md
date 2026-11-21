@@ -2,7 +2,8 @@
 
 - Status: aanvaard · Datum: 2026-11-11 · Bijgewerkt: 2026-11-12 (S-P2-410: besluit C-11, restpunten van de review;
   herstel na de review van S-P2-410: witte lijst in `lint`, geen proxy uit de omgeving, vaste sleutels in `FLOWS`;
-  herstelpoging 2: `persist`, vreemde nodes, de JSONata van elke uitgebrachte versie, switch en debug)
+  herstelpoging 2: `persist`, vreemde nodes, de JSONata van elke uitgebrachte versie, switch en debug); 2026-11-21
+  (S-P3-445: besluit C-12 met ADR-0016 punt 7 "Wachten" van appstore-en-fork; dienstaccount gemeten in N3)
   · Contract: 1.3 §3, §4.4, §6.1, §7, §8, §9 · Bouwplan: I10-10-01…06
 - Manifest: `install/manifests/node-red.manifest.yaml` · Instellingen en flows: `install/node-red/`
 - Hulpmiddelen: `tools/nodered_flows.py`, `tools/nodered_rooktest.py` · Bewijs:
@@ -38,6 +39,17 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    (punt 5): een eigen agent, die die proxy niet gebruikt. `nodered_flows.py` laat in de overrides
    alleen deze vaste sleutels toe (`TOEGESTANE_OVERRIDES`): een sleutel als `adminAuth.default` werd anders een eigen
    instelling die weer anoniem lezen gaf (gemeten; R-VEILIG-4).
+   *Beheerder en dienstaccount (besluit C-12, S-P3-445).* `FLOWS` krijgt nooit een gebruiker, wachtwoordhash of
+   `credentialSecret`. De manifeststandaard heeft voor accounts het veld `accounts` zonder geheim (appstore-en-fork
+   ADR-0016 en ADR-0023, gebouwd in S-P3-490), met twee aanmaakwijzen: `eerste_gebruik` (een venster bij de eerste
+   start, door C-11 uitgesloten) en `door_beheerder` (vraagt een beheerder die zich al kan aanmelden). Deze officiële
+   image kent gebruikers alleen als bcrypt-hash in `adminAuth.users` en heeft geen eerste-gebruik-venster; geen van
+   beide wijzen werkt dus. De gebruiker koos daarom ADR-0016 punt 7 van appstore-en-fork, optie A "Wachten"
+   (2026-11-11): het manifest heeft geen `accounts`, en `adminAuth` blijft zonder gebruikers. Een eigen image (B) en
+   een startopdracht (C) zijn afgewezen; een weg komt er alleen met een nieuw besluit van de gebruiker.
+   `tests/repo/test_nodered.py` faalt bij elke `accounts` (ook een lege lijst) en bij een andere `adminAuth`, en de
+   gepinde validator weigert een proefkopie met een hash of `credentialSecret` in `FLOWS` of in een
+   omgevingsvariabele (`account_gegevens_verboden`).
    De waarde wordt gemaakt uit `install/node-red/settings-overrides.json` (`nodered_flows.py render --check`) en mag
    geen spaties, `$`, `*`, `?` of andere shelltekens bevatten. `[` en `]` zijn ook jokertekens, maar de JSON-lijsten
    (`nodesIncludes`) hebben ze nodig; veilig zolang 568 de werkmap van de entrypoint niet kan beschrijven (gemeten bij
@@ -54,16 +66,17 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    herkenbaar (200; N2). Een `FLOWS` die maar voor een deel aankomt (bijvoorbeeld `adminAuth` wel en `nodesIncludes`
    niet) ziet de monitor niet. Dat de kern-nodes beperkt zijn, toont `GET /nodes`, en dat kan alleen een beheerder: de
    controle na installatie `exec_en_function_niet_geladen` (handmatig, zodra er een beheerder is) en tot dan de rooktest
-   bij deze digest (N3, dezelfde `FLOWS` met alleen een wegwerpbeheerder). Die handmatige controle blijft open tot
-   besluit C-12 is uitgevoerd, en zo lang is Node-RED niet "gezond" (contract kop 9); dat is de bedoelde stand. Wat de
-   beheerder nu wel kan nagaan, staat in de controle zelf: de digest van de geïnstalleerde image tegen die in het
+   bij deze digest (N3, dezelfde `FLOWS` met alleen wegwerpaccounts). Die handmatige controle blijft open tot er een
+   beheerder is (besluit C-12, punt 2), en zo lang is Node-RED niet "gezond" (contract kop 9); dat is de bedoelde
+   stand. Wat de beheerder nu wel kan nagaan, staat in de controle zelf: de digest van de geïnstalleerde image tegen die in het
    rooktestrapport, en de twee http-controles (R-MANIFEST-2 van S-P2-410).
 4. **Geen anonieme toegang (besluit C-11 van de gebruiker, 2026-11-11).** De editor en de Admin-API zijn alleen
    bruikbaar na aanmelding van een beheerder. Gemeten (N1): anoniem `GET /flows`, `GET /nodes`, `GET /settings` en
    `GET /diagnostics` geven 401, `POST /flows` ook; exporteren zonder aanmelding wordt geweigerd. Dezelfde paden
    controleert home-control-hub (`anoniem_geweigerd`, 401) en de controle na installatie `anoniem_geweigerd` van dit
    manifest. Zonder beheerder is de editor daardoor helemaal dicht, ook voor lezen; dat is de bedoelde stand (besluit
-   C-12: geen geheim en geen gebruiker in het manifest). Wanneer Node-RED bruikbaar wordt, bepaalt C-5 (zie "Wat het
+   C-12 met ADR-0016 punt 7 "Wachten": geen geheim, geen gebruiker en geen `accounts` in het manifest; punt 2).
+   Wanneer Node-RED bruikbaar wordt, bepalen C-5 en een nieuw besluit over de beheerder (zie "Wat het
    manifest niet kan"). `tools/nodered_flows.py` weigert overrides met een andere `adminAuth` (`render`, `render
    --check`), en `importeer` en `exporteer` vragen een beheerder (`--gebruiker`).
 5. **Flows zijn bundels in Git met een eigen controle.** Eén tabblad per bestand (`install/node-red/flows/`), vaste
@@ -144,7 +157,11 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
    service-token wordt een credential van de `http request`-nodes. Beide komen uit omgevingsvariabelen van het
    hulpmiddel, nooit van de opdrachtregel en nooit in Git. Eerlijk: de sleutel waarmee Node-RED credentials
    versleutelt staat in dezelfde `/data`; wie de dataset kan lezen, kan het token lezen. Bescherming is dus de
-   eigenaar (568) en de toegang tot dataset en snapshots, niet de versleuteling.
+   eigenaar (568) en de toegang tot dataset en snapshots, niet de versleuteling. Een `credentialSecret` is niet nodig:
+   Node-RED maakt die sleutel zelf (appstore-en-fork ADR-0016 besluit 6). Accounts gaan nooit door het formulier, het
+   manifest of Git (besluit C-12): komt er later een dienstaccount, dan voert de beheerder de aanmelding één keer in
+   bij home-control-hub (bron `node_red`, `PUT /integrations/v1/sources/node_red`, minstens 32 tekens; S-P3-360). In
+   N3 is gemeten dat een account met alleen `read` flows kan lezen en geen flows kan schrijven.
 7. **Acties alleen als voorstel bij de Hub (I10-10-04).** Er is geen node die een app of de NAS kan wijzigen. De
    testflow dient een `ActionProposal` in; de Hub zet de actor (`flow`), classificeert (R1/R2) en vraagt zo nodig
    goedkeuring; uitvoeren doet alleen de uitvoerder.
@@ -170,16 +187,17 @@ normaal ingesteld met een bestand `settings.js` in `/data`; dat kan het formulie
 De manifeststandaard v1 kent geen startopdracht, geen bestanden en geen afgeleide geheimen, en de vertaling weigert
 geheimen in formulierwaarden. Daardoor levert het manifest op een NAS alleen een beveiligde, **lege** Node-RED die
 zonder beheerder **helemaal dicht** is, ook voor lezen (besluit C-11). Contractvraag C-5 bepaalt dus wanneer Node-RED
-bruikbaar wordt; voor de beheerder en het dienstaccount is besluit C-12 genomen (een voorziening zonder geheim in de
-manifeststandaard; ontwerp S-P2-510, bouw na P2). Niet leverbaar zonder uitbreiding van de standaard of een route bij
-de Hub:
+bruikbaar wordt. Voor de beheerder en het dienstaccount is besluit C-12 genomen en is de voorziening zonder geheim
+gebouwd (veld `accounts`, appstore-en-fork ADR-0023, S-P3-490), maar deze image kan er niets mee (punt 2): de gebruiker
+koos ADR-0016 punt 7 van appstore-en-fork, optie A "Wachten". Niet leverbaar:
 
-- een beheerder (bcrypt-hash in `adminAuth.users`);
+- een beheerder en een dienstaccount (alleen als bcrypt-hash in `adminAuth.users`, dus een geheim in het formulier;
+  wacht op een nieuw besluit van de gebruiker);
 - het plaatsen van de bundels en `HUB_URL`;
 - een service-token: een flowruntime kan zich niet inschrijven (§3.3 vraagt een Ed25519-sleutel) en §3.1 verbiedt
   een langlevend token in het formulier.
 
-De rooktest zet het beheerdersaccount daarom zelf met een wegwerpwaarde in `FLOWS` en registreert de dienst bij de
+De rooktest zet de beheerder en een dienstaccount daarom zelf met wegwerpwaarden in `FLOWS` en registreert de dienst bij de
 simulator. Dat is een proefopstelling, geen installatiepad. Het importhulpmiddel is voor beheerder/ontwikkelaar; de
 eindgebruiker heeft geen terminal.
 
@@ -209,7 +227,9 @@ Verder niet gebouwd of niet af te dwingen:
 N1 container en beveiliging volgens het manifest, geen anonieme toegang (401 op `GET /flows`, `/nodes`, `/settings` en
 `/diagnostics`, `POST /flows` 401, export zonder aanmelding geweigerd) · N2 controleproef zonder `FLOWS` (alles 200,
 monitor faalt) · N3 beheerder met wegwerpaccount: alleen kern-nodes geladen (`GET /nodes` aangemeld), exec/function via
-de rauwe Admin-API voeren niets uit, geen nodes te installeren · N4 import met versleuteld token en checksum-readback
+de rauwe Admin-API voeren niets uit, geen nodes te installeren; een wegwerp-dienstaccount met alleen `read` krijgt
+geen token met alle rechten (`scope=*`), leest de flows (200) en kan geen flows schrijven (`POST /flows` geweigerd,
+gemeten status in het rapport) · N4 import met versleuteld token en checksum-readback
 (met de eigen controle over de teruggelezen tabbladen), export als beheerder gelijk aan het lock · N5 MediaGuard
 gestopt/hersteld/onbekend ·
 N6 testflow: uit = geen reactie; aan = R1 toegestaan / R2 wacht op goedkeuring, actor door de Hub gezet · N7 hartslag

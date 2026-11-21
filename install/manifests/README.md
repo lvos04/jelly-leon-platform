@@ -93,7 +93,7 @@ make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator:
 | Beszel | eerste account aanmaken (tot dan kan iedereen op het LAN dat) | `GET /api/beszel/first-run` → `firstRun: false` |
 | Uptime Kuma | eerste beheerder aanmaken; API-sleutel voor de Hub (alleen `/metrics`) | alleen via Socket.IO controleerbaar → bevestiging door de gebruiker |
 | Authentik | initiële setup (`akadmin`) met MFA; API-token voor home-control-hub | `/-/health/ready/`; beheer via home-control-hub (B13) |
-| Node-RED | niets in te stellen: zonder beheerder is de editor helemaal dicht, ook lezen (besluit C-11), tot er een voorziening is om een beheerder en flows te leveren (besluit C-12; Geblokkeerd) | zonder aanmelding: `/diagnostics` → 401, `GET /flows`, `/nodes` en `/settings` → 401, `POST /flows` → 401; `/auth/login` → type `credentials`; "exec en function niet geladen" alleen met een beheerder (handmatig; blijft open tot besluit C-12 is uitgevoerd, en zo lang is Node-RED niet gezond: de bedoelde stand) |
+| Node-RED | niets in te stellen: zonder beheerder is de editor helemaal dicht, ook lezen (besluit C-11), geen `accounts`: deze image kan geen beheerder of dienstaccount via de voorziening van C-12 krijgen (ADR-0016 punt 7 van appstore-en-fork, "Wachten"; Geblokkeerd tot een nieuw besluit) | zonder aanmelding: `/diagnostics` → 401, `GET /flows`, `/nodes` en `/settings` → 401, `POST /flows` → 401; `/auth/login` → type `credentials`; "exec en function niet geladen" alleen met een beheerder (handmatig; blijft open tot er een beheerder is, en zo lang is Node-RED niet gezond: de bedoelde stand) |
 
 Tokens en sleutels die de gebruiker zo maakt, gaan alleen in de vault van de Hub (nooit in een manifest of formulier).
 

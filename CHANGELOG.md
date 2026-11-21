@@ -2,6 +2,12 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Node-RED en besluit C-12** (S-P3-445, ADR-0023 besluit 2): het manifest blijft zonder `accounts` en `adminAuth`
+  zonder gebruikers, volgens ADR-0016 punt 7 van appstore-en-fork (gebruiker: optie A "Wachten"); de repotest faalt bij
+  elke `accounts` of andere `adminAuth`, en de gepinde validator weigert een proefkopie met een hash of
+  `credentialSecret` in `FLOWS` of een omgevingsvariabele (`account_gegevens_verboden`). Rooktest N3 meet nu ook een
+  wegwerp-dienstaccount met alleen `read`: lezen mag, flows schrijven niet. Teksten van manifest, README's en ADR-0023
+  volgen. Sim-getest; NIET GEVALIDEERD (echte NAS).
 - **Vertrouwde plannerinvoer (contract 1.3 §8.2, M3; S-P2-050d-plan)**: `POST /lifecycle/v1/plans/install/preview`
   neemt `catalog_binding` aan (precies `appstore_service_id`, `source_approval_revision`, `provenance`, `release`,
   `instance`; elk ander veld 422), uitsluitend van de Hub als dienst met de claim `catalog_request_sha256` over

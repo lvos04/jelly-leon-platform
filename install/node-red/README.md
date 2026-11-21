@@ -10,7 +10,9 @@ iets uit op de NAS of in een app: geen TrueNAS-sleutel, geen Docker-socket, geen
 > Het manifest levert alleen een beveiligde, lege Node-RED **zonder anonieme toegang**: zonder aanmelding van een
 > beheerder geeft Node-RED niets, ook niet lezen (besluit C-11 van de gebruiker, 2026-11-11). Een beheerder, de flows en
 > het service-token kan de manifeststandaard v1 niet leveren (zie "Wat nog niet kan"); tot die er zijn, is de editor
-> helemaal dicht. Dat is de bedoelde stand (besluit C-12).
+> helemaal dicht. Dat is de bedoelde stand: besluit C-12 met ADR-0016 punt 7 van appstore-en-fork, optie A "Wachten"
+> (het veld `accounts` bestaat, maar deze image kan er geen beheerder of dienstaccount mee leveren; het manifest heeft
+> geen `accounts`, en een weg komt er alleen met een nieuw besluit van de gebruiker; ADR-0023 besluit 2).
 
 ## Bestanden
 
@@ -205,7 +207,7 @@ python tools/nodered_flows.py importeer … --bundel hartslag=<pad naar oudere v
 
 | Onderdeel | Waarom | Stand |
 |---|---|---|
-| Beheerder van de editor op de NAS | de standaard kent geen afgeleid geheim (bcrypt-hash) en weigert geheimen in formulierwaarden; zonder beheerder is de editor helemaal dicht (besluit C-11); de voorziening zonder geheim volgt uit besluit C-12 (ontwerp S-P2-510) | Geblokkeerd |
+| Beheerder van de editor op de NAS | de standaard kent geen afgeleid geheim (bcrypt-hash) en weigert geheimen in formulierwaarden; zonder beheerder is de editor helemaal dicht (besluit C-11); besluit C-12: de voorziening zonder geheim (veld `accounts`, S-P3-490) kan deze image niet gebruiken; ADR-0016 punt 7 "Wachten" (gebruiker), wacht op een nieuw besluit | Geblokkeerd |
 | Flows en `HUB_URL` op de NAS plaatsen | de standaard kent geen bestanden of startopdracht; importeren vraagt een beheerder | Geblokkeerd |
 | Service-token voor Node-RED | een flowruntime kan zich niet inschrijven (§3.3 vraagt een Ed25519-sleutel); geen andere route beschreven | Geblokkeerd |
 | Flow "my_house sensor verouderd" | geen contractroute voor sensorversheid | Geblokkeerd (`capability_unavailable`) |

@@ -163,6 +163,94 @@ def test_the_manifest_gives_no_anonymous_rights() -> None:
     assert nf.render_flows_env(nf.lees_overrides()) == flows
 
 
+def _c12_wachten_afwijkingen(m: dict[str, Any]) -> list[str]:
+    """Besluit C-12 met ADR-0016 punt 7 van appstore-en-fork (gebruiker 2026-11-11: optie A, "Wachten"): het manifest
+    verklaart geen ``accounts`` (dus ook geen ``eerste_gebruik``, dat C-11 uitsluit) en ``FLOWS`` zet ``adminAuth``
+    precies zonder gebruikers en zonder ``default``. Geeft per afwijking één regel."""
+    uit = []
+    if "accounts" in m:
+        uit.append("accounts: Node-RED wacht op een weg voor beheerder en dienstaccount (ADR-0016 punt 7)")
+    flows = next((e.get("value", "") for e in m["custom_app"]["env"] if e.get("name") == "FLOWS"), "")
+    if flows.count('-D adminAuth={"type":"credentials","users":[]} ') != 1 or flows.count("adminAuth") != 1:
+        uit.append("adminAuth: niet precies {\"type\":\"credentials\",\"users\":[]}")
+    return uit
+
+
+C12_STANDEN = {
+    "manifest-zoals-het-is": None,
+    "beheerder-eerste-gebruik": {"accounts": [{"id": "beheerder", "rol": "beheerder", "aanmaak": "eerste_gebruik",
+                                               "controle": "beheerder_en_flows",
+                                               "beschrijving_nl": "Beheerder via een eerste-gebruik-venster"}]},
+    "dienst-door-beheerder": {"accounts": [{"id": "hub-dienst", "rol": "dienst", "aanmaak": "door_beheerder",
+                                            "afnemer": "home-control-hub", "rechten": ["read"],
+                                            "controle": "beheerder_en_flows",
+                                            "beschrijving_nl": "Dienstaccount van home-control-hub"}]},
+    "lege-accounts": {"accounts": []},
+    "gebruiker-in-flows": {"flows": '"users":[{"username":"beheer","permissions":"*"}]'},
+    "default-in-flows": {"flows": '"users":[],"default":{"permissions":"read"}'},
+}
+
+
+@pytest.mark.parametrize("stand", sorted(C12_STANDEN))
+def test_the_manifest_keeps_the_waiting_state_of_c12(stand: str) -> None:
+    """S-P3-445, toestandstabel (één rij per stand): alleen het manifest zoals het is, geeft geen afwijking. Een
+    ``accounts``-lijst (ook leeg) of een andere ``adminAuth`` in ``FLOWS`` faalt, zodat de veiligste stand van ADR-0016
+    punt 7 niet ongemerkt verandert; een weg voor de accounts vraagt eerst een nieuw besluit van de gebruiker."""
+    m = _manifest()
+    wijziging = C12_STANDEN[stand]
+    if wijziging is None:
+        assert _c12_wachten_afwijkingen(m) == []
+        return
+    m = copy.deepcopy(m)
+    if "accounts" in wijziging:
+        m["accounts"] = wijziging["accounts"]
+        verwacht = "accounts"
+    else:
+        flows = m["custom_app"]["env"][0]
+        flows["value"] = flows["value"].replace('"users":[]', wijziging["flows"], 1)
+        verwacht = "adminAuth"
+    assert [r.split(":", 1)[0] for r in _c12_wachten_afwijkingen(m)] == [verwacht]
+
+
+GEHEIM_IN_KOPIE = {
+    # Proefkopie buiten de repo (tmp_path); de hash is een testwaarde in de vorm van bcrypt, geen echt wachtwoord.
+    "hash-in-flows": ('"users":[]', '"users":[{"username":"beheer","password":"$2b$08$' + "a" * 53
+                      + '","permissions":"*"}]'),
+    "hash-in-omgevingsvariabele": ("  env:\n    - name: FLOWS", "  env:\n    - name: ADMIN_PASSWORD_HASH\n"
+                                   "      value: '$2b$08$" + "a" * 53 + "'\n    - name: FLOWS"),
+    "credentialSecret-in-flows": ('"users":[]}', '"users":[]} -D credentialSecret=proefwaarde-niet-echt'),
+}
+
+
+@pytest.mark.parametrize("geval", sorted(GEHEIM_IN_KOPIE))
+def test_the_validator_refuses_a_copy_with_account_secrets(geval: str, tmp_path: Path) -> None:
+    """S-P3-445 negatief (d): een proefkopie van het manifest met een wachtwoordhash of ``credentialSecret`` in
+    ``FLOWS`` of in een omgevingsvariabele weigert de gepinde validator (S-P3-490) met ``account_gegevens_verboden``;
+    het manifest zelf is geldig (positieve controle)."""
+    import os
+    import subprocess
+
+    validator = os.environ.get("JL_MANIFEST")
+    if not validator or not Path(validator).is_file():
+        if os.environ.get("MANIFEST_VALIDATOR_VERPLICHT") == "1":
+            pytest.fail("jl-manifest niet gevonden (JL_MANIFEST)")
+        pytest.skip("jl-manifest (appstore-en-fork) niet beschikbaar; in CI verplicht")
+
+    def meldingen(pad: Path) -> tuple[bool, set[str]]:
+        uit = json.loads(subprocess.run([validator, "validate", "--strict", str(pad), "--format", "json"],
+                                        capture_output=True, text=True, check=False).stdout)
+        return bool(uit["valid"]), {f["code"] for f in uit["findings"]}
+
+    assert meldingen(nf.MANIFEST)[0] is True
+    oud, nieuw = GEHEIM_IN_KOPIE[geval]
+    tekst = nf.MANIFEST.read_text(encoding="utf-8")
+    assert tekst.count(oud) == 1, "de proef raakt het manifest niet meer"
+    kopie = tmp_path / "node-red.manifest.yaml"
+    kopie.write_text(tekst.replace(oud, nieuw, 1), encoding="utf-8")
+    geldig, codes = meldingen(kopie)
+    assert geldig is False and "account_gegevens_verboden" in codes, codes
+
+
 @pytest.mark.parametrize("waarde", ["met spatie", "$(id)", "a;b", "`x`", "a|b", "~root", "a*"])
 def test_render_refuses_values_the_shell_would_expand(waarde: str) -> None:
     with pytest.raises(nf.Fout):
@@ -227,6 +315,15 @@ def test_post_install_checks_follow_decision_c11() -> None:
     assert 10 <= len(exec_check["beschrijving_nl"]) <= 1000  # grens van het schema (PostInstallCheck)
     assert checks["beheerder_en_flows"]["soort"] == "handmatig"
     assert "dicht" in checks["beheerder_en_flows"]["beschrijving_nl"]
+    # S-P3-445: de tekst en de commentaarkop zeggen waarom er geen beheerder is: C-12 met ADR-0016 punt 7 ("Wachten")
+    # van appstore-en-fork; de voorziening (veld accounts, ADR-0023 van appstore-en-fork) bestaat, Node-RED gebruikt
+    # haar niet. Geen tekst belooft nog een weg die er niet is ("contractuitbreiding", "ontwerp S-P2-510").
+    beheer = " ".join(checks["beheerder_en_flows"]["beschrijving_nl"].split())
+    kop = " ".join(r.lstrip("# ") for r in nf.MANIFEST.read_text(encoding="utf-8").splitlines() if r.startswith("#"))
+    for tekst in (beheer, kop):
+        for woord in ("C-12", "ADR-0016 punt 7", "Wachten", "accounts", "nieuw besluit"):
+            assert woord in tekst, woord
+        assert "ontwerp S-P2-510" not in tekst and "contractuitbreiding" not in tekst
 
 
 def test_no_text_promises_anonymous_reading_or_403() -> None:
