@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from collections.abc import Callable
@@ -43,6 +44,7 @@ SERVICE_ROLE = "service"
 MAX_JWT_LIFETIME_S = 120
 CLOCK_SKEW_S = 30
 MAX_TOKEN_CHARS = 8192
+CLAIM_RE = re.compile(r"sha256:[0-9a-f]{64}")
 
 READ_ROLES = frozenset({"admin", "operator", "viewer", SERVICE_ROLE})
 WRITE_ROLES = frozenset({"admin", "operator", SERVICE_ROLE})
@@ -68,6 +70,8 @@ class Principal:
     kind: str  # "user" | "service"
     subject: str
     roles: frozenset[str] = field(default_factory=frozenset)
+    # Contract 1.3 §8.2: alleen in een dienst-JWT van de Hub; bindt het verzoek met catalog_binding.
+    catalog_request_sha256: str | None = None
 
     @property
     def key(self) -> str:
@@ -162,7 +166,10 @@ def verify_hub_jwt(
     elif token_use == "hub_service":  # noqa: S105 - tokensoort, geen wachtwoord
         if sub != "hub" or raw_roles != [SERVICE_ROLE] or not same_uuid(claims.get("service_id"), link.service_id):
             raise AuthError("token_use_invalid")
-        principal = Principal("service", "hub", frozenset({SERVICE_ROLE}))
+        claim = claims.get("catalog_request_sha256")
+        if claim is not None and (not isinstance(claim, str) or not CLAIM_RE.fullmatch(claim)):
+            raise AuthError("invalid_token")
+        principal = Principal("service", "hub", frozenset({SERVICE_ROLE}), claim)
     else:
         raise AuthError("token_use_invalid")
     jti = claims.get("jti")

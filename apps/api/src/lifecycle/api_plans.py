@@ -13,6 +13,7 @@ De inventaris en de catalogusbeschikbaarheid worden bij het maken van het plan *
 
 from __future__ import annotations
 
+import hmac
 import json
 import uuid
 from collections.abc import Callable, Mapping
@@ -24,11 +25,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
+from appstore.manifest.canonical import sha256_digest
 from lifecycle import planner
 from lifecycle.audit import audit
 from lifecycle.auth import Principal, require_read, require_write
 from lifecycle.errors import ApiError, trace_id_of
 from lifecycle.hubread import Beschikbaarheid, HubLezer, Inventaris, geldig_tot
+from lifecycle.idempotency import parse_key
 from lifecycle.models import LifecyclePlan
 from lifecycle.outbox import emit
 from lifecycle.redact import redact_text
@@ -65,7 +68,7 @@ def _begrensd(value: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
-class InstallPlanIn(_Strikt):
+class _ManifestIn(_Strikt):
     manifest_yaml: str = Field(min_length=1, max_length=MAX_MANIFEST_BYTES, description="Het manifest (YAML-tekst).")
     parameters: dict[str, Any] = Field(default_factory=dict, description="Waarden voor de manifestparameters. Nooit "
                                        "geheimen: de standaard weigert geheime parameters in formulierwaarden.")
@@ -75,6 +78,53 @@ class InstallPlanIn(_Strikt):
     _parameters_begrensd = field_validator("parameters")(_begrensd)
 
 
+class CatalogIn(_Strikt):
+    train: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
+    app: str = Field(pattern=APP_NAME, max_length=40)
+    version: str = Field(pattern=VERSION)
+
+
+class RecordIn(BaseModel):
+    """Alleen de velden van het door de Hub geverifieerde record die de planner zelf narekent (§8.2)."""
+
+    app_id: str = Field(min_length=1, max_length=64)
+    version: str = Field(min_length=1, max_length=64)
+    manifest_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class ProvenanceIn(BaseModel):
+    record: RecordIn
+
+
+class ReleaseIn(_Strikt):
+    catalog: CatalogIn
+    image_digests: list[Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]] = Field(min_length=1, max_length=20)
+
+
+class InstanceIn(_Strikt):
+    host_id: str = Field(min_length=1, max_length=64)
+    instance_id: str = Field(pattern=UUID_PATTERN)
+    registry_revision: str = Field(min_length=1, max_length=128)
+    app_name: str = Field(pattern=APP_NAME, max_length=40)
+    expected_version: Literal["absent"]  # alleen installatie (§8.1): de naam bestaat nog niet
+
+
+class CatalogBindingIn(_Strikt):
+    """``catalog_binding`` van de Hub (contract 1.3 §8.2): precies deze vijf velden. Bewaard en teruggegeven wordt
+    het ontvangen object zelf, niet deze weergave."""
+
+    appstore_service_id: str = Field(pattern=UUID_PATTERN)
+    source_approval_revision: str = Field(min_length=1, max_length=128)
+    provenance: ProvenanceIn
+    release: ReleaseIn
+    instance: InstanceIn
+
+
+class InstallPlanIn(_ManifestIn):
+    catalog_binding: CatalogBindingIn | None = Field(default=None, description="Alleen van de Hub als dienst, met "
+                                                     "claim catalog_request_sha256 in de dienst-JWT (§8.2).")
+
+
 class SchaduwIn(_Strikt):
     parameters: dict[str, Any] = Field(default_factory=dict, description="Afwijkende waarden voor de testkopie "
                                        "(minstens een vrije hostpoort); het datapad wijst het plan zelf naar de kloon.")
@@ -82,14 +132,8 @@ class SchaduwIn(_Strikt):
     _parameters_begrensd = field_validator("parameters")(_begrensd)
 
 
-class UpdatePlanIn(InstallPlanIn):
+class UpdatePlanIn(_ManifestIn):
     schaduw: SchaduwIn | None = None
-
-
-class CatalogIn(_Strikt):
-    train: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
-    app: str = Field(pattern=APP_NAME, max_length=40)
-    version: str = Field(pattern=VERSION)
 
 
 class RollbackPlanIn(_Strikt):
@@ -154,7 +198,8 @@ def plan_view(plan: LifecyclePlan) -> dict[str, Any]:
         "status": plan.status,
         "vervallen": vervallen,
         "preview_hash": plan.preview_hash, "manifest_sha256": plan.manifest_sha256,
-        "plan": plan.document, "voortgang": plan.stappen,
+        "plan": {k: v for k, v in plan.document.items() if k != "catalog_binding"}, "voortgang": plan.stappen,
+        "catalog_binding": plan.document.get("catalog_binding"),
         "vrijgegeven_stappen": [] if vervallen else [s["id"] for s in plan.stappen
                                                      if s.get("status") == "vrijgegeven"],
         "created_by": {"type": plan.created_by_type, "id": plan.created_by_id},
@@ -192,6 +237,8 @@ def _bewaar(request: Request, principal: Principal, idempotency_key: str | None,
     Idempotency-Key: een verzoek zonder sleutel of een herhaling meet niets en maakt geen tweede plan. De meting loopt
     vóór de eerste databasevraag van de handler, dus er staat geen transactie open tijdens de HTTP-aanroepen."""
     trace = trace_id_of(request)
+    if principal.catalog_request_sha256 is not None and pad != INSTALL_PREVIEW:
+        raise _niet_vertrouwd("claim_onverwacht")  # §8.2: alleen de installatiepreview kent deze variant
 
     def handler(session: Session) -> tuple[int, dict[str, Any], dict[str, str]]:
         document = maak_document()
@@ -230,20 +277,76 @@ _ANTWOORDEN: dict[int | str, dict[str, Any]] = {
 }
 
 
+# ------------------------------------------------------------------ vertrouwde plannerinvoer (§8.2)
+INSTALL_PREVIEW = "/lifecycle/v1/plans/install/preview"
+
+
+async def _ruwe_body(request: Request) -> bytes:
+    return await request.body()  # Starlette bewaart de body; de modelvalidatie leest dezelfde bytes
+
+
+def _niet_vertrouwd(reden: str) -> ApiError:
+    return ApiError(403, "forbidden", "Deze catalogusbinding wordt niet vertrouwd; er wordt niets gepland.",
+                    {"reason": reden})
+
+
+def _vertrouwde_binding(body: InstallPlanIn, raw: bytes, principal: Principal,
+                        idempotency_key: str | None) -> dict[str, Any] | None:
+    """Fail-closed: een binding alleen van ``service:hub`` (dienst-JWT al geverifieerd: gepinde sleutel, audience,
+    service-ID, vervaltijd, eenmalige ``jti``) met een claim die past over ``[POST, pad, Idempotency-Key, body]``.
+    Geeft het ontvangen object onveranderd terug; een claim zonder binding is onverwacht bewijs."""
+    if body.catalog_binding is None:
+        if principal.catalog_request_sha256 is not None:
+            raise _niet_vertrouwd("claim_zonder_binding")
+        return None
+    if principal.kind != "service" or principal.subject != "hub":
+        raise _niet_vertrouwd("alleen_hub_dienst")
+    if principal.catalog_request_sha256 is None:
+        raise _niet_vertrouwd("claim_ontbreekt")
+    parse_key(idempotency_key)  # zonder geldige sleutel 400, zoals elke mutatie
+    try:
+        verzoek = json.loads(raw)
+        verwacht = sha256_digest(["POST", INSTALL_PREVIEW, idempotency_key, verzoek])
+    except ValueError:
+        raise _niet_vertrouwd("claim_past_niet") from None
+    if not hmac.compare_digest(verwacht, principal.catalog_request_sha256):
+        raise _niet_vertrouwd("claim_past_niet")
+    if body.app_name is None or body.catalog_binding.instance.app_name != body.app_name:
+        raise _niet_vertrouwd("doel_past_niet")
+    binding: dict[str, Any] = verzoek["catalog_binding"]
+    return binding
+
+
+def _toets_record(document: Mapping[str, Any], binding: Mapping[str, Any]) -> None:
+    """``app_id``, versie en ``manifest_sha256`` van het zelf ingelezen manifest tegen het record van de Hub."""
+    record = binding["provenance"]["record"]
+    manifest = document.get("manifest") or {}
+    anders = sorted(k for k in ("app_id", "version", "manifest_sha256") if manifest.get(k) != record.get(k))
+    if anders:
+        raise ApiError(409, "catalogusbinding_past_niet", "Het manifest past niet bij het catalogusbewijs van de "
+                       "Hub; er wordt niets gepland.", {"velden": anders})
+
+
 # ------------------------------------------------------------------ routes
 @router.post("/plans/install/preview", status_code=201, responses=_ANTWOORDEN,
              summary="Installatieplan: dry-run, diff, poortconflicten en afhankelijkheden (voert niets uit)")
 def preview_install(body: InstallPlanIn, request: Request, principal: Annotated[Principal, Depends(require_write)],
+                    raw: Annotated[bytes, Depends(_ruwe_body)],
                     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None) -> JSONResponse:
     plan_id = uuid.uuid4()
     doel = planner.Doel(body.doel.truenas_version, body.doel.ix_app_version)
+    binding = _vertrouwde_binding(body, raw, principal, idempotency_key)
 
     def maak() -> dict[str, Any]:
-        return _met_bronnen(request, lambda inventaris, beschikbaar: planner.plan_installatie(
+        document = _met_bronnen(request, lambda inventaris, beschikbaar: planner.plan_installatie(
             plan_id=plan_id, manifest_yaml=body.manifest_yaml, parameters=body.parameters, app_name=body.app_name,
             doel=doel, inventaris=inventaris, beschikbaar=beschikbaar, now=utcnow()))
+        if binding is not None:
+            _toets_record(document, binding)
+            document["catalog_binding"] = binding  # onveranderlijk: niets schrijft het document na aanmaken
+        return document
 
-    return _bewaar(request, principal, idempotency_key, "/lifecycle/v1/plans/install/preview", body, plan_id, maak)
+    return _bewaar(request, principal, idempotency_key, INSTALL_PREVIEW, body, plan_id, maak)
 
 
 @router.post("/plans/update/preview", status_code=201, responses=_ANTWOORDEN,

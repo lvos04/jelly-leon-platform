@@ -2,6 +2,15 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Vertrouwde plannerinvoer (contract 1.3 §8.2, M3; S-P2-050d-plan)**: `POST /lifecycle/v1/plans/install/preview`
+  neemt `catalog_binding` aan (precies `appstore_service_id`, `source_approval_revision`, `provenance`, `release`,
+  `instance`; elk ander veld 422), uitsluitend van de Hub als dienst met de claim `catalog_request_sha256` over
+  `[POST, pad, Idempotency-Key, body]`. Geen of een afwijkende claim, een gebruikerstoken, een ander doel
+  (`instance.app_name`) of een claim zonder binding geeft 403; `app_id`, versie of `manifest_sha256` van het zelf
+  ingelezen manifest anders dan in het record geeft 409. De binding staat onveranderd in het plandocument en komt
+  terug als `catalog_binding` bij aanmaken, ophalen en stapmelding (`null` zonder binding). De updatepreview kent
+  geen binding (422). `report_step` neemt de dienst-JWT van de Hub al aan (WRITE_ROLES, ADR-0022 besluit 7).
+  Kluisvertaling en de weigering van een uitvoerbare stap bij losse `manifest_yaml` volgen apart. Sim-getest.
 - **Manifeststandaard overgenomen** (KLEIN-101, ADR-0021): dienstkopie, CLI en CI gepind op
   `appstore-en-fork@a994c2a51f45b81b2c48c6533b0ccf51ba857f5a`; weigering van geheimen en accountgegevens,
   `accounts`, uitgebreide woordenlijst, variant B en weigering van letterlijke kluisverwijzingen in `validate`.

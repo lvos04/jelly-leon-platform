@@ -19,6 +19,41 @@
         "title": "Actor",
         "type": "object"
       },
+      "CatalogBindingIn": {
+        "additionalProperties": false,
+        "description": "``catalog_binding`` van de Hub (contract 1.3 §8.2): precies deze vijf velden. Bewaard en teruggegeven wordt\nhet ontvangen object zelf, niet deze weergave.",
+        "properties": {
+          "appstore_service_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Appstore Service Id",
+            "type": "string"
+          },
+          "instance": {
+            "$ref": "#/components/schemas/InstanceIn"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceIn"
+          },
+          "release": {
+            "$ref": "#/components/schemas/ReleaseIn"
+          },
+          "source_approval_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source Approval Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appstore_service_id",
+          "source_approval_revision",
+          "provenance",
+          "release",
+          "instance"
+        ],
+        "title": "CatalogBindingIn",
+        "type": "object"
+      },
       "CatalogIn": {
         "additionalProperties": false,
         "properties": {
@@ -409,6 +444,17 @@
             ],
             "title": "App Name"
           },
+          "catalog_binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogBindingIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alleen van de Hub als dienst, met claim catalog_request_sha256 in de dienst-JWT (§8.2)."
+          },
           "doel": {
             "$ref": "#/components/schemas/DoelIn"
           },
@@ -430,6 +476,48 @@
           "manifest_yaml"
         ],
         "title": "InstallPlanIn",
+        "type": "object"
+      },
+      "InstanceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "maxLength": 40,
+            "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+            "title": "App Name",
+            "type": "string"
+          },
+          "expected_version": {
+            "const": "absent",
+            "title": "Expected Version",
+            "type": "string"
+          },
+          "host_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Host Id",
+            "type": "string"
+          },
+          "instance_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "registry_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Registry Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host_id",
+          "instance_id",
+          "registry_revision",
+          "app_name",
+          "expected_version"
+        ],
+        "title": "InstanceIn",
         "type": "object"
       },
       "LifecycleState": {
@@ -497,6 +585,18 @@
         "title": "PinnedKids",
         "type": "object"
       },
+      "ProvenanceIn": {
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/RecordIn"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "ProvenanceIn",
+        "type": "object"
+      },
       "ReadbackIn": {
         "additionalProperties": false,
         "description": "De teruggelezen toestand van het doel na de stap, zoals de melder die doorgeeft (bedoeld: de readback van de\nexecutor, via de Hub). Deze dienst kan haar niet zelf nagaan; de Hub toetst elk volgend voorstel opnieuw met een\neigen readback (ADR-0025). Geen vrije configuratie.",
@@ -551,6 +651,59 @@
           "staat"
         ],
         "title": "ReadbackIn",
+        "type": "object"
+      },
+      "RecordIn": {
+        "description": "Alleen de velden van het door de Hub geverifieerde record die de planner zelf narekent (§8.2).",
+        "properties": {
+          "app_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "App Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "version",
+          "manifest_sha256"
+        ],
+        "title": "RecordIn",
+        "type": "object"
+      },
+      "ReleaseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/CatalogIn"
+          },
+          "image_digests": {
+            "items": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Image Digests",
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalog",
+          "image_digests"
+        ],
+        "title": "ReleaseIn",
         "type": "object"
       },
       "RollbackPlanIn": {
