@@ -11,9 +11,10 @@ Stappen:
       ``GET /flows``, ``/nodes``, ``/settings`` en ``/diagnostics`` geven 401, ``POST /flows`` ook; exporteren zonder
       aanmelding wordt geweigerd);
 - N2  controleproef: dezelfde image **zonder** ``FLOWS`` is onbeveiligd, en de monitor uit het manifest ziet dat;
-- N3  beheerdersmodus met een wegwerpaccount (dezelfde ``FLOWS``, alleen met één gebruiker): alleen kern-nodes geladen
-      (``GET /nodes`` kan na C-11 alleen aangemeld); een exec-/function-node voert niets uit; geen extra nodes te
-      installeren;
+- N3  beheerdersmodus met een wegwerpaccount (dezelfde ``FLOWS``, alleen met een beheerder en een dienstaccount):
+      alleen kern-nodes geladen (``GET /nodes`` kan na C-11 alleen aangemeld); een exec-/function-node voert niets
+      uit; geen extra nodes te installeren; het dienstaccount (rechten ``read``) krijgt geen token met alle rechten,
+      kan flows lezen en kan geen flows schrijven (S-P3-445);
 - N4  flows importeren: token alleen als versleuteld credential, checksums gelijk aan het lock en de teruggelezen
       tabbladen door de eigen controle (``eigen_controle``), export (als beheerder) gelijk;
 - N5  MediaGuard gestopt → event ``flow.app_watch.down``; weer gestart → ``flow.app_watch.recovered``;
@@ -38,8 +39,9 @@ Stappen:
       token; de verbindingen bij die Hub zijn na de keep-alive-tijd van de simulator weer dicht; controleproef via de
       rauwe Admin-API met ``persist: false``: het verzoek met de bearer-kop gaat via de proxy.
 
-Wat dit **niet** is: een installatie op TrueNAS, de echte Hub of de echte uitvoerder. Het beheerdersaccount van N3–N9
-kan het manifest (nog) niet leveren; de rooktest zet het met een wegwerpwaarde in ``FLOWS``. Uitkomst: **Sim-getest;
+Wat dit **niet** is: een installatie op TrueNAS, de echte Hub of de echte uitvoerder. De beheerder en het
+dienstaccount van N3–N9 levert het manifest niet (besluit C-12 met ADR-0016 punt 7 "Wachten" van appstore-en-fork);
+de rooktest zet ze met wegwerpwaarden in ``FLOWS``. Uitkomst: **Sim-getest;
 NIET GEVALIDEERD (echte NAS)**. Het rapport bevat geen tokens, wachtwoorden of hashes.
 
 Gebruik::
@@ -447,14 +449,21 @@ class NoderedRooktest(UpstreamRooktest):
 
     def n3_beheer(self) -> None:
         with self.stap("N3", "Beheerdersmodus (wegwerpaccount); exec/function voeren niets uit (I10-10-02)") as s:
-            hash_ = sh("docker", "run", "--rm", "--network", "none", "--entrypoint", "node", self.app.image, "-e",
-                       "console.log(require('bcryptjs').hashSync(process.argv[1], 8))", "--", self.wachtwoord).strip()
+            def bcrypt(wachtwoord: str) -> str:
+                return sh("docker", "run", "--rm", "--network", "none", "--entrypoint", "node", self.app.image, "-e",
+                          "console.log(require('bcryptjs').hashSync(process.argv[1], 8))", "--", wachtwoord).strip()
+
+            hash_ = bcrypt(self.wachtwoord)
             leeg = '"users":[]'
             eis(self.manifest_flows.count(leeg) == 1, "FLOWS uit het manifest heeft geen lege gebruikerslijst")
-            gebruiker = json.dumps({"username": self.gebruiker, "password": hash_, "permissions": "*"},
-                                   separators=(",", ":"))
+            # S-P3-445: naast de beheerder een wegwerp-dienstaccount met alleen lezen (wat home-control-hub nodig heeft;
+            # het manifest levert het niet: C-12 met ADR-0016 punt 7 "Wachten" van appstore-en-fork).
+            dienst, dienst_ww = self.gebruiker + "-dienst", secrets.token_urlsafe(18)
+            gebruikers = ",".join(json.dumps(u, separators=(",", ":")) for u in (
+                {"username": self.gebruiker, "password": hash_, "permissions": "*"},
+                {"username": dienst, "password": bcrypt(dienst_ww), "permissions": "read"}))
             self.poort = vrije_poort()
-            self.beheer_flows = self.manifest_flows.replace(leeg, f'"users":[{gebruiker}]')
+            self.beheer_flows = self.manifest_flows.replace(leeg, f'"users":[{gebruikers}]')
             self.cname = self.start(self.variant("beheer", self.beheer_flows), self.lege_map("beheer"), self.poort)
             wacht("Node-RED (beheer) antwoordt", lambda: self.klaar(self.poort), 180)
             eis(self.monitor_ok(self.poort), "monitor klopt niet in beheerdersmodus")
@@ -466,6 +475,7 @@ class NoderedRooktest(UpstreamRooktest):
                 s.details["fout_wachtwoord"] = "geweigerd"
             nr = nf.NodeRed(f"http://127.0.0.1:{self.poort}", self.http)
             nr.login(self.gebruiker, self.wachtwoord)
+            s.details["dienstaccount_alleen_lezen"] = self.dienst_proef(dienst, dienst_ww)
             s.details["POST /flows anoniem"] = self.status(self.poort, "/flows", "POST", json=[])
             eis(s.details["POST /flows anoniem"] == 401, "anoniem schrijven is niet geweigerd")
             s.details["GET /flows anoniem"] = self.status(self.poort, "/flows")
@@ -501,6 +511,34 @@ class NoderedRooktest(UpstreamRooktest):
             rev, flows = nr.flows()
             nr.zet_flows(rev, [n for n in flows if n.get("id") != z and n.get("z") != z])
             self.nr = nr
+
+    def dienst_proef(self, gebruiker: str, wachtwoord: str) -> dict[str, Any]:
+        """Het dienstaccount (rechten ``read``): aanmelden met ``scope=*`` lukt niet, met ``scope=read`` wel; lezen
+        (``GET /flows``) mag, flows schrijven (``POST /flows``) niet. Gemeten statussen; tokens komen niet in het
+        rapport."""
+        def token(scope: str) -> httpx.Response:
+            return self.http.post(f"http://127.0.0.1:{self.poort}/auth/token", data={
+                "client_id": "node-red-admin", "grant_type": "password", "scope": scope, "username": gebruiker,
+                "password": wachtwoord})
+
+        alles, lezen = token("*"), token("read")
+        uit: dict[str, Any] = {"rechten": "read", "POST /auth/token scope=*": alles.status_code,
+                               "POST /auth/token scope=read": lezen.status_code}
+        eis(alles.status_code != 200, "het dienstaccount krijgt een token met alle rechten")
+        eis(lezen.status_code == 200, f"het dienstaccount kan zich niet aanmelden (HTTP {lezen.status_code})")
+        kop = {"Node-RED-API-Version": "v2", "Authorization": f"Bearer {lezen.json()['access_token']}"}
+        uit["GET /flows"] = self.status(self.poort, "/flows", headers=kop)
+        r = self.http.get(f"http://127.0.0.1:{self.poort}/flows", headers=kop)
+        rev = str(r.json().get("rev", "")) if r.status_code == 200 else ""
+        uit["POST /flows"] = self.status(self.poort, "/flows", "POST", headers={**kop, "Node-RED-Deployment-Type":
+                                                                               "full"}, json={"rev": rev, "flows": []})
+        uit["POST /nodes"] = self.status(self.poort, "/nodes", "POST", headers=kop, json={"module": "x"})
+        eis(uit["GET /flows"] == 200, f"het dienstaccount kan de flows niet lezen (HTTP {uit['GET /flows']})")
+        eis(uit["POST /flows"] in (401, 403), f"het dienstaccount kan flows schrijven (HTTP {uit['POST /flows']})")
+        eis(uit["POST /nodes"] in (401, 403, 404),
+            f"het dienstaccount kan nodes installeren (HTTP {uit['POST /nodes']})")
+        uit["kan_flows_schrijven"] = False
+        return uit
 
     def n4_import(self) -> None:
         with self.stap("N4", "Flows importeren: token versleuteld, checksums gelijk aan het lock (I10-10-03)") as s:

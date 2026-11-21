@@ -1,7 +1,7 @@
 {
   "soort": "rooktest Node-RED als standaard Custom App tegen de Hub-simulator (P2: I10-10-01…06)",
-  "gestart": "2026-11-12T06:36:02Z",
-  "klaar": "2026-11-12T06:38:56Z",
+  "gestart": "2026-11-21T16:01:49Z",
+  "klaar": "2026-11-21T16:04:39Z",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
   "omgeving": "Docker (geen TrueNAS): --user 568:568, eigen lege map op /data, poort op 127.0.0.1, zonder --cap-drop of no-new-privileges; Hub = simulator op het adres van de Docker-bridge",
   "images": {
@@ -78,6 +78,15 @@
       "uitkomst": "geslaagd",
       "details": {
         "fout_wachtwoord": "geweigerd",
+        "dienstaccount_alleen_lezen": {
+          "rechten": "read",
+          "POST /auth/token scope=*": 403,
+          "POST /auth/token scope=read": 200,
+          "GET /flows": 200,
+          "POST /flows": 401,
+          "POST /nodes": 404,
+          "kan_flows_schrijven": false
+        },
         "POST /flows anoniem": 401,
         "GET /flows anoniem": 401,
         "node_types": [

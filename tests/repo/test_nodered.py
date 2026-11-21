@@ -1315,6 +1315,11 @@ def test_saved_report_is_complete_and_honest() -> None:
     n3 = stappen["N3"]["details"]
     assert not {"exec", "function", "file", "http in"} & set(n3["node_types"])
     assert {"inject", "change", "http request"} <= set(n3["node_types"]) and n3["GET /flows anoniem"] == 401
+    # S-P3-445 negatief (b): het dienstaccount (alleen lezen) kan lezen maar geen flows schrijven (gemeten status)
+    dienst = n3["dienstaccount_alleen_lezen"]
+    assert dienst["rechten"] == "read" and dienst["kan_flows_schrijven"] is False
+    assert dienst["POST /auth/token scope=*"] != 200 and dienst["POST /auth/token scope=read"] == 200
+    assert dienst["GET /flows"] == 200 and dienst["POST /flows"] in (401, 403)
     lock = nf.lees_lock()["bundels"]
     readback = stappen["N4"]["details"]["readback"]
     assert set(readback) == set(lock)
