@@ -14,17 +14,55 @@ protocol, de foutinjectie en wat hij **niet** nabootst.
 | Uptime Kuma | `uptime_kuma/` | `uptime_kuma_sim` · `python -m uptime_kuma_sim` | `/metrics`, statuspagina, push (2.5.9) | Hub (B09-002), I08, EX22 |
 | Gotify | `gotify/` | `gotify_sim` · `python -m gotify_sim` | `/message`, `/health`, `/version`, beheer-lezen (v3.1.1) | Hub (meldingen), Uptime Kuma, I13 |
 | Authentik | `authentik/` | `authentik_sim` · `python -m authentik_sim` | OIDC (code + PKCE, JWKS, userinfo, refresh) + beheer-API `/api/v3` (2026.8.5) | Hub (B01-006), home-control-hub (B13), I09 |
+| Seerr en arr | `arr/` | `arr_sim` · poort **30216** | Seerr-aanvragen, normale en anime-instanties van Sonarr/Radarr, zoekopdrachten en bestandskoppelingen | MediaGuard, EX02–EX04, EX37 |
+| SABnzbd | `sabnzbd/` | `sabnzbd_sim` · poort **30217** | MSO-mock met categorie-terugval en afzonderlijke providerstoringen | MediaGuard, MSO, EX02, EX39–EX40 |
+| qBittorrent | `qbittorrent/` | `qbittorrent_sim` · poort **30218** | MSO-mock met private torrent, DHT/PeX-voorkeuren en seedlimieten | MSO, EX41 |
+| Prowlarr | `arr/prowlarr.py` | `arr_sim --prowlarr` · poort **30219** | MSO-mock met Newznab-terugoproep en meetbare zoekdiepte | MSO, EX42 |
 
 ## Installeren en testen
 
 ```bash
 pip install -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
 (cd e2e/simulators/truenas && python -m pytest -q)     # TrueNAS
-(cd e2e/simulators && python -m pytest -q)             # Beszel, Uptime Kuma, Gotify, Authentik
+(cd e2e/simulators && python -m pytest -q)             # derden-simulators en downloadketen
 ```
 
 Andere repos mogen deze simulators **lezen en gebruiken**, niet wijzigen (bijv. de Hub in zijn E2E-tests:
 `pip install -e ../jelly-leon-platform/e2e/simulators` en `python -m gotify_sim --port …`).
+
+## Downloadketen en hergebruik van de MSO-container
+
+De integrale testomgeving gebruikt de container uit `media-source-optimizer/apps/mocks/Dockerfile`.
+De bron is vastgezet op `a10b920874724dfbbb11b4ab85720d50d17649b1` in `mso-mocks.commit`.
+SABnzbd, qBittorrent en Prowlarr draaien de oorspronkelijke `msomocks`-API in die image. De drie
+startmodules voegen de gedeelde testbediening toe. Newznab en NNTP zijn ook als dienst in die image
+beschikbaar. De Radarr-contractmock van MSO heeft een vaste film en wachtrij. De integratiefakes in
+`media-guard-ultimate/tests/integration/fakes/` leveren een indexer en SAB met proefbestanden.
+De Seerr-routering en de twee nummeringen van een anime-aflevering staan in de arr-simulator.
+
+`make test-sim` leest de gepinde MSO-testbron uit de lokale Git-kopie in `../media-source-optimizer`.
+Stel bij een aparte werkkopie `MSO_BRON` in op de locatie van die repository. De tests pakken alleen
+`apps/mocks/msomocks` van die commit uit in hun tijdelijke map. Voor handmatig gebruik zonder container
+moet die uitgepakte map `apps/mocks` op `PYTHONPATH` staan.
+
+Bouw de MSO-image uit de vastgelegde bron, vanuit de hoofdmap van deze repo. Gebruik de bouwlock van
+de gedeelde machine. Onderstaand voorbeeld gebruikt de lokale MSO-repository en een bestaand, uitsluitend
+intern Docker-testnet in `TESTNET` (`docker network create --internal`). Publiceer geen hostpoorten.
+
+```bash
+pin=$(cat e2e/simulators/mso-mocks.commit)
+git -C "${MSO_BRON:-../media-source-optimizer}" archive "$pin:apps/mocks" | docker build -t "mso-mocks:$pin" -
+docker run --rm --network "$TESTNET" --network-alias sabnzbd \
+  -v "$PWD/e2e/simulators:/sim:ro" -e PYTHONPATH=/sim:/opt/mocks \
+  --entrypoint python "mso-mocks:$pin" -m sabnzbd --host intern
+```
+
+Gebruik voor qBittorrent `-m qbittorrent --host intern`, voor Prowlarr `-m arr --prowlarr --host intern`
+en voor Seerr met de vier arr-instanties `-m arr --host intern`. Geef iedere dienst zijn eigen netwerkalias.
+Voor de NZB-overdracht heeft arr ook `--sab-url http://sabnzbd:30217` en de testomgevingsvariabele
+`SIM_SAB_APIKEY` nodig. De startmodules gebruiken standaard loopback. `--host intern` vereist een
+Docker-container zonder actieve standaardroute. De protocol- en foutproeven staan in de map `tests/` per
+simulator. De latere scenario’s meten het handelen van MediaGuard en MSO.
 
 ## Gemeenschappelijke testbediening (`simkit`)
 
@@ -36,6 +74,9 @@ Elke simulator van een derde app heeft dezelfde routes onder `/_sim/` (nooit in 
 | `GET /_sim/fouten` · `POST /_sim/fouten {"naam","aantal","pad","waarde"}` · `DELETE /_sim/fouten[?naam=]` | foutinjectie: alleen de eerstvolgende `aantal` keer, alleen paden die op de regex `pad` passen |
 | `GET /_sim/verzoeken` | ontvangen verzoeken (methode, pad, querynamen, of er aanmelding bij zat — nooit de aanmeldgegevens zelf; een geheim in het pad, zoals de push-token van Uptime Kuma, wordt geredigeerd) |
 | `POST /_sim/reset` | begintoestand (nieuwe tokens en sleutels) |
+
+Elke verzoekregel bevat in `fouten` de werkelijk toegepaste algemene fouten. De SAB-bediening vermeldt ook
+de protocolhandeling in `details`, omdat een GET bij SAB configuratie kan wijzigen.
 
 Algemene fouten in elke simulator: `http_500`, `http_502`, `http_503`, `traag` (`waarde` seconden), `ongeldige_json`,
 `te_groot` (`waarde` MiB, zonder `Content-Length`) en `redirect` (302 naar een andere host; een client hoort die nooit

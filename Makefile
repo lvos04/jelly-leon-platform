@@ -19,7 +19,7 @@ typecheck:
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
 		tools/validator_kopie.py tools/nodered_flows.py
-	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
+	cd e2e/simulators && ../../$(PY) -m mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma arr sabnzbd qbittorrent \
 		--exclude '/tests/'
 	MYPYPATH=e2e/simulators/hub $(PY) -m mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
 	MYPYPATH=e2e/simulators/hub:tools $(PY) -m mypy --strict --python-version 3.12 tools/nodered_rooktest.py

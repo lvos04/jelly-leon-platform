@@ -24,12 +24,15 @@ Algemene fouten (in elke simulator, vóór de routering; ``/_sim/…`` is uitgez
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import re
 import threading
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
+from ipaddress import ip_address
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -107,6 +110,8 @@ class Verzoek:
     pad: str
     query: list[str]
     aanmelding: bool
+    fouten: list[str] = field(default_factory=list)
+    details: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -119,17 +124,20 @@ class Verzoeklog:
     max_items: int = 5000
     geheime_paden: tuple[tuple[re.Pattern[str], str], ...] = ()
 
-    def add(self, request: Request) -> None:
+    def add(self, request: Request) -> Verzoek:
         auth = bool(request.headers.get("authorization") or request.headers.get("x-gotify-key")
-                    or "token" in request.query_params)
+                    or request.headers.get("x-api-key") or request.cookies.get("SID")
+                    or "token" in request.query_params or "apikey" in request.query_params)
         pad = request.url.path
         for patroon, vervanging in self.geheime_paden:
             geredigeerd = patroon.sub(vervanging, pad)
             if geredigeerd != pad:
                 pad, auth = geredigeerd, True
-        self.items.append(Verzoek(time.time(), request.method, pad,
-                                  sorted(k for k in request.query_params if k != "token"), auth))
+        item = Verzoek(time.time(), request.method, pad,
+                       sorted(k for k in request.query_params if k.lower() not in {"token", "apikey"}), auth)
+        self.items.append(item)
         del self.items[: max(0, len(self.items) - self.max_items)]
+        return item
 
     def schrijvend(self, prefix: str = "") -> list[Verzoek]:
         return [v for v in self.items if v.methode not in ("GET", "HEAD", "OPTIONS") and v.pad.startswith(prefix)]
@@ -146,6 +154,7 @@ def install(
     reset: Callable[[], None],
     fout_body: FoutBody,
     sleutels: Callable[[], dict[str, Any]] | None = None,
+    beschrijf: Callable[[Request], Awaitable[dict[str, str]]] | None = None,
 ) -> None:
     """Testbediening (``/_sim/…``) en de algemene foutinjectie als middleware."""
 
@@ -154,17 +163,26 @@ def install(
         pad = request.url.path
         if pad.startswith("/_sim/"):
             return await call_next(request)
-        log.add(request)
-        if f := fouten.raak("traag", pad):
+        item = log.add(request)
+        if beschrijf is not None:
+            item.details = await beschrijf(request)
+
+        def raak(naam: str) -> Fout | None:
+            fout = fouten.raak(naam, pad)
+            if fout is not None:
+                item.fouten.append(naam)
+            return fout
+
+        if f := raak("traag"):
             await asyncio.sleep(float(f.waarde if f.waarde is not None else 20))
         for status in (500, 502, 503):
-            if fouten.raak(f"http_{status}", pad):
+            if raak(f"http_{status}"):
                 return JSONResponse(fout_body(status, "Gesimuleerde storing"), status_code=status)
-        if fouten.raak("redirect", pad):
+        if raak("redirect"):
             return Response(status_code=302, headers={"Location": "http://elders.invalid/"})
-        if fouten.raak("ongeldige_json", pad):
+        if raak("ongeldige_json"):
             return Response(b"{dit is geen json", status_code=200, media_type="application/json")
-        if f := fouten.raak("te_groot", pad):
+        if f := raak("te_groot"):
             mib = int(f.waarde or 6)
 
             async def stroom() -> AsyncIterator[bytes]:
@@ -220,11 +238,34 @@ def serve(app: FastAPI, host: str, port: int, certfile: str | None = None, keyfi
     uvicorn.run(app, host=host, port=port, log_level="warning", ssl_certfile=certfile, ssl_keyfile=keyfile)
 
 
-def basis_args(beschrijving: str, standaard_poort: int) -> Any:
-    import argparse
+def _testhost(host: str) -> str:
+    if host == "localhost":
+        return host
+    try:
+        adres = ip_address(0 if host == "intern" else host)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Gebruik een loopbackadres of een intern testnet") from None
+    if adres.is_loopback:
+        return host
+    # Alleen een container zonder standaardroute mag aan alle interfaces binden.
+    if adres.is_unspecified and Path("/.dockerenv").exists():
+        try:
+            ipv4 = Path("/proc/net/route").read_text().splitlines()[1:]
+            ipv6 = Path("/proc/net/ipv6_route")
+            v4_default = any(r[1] == r[7] == "00000000" and int(r[3], 16) & 1
+                             for r in (regel.split() for regel in ipv4))
+            v6_default = ipv6.exists() and any(r[0] == "0" * 32 and r[1] == "00" and int(r[8], 16) & 1
+                                               for r in (regel.split() for regel in ipv6.read_text().splitlines()))
+            if not v4_default and not v6_default:
+                return str(adres)
+        except (OSError, ValueError, IndexError):
+            pass
+    raise argparse.ArgumentTypeError("Gebruik loopback of een geïsoleerd intern Docker-testnet")
 
+
+def basis_args(beschrijving: str, standaard_poort: int, *, alleen_testnet: bool = False) -> Any:
     parser = argparse.ArgumentParser(description=beschrijving + " — alleen voor tests")
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--host", default="127.0.0.1", type=_testhost if alleen_testnet else str)
     parser.add_argument("--port", type=int, default=standaard_poort)
     parser.add_argument("--ssl-certfile", default=None)
     parser.add_argument("--ssl-keyfile", default=None)

@@ -1,4 +1,4 @@
-# Simulators van apps van derden (Beszel, Uptime Kuma, Gotify, Authentik) + gedeelde testbediening (simkit).
+# Simulators van apps van derden met gedeelde testbediening (simkit).
 # ALLEEN voor tests en de integrale E2E-omgeving; geen productiecode. De TrueNAS-simulator (truenas/) en de
 # Hub-simulator (hub/) hebben hun eigen opzet. Installeren: pip install -e 'e2e/simulators[test]'.
 [build-system]
@@ -8,27 +8,32 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jlp-derden-sims"
 version = "0.1.0"
-description = "Simulators van Beszel, Uptime Kuma, Gotify en Authentik voor tests van het TrueNAS Home Platform"
+description = "Simulators van Beszel, Uptime Kuma, Gotify, Authentik en de downloadketen voor tests van het TrueNAS Home Platform"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.162.2",
   "starlette==1.10.0",
   "uvicorn==0.54.0",
+  "httpx==0.28.1",
   "PyJWT==2.15.1",
   "cryptography==50.0.2",
 ]
 
 [project.optional-dependencies]
-test = ["pytest==9.2.0", "httpx==0.28.1"]
+test = ["pytest==9.2.0", "defusedxml==0.7.1", "python-multipart==0.0.33"]
 
 [project.scripts]
 beszel-sim = "beszel_sim.__main__:main"
 uptime-kuma-sim = "uptime_kuma_sim.__main__:main"
 gotify-sim = "gotify_sim.__main__:main"
 authentik-sim = "authentik_sim.__main__:main"
+arr-sim = "arr_sim.__main__:main"
+sabnzbd-sim = "sabnzbd_sim.__main__:main"
+qbittorrent-sim = "qbittorrent_sim.__main__:main"
 
 [tool.setuptools]
-packages = ["simkit", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim"]
+packages = ["simkit", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim",
+            "arr_sim", "sabnzbd_sim", "qbittorrent_sim"]
 
 [tool.setuptools.package-dir]
 simkit = "simkit"
@@ -36,8 +41,12 @@ beszel_sim = "beszel"
 uptime_kuma_sim = "uptime_kuma"
 gotify_sim = "gotify"
 authentik_sim = "authentik"
+arr_sim = "arr"
+sabnzbd_sim = "sabnzbd"
+qbittorrent_sim = "qbittorrent"
 
 [tool.pytest.ini_options]
-testpaths = ["beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests"]
+testpaths = ["beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
+             "arr/tests", "sabnzbd/tests", "qbittorrent/tests"]
 addopts = "-ra"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

@@ -45,7 +45,7 @@ jobs:
           mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
             tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
             tools/validator_kopie.py tools/nodered_flows.py
-          (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma \
+          (cd e2e/simulators && mypy --strict --python-version 3.12 simkit beszel gotify authentik uptime_kuma arr sabnzbd qbittorrent \
             --exclude '/tests/')
           MYPYPATH=e2e/simulators/hub mypy --strict --python-version 3.12 tests/ui/live/hub_review.py e2e/simulators/hub/executor_sim.py
           MYPYPATH=e2e/simulators/hub:tools mypy --strict --python-version 3.12 tools/nodered_rooktest.py
@@ -57,7 +57,9 @@ jobs:
       - name: Tests TrueNAS-simulator
         working-directory: e2e/simulators/truenas
         run: python -m pytest -q
-      - name: Tests simulators Beszel, Uptime Kuma, Gotify en Authentik (protocol + foutinjectie)
+      - name: Tests derden-simulators en downloadketen (protocol en foutinjectie)
+        env:
+          MSO_BRON: ${{ runner.temp }}/mso-bron
         working-directory: e2e/simulators
         run: python -m pytest -q
       - name: Conformiteit met contract 1.3 (Hub-simulator; dezelfde tests draaien lokaal tegen de echte Hub)
