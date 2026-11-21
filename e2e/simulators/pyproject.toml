@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jlp-derden-sims"
 version = "0.1.0"
-description = "Simulators van Beszel, Uptime Kuma, Gotify, Authentik en de downloadketen voor tests van het TrueNAS Home Platform"
+description = "Simulators van Beszel, Uptime Kuma, Gotify, Authentik, de downloadketen en huis en energie (Gree, HomeWizard, Zigbee) voor tests van het TrueNAS Home Platform"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.162.2",
@@ -30,10 +30,13 @@ authentik-sim = "authentik_sim.__main__:main"
 arr-sim = "arr_sim.__main__:main"
 sabnzbd-sim = "sabnzbd_sim.__main__:main"
 qbittorrent-sim = "qbittorrent_sim.__main__:main"
+gree-sim = "gree_sim.__main__:main"
+homewizard-sim = "homewizard_sim.__main__:main"
+zigbee-sim = "zigbee_sim.__main__:main"
 
 [tool.setuptools]
 packages = ["simkit", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim",
-            "arr_sim", "sabnzbd_sim", "qbittorrent_sim"]
+            "arr_sim", "sabnzbd_sim", "qbittorrent_sim", "gree_sim", "homewizard_sim", "zigbee_sim"]
 
 [tool.setuptools.package-dir]
 simkit = "simkit"
@@ -44,9 +47,12 @@ authentik_sim = "authentik"
 arr_sim = "arr"
 sabnzbd_sim = "sabnzbd"
 qbittorrent_sim = "qbittorrent"
+gree_sim = "gree"
+homewizard_sim = "homewizard"
+zigbee_sim = "zigbee"
 
 [tool.pytest.ini_options]
 testpaths = ["beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
-             "arr/tests", "sabnzbd/tests", "qbittorrent/tests"]
+             "arr/tests", "sabnzbd/tests", "qbittorrent/tests", "gree/tests", "homewizard/tests", "zigbee/tests"]
 addopts = "-ra"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

@@ -1,4 +1,4 @@
-"""Gedeelde proeven voor de downloadketen. Alleen de gepinde MSO-testbron wordt geladen."""
+"""Gedeelde proeven. Alleen de gepinde testbronnen van MSO en my_house worden geladen."""
 
 import io
 import os
@@ -22,6 +22,25 @@ def mso_bron(tmp_path_factory):
     with pytest.MonkeyPatch.context() as paths:
         paths.syspath_prepend(str(checkout / "apps/mocks"))
         yield
+
+
+MY_HOUSE_PADEN = ("integrations/src/shc_integrations", "integrations/tests/fake_gree.py")
+
+
+@pytest.fixture(scope="session")
+def my_house_bron(tmp_path_factory):
+    """Map met ``fake_gree.py`` van de gepinde my_house-commit, met ``shc_integrations`` op het pad (de fake van de
+    Gree-unit en de adapters waarmee de tests nagaan dat my_house de berichten van de simulators leest)."""
+    root = Path(__file__).resolve().parent
+    repo = os.environ.get("MY_HOUSE_BRON", root.parents[2] / "my_house")
+    pin = (root / "my-house.commit").read_text().strip()
+    archive = subprocess.check_output(["git", "-C", repo, "archive", pin, *MY_HOUSE_PADEN])  # noqa: S603,S607
+    checkout = tmp_path_factory.mktemp("my_house")
+    with tarfile.open(fileobj=io.BytesIO(archive)) as files:
+        files.extractall(checkout, filter="data")
+    with pytest.MonkeyPatch.context() as paths:
+        paths.syspath_prepend(str(checkout / "integrations/src"))
+        yield checkout / "integrations/tests"
 
 
 @pytest.fixture

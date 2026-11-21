@@ -31,4 +31,10 @@ if [[ $1 == test ]]; then
   git init --quiet "$doel"
   git -C "$doel" -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" \
     fetch --quiet --no-tags --depth=1 https://git.medialeon.nl/leon/media-source-optimizer.git "$pin"
+  # Gree-fake en adapters van my_house voor de simulators van huis en energie (alleen gelezen).
+  doel="$RUNNER_TEMP/my-house-bron"
+  pin=$(cat e2e/simulators/my-house.commit)
+  git init --quiet "$doel"
+  git -C "$doel" -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" \
+    fetch --quiet --no-tags --depth=1 https://git.medialeon.nl/leon/my_house.git "$pin"
 fi

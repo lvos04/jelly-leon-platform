@@ -18,13 +18,16 @@ protocol, de foutinjectie en wat hij **niet** nabootst.
 | SABnzbd | `sabnzbd/` | `sabnzbd_sim` · poort **30217** | MSO-mock met categorie-terugval en afzonderlijke providerstoringen | MediaGuard, MSO, EX02, EX39–EX40 |
 | qBittorrent | `qbittorrent/` | `qbittorrent_sim` · poort **30218** | MSO-mock met private torrent, DHT/PeX-voorkeuren en seedlimieten | MSO, EX41 |
 | Prowlarr | `arr/prowlarr.py` | `arr_sim --prowlarr` · poort **30219** | MSO-mock met Newznab-terugoproep en meetbare zoekdiepte | MSO, EX42 |
+| Gree | `gree/` | `gree_sim` · udp **7000**, bediening **30220** | de nagebootste unit van my_house (`FakeGreeUnit`, gepinde commit) met onbereikbaar, bind mislukt, van buitenaf uit en een eigen MAC per unit | my_house, EX24–EX26, EX30 |
+| HomeWizard | `homewizard/` | `homewizard_sim --apparaat p1\|socket` · poort **30221** | lokale API v1 van P1-meter en Energy Socket, alleen lezen; meterreset, zomertijdwissel, schakelverzoek vastgelegd en geweigerd | my_house, EX27, EX28 |
+| Zigbee | `zigbee/` | `zigbee_sim` · bediening **30222** | Zigbee2MQTT op een MQTT-broker: brug, apparaat, meetberichten; stoppen met meetberichten | my_house, EX29 |
 
 ## Installeren en testen
 
 ```bash
 pip install -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
 (cd e2e/simulators/truenas && python -m pytest -q)     # TrueNAS
-(cd e2e/simulators && python -m pytest -q)             # derden-simulators en downloadketen
+(cd e2e/simulators && python -m pytest -q)             # derden-simulators, downloadketen, huis en energie
 ```
 
 Andere repos mogen deze simulators **lezen en gebruiken**, niet wijzigen (bijv. de Hub in zijn E2E-tests:
@@ -63,6 +66,16 @@ Voor de NZB-overdracht heeft arr ook `--sab-url http://sabnzbd:30217` en de test
 `SIM_SAB_APIKEY` nodig. De startmodules gebruiken standaard loopback. `--host intern` vereist een
 Docker-container zonder actieve standaardroute. De protocol- en foutproeven staan in de map `tests/` per
 simulator. De latere scenario’s meten het handelen van MediaGuard en MSO.
+
+## Huis en energie en hergebruik van my_house
+
+De Gree-opstelling schrijft het protocol niet opnieuw: elke unit is de `FakeGreeUnit` uit
+`my_house:integrations/tests/fake_gree.py`, die `shc_integrations.gree.protocol` gebruikt. De bron is vastgezet in
+`my-house.commit`. `make test-sim` pakt van die commit alleen `integrations/src/shc_integrations` en `fake_gree.py`
+uit de lokale Git-kopie in `../my_house` (anders `MY_HOUSE_BRON`). Daarmee lezen de tests ook de berichten van de
+HomeWizard- en Zigbee-simulator met de adapters van my_house. In de integrale omgeving draaien Gree en Zigbee in de
+API-image van my_house (die heeft `shc_integrations`, FastAPI en uvicorn), op een uitsluitend intern testnet; zie de
+README per simulator. Broadcast-ontdekking van Gree is in Docker niet te bewijzen en blijft NAS-werk (N-P6-06).
 
 ## Gemeenschappelijke testbediening (`simkit`)
 
