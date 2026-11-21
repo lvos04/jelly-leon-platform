@@ -39,8 +39,9 @@ geschreven voor precies de twee bestanden van I01 en I02 (de test eiste die twee
    eerlijk in zijn validatie en blokkade; een terminal of YAML is nooit een tussenoplossing. `tools/checklists.py`
    weigert een YAML-, compose- of scriptweg (`YAML`, `.yml`, `compose`, `install.sh` en elk `.sh`-script) in
    `uitvoeren_nl`, `bij_fout_nl` en `handmatig_ui_pad_nl`. Titel en acceptatie zijn de letterlijke Excel-tekst en mogen
-   die woorden dragen: de titels en acceptaties van de Excel-taken I05-05-02 en I05-05-03, die YAML noemen, blijven
-   letterlijk staan (besluit Z-18, zonder besluit optie 1). De weg zelf staat in `uitvoeren_nl` (het formulier van de
+   die woorden dragen. Besluit Z-18 is genomen met optie 2 (gebruiker, 2026-11-21): de titels van I05-05-02 en
+   I05-05-03 zijn in ai-server-manager hernoemd zonder YAML en hier letterlijk overgenomen; alleen de acceptatie van
+   I05-05-02 noemt nog YAML (S-P3-440). De weg zelf staat in `uitvoeren_nl` (het formulier van de
    standaard Custom App) en de afwijking van het document in `afwijking_van_document_nl`, dat de woorden ook mag noemen.
 5. **Een lijst per document, met de naam van het document.** Elke lijst in `install/checklists/` hoort bij precies één
    bestaand document onder `docs/platform-v2/03_INSTALLATIE/`; de bestandsnaam is de documentnaam met

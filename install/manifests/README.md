@@ -37,6 +37,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I02 | `../checklists/I02_BACKUP_EN_RESTORE.checklist.yaml` | controlelijst | — | 8 stappen; OneDrive-stappen NIET GEVALIDEERD (account) |
 | I03 | `../checklists/I03_MEDIAGUARD.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I03_MEDIAGUARD.md`; 8 handmatige controles, back-up vóór update, releasegebonden upgradebewijs en vorige image én passende snapshot; Hub-UI wacht op S-P3-070; NIET GEVALIDEERD (echte NAS/hardware) |
 | I04 | `../checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I04_MEDIA_SOURCE_OPTIMIZER.md`; 8 handmatige controles, T-12 bij stappen 4/6, herstelgate vóór mutaties; machine-sleutel wacht op S-P3-220; NIET GEVALIDEERD (echte NAS/Hub) |
+| I05 | `../checklists/I05_MY_HOUSE.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I05_MY_HOUSE.md`; 8 stappen, inrichten_en_testen; installatie via het formulier van de standaard Custom App volgens `deploy/truenas/CUSTOM_APP.md` van my_house, wacht op de alles-in-één-release (BLOK-06); boiler alleen meten, bediening alleen van geteste apparaten (D12), Zigbee alleen bij D13; Geblokkeerd, NIET GEVALIDEERD (echte NAS/hardware) |
 | I15 | `../checklists/I15_IMMICH.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I15_IMMICH.md`; 6 handmatige controles; foto- en databaseherstel uitsluitend geïsoleerd; OneDrive-account bij stap 2; adapter/Hub wacht bij stappen 4/5; Bezig, NIET GEVALIDEERD (echte NAS/account/Hub) |
 | I16 | `../checklists/I16_PROWLARR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I16_PROWLARR.md`; 6 handmatige controles; MediaGuard alleen eigen tags, geen tweede reconciler; MSO-lus en herstel afzonderlijk bewijzen; Hub-meldingsketen open; Bezig, NIET GEVALIDEERD (echte NAS/Hub) |
 | I17 | `../checklists/I17_SABNZBD.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I17_SABNZBD.md`; 6 handmatige controles; categorie-eigenaars behouden, laatste server beschermd; back-upoverdracht en geïsoleerd herstel nog aantonen; Bezig, NIET GEVALIDEERD (echte NAS) |
@@ -52,7 +53,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
 | I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
 | I04 | `media-source-optimizer.manifest.yaml` | Custom App | kopie · bron `lvos04/media-source-optimizer` `deploy/manifest/media-source-optimizer.manifest.yaml` @ `335e26e` | doel: formulier van de standaard Custom App voor I04; de controlelijst verwijst ernaar (I04-04-01); digest volgt bij de release |
-| I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) bestaat nog niet; digest volgt bij de release |
+| I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) verwijst ernaar; digest volgt bij de release |
 
 Manifestkopieën (I23, I03, I04, I05) komen alleen met `python tools/manifest_kopie.py bijwerken --repo <repo> --bron
 ../<repo> --ref <commit>` uit de gecommitte bron; de herkomstkop (2 regels: bron `<repo>@<commit>:<pad>` en sha256)
@@ -66,8 +67,8 @@ ernaast staan; de lijst verwijst er dan naar in `verwijzing`), en elk ander best
 Naast I01 en I02 krijgen de documenten van de bestaande apps (I03, I04, I05 en I15 tot en met I20) zo'n lijst
 (`docs/adr/ADR-0027-controlelijsten-bestaande-apps.md`). Een lijst installeert niets en vervangt geen manifest of
 import; ze beschrijft alleen de weg via de TrueNAS-webinterface of het formulier van de standaard Custom App, nooit een
-terminal of YAML als weg. Titel en acceptatie blijven de letterlijke Excel-tekst, ook waar die YAML noemt (I05,
-besluit Z-18). Elke nieuwe lijst krijgt een rij in de tabel hierboven (naam en document) in de stap die haar maakt.
+terminal of YAML als weg. Titel en acceptatie blijven de letterlijke Excel-tekst, ook waar die YAML noemt (de acceptatie
+van I05-05-02; de titels zijn hernoemd, besluit Z-18 optie 2). Elke nieuwe lijst krijgt een rij in de tabel hierboven (naam en document) in de stap die haar maakt.
 
 Keuze Custom App of catalogusapp en digests: `docs/adr/ADR-0014-manifesten-p1.md`; contract 1.3 (monitorplan,
 `post_install_checks`, `stopped_snapshot` voor Gotify en Uptime Kuma, `install.reason` en `same_as_host` voor Authentik,
@@ -107,7 +108,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I02 | OneDrive / ZFS / herstel | inrichten en testen | — (TrueNAS-taken in de web-UI; methode D04) | — | **P1: controlelijst** |
 | I03 | MediaGuard | upgrade na versiecontrole | bestaande app behouden (import, B08-002) | — | **P3: controlelijst + manifestkopie** (S-P3-450); import blijft afzonderlijk werk |
 | I04 | Media Source Optimizer | behouden, 1.6-gate | bestaand; eigen alles-in-één image als Custom App | — | **P3: controlelijst + manifestkopie** (S-P3-450); import blijft afzonderlijk werk |
-| I05 | my_house | installeren met apparaatgate | eigen image(s) als Custom App | — | **P3: manifestkopie** (S-P3-450); controlelijst in S-P3-440 |
+| I05 | my_house | installeren met apparaatgate | eigen image(s) als Custom App | — | **P3: manifestkopie** (S-P3-450); controlelijst `I05_MY_HOUSE.checklist.yaml` (S-P3-440) |
 | I06 | Jellyfin | behouden, later fork | bestaand behouden (import) | community · 1.3.24 · 12.4 | P4 (import) |
 | I07 | Beszel | nieuw | Custom App (hub + agent) | (community `beszel-hub` · 1.1.22 · 0.21.1 bestaat) | **P1** |
 | I08 | Uptime Kuma | nieuw | Custom App | (community · 1.2.25 · 2.5.9 bestaat) | **P1** |

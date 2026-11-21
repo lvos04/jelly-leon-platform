@@ -1274,3 +1274,153 @@ def test_loopbackverbod_is_geen_toestemming_voor_adreswaarden(index: int, veld: 
 def test_zes_lijsten_bevatten_geen_letterlijk_ipv4_adres(naam: str) -> None:
     tekst = (cl.CHECKLIST_DIR / naam).read_text(encoding="utf-8")
     assert not re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", tekst), naam
+
+
+# S-P3-440: I05 my_house (Z-18 optie 2: hernoemde titels; installatie via het formulier van de standaard Custom App).
+I05 = "I05_MY_HOUSE.checklist.yaml"
+I05_GEEN_YAML = ("Het document noemt YAML. De vaste installatieweg is de standaard Custom App met een alles-in-een "
+                 "image; YAML wordt niet gebruikt.")
+I05_GATES = [
+    (0, "stop dan hier"),
+    (0, "BLOK-06"),
+    (0, "geen script"),
+    (1, "deploy/truenas/CUSTOM_APP.md"),
+    (1, "laat Devices leeg"),
+    (1, "precies die ene opslag en die ene poort"),
+    (2, "stop dan hier en neem de app niet in gebruik"),
+    (2, "aantoonbaar geslaagde ingebouwde healthcheck"),
+    (2, "geen losse of zelfbedachte image"),
+    (3, "leestest"),
+    (3, "Als getest markeren"),
+    (3, "alleen terwijl de gebruiker erbij staat"),
+    (4, "geen schakelhandeling"),
+    (4, "meld een veiligheidsfout"),
+    (4, "nooit nul"),
+    (5, "alleen uitlezen"),
+    (5, "als getest te boek staat (D12)"),
+    (5, "nooit bediend"),
+    (6, "Alleen als D13"),
+    (6, "apparaat-doorgifte in het formulier"),
+    (6, "Geen opdracht in een terminal"),
+    (6, "stop dan hier"),
+    (7, "stop dan hier"),
+    (7, "Systeem › Herstellen en verhuizen"),
+    (7, "nooit over de bestaande installatie"),
+    (7, "geen opdracht in een terminal"),
+]
+
+
+def _i05_veiligheid(data: dict[str, Any]) -> None:
+    assert data["aanpak"] == "inrichten_en_testen" and "inrichten_en_testen" in data["toelichting_nl"]
+    assert data["install"] == {"method": "none"}
+    assert data["installatie"] == "geen" and data["mutaties_door_platform"] is False
+    assert len(data["stappen"]) == 8
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+    for tekst in ("Z-18: optie 2", "BLOK-06", "N-P6-06", "alleen gemeten en nooit geschakeld"):
+        assert tekst in data["toelichting_nl"], tekst
+    for index, stap in enumerate(data["stappen"]):
+        waarden = set(stap["validatie_nu"])
+        assert not stap.get("truenas_methoden") and "Sim-getest" not in waarden
+        assert "NIET GEVALIDEERD (echte NAS)" in waarden
+        assert ("NIET GEVALIDEERD (hardware)" in waarden) == (index >= 3), stap["id"]
+        assert not waarden & {"NIET GEVALIDEERD (account)", "NIET GEVALIDEERD (echte Hub)"}
+        assert stap["blokkeert_volgende"] is True
+        assert stap["bij_fout_nl"].startswith("Stop hier;"), stap["id"]
+    for index in (0, 1, 2):
+        assert "install/manifests/my_house.manifest.yaml" in data["stappen"][index]["verwijzing"]
+    for index in (1, 2):
+        assert data["stappen"][index]["afwijking_van_document_nl"].startswith(I05_GEEN_YAML)
+    assert "geen compose-profiel" in data["stappen"][6]["afwijking_van_document_nl"]
+    for index, tekst in I05_GATES:
+        assert tekst in data["stappen"][index]["uitvoeren_nl"], (index, tekst)
+
+
+def test_i05_letterlijke_taken_en_installatieweg() -> None:
+    _i05_veiligheid(_load(I05))
+
+
+@pytest.mark.parametrize(("index", "tekst"), I05_GATES)
+def test_i05_veiligheidsmutatie_wordt_geweigerd(index: int, tekst: str) -> None:
+    data = copy.deepcopy(_load(I05))
+    _i05_veiligheid(data)
+    data["stappen"][index]["uitvoeren_nl"] = data["stappen"][index]["uitvoeren_nl"].replace(tekst, "ga toch verder")
+    with pytest.raises(AssertionError):
+        _i05_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(8))
+def test_i05_stopzin_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load(I05))
+    data["stappen"][index]["bij_fout_nl"] = "Ga verder; negeer de fout."
+    with pytest.raises(AssertionError):
+        _i05_veiligheid(data)
+
+
+@pytest.mark.parametrize("index", range(8))
+def test_i05_hardwaregrens_wordt_bewaakt(index: int) -> None:
+    data = copy.deepcopy(_load(I05))
+    waarden = data["stappen"][index]["validatie_nu"]
+    if "NIET GEVALIDEERD (hardware)" in waarden:
+        waarden.remove("NIET GEVALIDEERD (hardware)")
+    else:
+        waarden.append("NIET GEVALIDEERD (hardware)")
+    with pytest.raises(AssertionError):
+        _i05_veiligheid(data)
+
+
+def test_i05_yaml_alleen_in_afwijking_en_excel_acceptatie() -> None:
+    """Negatief (a) van de stap: YAML of compose staat alleen in afwijking_van_document_nl, in de letterlijke
+    Excel-acceptatie van I05-05-02 en in de verplichte verwijzing naar de manifestkopie; nooit als aanwijzing."""
+    toegestaan = ("afwijking_van_document_nl: ", "acceptatie_nl: YAML valide",
+                  "verwijzing: [install/manifests/my_house.manifest.yaml")
+    regels = [r.strip() for r in (cl.CHECKLIST_DIR / I05).read_text(encoding="utf-8").splitlines()
+              if re.search(r"compose|yaml", r, re.I)]
+    assert regels and all(r.startswith(toegestaan) for r in regels), regels
+    assert sum(r.startswith("afwijking_van_document_nl: ") for r in regels) == 4
+    data = _load(I05)
+    for index in (1, 2):
+        assert "YAML" not in data["stappen"][index]["titel_nl"]  # Z-18 optie 2
+    data["stappen"][1]["uitvoeren_nl"] += " Plak daarna de YAML in Install via YAML."
+    assert any("YAML-, compose- of scriptweg in uitvoeren_nl" in f for f in cl.controleer_lijst(data, cl.excel_taken()))
+
+
+@pytest.mark.parametrize("titel", ["Formulier standaard Custom App zonder Zigbee of tunnel",
+                                   "Eerste YAML zonder Zigbee/tunnel"])
+def test_i05_verbeterde_titel_wordt_geweigerd(tmp_path: Path, titel: str) -> None:
+    """Negatief (b): een 'verbeterde' of de oude titel van stap 2 faalt in tools/checklists.py."""
+    _kopie(tmp_path, I05, wijzig=lambda d: d["stappen"][1].update(titel_nl=titel))
+    assert any("I05-05-02: titel ≠ Excel-taak" in f for f in cl.controleer_alle(tmp_path)[I05])
+    assert cl.main(tmp_path) == 1
+
+
+def _i05_bewijs(rijen: list[dict[str, Any]]) -> None:
+    geselecteerd = [r for r in rijen if r["id"].startswith("I05-05-")]
+    assert [r["id"] for r in geselecteerd] == [f"I05-05-0{n}" for n in range(1, 9)]
+    for nummer, rij in enumerate(geselecteerd, 1):
+        assert rij["status"] == "Geblokkeerd", rij["id"]
+        waarden = rij["validatie"].split("; ")
+        assert "Unit-getest" in waarden and "Sim-getest" not in waarden and "NIET GEVALIDEERD (echte NAS)" in waarden
+        assert ("NIET GEVALIDEERD (hardware)" in waarden) == (nummer >= 4), rij["id"]
+        verwacht = ("NIET GEVALIDEERD (echte NAS): controlelijst geschreven; installeren via het formulier door de "
+                    "gebruiker (STAPPEN_P6.md onderdeel N-P6-06)" if nummer <= 3 else
+                    "NIET GEVALIDEERD (hardware): echte Hue, HomeWizard, Gree, Zigbee en telefoon (N-P6-06)")
+        assert rij["blokkade"].startswith(verwacht), rij["id"]
+        assert "BLOK-06" in rij["blokkade"] and "N-P6-06" in rij["bewijs"]
+        assert "alleen nas-test nodig" not in rij["opmerking"].lower(), rij["id"]
+
+
+def test_i05_bewijs_blijft_geblokkeerd() -> None:
+    _i05_bewijs(json.loads((cl.DOCS / "EVIDENCE.json").read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize(("sid", "veld", "waarde"), [
+    ("I05-05-01", "status", "Bezig"),
+    ("I05-05-05", "validatie", "Unit-getest; NIET GEVALIDEERD (echte NAS)"),
+    ("I05-05-02", "opmerking", "alleen NAS-test nodig"),
+    ("I05-05-03", "blokkade", "Wacht op de gebruiker."),
+])
+def test_i05_te_ruim_bewijs_wordt_geweigerd(sid: str, veld: str, waarde: str) -> None:
+    rijen = json.loads((cl.DOCS / "EVIDENCE.json").read_text(encoding="utf-8"))
+    next(r for r in rijen if r["id"] == sid)[veld] = waarde
+    with pytest.raises(AssertionError):
+        _i05_bewijs(rijen)

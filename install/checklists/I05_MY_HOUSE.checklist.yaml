@@ -1,0 +1,189 @@
+# I05 my_house Smart Home Control — controlelijst (documentsoort kind: checklist, contract 1.3 §9; ADR-0027).
+# Installeert en wijzigt niets op de NAS. De gebruiker installeert via het formulier van de standaard Custom App
+# volgens het installatiedocument van my_house; deze lijst verwijst daarnaar en herhaalt de velden niet.
+checklist_version: "1"
+kind: checklist
+install:
+  method: none
+id: I05
+titel_nl: my_house Smart Home Control — inrichten als standaard Custom App en echte apparaten testen
+document: 03_INSTALLATIE/I05_MY_HOUSE.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: inrichten_en_testen
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D02, D03, D12, D13, D14, D16]
+toelichting_nl: >-
+  Z-18: optie 2 (besluit van de gebruiker, 2026-11-21): de Excel-titels van I05-05-02 en I05-05-03 zijn in
+  ai-server-manager hernoemd en hier letterlijk overgenomen. Aanpak inrichten_en_testen: my_house draait nog niet
+  als standaard Custom App; de gebruiker richt het nieuw in. Installatieweg: uitsluitend het formulier van de
+  standaard Custom App met de alles-in-één-image van my_house, zoals deploy/truenas/CUSTOM_APP.md in my_house
+  beschrijft (bronstand my_house@66f6bf3; daar ook docs/onderhoud.md en docs/compatibility.md). Die image is nog
+  niet uitgebracht: de manifestkopie heeft een tagplaatshouder en geen digest (BLOK-06). Zolang dat zo is, start
+  geen enkele stap. De boiler wordt alleen gemeten en nooit geschakeld. Bediening alleen van apparaten die in
+  my_house als getest te boek staan. Deze lijst is statisch gecontroleerd, niet functioneel uitgevoerd; uitvoering
+  door de gebruiker volgens STAPPEN_P6.md onderdeel N-P6-06. Bewaar uitsluitend geschoond bewijs zonder geheimen,
+  adressen, namen van kamers of personen.
+stappen:
+  - id: I05-05-01
+    titel_nl: Dataset en repository
+    uitvoeren_nl: >-
+      Controleer eerst de release: de alles-in-één-image van my_house moet zijn uitgebracht met een vaste versie
+      en een @sha256-digest. Staat de manifestkopie nog op een tagplaatshouder zonder digest, stop dan hier
+      (BLOK-06). Maak daarna in TrueNAS een eigen, lege dataset met preset Apps voor my_house (D02). Er wordt
+      geen broncode opgehaald en geen script gedraaid: de image maakt bij de eerste start zelf haar sleutels op
+      deze dataset en laat de diensten als gebruiker en groep 568 draaien. Zet geen geheim in het formulier, in
+      Environment Variables, in bewijs of in een schermafdruk. Controleer de rechten van de dataset in de
+      webinterface; wijzig geen andere dataset.
+    acceptatie_nl: Secrets niet in Git of public paste; ACL correct.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Datasets → pool → Add Dataset (Dataset Preset Apps)
+    verwijzing: [install/manifests/my_house.manifest.yaml, "my_house: deploy/truenas/CUSTOM_APP.md"]
+    besluiten: [D02]
+    bewijs: [nas_versie, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; zonder uitgebrachte image met digest of met een niet-lege of verkeerd ingerichte dataset niet installeren; wijzig niets aan andere datasets.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Het document noemt code en compose van een gepinde tag ophalen en install.sh voor de geheimen. De vaste installatieweg is de standaard Custom App met een alles-in-een image die haar geheimen zelf maakt; geen script en geen terminal.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I05-05-02
+    titel_nl: Formulier standaard Custom App zonder Zigbee/tunnel
+    uitvoeren_nl: >-
+      Alleen na I05-05-01. De gebruiker opent het formulier van de standaard Custom App en vult het in volgens
+      deploy/truenas/CUSTOM_APP.md van my_house, koppen Naam, image en container en Beveiliging, netwerk en
+      opslag; deze lijst herhaalt de velden niet. Neem de image met vaste versie en digest over uit het
+      releasebewijs en uit de manifestkopie. Zonder Zigbee: laat Devices leeg. Zonder tunnel: geen extra
+      dienst, poort of tunnelgeheim. Eén poort: hostpoort 8088 als die vrij is (D03), anders een vrije hostpoort.
+      Eén opslag: de eigen dataset van I05-05-01, schrijfbaar. Privileged blijft uit, geen extra capabilities.
+      Controleer vóór het opslaan dat precies die ene opslag en die ene poort in het formulier staan. Het
+      formulier vraagt geen NAS-adres; vul nergens een voorbeeldadres in.
+    acceptatie_nl: YAML valide, alleen beoogde volumes/port 8088.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Apps → Discover Apps → Custom App
+    verwijzing: [install/manifests/my_house.manifest.yaml, "my_house: deploy/truenas/CUSTOM_APP.md"]
+    besluiten: [D03]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, schermafdruk, status]
+    bij_fout_nl: Stop hier; staat er meer dan de ene opslag of de ene poort in het formulier, of ontbreekt de digest, dan niet opslaan.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Het document noemt YAML. De vaste installatieweg is de standaard Custom App met een alles-in-een image; YAML wordt niet gebruikt. Het renderscript en een NAS-adres zijn niet nodig.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I05-05-03
+    titel_nl: TrueNAS Install via formulier standaard Custom App
+    uitvoeren_nl: >-
+      Alleen na I05-05-02. Sla het formulier op en volg deploy/truenas/CUSTOM_APP.md van my_house, kop Opslaan en
+      controleren: de startmodule uit het logboek vastleggen, daarna Restart Policy op Unless Stopped. Vergelijk
+      de opgehaalde digest met het releasebewijs; ontbreekt die of wijkt die af, stop dan hier en neem de app niet
+      in gebruik. Gebruik alleen de alles-in-één-image uit de manifestkopie, geen losse of zelfbedachte image.
+      Wacht tot TrueNAS de app als gezond toont en de portal opent; gezond geldt alleen bij een aantoonbaar
+      geslaagde ingebouwde healthcheck. Maak daarna op het vertrouwde netwerk de eerste beheerder en woning aan,
+      controleer opnieuw aanmelden en stel onder Systeem › Back-ups en bewaren de volledige versleutelde back-up
+      in. Leg RPO en RTO vast (D16).
+    acceptatie_nl: Alle core services healthy op TrueNAS.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Apps → de eigen app smart-home → Edit
+    verwijzing: [install/manifests/my_house.manifest.yaml, "my_house: deploy/truenas/CUSTOM_APP.md"]
+    besluiten: [D16]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; lees het opstartlog, wijzig niets aan andere apps of datasets en neem de app niet in gebruik zolang de healthcheck niet aantoonbaar slaagt.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Het document noemt YAML. De vaste installatieweg is de standaard Custom App met een alles-in-een image; YAML wordt niet gebruikt. Losse api- en webimages en de rest van een stack vervallen.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I05-05-04
+    titel_nl: Hue koppeling
+    uitvoeren_nl: >-
+      Alleen na I05-05-03. Voeg lampen en knoppen eerst in de Hue-app aan de bridge toe. Koppel de bridge in
+      my_house lokaal en druk bij het koppelen op de link-knop. Lees scènes en knoppen; maak geen dubbele groep.
+      Voer voor één testlamp eerst de leestest uit; die schakelt niets. Bedien de lamp alleen als een beheerder
+      haar in de web-app met Als getest markeren heeft bevestigd, en alleen terwijl de gebruiker erbij staat: één
+      handeling, daarna controleren dat de lamp doet wat het scherm toont. Doet de lamp iets anders, stop dan hier.
+    acceptatie_nl: Schakelaar + readback klopt.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; een lamp die iets anders doet dan het scherm toont wordt niet verder bediend en niet als getest gemarkeerd.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I05-05-05
+    titel_nl: HomeWizard rollen
+    uitvoeren_nl: >-
+      Zet in de HomeWizard Energy-app per meter Lokale API aan en koppel de meters in my_house. Wijs de rollen toe
+      volgens D14: P1-meter is huis totaal, Energy Socket is boiler, 1-fase kWh-meter is airco totaal. De boiler
+      wordt alleen gemeten: deze stap bevat geen schakelhandeling, ook niet als proef. Schakelt de boiler toch,
+      langs welke weg ook, stop dan hier en meld een veiligheidsfout. Vergelijk tellers en kwaliteit met wat de
+      meter zelf toont; een ontbrekende of verouderde waarde blijft zichtbaar onbekend, nooit nul.
+    acceptatie_nl: Energie cumulatieve tellers en kwaliteit zichtbaar; boiler heeft geen write.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D14]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; een schakelende boiler is een veiligheidsfout en een meterstand die niet klopt met de meter blijft onbekend.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I05-05-06
+    titel_nl: Gree compatibiliteit
+    uitvoeren_nl: >-
+      Koppel de units in de Gree+-app op 2,4 GHz. Ontdek, bind en lees ze in my_house: eerst alleen uitlezen; de
+      leestest schakelt niets. Bedienen alleen bij een unit die in my_house als getest te boek staat (D12) en
+      alleen terwijl de gebruiker in de kamer staat: één handeling, daarna controleren dat de unit doet wat het
+      scherm toont. Een unit die niet wordt ondersteund toont niet ondersteund en wordt nooit bediend. Test het
+      conflict met de gedeelde buitenunit en de terugval van de regelaar alleen met geteste units. Zet een unit
+      met de afstandsbediening uit terwijl een schema loopt: de unit blijft uit tot de gebruiker zelf hervat.
+    acceptatie_nl: Bij uitval valt regelaar terug, remote OFF blijft OFF.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D12]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; een unit die iets anders doet dan het scherm toont of na uitzetten weer aangaat wordt niet verder bediend.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I05-05-07
+    titel_nl: Zigbee optioneel
+    uitvoeren_nl: >-
+      Alleen als D13 zegt dat er een Zigbee-stick is; anders is deze stap niet van toepassing volgens D13. De weg
+      is de apparaat-doorgifte in het formulier van de standaard Custom App, zoals deploy/truenas/CUSTOM_APP.md
+      van my_house onder Zigbee-stick (alleen als je er een hebt) beschrijft: kies de stick in de apparatenlijst
+      Devices van het formulier (Z-17, Z-21). Geen opdracht in een terminal en geen extra app. Controleer dat
+      Zigbee2MQTT daarna draait en de stick ziet, en koppel één temperatuursensor terwijl de gebruiker erbij
+      staat; batterij- en verouderingsalarm moeten zichtbaar zijn. Ontbreekt de stick in het formulier of blijft
+      de donglecheck uit, laat Zigbee uit en stop dan hier.
+    acceptatie_nl: MQTT connect en temperatuursensor met battery/stale alarms.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → de eigen app smart-home → Edit → Devices
+    besluiten: [D13]
+    bewijs: [nas_versie, datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; laat Zigbee uit, de kerndiensten blijven draaien; meld of de stick in het formulier door te geven was.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Het document noemt een shell-opdracht om de stick te vinden en een compose-vlag. De weg is de apparaat-doorgifte in het formulier van de standaard Custom App (Z-17, Z-21); geen terminal en geen compose-profiel.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I05-05-08
+    titel_nl: Android en restore
+    uitvoeren_nl: >-
+      Download de ondertekende APK van de releasepagina van my_house en vergelijk de certificaatvingerafdruk met
+      het bestand bij de release; zonder ondertekende APK in de release, stop dan hier. Koppel de telefoon met de
+      QR-code via het scherm Telefoons in de web-app en trek een proefkoppeling daarna weer in. Maak onder
+      Systeem › Back-ups en bewaren › Nu een back-up maken een versleutelde back-up. Doe de herstelproef naar een
+      aparte plek via de webinterface van my_house: een tweede, afzonderlijke Custom App met een eigen lege
+      dataset, daar Systeem › Herstellen en verhuizen met Doelback-up maken en vergelijken en Nieuwe app vullen;
+      nooit over de bestaande installatie en geen opdracht in een terminal. Voor Zigbee2MQTT-gegevens ontbreekt
+      een beproefd webherstel; meld dat als open. Een herstart van de NAS alleen op een door de gebruiker gekozen
+      veilig moment.
+    acceptatie_nl: Telefoon en web werken na reboot; verhuizing zonder dataverlies.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop hier; herstel nooit over de bestaande installatie; de bestaande app en haar dataset blijven ongewijzigd.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Het document noemt een tweede stack. De herstelproef loopt via de webinterface van my_house naar een afzonderlijke standaard Custom App; geen terminal.
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
