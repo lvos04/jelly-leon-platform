@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jlp-derden-sims"
 version = "0.1.0"
-description = "Simulators van Beszel, Uptime Kuma, Gotify, Authentik, de downloadketen en huis en energie (Gree, HomeWizard, Zigbee) voor tests van het TrueNAS Home Platform"
+description = "Simulators van Beszel, Uptime Kuma, Gotify, Authentik, de downloadketen en huis en energie (Gree, HomeWizard, Zigbee), het offsite-doel (OneDrive) en de Jellyfin-upstream (git) voor tests van het TrueNAS Home Platform"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.162.2",
@@ -33,10 +33,12 @@ qbittorrent-sim = "qbittorrent_sim.__main__:main"
 gree-sim = "gree_sim.__main__:main"
 homewizard-sim = "homewizard_sim.__main__:main"
 zigbee-sim = "zigbee_sim.__main__:main"
+onedrive-sim = "onedrive_sim.__main__:main"
 
 [tool.setuptools]
 packages = ["simkit", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim",
-            "arr_sim", "sabnzbd_sim", "qbittorrent_sim", "gree_sim", "homewizard_sim", "zigbee_sim"]
+            "arr_sim", "sabnzbd_sim", "qbittorrent_sim", "gree_sim", "homewizard_sim", "zigbee_sim",
+            "onedrive_sim"]
 
 [tool.setuptools.package-dir]
 simkit = "simkit"
@@ -50,9 +52,13 @@ qbittorrent_sim = "qbittorrent"
 gree_sim = "gree"
 homewizard_sim = "homewizard"
 zigbee_sim = "zigbee"
+onedrive_sim = "onedrive"
 
 [tool.pytest.ini_options]
 testpaths = ["beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
-             "arr/tests", "sabnzbd/tests", "qbittorrent/tests", "gree/tests", "homewizard/tests", "zigbee/tests"]
+             "arr/tests", "sabnzbd/tests", "qbittorrent/tests", "gree/tests", "homewizard/tests", "zigbee/tests",
+             "onedrive/tests", "upstream-git/tests"]
+# upstream-git is een los bestand (geen pakket; de mapnaam heeft een streepje).
+pythonpath = ["upstream-git"]
 addopts = "-ra"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

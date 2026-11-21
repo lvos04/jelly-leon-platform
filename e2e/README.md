@@ -65,8 +65,8 @@ dezelfde branch). Elke repo levert één alles-in-één image (`deploy/allinone/
 **Simulators** (gebouwd = ✓; overige volgen in P6, telkens met README "afwijkingen mogelijk"):
 ✓ `truenas` · ✓ `hub` (alleen geïsoleerd) · ✓ `beszel` · ✓ `uptime_kuma` · ✓ `gotify` · ✓ `authentik` · ✓ `arr` (Sonarr/Radarr/Seerr en de Prowlarr-mock van MSO) · ✓ `sabnzbd` · ✓ `qbittorrent` ·
 `gree` (lokaal UDP-protocol) · `homewizard` (P1/Energy Socket, alleen lezen) · `zigbee` · `immich` (alleen-lezen-API) ·
-`onedrive` (offsite-doel + herstel) · `claude-credits` (lege credits) · `stt` (onzekere transcriptie) ·
-`upstream-git` (Jellyfin-upstream met incompatibele commit). Officiële images (Node-RED, AdGuard Home, NetAlertX en —
+✓ `onedrive` (offsite-doel + herstel) · `claude-credits` (lege credits) · `stt` (onzekere transcriptie) ·
+✓ `upstream-git` (Jellyfin-upstream met incompatibele commit). Officiële images (Node-RED, AdGuard Home, NetAlertX en —
 naast de simulators — Uptime Kuma en Gotify) draaien op gepinde digest in de compose (alleen E2E).
 
 Regels: geen echte credentials (alle keys uit de simulators), geen uitgaand internet tijdens scenario's

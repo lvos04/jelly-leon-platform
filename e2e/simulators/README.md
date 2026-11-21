@@ -21,13 +21,15 @@ protocol, de foutinjectie en wat hij **niet** nabootst.
 | Gree | `gree/` | `gree_sim` · udp **7000**, bediening **30220** | de nagebootste unit van my_house (`FakeGreeUnit`, gepinde commit) met onbereikbaar, bind mislukt, van buitenaf uit en een eigen MAC per unit | my_house, EX24–EX26, EX30 |
 | HomeWizard | `homewizard/` | `homewizard_sim --apparaat p1\|socket` · poort **30221** | lokale API v1 van P1-meter en Energy Socket, alleen lezen; meterreset, zomertijdwissel, schakelverzoek vastgelegd en geweigerd | my_house, EX27, EX28 |
 | Zigbee | `zigbee/` | `zigbee_sim` · bediening **30222** | Zigbee2MQTT op een MQTT-broker: brug, apparaat, meetberichten; stoppen met meetberichten | my_house, EX29 |
+| OneDrive | `onedrive/` | `onedrive_sim` · poort **30223** | offsite-doel van een geplande cloud-sync-taak: schrijven, falen (`doel_vol`, `token_verlopen`), verouderen en herstel; levert de taak in de vorm van `cloudsync.query` voor de TrueNAS-simulator | Hub (B12), EX12 |
+| upstream-git | `upstream-git/` | `upstream_git_sim.py` (los bestand) · geen poort, `--doel <map>` | lokale git-bron die de Jellyfin-upstream nabootst (tags `v1.0.0`, `v1.0.1`, onverenigbaar `v1.1`) met een fork ernaast | sync-hulp van jelly-leon (B08-005), EX48 |
 
 ## Installeren en testen
 
 ```bash
 pip install -e 'e2e/simulators/truenas[test]' -e 'e2e/simulators[test]'
 (cd e2e/simulators/truenas && python -m pytest -q)     # TrueNAS
-(cd e2e/simulators && python -m pytest -q)             # derden-simulators, downloadketen, huis en energie
+(cd e2e/simulators && python -m pytest -q)             # derden-simulators, downloadketen, huis en energie, back-up, upstream
 ```
 
 Andere repos mogen deze simulators **lezen en gebruiken**, niet wijzigen (bijv. de Hub in zijn E2E-tests:
