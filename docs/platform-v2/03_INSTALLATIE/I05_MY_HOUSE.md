@@ -22,13 +22,13 @@ TrueNAS versie; Hue bridge, Gree modellen, HomeWizard lokale API, Zigbee dongle 
 **Bewijs:** noteer NAS-versie, appimage digest, datum, gemaskeerde output, eventuele screenshot en status in Excel (ID `I05-05-01`).
 **Als dit mislukt:** stop hier; maak oorzaak en rollbackpad inzichtelijk. Geen volgende stap starten zolang deze test of de back-upgate rood is.
 
-### Stap 2. Eerste YAML zonder Zigbee/tunnel
+### Stap 2. Formulier standaard Custom App zonder Zigbee/tunnel
 **Uitvoeren:** Gebruik `infra/scripts/render_truenas.py` volgens docs/installatie-truenas.md met NAS LAN-IP; niet blind voorbeeld-IP gebruiken.
 **Verifiëren:** YAML valide, alleen beoogde volumes/port 8088.
 **Bewijs:** noteer NAS-versie, appimage digest, datum, gemaskeerde output, eventuele screenshot en status in Excel (ID `I05-05-02`).
 **Als dit mislukt:** stop hier; maak oorzaak en rollbackpad inzichtelijk. Geen volgende stap starten zolang deze test of de back-upgate rood is.
 
-### Stap 3. TrueNAS Install via YAML
+### Stap 3. TrueNAS Install via formulier standaard Custom App
 **Uitvoeren:** Custom App YAML, pinned api/web images, rest van stack volgens repo, geen zelfbedachte image.
 **Verifiëren:** Alle core services healthy op TrueNAS.
 **Bewijs:** noteer NAS-versie, appimage digest, datum, gemaskeerde output, eventuele screenshot en status in Excel (ID `I05-05-03`).

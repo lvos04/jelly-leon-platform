@@ -13,7 +13,7 @@ niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
   TrueNAS-web-UI of ze volgen later als goedgekeurde R1/R2-actie via de executor);
 - geen terminalopdrachten en geen voorbeeldwaarden (IP-adres, poolnaam) bevat, en in ``uitvoeren_nl``,
   ``bij_fout_nl`` en ``handmatig_ui_pad_nl`` nooit een YAML-, compose- of scriptweg noemt (titel en acceptatie zijn de
-  letterlijke Excel-tekst en mogen zulke woorden dragen; besluit Z-18 optie 1);
+  letterlijke Excel-tekst en mogen zulke woorden dragen; besluit Z-18 optie 2 hernoemde de I05-titels);
 - per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware));
 - hoort bij precies één bestaand document onder ``03_INSTALLATIE/``: de bestandsnaam is de documentnaam met
   ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten;

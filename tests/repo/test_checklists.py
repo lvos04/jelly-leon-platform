@@ -11,7 +11,8 @@ Alle tests gelden voor elke lijst in ``install/checklists/`` (``cl.lijsten()``),
   De test leest de map zelf, los van ``cl.lijsten()``.
 - Tekstregels: de letterlijke Excel-titels en -acceptaties van alle documenten gaan door de terminal- en
   voorbeeldregel; een YAML-, compose- of scriptweg wordt geweigerd in ``uitvoeren_nl``, ``bij_fout_nl`` en
-  ``handmatig_ui_pad_nl`` (titel, acceptatie en afwijking mogen de Excel-woorden dragen; Z-18 optie 1).
+  ``handmatig_ui_pad_nl`` (titel, acceptatie en afwijking mogen de Excel-woorden dragen; Z-18 optie 2 hernoemde de
+  I05-titels).
 - Negatieve tests: elke overtreding wordt herkend, in elke lijst; de account-regel voor elke account-stap van elke
   lijst.
 - Simulator: elke genoemde methode bestaat in het TrueNAS-profiel waarvoor ze geldt en is aan te roepen met de
@@ -328,15 +329,15 @@ def test_the_literal_excel_texts_of_every_document_pass_the_text_rules() -> None
 
 
 def test_lists_with_the_literal_excel_texts_of_the_existing_apps_pass(tmp_path: Path) -> None:
-    """R-MANIFEST-1/-2 en Z-18 optie 1: een lijst per document van ADR-0027 met de letterlijke Excel-titels en
-    -acceptaties is groen, ook I03 (chmod/chown in de acceptatie) en I05 ("TrueNAS Install via YAML" als titel, YAML in
-    de afwijking); de weg zelf staat in uitvoeren_nl zonder YAML."""
+    """R-MANIFEST-1/-2 en Z-18 optie 2: een lijst per document van ADR-0027 met de letterlijke Excel-titels en
+    -acceptaties is groen, ook I03 (chmod/chown in de acceptatie) en I05 (hernoemde titel zonder YAML, YAML alleen nog
+    in acceptatie en afwijking); de weg zelf staat in uitvoeren_nl zonder YAML."""
 
     def i05(d: dict[str, Any]) -> None:
         stap = next(s for s in d["stappen"] if s["id"] == "I05-05-03")
-        assert "YAML" in stap["titel_nl"]
-        stap["afwijking_van_document_nl"] = ("Het document noemt Install via YAML; de weg is het formulier van de "
-                                             "standaard Custom App (Z-18: optie 1, zonder besluit).")
+        assert "YAML" not in stap["titel_nl"] and "Custom App" in stap["titel_nl"]  # Z-18 optie 2: hernoemd
+        stap["afwijking_van_document_nl"] = ("Het document noemt bij de uitvoering YAML; de weg is het formulier van "
+                                             "de standaard Custom App (Z-18: optie 2).")
 
     def verwijs(doc: str) -> Any:
         """Heeft het document een manifestkopie (S-P3-450), dan verwijst de lijst ernaar."""
@@ -383,7 +384,7 @@ def test_a_list_next_to_a_manifest_copy_must_refer_to_it(tmp_path: Path, idoc: s
         def wijzig(d: dict[str, Any]) -> None:
             if idoc == "I05":
                 stap = next(s for s in d["stappen"] if s["id"] == "I05-05-03")
-                stap["afwijking_van_document_nl"] = "Het document noemt YAML; de weg is het formulier (Z-18: optie 1)."
+                stap["afwijking_van_document_nl"] = "Het document noemt YAML; de weg is het formulier (Z-18: optie 2)."
             d["stappen"][0]["wijze"].append("verwijzing")
             d["stappen"][0]["verwijzing"] = verwijzing
         return wijzig
