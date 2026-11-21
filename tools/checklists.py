@@ -17,8 +17,10 @@ niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
 - per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware));
 - hoort bij precies één bestaand document onder ``03_INSTALLATIE/``: de bestandsnaam is de documentnaam met
   ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten;
-- niet hoort bij een document dat al een installeerbaar manifest heeft in ``install/manifests/`` (``docs``-veld van
-  een manifest met ``install.method`` ``custom_app`` of ``catalog_app``).
+- niet hoort bij een document dat al een installeerbaar manifest van deze repo heeft in ``install/manifests/``
+  (``docs``-veld van een manifest met ``install.method`` ``custom_app`` of ``catalog_app``). Een manifestkopie van
+  een andere repo (``tools/manifest_kopie.py``, S-P3-450) mag naast de lijst staan; de lijst verwijst er dan naar in
+  het veld ``verwijzing`` (``install/manifests/<kopie>``), zonder de inhoud te herhalen.
 
 Elk ander bestand in ``install/checklists/`` (bijvoorbeeld ``.yml`` of zonder ``.checklist``) is een fout.
 
@@ -35,6 +37,7 @@ from typing import Any
 
 import jsonschema
 import yaml
+from manifest_kopie import PER_BESTAND as KOPIEEN
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKLIST_DIR = ROOT / "install" / "checklists"
@@ -200,9 +203,15 @@ def controleer_alle(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR)
             per_document.setdefault(document, []).append(p.name)
             if p.name != bestandsnaam(document):
                 fout.append(f"bestandsnaam past niet bij het document: verwacht {bestandsnaam(document)}")
-            if namen := met_manifest.get(Path(document).name[:3]):
-                fout.append(f"document {document} heeft een installeerbaar manifest ({', '.join(namen)}): een "
+            namen = met_manifest.get(Path(document).name[:3], [])
+            if eigen := [n for n in namen if n not in KOPIEEN]:
+                fout.append(f"document {document} heeft een installeerbaar manifest ({', '.join(eigen)}): een "
                             "controlelijst is alleen voor documenten zonder installatie")
+            verwezen = {v for s in data.get("stappen") or [] for v in s.get("verwijzing") or []}
+            for kopie in (n for n in namen if n in KOPIEEN):
+                if f"install/manifests/{kopie}" not in verwezen:
+                    fout.append(f"document {document} heeft de manifestkopie {kopie}: de stap die installeren of "
+                                f"bijwerken via het formulier beschrijft, verwijst ernaar (install/manifests/{kopie})")
         uitkomst[p.name] = fout
     for document, namen in per_document.items():
         if len(namen) > 1:

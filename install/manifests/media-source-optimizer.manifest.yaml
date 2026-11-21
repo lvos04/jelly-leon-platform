@@ -1,0 +1,137 @@
+# HERKOMST — I04-manifest · bron: lvos04/media-source-optimizer@335e26e8cec7b5e9470bffcb13dc2925a98599f1:deploy/manifest/media-source-optimizer.manifest.yaml · sha256 van het bronbestand (zonder deze kop): ad22b0f177a5d29b31daf95eb879ce5419765f2d2882abc62204b9edefac0978
+# Versie-gepinde kopie (I04, installatie via het formulier van de standaard Custom App; docs/platform-v2/03_INSTALLATIE/I04_MEDIA_SOURCE_OPTIMIZER.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+# Manifeststandaard v1, platformcontract 1.3 §9.
+manifest_version: "1"
+app_id: media-source-optimizer
+name: Media Source Optimizer
+owner_repo: lvos04/media-source-optimizer
+category: media
+description_nl: >-
+  Optimaliseert indexers, Usenet-bronnen en downloadclients. PostgreSQL, API, worker en webinterface
+  draaien in één image met één APPDATA-dataset.
+version: "1.6.0"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/media-source-optimizer
+  tag: 1.6.0-release-in-afwachting # Plaatshouder voor de eerste release van deze bronstand.
+  digest: null
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+  env: []
+  resources:
+    cpus: 2
+    memory_mib: 1536
+  gpu: none
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: web
+    scheme: http
+    path: /
+    name: MSO
+parameters:
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: mso_appdata
+    decision: D02
+    required: true
+    description_nl: Bestaande APPDATA-dataset bij een upgrade, nieuwe eigen dataset bij een eerste installatie.
+  - name: host_port
+    type: port
+    source: default
+    default: 38081
+    decision: D03
+    required: true
+    description_nl: Voorgestelde webpoort. Bevestig een vrije hostpoort, of behoud de bestaande bij een upgrade.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone die de beheerder bevestigt.
+  - name: rpo
+    type: duration
+    source: wizard
+    required: false
+    description_nl: Maximaal toegestaan dataverlies. Open tot de beheerder het hersteldoel vastlegt (D16).
+  - name: rto
+    type: duration
+    source: wizard
+    required: false
+    description_nl: Maximaal toegestane hersteltijd. Open tot de beheerder het hersteldoel vastlegt (D16).
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: data
+    required_dataset_role: mso_appdata
+    description_nl: Volledige PostgreSQL-data, kluisbestand, back-ups, werkbestanden en logs.
+network:
+  ports:
+    - name: web
+      container_port: 38081
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Webinterface, proxyroutes voor de API en gezondheidscontrole.
+  host_network: false
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+healthcheck:
+  type: builtin
+  port: web
+  # Gebruik de tijdsgrenzen uit de image voor het externe monitorplan.
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 8, interval_s: 30}
+backup:
+  db_export:
+    method: pg_dump
+    description_nl: >-
+      Deze bronstand controleert de SHA-256 en het PostgreSQL-archief vóór een schemamigratie. Maak
+      vóór elke upgrade een snapshot van de volledige APPDATA-dataset terwijl MSO gestopt is. De dump dekt
+      de kluis en het bijbehorende sleutelbestand niet volledig. Bewaar de snapshot en de vorige imagepin.
+  snapshot_datasets: [appdata]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies: []
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Behoud dezelfde dataset en mount. Leg de vorige imageversie met digest vast en verifieer de volledige
+    APPDATA-snapshot vóór de migratie. Stop bij een ontbrekend herstelpunt. Bewaar ook de huidige toestand
+    vóór een terugval. Zet in TrueNAS eerst de bijpassende APPDATA-snapshot terug en kies daarna de vorige
+    imageversie met digest in het Custom App-formulier.
+decisions_required: [D01, D02, D03, D07]
+docs: [I04_MEDIA_SOURCE_OPTIMIZER]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2" # Ondergrens voor het beschreven ix-app-formulier 1.4.8. D01 blijft open.
+  truenas_max_version: null
+  ix_app_min_version: null
+post_install_checks:
+  - id: beheerder_ingesteld
+    soort: handmatig
+    beschrijving_nl: Maak bij de eerste start via de MSO-wizard een beheerder aan en controleer dat de wizard daarna is gesloten.
+accounts:
+  - id: beheerder
+    rol: beheerder
+    aanmaak: eerste_gebruik
+    controle: beheerder_ingesteld
+    beschrijving_nl: De beheerder maakt het eigen account aan in de MSO-wizard na de eerste start.
+accepted_findings:
+  - code: digest_pending_release
+    reden_nl: >-
+      De eerste release van deze bronstand ontbreekt (BLOK-06). De tag is een plaatshouder. Neem de exacte
+      tag en registerdigest samen over uit het releasebewijs voordat het manifest voor installatie wordt gebruikt.

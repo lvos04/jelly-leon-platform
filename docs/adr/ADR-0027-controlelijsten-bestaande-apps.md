@@ -89,3 +89,14 @@ Excel-teksten is groen.
   een besluit (niet in dit ADR).
 - Validatie: niets hiervan is op een echte NAS getest. Een lijst zegt per stap wat er nog nodig is
   (`NIET GEVALIDEERD (echte NAS)`, `(hardware)` of `(account)`).
+
+## Aanvulling S-P3-450 (2026-11-21): manifestkopie naast de lijst
+
+- Besluit 5 ("een lijst is alleen voor documenten zonder installatie") geldt voor manifesten van **deze repo**. Een
+  versie-gepinde kopie van het manifest van een andere repo (`tools/manifest_kopie.py`: MediaGuard voor I03, Media
+  Source Optimizer voor I04, my_house voor I05) mag naast de lijst van dat document staan. De lijst verwijst er dan
+  naar in het veld `verwijzing` van de stap die installeren of bijwerken via het formulier beschrijft
+  (`install/manifests/<kopie>`; I03-03-04 en I04-04-01), zonder de inhoud van het manifest te herhalen.
+- `tools/checklists.py` (`controleer_alle`) faalt als zo'n verwijzing ontbreekt, en blijft falen bij een eigen
+  installeerbaar manifest naast een lijst. De lijst installeert nog steeds niets; installeren blijft de weg van het
+  manifest via het formulier van de standaard Custom App (Sim-getest met de validator; NIET GEVALIDEERD (echte NAS)).

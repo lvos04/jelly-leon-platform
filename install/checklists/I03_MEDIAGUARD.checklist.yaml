@@ -95,8 +95,9 @@ stappen:
       netwerk- of opslagwijziging. Bij ontbreken van bewijs of veilige terugval blijft de oude installatie werken.
     acceptatie_nl: Core, web, recovery, encoder, forks healthy na migratie.
     risico: Middel
-    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
     handmatig_ui_pad_nl: Apps → bestaande MediaGuard-app → Edit → Image → gecontroleerde tag en digest → Update
+    verwijzing: [install/manifests/mediaguard.manifest.yaml]
     besluiten: []
     bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
     bij_fout_nl: >-

@@ -81,6 +81,9 @@ jobs:
           MANIFEST_VALIDATOR_VERPLICHT: "1"
           APPSTORE_BRON: ${{ runner.temp }}/appstore
           VALIDATOR_BRON_VERPLICHT: "1"
+          MGU_BRON: ${{ runner.temp }}/mgu-bron
+          MSO_BRON: ${{ runner.temp }}/mso-bron
+          MY_HOUSE_BRON: ${{ runner.temp }}/my-house-bron
         run: python -m pytest -q -rs tests/repo
       - name: OpenAPI-drift
         run: |

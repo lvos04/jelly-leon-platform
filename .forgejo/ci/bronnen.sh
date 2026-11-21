@@ -25,16 +25,20 @@ done
 if ((status)); then exit "$status"; fi
 git -C "$RUNNER_TEMP/appstore" checkout --quiet "$ASF_COMMIT"
 if [[ $1 == rooktest ]]; then git -C "$RUNNER_TEMP/asm" checkout --quiet "$ASM_COMMIT"; fi
+# Eén commit van een repo ophalen (alleen gelezen); een tweede pin in dezelfde map komt erbij.
+haal() {
+  [[ -d $1/.git ]] || git init --quiet "$1"
+  git -C "$1" -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" \
+    fetch --quiet --no-tags --depth=1 "https://git.medialeon.nl/leon/$2.git" "$3"
+}
+# Gepinde commit uit de herkomstkop van een manifestkopie (tools/manifest_kopie.py).
+kopiepin() { sed -n '1s/^# HERKOMST .* bron: [^@]*@\([0-9a-f]\{40\}\):.*/\1/p' "install/manifests/$1"; }
 if [[ $1 == test ]]; then
-  doel="$RUNNER_TEMP/mso-bron"
-  pin=$(cat e2e/simulators/mso-mocks.commit)
-  git init --quiet "$doel"
-  git -C "$doel" -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" \
-    fetch --quiet --no-tags --depth=1 https://git.medialeon.nl/leon/media-source-optimizer.git "$pin"
+  haal "$RUNNER_TEMP/mso-bron" media-source-optimizer "$(cat e2e/simulators/mso-mocks.commit)"
   # Gree-fake en adapters van my_house voor de simulators van huis en energie (alleen gelezen).
-  doel="$RUNNER_TEMP/my-house-bron"
-  pin=$(cat e2e/simulators/my-house.commit)
-  git init --quiet "$doel"
-  git -C "$doel" -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" \
-    fetch --quiet --no-tags --depth=1 https://git.medialeon.nl/leon/my_house.git "$pin"
+  haal "$RUNNER_TEMP/my-house-bron" my_house "$(cat e2e/simulators/my-house.commit)"
+  # Manifestkopieën I03, I04 en I05 (S-P3-450): de bron op de gepinde commit voor tests/repo/test_manifest_kopie.py.
+  haal "$RUNNER_TEMP/mgu-bron" media-guard-ultimate "$(kopiepin mediaguard.manifest.yaml)"
+  haal "$RUNNER_TEMP/mso-bron" media-source-optimizer "$(kopiepin media-source-optimizer.manifest.yaml)"
+  haal "$RUNNER_TEMP/my-house-bron" my_house "$(kopiepin my_house.manifest.yaml)"
 fi

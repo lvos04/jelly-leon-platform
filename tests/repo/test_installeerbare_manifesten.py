@@ -1,4 +1,5 @@
-"""Installeerbare manifesten per I-document (P1: I07, I08, I09, I13, I23) — contract 1.2 §9, ADR-0014.
+"""Installeerbare manifesten per I-document (P1: I07, I08, I09, I13, I23; P2: I10; P3: kopieën I03, I04, I05) —
+contract 1.2 §9, ADR-0014.
 
 - Alle manifesten in ``install/manifests/`` worden gecontroleerd met de validator van de eigenaar van de standaard
   (``appstore-en-fork``: ``jl-manifest validate --strict``) via ``tools/manifesten.py``: zonder vermelding in
@@ -17,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +42,10 @@ VERWACHT = {
     "ai-server-manager": ("custom_app", "I23_HOME_CONTROL_HUB"),
     "ai-server-manager-executor": ("custom_app", "I23_HOME_CONTROL_HUB"),
     "node-red": ("custom_app", "I10_NODE_RED"),  # fase P2 (ADR-0023)
+    # fase P3 (S-P3-450): kopieën van de eigen repo van de app (tools/manifest_kopie.py)
+    "mediaguard": ("custom_app", "I03_MEDIAGUARD"),
+    "media-source-optimizer": ("custom_app", "I04_MEDIA_SOURCE_OPTIMIZER"),
+    "smart-home": ("custom_app", "I05_MY_HOUSE"),
 }
 # Gecontroleerd op 2026-11-09 met `docker buildx imagetools inspect` (index-digest, multi-arch).
 DIGESTS = {
@@ -140,11 +146,61 @@ def test_transition_file_never_holds_acceptable_codes_for_own_manifests() -> Non
 
     data = _yaml.safe_load(mf.UITZONDERINGEN.read_text(encoding="utf-8"))
     assert set(data) == {"kopieen", "hiaten"}
+    per_app = {_load(p.name)["app_id"]: _load(p.name) for p in mf.manifesten()}
     for app_id in data["kopieen"]:
-        assert _load(f"{app_id}.manifest.yaml")["owner_repo"] != mf.EIGEN_REPO
+        assert per_app[app_id]["owner_repo"] != mf.EIGEN_REPO
     for regels in data["hiaten"].values():
         assert not {r["code"] for r in regels} & mf.ACCEPTEERBAAR
     assert not (mf.MANIFEST_DIR / "validatie-uitzonderingen.yaml").exists()
+
+
+def _controleer_met(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra: dict[str, Any]) -> dict[str, list[str]]:
+    data = yaml.safe_load(mf.UITZONDERINGEN.read_text(encoding="utf-8"))
+    data["kopieen"].update(extra)
+    pad = tmp_path / "overgang-1.3.yaml"
+    pad.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    monkeypatch.setattr(mf, "UITZONDERINGEN", pad)
+    return {u.bestand: u.afwijkingen for u in mf.controleer(_validator()) if not u.in_orde}
+
+
+def test_copies_of_s_p3_450_need_no_transition_entry() -> None:
+    """S-P3-450 bouwpunt 4: de validator geeft voor de drie kopieën geen open waarschuwing (digest_pending_release staat
+    als accepted_findings in het manifest van de eigen repo); dus geen vermelding onder ``kopieen``."""
+    uitkomsten = {u.app_id: u for u in mf.controleer(_validator())}
+    data = yaml.safe_load(mf.UITZONDERINGEN.read_text(encoding="utf-8"))
+    for app_id in ("mediaguard", "media-source-optimizer", "smart-home"):
+        u = uitkomsten[app_id]
+        assert u.in_orde and u.strict_exit == 0 and u.fouten == 0 and u.waarschuwingen == [], u
+        assert app_id not in data["kopieen"]
+        m = _load(u.bestand)
+        assert m["owner_repo"] != mf.EIGEN_REPO
+        assert [f["code"] for f in m["accepted_findings"]] == ["digest_pending_release"]
+
+
+def test_a_transition_entry_the_validator_no_longer_gives_fails(tmp_path: Path,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    """Negatief (c): een vermelding in overgang-1.3.yaml die de validator niet geeft, laat tools/manifesten.py falen."""
+    extra = {"mediaguard": [{"code": "digest_pending_release", "pad": "image.digest", "reden_nl": "proef"}]}
+    fouten = _controleer_met(tmp_path, monkeypatch, extra)
+    assert list(fouten) == ["mediaguard.manifest.yaml"], fouten
+    assert any("niet meer nodig" in a for a in fouten["mediaguard.manifest.yaml"])
+
+
+def test_only_a_copy_may_keep_a_file_name_other_than_its_app_id(tmp_path: Path,
+                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    """my_house heeft app_id ``smart-home``; de kopie houdt de bronnaam. Een eigen manifest met zo'n naam faalt."""
+    assert _load("my_house.manifest.yaml")["app_id"] == "smart-home"
+    eigen = tmp_path / "manifests"
+    eigen.mkdir()
+    data = _load("gotify.manifest.yaml")
+    (eigen / "mijn-gotify.manifest.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    shutil.copy(mf.MANIFEST_DIR / "my_house.manifest.yaml", eigen / "my_house.manifest.yaml")
+    monkeypatch.setattr(mf, "MANIFEST_DIR", eigen)
+    leeg = tmp_path / "overgang.yaml"
+    leeg.write_text("kopieen: {}\nhiaten: {}\n", encoding="utf-8")
+    monkeypatch.setattr(mf, "UITZONDERINGEN", leeg)
+    fouten = {u.bestand: u.afwijkingen for u in mf.controleer(_validator()) if not u.in_orde}
+    assert fouten == {"mijn-gotify.manifest.yaml": ["bestandsnaam hoort gotify.manifest.yaml te zijn"]}, fouten
 
 
 def test_upstream_digests_are_the_measured_ones() -> None:

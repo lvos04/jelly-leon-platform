@@ -1,0 +1,127 @@
+# HERKOMST — I05-manifest · bron: lvos04/my_house@cdc739e84537f6223ae5638b977b50c960ecc0f1:deploy/manifest/my_house.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 89f2e4086832a8f11d3621ea2d981a4133f4854f66c25055ecab9841caa8825b
+# Versie-gepinde kopie (I05, installatie via het formulier van de standaard Custom App; docs/platform-v2/03_INSTALLATIE/I05_MY_HOUSE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+manifest_version: "1"
+app_id: smart-home
+name: Smart Home Control
+owner_repo: lvos04/my_house
+category: home
+description_nl: >-
+  Lokale woningbediening en energiemeting met webinterface, API, worker, PostgreSQL en MQTT in één image.
+version: "0.2.0"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/my_house
+  tag: 0.2.0-release-in-afwachting
+  digest: null
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+      read_only: false
+  env: []
+  resources: {cpus: null, memory_mib: null}
+  gpu: none
+  run_as: {mode: image_default}
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal: {port: web, scheme: http, path: /, name: Smart Home Control}
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 8088
+    decision: D03
+    required: true
+    description_nl: Kies een vrije webpoort. Gekoppelde telefoons bewaren de gekozen hostpoort.
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: my_house_appdata
+    decision: D02
+    required: true
+    description_nl: Kies voor de eerste installatie een lege, eigen dataset voor de hele app.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Bevestig de tijdzone voor de app.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal aanvaardbaar gegevensverlies, vast te leggen door de beheerder.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal aanvaardbare hersteltijd, vast te leggen door de beheerder.
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: data
+    required_dataset_role: my_house_appdata
+    description_nl: Database, appgegevens, back-ups, sleutels, broker en eventuele Zigbee-gegevens.
+network:
+  host_network: false
+  ports:
+    - name: web
+      container_port: 8080
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Webinterface, API en gereedheidscontrole via nginx.
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+healthcheck:
+  type: builtin
+  port: web
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 8, interval_s: 60}
+backup:
+  db_export:
+    method: pg_dump
+    description_nl: >-
+      De app maakt een PostgreSQL-dump. Bewaar vóór een update de gecontroleerde volledige back-up
+      en maak met de app gestopt een snapshot van de hele dataset, inclusief sleutels.
+  snapshot_datasets: [appdata]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies: []
+sso: native
+risk: {install: R2, update: R2, uninstall: R2}
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Leg de versietag, digest en startmodule vast. Bereid een schrijfbare kloon van de pre-updatesnapshot
+    offline voor met de huidige image. Start de bijpassende oudere versie pas op de vrijgegeven kloon
+    met het gecontroleerde startbestand en het terugval-ID uit de onderhoudsprocedure.
+decisions_required: [D01, D02, D03, D12, D13, D14, D16]
+docs: [I05_MY_HOUSE, A20_MY_HOUSE, B06_MY_HOUSE_DELTA]
+validation_status: unvalidated
+compatibility:
+  # Ondergrens van het beschreven ix-app-formulier 1.4.8, geen meting op de NAS (D01).
+  truenas_min_version: "24.10.2.2"
+post_install_checks:
+  - id: startmodule_vastgelegd
+    soort: handmatig
+    beschrijving_nl: Controleer of de startmodule van deze image in het formulier is vastgelegd zoals in CUSTOM_APP.md.
+  - id: beheerder_ingesteld
+    soort: handmatig
+    beschrijving_nl: Maak bij de eerste start de lokale beheerder aan en controleer de aanmelding in de webapp.
+accounts:
+  - id: beheerder
+    rol: beheerder
+    aanmaak: eerste_gebruik
+    controle: beheerder_ingesteld
+    beschrijving_nl: De gebruiker maakt het eigen beheerdersaccount aan in de webapp.
+accepted_findings:
+  - code: digest_pending_release
+    reden_nl: >-
+      De alles-in-één-image wacht op de eerste publicatie (BLOK-06). De tag is een plaatshouder.
+      Vul de vaste tag en registerdigest uit dezelfde release in voordat dit manifest voor installatie wordt gebruikt.

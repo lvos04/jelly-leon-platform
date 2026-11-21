@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from manifest_kopie import PER_BESTAND as KOPIEEN
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = ROOT / "install" / "manifests"
@@ -146,7 +147,8 @@ def controleer(validator: Path) -> list[Uitkomst]:
         waarsch = sorted((str(b["code"]), str(b["path"])) for b in bevindingen
                          if b.get("severity") == "warning" and not b.get("accepted"))
         u = Uitkomst(pad.name, app_id, res.returncode, len(fouten), waarsch)
-        if pad.name != f"{app_id}.manifest.yaml":
+        # een kopie houdt de bestandsnaam van de bron (tools/manifest_kopie.py; my_house heeft app_id smart-home)
+        if pad.name != f"{app_id}.manifest.yaml" and pad.name not in KOPIEEN:
             u.afwijkingen.append(f"bestandsnaam hoort {app_id}.manifest.yaml te zijn")
         if fouten or not rapport.get("valid"):
             u.afwijkingen.append("ongeldig: " + "; ".join(f"{b['code']} @ {b['path']}" for b in fouten))

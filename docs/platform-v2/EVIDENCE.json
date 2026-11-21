@@ -745,9 +745,9 @@
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-04); tests/repo/test_checklists.py::test_i03_backup_precedes_update_and_rollback_preserves_progress; tests/repo/test_checklists.py::test_i03_missing_safety_condition_is_detected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Vóór een echte NAS-update: volledig herstelbewijs van I03-03-03 plus upgradebewijs voor de exacte release/digest op gevulde vorige database, inclusief terugzetten. Vorige image en passende snapshot samen bewaren. Ononderbroken Emby-koppeling en behoud van voortgang eerst aantonen; anders niet bijwerken.",
-  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Releasegebonden bewijs en veilige beschikbaarheid blijven voorwaarden; niet alleen NAS-test nodig zolang deze ontbreken. Geen huidige of beoogde image-versie gemeten.",
+  "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Releasegebonden bewijs en veilige beschikbaarheid blijven voorwaarden; niet alleen NAS-test nodig zolang deze ontbreken. Geen huidige of beoogde image-versie gemeten. Manifestkopie aanwezig en gevalideerd met de validator (Sim-getest); NIET GEVALIDEERD (echte NAS).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-18"
+  "bijgewerkt": "2026-11-21"
  },
  {
   "id": "I03-03-05",
@@ -795,9 +795,9 @@
     "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
     "blokkade": "Gebruiker moet draaiende image/tag/digest, schema en migraties op de echte NAS met de beoogde release en CI vergelijken; geen imageversie gemeten.",
-    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering van deze versiecontrole: alleen NAS-test nodig; geen draaiende release vastgesteld.",
+    "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. Voor uitvoering van deze versiecontrole: alleen NAS-test nodig; geen draaiende release vastgesteld. Manifestkopie aanwezig en gevalideerd met de validator (Sim-getest); NIET GEVALIDEERD (echte NAS).",
     "repo": "jelly-leon-platform",
-    "bijgewerkt": "2026-11-18"
+    "bijgewerkt": "2026-11-21"
   },
   {
     "id": "I04-04-02",

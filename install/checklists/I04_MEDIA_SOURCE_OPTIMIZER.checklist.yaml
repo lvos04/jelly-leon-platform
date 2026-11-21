@@ -30,8 +30,9 @@ stappen:
       productieversies. Geen onuitgebrachte tag installeren of automatische update starten.
     acceptatie_nl: Verschil 1.5.0/1.6 kandidaat duidelijk.
     risico: Hoog
-    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
     handmatig_ui_pad_nl: Apps → bestaande Media Source Optimizer-app → Edit → Image
+    verwijzing: [install/manifests/media-source-optimizer.manifest.yaml]
     besluiten: []
     bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
     bij_fout_nl: Stop hier; zonder vastgestelde draaiende en beoogde versie, schema en releasebewijs geen update of volgende proef.

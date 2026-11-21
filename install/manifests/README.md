@@ -8,7 +8,8 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 
 > **Status (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
 > appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in het manifest zelf, `accepted_findings`;
-> `overgang-1.3.yaml` alleen voor de I23-kopieën van ai-server-manager en het monitorplan van de Beszel-agent), vertaald naar
+> `overgang-1.3.yaml` alleen voor de I23-kopieën van ai-server-manager en het monitorplan van de Beszel-agent; de
+> kopieën van I03, I04 en I05 hebben er geen vermelding nodig), vertaald naar
 > `app.create`-waarden en tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Op een echte TrueNAS is niets
 > geïnstalleerd: **NIET GEVALIDEERD (echte NAS)** — installeren gebeurt via de Hub en de executor (P2).
 >
@@ -49,10 +50,19 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
+| I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
+| I04 | `media-source-optimizer.manifest.yaml` | Custom App | kopie · bron `lvos04/media-source-optimizer` `deploy/manifest/media-source-optimizer.manifest.yaml` @ `335e26e` | doel: formulier van de standaard Custom App voor I04; de controlelijst verwijst ernaar (I04-04-01); digest volgt bij de release |
+| I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) bestaat nog niet; digest volgt bij de release |
+
+Manifestkopieën (I23, I03, I04, I05) komen alleen met `python tools/manifest_kopie.py bijwerken --repo <repo> --bron
+../<repo> --ref <commit>` uit de gecommitte bron; de herkomstkop (2 regels: bron `<repo>@<commit>:<pad>` en sha256)
+bewaakt de rest byte voor byte (`python tools/manifest_kopie.py controleer`, `make manifesten`). Een kopie houdt de
+bestandsnaam van de bron, ook als die niet gelijk is aan de `app_id` (my_house).
 
 Controlelijsten (`install/checklists/`): hooguit één lijst per I-document zonder installatie, met de bestandsnaam van
 het document (`I0x_NAAM.md` → `../checklists/I0x_NAAM.checklist.yaml`); geen document heeft twee lijsten, een document
-met een installeerbaar manifest hierboven heeft geen lijst, en elk ander bestand in `install/checklists/` is een fout.
+met een installeerbaar manifest van deze repo hierboven heeft geen lijst (een manifestkopie van een andere repo mag
+ernaast staan; de lijst verwijst er dan naar in `verwijzing`), en elk ander bestand in `install/checklists/` is een fout.
 Naast I01 en I02 krijgen de documenten van de bestaande apps (I03, I04, I05 en I15 tot en met I20) zo'n lijst
 (`docs/adr/ADR-0027-controlelijsten-bestaande-apps.md`). Een lijst installeert niets en vervangt geen manifest of
 import; ze beschrijft alleen de weg via de TrueNAS-webinterface of het formulier van de standaard Custom App, nooit een
@@ -95,9 +105,9 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 |---|---|---|---|---|---|
 | I01 | TrueNAS basis | behouden en valideren | — (host; alleen lezen via API) | — | **P1: controlelijst** |
 | I02 | OneDrive / ZFS / herstel | inrichten en testen | — (TrueNAS-taken in de web-UI; methode D04) | — | **P1: controlelijst** |
-| I03 | MediaGuard | upgrade na versiecontrole | bestaande app behouden (import, B08-002) | — | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
-| I04 | Media Source Optimizer | behouden, 1.6-gate | bestaand; eigen alles-in-één image als Custom App | — | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
-| I05 | my_house | installeren met apparaatgate | eigen image(s) als Custom App | — | P3 |
+| I03 | MediaGuard | upgrade na versiecontrole | bestaande app behouden (import, B08-002) | — | **P3: controlelijst + manifestkopie** (S-P3-450); import blijft afzonderlijk werk |
+| I04 | Media Source Optimizer | behouden, 1.6-gate | bestaand; eigen alles-in-één image als Custom App | — | **P3: controlelijst + manifestkopie** (S-P3-450); import blijft afzonderlijk werk |
+| I05 | my_house | installeren met apparaatgate | eigen image(s) als Custom App | — | **P3: manifestkopie** (S-P3-450); controlelijst in S-P3-440 |
 | I06 | Jellyfin | behouden, later fork | bestaand behouden (import) | community · 1.3.24 · 12.4 | P4 (import) |
 | I07 | Beszel | nieuw | Custom App (hub + agent) | (community `beszel-hub` · 1.1.22 · 0.21.1 bestaat) | **P1** |
 | I08 | Uptime Kuma | nieuw | Custom App | (community · 1.2.25 · 2.5.9 bestaat) | **P1** |

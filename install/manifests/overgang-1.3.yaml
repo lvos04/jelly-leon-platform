@@ -2,8 +2,11 @@
 # backup_db_export_none, secret_in_form en digest_pending_release). De losse lijst validatie-uitzonderingen.yaml is
 # daarom vervallen (C1.3-JLP-09, ADR-0019). Wat hier staat, kan een manifest van deze repo NIET zelf oplossen:
 #
-# - kopieen: manifesten van een andere repo (I23, eigenaar ai-server-manager). Alleen de eigenaar mag ze aanpassen;
-#   tot een nieuwe gepinde kopie (tools/manifest_kopie.py) zijn precies deze waarschuwingen toegestaan.
+# - kopieen: manifesten van een andere repo (tools/manifest_kopie.py). Alleen de eigenaar mag ze aanpassen;
+#   tot een nieuwe gepinde kopie (tools/manifest_kopie.py) zijn precies deze waarschuwingen toegestaan. De kopieen van
+#   MediaGuard (I03), Media Source Optimizer (I04) en my_house (I05, app_id smart-home) staan hier niet: de validator
+#   geeft voor hen alleen digest_pending_release, en dat is al accepted_findings in het manifest van de eigen repo
+#   (gemeten in S-P3-450; tools/manifesten.py telt een geaccepteerde waarschuwing niet als open).
 # - hiaten: waarschuwingen die de manifeststandaard 1.3 nog niet laat oplossen (gemeld als contract_issue). Codes uit de
 #   vaste lijst van accepted_findings mogen hier nooit staan.
 #

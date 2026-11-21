@@ -5,8 +5,9 @@ Alle tests gelden voor elke lijst in ``install/checklists/`` (``cl.lijsten()``),
 - Vorm (JSON Schema), dekking van precies de Excel-taken met titel/acceptatie/risico uit de Excel, alleen-lezen
   TrueNAS-methoden, geen terminal, geen voorbeeldwaarden, eerlijke validatie per stap (``tools/checklists.py``).
 - Verzameling: elke lijst hoort bij precies één document onder ``03_INSTALLATIE/`` (bestandsnaam = documentnaam),
-  geen document heeft twee lijsten, een document met een installeerbaar manifest in ``install/manifests/`` heeft geen
-  lijst, en elk ander bestand in ``install/checklists/`` is een fout (ook ``python tools/checklists.py`` faalt dan).
+  geen document heeft twee lijsten, een document met een installeerbaar manifest van deze repo in
+  ``install/manifests/`` heeft geen lijst (een manifestkopie van een andere repo mag ernaast; de lijst verwijst
+  ernaar), en elk ander bestand in ``install/checklists/`` is een fout (ook ``python tools/checklists.py`` faalt dan).
   De test leest de map zelf, los van ``cl.lijsten()``.
 - Tekstregels: de letterlijke Excel-titels en -acceptaties van alle documenten gaan door de terminal- en
   voorbeeldregel; een YAML-, compose- of scriptweg wordt geweigerd in ``uitvoeren_nl``, ``bij_fout_nl`` en
@@ -23,6 +24,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+import shutil
 import sys
 from collections import Counter
 from collections.abc import Iterator
@@ -336,8 +338,20 @@ def test_lists_with_the_literal_excel_texts_of_the_existing_apps_pass(tmp_path: 
         stap["afwijking_van_document_nl"] = ("Het document noemt Install via YAML; de weg is het formulier van de "
                                              "standaard Custom App (Z-18: optie 1, zonder besluit).")
 
+    def verwijs(doc: str) -> Any:
+        """Heeft het document een manifestkopie (S-P3-450), dan verwijst de lijst ernaar."""
+        kopie = KOPIE_PER_DOC.get(doc[:3])
+
+        def wijzig(d: dict[str, Any]) -> None:
+            if doc.startswith("I05"):
+                i05(d)
+            if kopie:
+                d["stappen"][0]["wijze"].append("verwijzing")
+                d["stappen"][0]["verwijzing"] = [f"install/manifests/{kopie}"]
+        return wijzig
+
     for doc in BESTAANDE_APPS:
-        _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md", wijzig=i05 if doc.startswith("I05") else None)
+        _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md", wijzig=verwijs(doc))
     uitkomst = cl.controleer_alle(tmp_path)
     assert uitkomst == {f"{doc}.checklist.yaml": [] for doc in BESTAANDE_APPS}, uitkomst
     assert cl.main(tmp_path) == 0
@@ -350,6 +364,54 @@ def test_a_list_for_a_document_with_an_installable_manifest_fails(tmp_path: Path
     fout = cl.controleer_alle(tmp_path)["I13_GOTIFY.checklist.yaml"]
     assert any("installeerbaar manifest" in f and "gotify.manifest.yaml" in f for f in fout), fout
     assert cl.main(tmp_path) == 1
+
+
+KOPIE_PER_DOC = {"I03": "mediaguard.manifest.yaml", "I04": "media-source-optimizer.manifest.yaml",
+                 "I05": "my_house.manifest.yaml"}
+
+
+@pytest.mark.parametrize("idoc", sorted(KOPIE_PER_DOC))
+def test_a_list_next_to_a_manifest_copy_must_refer_to_it(tmp_path: Path, idoc: str) -> None:
+    """S-P3-450 bouwpunt 6: een manifestkopie van een andere repo mag naast de lijst van haar document staan; de lijst
+    verwijst er dan naar (veld ``verwijzing``). Zonder die verwijzing faalt de lijst; met een verwijzing naar iets
+    anders ook."""
+    doc = next(d for d in BESTAANDE_APPS if d.startswith(idoc))
+    kopie = KOPIE_PER_DOC[idoc]
+    assert kopie in cl.documenten_met_manifest()[idoc] and kopie in cl.KOPIEEN
+
+    def met(verwijzing: list[str]) -> Any:
+        def wijzig(d: dict[str, Any]) -> None:
+            if idoc == "I05":
+                stap = next(s for s in d["stappen"] if s["id"] == "I05-05-03")
+                stap["afwijking_van_document_nl"] = "Het document noemt YAML; de weg is het formulier (Z-18: optie 1)."
+            d["stappen"][0]["wijze"].append("verwijzing")
+            d["stappen"][0]["verwijzing"] = verwijzing
+        return wijzig
+
+    naam = cl.bestandsnaam(f"03_INSTALLATIE/{doc}.md")
+    _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md", wijzig=met([f"install/manifests/{kopie}"]))
+    assert cl.controleer_alle(tmp_path)[naam] == []
+    for fout_verwijzing in ([], ["install/manifests/gotify.manifest.yaml"]):
+        _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md", wijzig=met(fout_verwijzing))
+        fout = cl.controleer_alle(tmp_path)[naam]
+        assert any(f"manifestkopie {kopie}" in f for f in fout), fout
+    _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md")
+    assert any(f"manifestkopie {kopie}" in f for f in cl.controleer_alle(tmp_path)[naam])
+    assert cl.main(tmp_path) == 1
+
+
+def test_an_own_manifest_next_to_a_list_still_fails_even_with_a_reference(tmp_path: Path) -> None:
+    """Alleen een kopie van een andere repo mag naast een lijst; een eigen manifest blijft de lijst weigeren."""
+    lijsten, manifesten = tmp_path / "checklists", tmp_path / "manifests"
+    lijsten.mkdir()
+    manifesten.mkdir()
+    _kopie(lijsten, "I03_MEDIAGUARD.checklist.yaml")
+    shutil.copy(cl.MANIFEST_DIR / "mediaguard.manifest.yaml", manifesten / "mediaguard.manifest.yaml")
+    assert cl.controleer_alle(lijsten, manifesten) == {"I03_MEDIAGUARD.checklist.yaml": []}
+    (manifesten / "eigen.manifest.yaml").write_text(yaml.safe_dump(
+        {"app_id": "eigen", "install": {"method": "custom_app"}, "docs": ["I03_MEDIAGUARD"]}), encoding="utf-8")
+    fout = cl.controleer_alle(lijsten, manifesten)["I03_MEDIAGUARD.checklist.yaml"]
+    assert any("installeerbaar manifest (eigen.manifest.yaml)" in f for f in fout), fout
 
 
 def test_an_installable_manifest_for_an_existing_list_makes_it_fail(tmp_path: Path) -> None:

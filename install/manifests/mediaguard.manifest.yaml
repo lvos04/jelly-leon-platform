@@ -1,0 +1,193 @@
+# HERKOMST — I03-manifest · bron: lvos04/media-guard-ultimate@982415381dcd14620866ac3f076a0b4067f1f9f9:deploy/manifest/mediaguard.manifest.yaml · sha256 van het bronbestand (zonder deze kop): c7ba3222ce88d4eb0e929943d90f4d9cbec545e344fd1e417cc814b918eaa3db
+# Versie-gepinde kopie (I03, installatie via het formulier van de standaard Custom App; docs/platform-v2/03_INSTALLATIE/I03_MEDIAGUARD.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+# Manifeststandaard v1, platformcontract 1.3 §9. Concept voor de eerste release van deze bronstand.
+manifest_version: "1"
+app_id: mediaguard
+name: MediaGuard Ultimate
+owner_repo: lvos04/media-guard-ultimate
+category: media
+description_nl: >-
+  MediaGuard bundelt webinterface, core, recovery, AV1-encoder en de vier Sonarr/Radarr-instanties in één image.
+version: "1.2.2" # Bronversie uit deploy/release-manifest.json. De vrij te geven versie is nog open.
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/mediaguard-core
+  tag: 1.2.2-release-in-afwachting-aio # Plaatshouder op basis van de huidige bronversie.
+  digest: null
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+    - name: work
+      type: host_path
+      host_path: {param: work_path}
+    - name: media
+      type: host_path
+      host_path: {param: media_path}
+  env:
+    - name: MG_HOST
+      value_from: {param: public_host}
+  resources:
+    cpus: null
+    memory_mib: null
+  gpu: {param: gpu}
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: web
+    scheme: http
+    path: /
+    name: MediaGuard
+parameters:
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: mediaguard_appdata
+    decision: D02
+    required: true
+    description_nl: Bij een upgrade exact de bestaande configuratiedataset, inclusief databases en sleutels.
+  - name: work_path
+    type: path
+    source: dataset_picker
+    dataset_role: mediaguard_work
+    decision: D02
+    required: true
+    description_nl: Werkdataset met staging, cache en bij central de quarantaine. Behoud de bestaande dataset bij een upgrade.
+  - name: media_path
+    type: path
+    source: dataset_picker
+    dataset_role: mediaguard_media
+    decision: D02
+    required: true
+    description_nl: Bestaande mediadataset met de standaardquarantaine. Behoud de bestaande mediapaden voor de mediaserver.
+  - name: public_host
+    type: string
+    source: default
+    default: ""
+    decision: D03
+    required: false
+    description_nl: Alleen bij automatische Seerr-koppeling via bridge het bevestigde adres waarop Seerr de fork-API's bereikt.
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone die de beheerder bevestigt.
+  - name: gpu
+    type: gpu
+    source: wizard
+    decision: D08
+    required: false
+    description_nl: Standaard uit. Intel-render alleen na meting en bevestiging van D08.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestaan dataverlies. Open tot de beheerder het hersteldoel vastlegt.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestane hersteltijd, inclusief stilstand voor de snapshot. Open tot bevestiging.
+storage:
+  - name: appdata
+    mount: /config
+    kind: config
+    required_dataset_role: mediaguard_appdata
+    description_nl: Volledige configuratie inclusief core- en encoderdatabases, voortgang, fork-configuratie en sleutels.
+  - name: work
+    mount: /work
+    kind: data
+    required_dataset_role: mediaguard_work
+    description_nl: Staging, cache en bij central de quarantaine met bewaarde originelen onder /work/quarantine.
+  - name: media
+    mount: /data
+    kind: media
+    required_dataset_role: mediaguard_media
+    description_nl: Bibliotheek, downloads en bij library_root de quarantaine met bewaarde originelen onder /data/.mediaguard-quarantine.
+network:
+  ports:
+    - {name: web, container_port: 30080, host_port: 30080, protocol: tcp, purpose_nl: Webinterface en API}
+    - {name: sonarr_series, container_port: 38989, host_port: 38989, protocol: tcp, purpose_nl: Sonarr Series-API voor Seerr}
+    - {name: sonarr_anime, container_port: 38990, host_port: 38990, protocol: tcp, purpose_nl: Sonarr Anime-API voor Seerr}
+    - {name: radarr_films, container_port: 37878, host_port: 37878, protocol: tcp, purpose_nl: Radarr Films-API voor Seerr}
+    - {name: radarr_animefilms, container_port: 37879, host_port: 37879, protocol: tcp, purpose_nl: Radarr Animefilms-API voor Seerr}
+  host_network: false
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: intel_render
+privilege_reason: >-
+  Optionele doorgifte van de niet-NVIDIA-GPU's voor hardwarematige AV1-encode. Alleen na meting en bevestiging
+  van D08. Bij een standaardstart gebruikt de bewaker kort root voor opslagrechten en verlaagt daarna zijn rechten.
+healthcheck:
+  type: builtin
+  port: web
+  timeout_s: 10
+  interval_s: 30
+  start_period_s: 120
+  retries: 3
+  # De ingebouwde controle verlaagt eerst haar rechten en gebruikt verse bewakerstatus én de interne /readyz.
+  # De externe monitor gaat via de webpoort en toetst de bereikbaarheid en gereedheid van de kern.
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 10, interval_s: 30}
+backup:
+  db_export:
+    method: stopped_snapshot
+    description_nl: >-
+      Rond schrijvende taken af en stop MediaGuard netjes. Maak samenhangende snapshots van de volledige
+      /config met databases, sleutels, gebruikersgegevens, voortgang en hersteljournaal, de gebruikte
+      datasets onder /work en /data en alle quarantainepaden waar het journaal nog naar verwijst.
+      Verifieer vóór migratie op een afgeschermde kopie dat journaal en originele bestandsinhoud overeenkomen.
+  snapshot_datasets: [appdata, work, media]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies: []
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Behoud de mounts, bestaande mediapaden en vorige formulierwaarden inclusief imageversie en digest.
+    Scherm de proefkopie vóór de eerste start af van alle productiediensten en gebruik uitsluitend testdiensten.
+    Ga pas verder na een release met upgradebewijs, een geverifieerde herstelset en een geverifieerd herstelpunt
+    per dienst die bij de echte wijziging beschrijfbaar is. Vergelijk voor en na de MediaGuard-voortgang
+    en per gebruiker gezien-status, hervatpunten, favorieten, beoordelingen en spoorkeuzes, inclusief gebruikers
+    en rechten. Houd Emby actief als terugval. Bewaar vóór herstel ook de huidige toestand. Stop MediaGuard, zet
+    in de TrueNAS-webinterface de bijpassende snapshot van /config terug en herstel ontbrekende originelen
+    gericht uit de snapshots van /work en /data met behoud van nieuwere media. Selecteer daarna de vorige
+    imageversie met digest in het Custom App-formulier, start de app en controleer de herstelde toestand.
+decisions_required: [D01, D02, D03, D07, D08, D16]
+docs: [I03_MEDIAGUARD]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  ix_app_min_version: "1.4.8"
+post_install_checks:
+  - id: beheerder_ingesteld
+    soort: handmatig
+    beschrijving_nl: Maak bij eerste gebruik een beheerder aan en controleer dat het installatiescherm sluit en opnieuw inloggen werkt.
+  - id: gereedheid
+    soort: http
+    beschrijving_nl: Controleer naast de ingebouwde healthcheck of /readyz op de gepubliceerde webpoort HTTP 200 geeft.
+accounts:
+  - id: beheerder
+    rol: beheerder
+    aanmaak: eerste_gebruik
+    controle: beheerder_ingesteld
+    beschrijving_nl: De beheerder maakt het account aan in MediaGuard tijdens de eerste start.
+accepted_findings:
+  - code: digest_pending_release
+    reden_nl: >-
+      BLOK-06. Deze bronstand met de nieuwe healthcheck is nog niet gepubliceerd. Vervang de versie- en
+      tagplaatshouder door de vrijgegeven versie en bijbehorende AIO-tag en registerdigest, en verwijder dan
+      deze uitzondering. De al gepubliceerde 1.2.2-aio behoudt zijn bestaande referentie en oude healthcheck.
