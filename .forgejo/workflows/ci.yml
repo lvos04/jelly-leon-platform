@@ -169,6 +169,9 @@ jobs:
           docker buildx build --load -t "$SIM_IMAGE" e2e/simulators/truenas
       - name: Start, healthchecks, image-E2E en upgrade met herstel
         run: bash .forgejo/ci/dockerproef.sh image
+      - name: Eigen harnas en proefcontainers opruimen
+        if: always()
+        run: bash .forgejo/ci/dockerproef.sh ruim
       - name: Eigen imagetags opruimen
         if: always()
         run: docker image rm "$LIFECYCLE_IMAGE" "$SIM_IMAGE" || true
@@ -200,6 +203,9 @@ jobs:
             --build-arg REVISION="$GITHUB_SHA" -t "$LIFECYCLE_IMAGE" .
       - name: Installatie, upstream-images als 568 en Node-RED tegen simulators beproeven
         run: bash .forgejo/ci/dockerproef.sh rooktest
+      - name: Eigen harnas en proefcontainers opruimen
+        if: always()
+        run: bash .forgejo/ci/dockerproef.sh ruim
       - name: Rookrapporten bewaren
         if: always()
         uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4
