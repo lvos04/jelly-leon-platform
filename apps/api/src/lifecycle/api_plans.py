@@ -327,6 +327,20 @@ def _toets_record(document: Mapping[str, Any], binding: Mapping[str, Any]) -> No
                        "Hub; er wordt niets gepland.", {"velden": anders})
 
 
+# shortcut: de Hub heeft nog geen gebonden update-catalogusroute en de updatepreview kent geen catalog_binding, dus
+# elke updatepreview is los (§8.2) en geeft niets vrij; pas omzetten met die route (VERSIE 2, contracteigenaar).
+GEBONDEN_UPDATEROUTE = False
+
+
+def _losse_preview(document: dict[str, Any], voorstel_nl: str) -> None:
+    """§8.2: losse manifest_yaml geeft alleen een onvertrouwde preview, zonder uitvoerbare stap."""
+    document["blokkades"].append({
+        "code": "catalogusbinding_ontbreekt", "melding_nl": "Dit is een losse preview zonder catalogusbewijs van de "
+        "Hub; er wordt geen stap vrijgegeven.", "voorstel_nl": voorstel_nl, "details": {}})
+    for stap in document["stappen"]:
+        stap["geblokkeerd"] = True  # zoals planner._document bij elke blokkade
+
+
 # ------------------------------------------------------------------ routes
 @router.post("/plans/install/preview", status_code=201, responses=_ANTWOORDEN,
              summary="Installatieplan: dry-run, diff, poortconflicten en afhankelijkheden (voert niets uit)")
@@ -345,13 +359,8 @@ def preview_install(body: InstallPlanIn, request: Request, principal: Annotated[
             _toets_record(document, binding)
             document["catalog_binding"] = binding  # onveranderlijk: niets schrijft het document na aanmaken
         else:
-            # §8.2: losse manifest_yaml geeft alleen een onvertrouwde preview, zonder uitvoerbare stap.
-            document["blokkades"].append({
-                "code": "catalogusbinding_ontbreekt", "melding_nl": "Dit is een losse preview zonder catalogusbewijs "
-                "van de Hub; er wordt geen stap vrijgegeven.", "voorstel_nl": "Installeer via de catalogus van de "
-                "Hub; die maakt het plan met een geverifieerde catalogusbinding.", "details": {}})
-            for stap in document["stappen"]:
-                stap["geblokkeerd"] = True  # zoals planner._document bij elke blokkade
+            _losse_preview(document, "Installeer via de catalogus van de Hub; die maakt het plan met een "
+                           "geverifieerde catalogusbinding.")
         return document
 
     return _bewaar(request, principal, idempotency_key, INSTALL_PREVIEW, body, plan_id, maak)
@@ -365,10 +374,14 @@ def preview_update(body: UpdatePlanIn, request: Request, principal: Annotated[Pr
     doel = planner.Doel(body.doel.truenas_version, body.doel.ix_app_version)
 
     def maak() -> dict[str, Any]:
-        return _met_bronnen(request, lambda inventaris, beschikbaar: planner.plan_update(
+        document = _met_bronnen(request, lambda inventaris, beschikbaar: planner.plan_update(
             plan_id=plan_id, manifest_yaml=body.manifest_yaml, parameters=body.parameters, app_name=body.app_name,
             doel=doel, schaduw_parameters=body.schaduw.parameters if body.schaduw else None, inventaris=inventaris,
             beschikbaar=beschikbaar, now=utcnow()))
+        if not GEBONDEN_UPDATEROUTE:
+            _losse_preview(document, "Een update wordt pas vrijgegeven via een gebonden catalogusroute van de Hub; "
+                           "die bestaat nog niet.")
+        return document
 
     return _bewaar(request, principal, idempotency_key, "/lifecycle/v1/plans/update/preview", body, plan_id, maak)
 

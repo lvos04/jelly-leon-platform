@@ -103,6 +103,7 @@ def test_ontbrekende_afhankelijkheid_blokkeert_de_deployment(keten: k.Keten) -> 
     assert keten.app("beszel-agent") is None and muterend(keten) == []
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_update_met_schaduwtest_en_daarna_terugzetten(keten: k.Keten) -> None:
     k.gotify_draait(keten)
     view = keten.plan("update", keten.body(schaduw={"parameters": h.SCHADUW}))
@@ -157,6 +158,7 @@ def test_update_met_schaduwtest_en_daarna_terugzetten(keten: k.Keten) -> None:
     assert keten.overtredingen() == []
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_terugzetten_alleen_image_door_de_hele_keten(keten: k.Keten) -> None:
     """Terugzetten van alleen de image, voor de testvariant waarvoor dat veilig is (geen migraties,
     ``tag_only_rollback_safe``; ADR-0025): app.update met de bewaarde vorige waarden — geen app.rollback van TrueNAS,
@@ -190,6 +192,7 @@ def test_terugzetten_alleen_image_door_de_hele_keten(keten: k.Keten) -> None:
     assert keten.overtredingen() == []
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_mislukte_migratie_laat_de_oude_app_met_data_intact(keten: k.Keten) -> None:
     """Acceptatie B08-004: "DB migratiefout laat oude app met data intact"."""
     k.gotify_draait(keten)

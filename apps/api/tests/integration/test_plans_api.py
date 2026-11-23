@@ -183,7 +183,7 @@ def test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij(client: An
     p2.zet_apps(h.gotify_record())
     vers = client.post(PREVIEW.format("update"), json=body(schaduw={"parameters": h.SCHADUW}),
                        headers=auth("operator", idem=True)).json()
-    assert vers["status"] == "klaar_voor_voorstel" and vers["vrijgegeven_stappen"] == ["stoppen"]
+    assert vers["status"] == "geblokkeerd" and blokkades(vers) == {"catalogusbinding_ontbreekt"}  # §8.2, los
 
     p2.zet_apps()
     p2.catalogus_gemeten_op = p2.clock() - 1200  # de Hub zegt 'ja', maar op een meting van twintig minuten oud
@@ -236,6 +236,7 @@ def _meld(client: Any, auth: Any, plan_id: str, stap: str, **resultaat: Any) -> 
                        json={"status": "voltooid", "execution_id": str(uuid.uuid4()), **resultaat})
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_updateplan_geeft_stap_voor_stap_vrij(client: Any, auth: Any, hub: Any, clean_db: str) -> None:
     meetbaar(hub, h.gotify_record())
     view = _update(client, auth)
@@ -282,6 +283,7 @@ def test_updateplan_geeft_stap_voor_stap_vrij(client: Any, auth: Any, hub: Any, 
     assert uitkomsten[-1] == "mislukt"
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: Any) -> None:
     """Terugzetten via het updateplan, voor de testvariant waarvoor alleen de image terugzetten veilig is (geen
     migraties, ``tag_only_rollback_safe``; ADR-0025). Voor het echte Gotify-manifest: zie
@@ -337,6 +339,7 @@ def test_update_en_terugzetten_via_het_updateplan(client: Any, auth: Any, hub: A
         assert r.status_code == 422, r.text
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_terugzetten_na_update_met_migraties_is_geblokkeerd(client: Any, auth: Any, hub: Any) -> None:
     """HARDE EIS (contract §2.3 regel 7a, EX15; R-HARDE-EIS-1): na een update van een app met migraties geeft het
     terugzetplan geen ``app.rollback`` vrij — alleen de image terug zou de oude versie op de gemigreerde database
@@ -407,6 +410,7 @@ def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: s
     assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")
 
 
+@pytest.mark.usefixtures("gebonden_updateroute")
 def test_late_melding_van_stoppen_na_het_vervallen_geeft_starten_niet_vrij(client: Any, auth: Any, hub: Any,
                                                                           clean_db: str) -> None:
     """Karakteriseringstest van een BEKENDE BEPERKING (ADR-0025, "Bekende beperkingen en vervolgpunten"; vervolgpunt

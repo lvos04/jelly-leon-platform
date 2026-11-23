@@ -44,6 +44,9 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    `unknown` met reden `antwoord_ongeldig`.
    Een installatiepreview zonder geverifieerde `catalog_binding` (losse `manifest_yaml`) is onvertrouwd: blokkade
    `catalogusbinding_ontbreekt`, geen enkele stap vrijgegeven (§8.2).
+   Dat geldt ook voor elke updatepreview: de Hub heeft nog geen gebonden update-catalogusroute en de updatepreview
+   neemt geen `catalog_binding` aan (422). Tot die route er is (VERSIE 2, contracteigenaar) geeft een update niets vrij;
+   de schakelaar `GEBONDEN_UPDATEROUTE` staat uit en alleen tests zetten hem aan om de updateketen erachter te toetsen.
    Zonder scope of route → `capability_unavailable`; onbereikbaar, 5xx, 429/503, verouderd of onleesbaar → `unknown`.
    Verouderd is ook een meting ouder dan 900 s of meer dan 2 minuten in de toekomst (§6.2, reden `meting_verouderd`),
    ook als de Hub haar zelf niet zo noemt en ook voor een update- of terugzetplan; een catalogusmeting zonder

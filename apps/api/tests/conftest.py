@@ -163,3 +163,12 @@ def auth(token: Any) -> Any:
         return h
 
     return headers
+
+
+@pytest.fixture
+def gebonden_updateroute(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Doet alsof de gebonden update-catalogusroute van de Hub er al is (VERSIE 2), zodat de updateketen achter de
+    §8.2-blokkade (schaduwtest, digest-readback, terugzetten) getest blijft. De blokkade zelf: test_plans_update_los."""
+    from lifecycle import api_plans
+
+    monkeypatch.setattr(api_plans, "GEBONDEN_UPDATEROUTE", True)
