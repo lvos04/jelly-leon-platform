@@ -6,58 +6,16 @@
 from __future__ import annotations
 
 import copy
-import hashlib
-import json
 import uuid
 from typing import Any
 
 import planhulp as h
 import pytest
+from planhulp import binding, hub_body, hub_kop, stuur
+from planhulp import claim_van as _claim
 from sqlalchemy import create_engine, text
 
-from appstore.manifest import validate_text
-
-PREVIEW = "/lifecycle/v1/plans/install/preview"
-AUD = "jelly-leon-platform"
-
-
-def _claim(key: str, body: dict[str, Any], path: str = PREVIEW) -> str:
-    # Onafhankelijk van de code nagerekend volgens de contracttekst: canonieke JSON, sleutels gesorteerd, geen spaties.
-    tekst = json.dumps(["POST", path, key, body], sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return "sha256:" + hashlib.sha256(tekst.encode("utf-8")).hexdigest()
-
-
-def binding(**record: Any) -> dict[str, Any]:
-    report, _m, _r = validate_text(h.manifest("gotify"))
-    rec = {"app_id": "gotify", "version": report.version, "manifest_sha256": report.manifest_sha256,
-           "entry_id": str(uuid.uuid4()), "version_id": str(uuid.uuid4()), "valid": True, **record}
-    return {
-        "appstore_service_id": str(uuid.uuid4()),
-        "source_approval_revision": "sha256:" + "ab" * 32,
-        "provenance": {"record": rec, "signature": "dGVzdA==", "key_id": "0123456789abcdef", "alg": "EdDSA"},
-        "release": {"catalog": {"train": "stable", "app": "ix-app", "version": "1.4.8"},
-                    "image_digests": [h.GOTIFY_DIGEST]},
-        "instance": {"host_id": "nas-primary", "instance_id": str(uuid.uuid4()), "registry_revision": "inventaris:1",
-                     "app_name": "gotify", "expected_version": "absent"},
-    }
-
-
-def hub_body(b: dict[str, Any] | None = None) -> dict[str, Any]:
-    return {"manifest_yaml": h.manifest("gotify"), "parameters": h.GOTIFY, "app_name": "gotify",
-            "doel": h.DOEL_JSON, "catalog_binding": binding() if b is None else b}
-
-
-def hub_kop(hub: Any, key: str, claim: str | None) -> dict[str, str]:
-    extra = {} if claim is None else {"catalog_request_sha256": claim}
-    return {"Authorization": "Bearer " + hub.state.sim.mint_service(AUD, extra=extra), "Idempotency-Key": key}
-
-
-def stuur(client: Any, hub: Any, body: dict[str, Any], *, claim_body: dict[str, Any] | None = None,
-          claim: str | None = "", key: str | None = None) -> Any:
-    key = key or str(uuid.uuid4())
-    if claim == "":
-        claim = _claim(key, body if claim_body is None else claim_body)
-    return client.post(PREVIEW, json=body, headers=hub_kop(hub, key, claim))
+PREVIEW, AUD = h.INSTALL_PREVIEW, h.AUD
 
 
 def plannen(pg_url: str) -> int:
@@ -113,11 +71,23 @@ def test_hub_binding_wordt_onveranderd_bewaard_en_teruggegeven(client: Any, auth
     assert melden.json()["etag"] != view["etag"]
 
 
-def test_gebruiker_zonder_binding_ziet_null(client: Any, auth: Any, hub: Any) -> None:
+def test_losse_preview_geeft_geen_uitvoerbare_stap(client: Any, auth: Any, hub: Any) -> None:
+    """§8.2 (R-MANIFEST-1): losse manifest_yaml zonder geverifieerde binding is een onvertrouwde preview, met geen
+    uitvoerbare stap, ook bij een verse meting en zonder andere blokkade; een stapresultaat wordt geweigerd."""
     meetbaar(hub)
     body = {k: v for k, v in hub_body().items() if k != "catalog_binding"}
     r = client.post(PREVIEW, json=body, headers=auth("operator", idem=True))
     assert r.status_code == 201 and r.json()["catalog_binding"] is None
+    view = r.json()
+    assert {b["code"] for b in view["plan"]["blokkades"]} == {"catalogusbinding_ontbreekt"}
+    assert view["status"] == "geblokkeerd" and view["vrijgegeven_stappen"] == []
+    assert all(s["status"] == "geblokkeerd" for s in view["voortgang"])
+    assert all(s["geblokkeerd"] is True for s in view["plan"]["stappen"])
+    melden = client.post(f"/lifecycle/v1/plans/{view['id']}/steps/installeren/result",
+                         headers=auth("operator", idem=True),
+                         json={"status": "voltooid", "execution_id": str(uuid.uuid4()),
+                               "readback": {"staat": "RUNNING", "digests": [h.GOTIFY_DIGEST]}})
+    assert (melden.status_code, melden.json()["code"]) == (409, "plan_geblokkeerd")
 
 
 @pytest.mark.parametrize("geval", ["operator", "geen_claim", "andere_body", "andere_sleutel", "ander_pad",

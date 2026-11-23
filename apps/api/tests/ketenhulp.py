@@ -133,8 +133,11 @@ class Keten:
     # ------------------------------------------------------------------ plannen bij deze dienst
     def plan(self, soort: str, body: dict[str, Any]) -> dict[str, Any]:
         self.meet()
-        r = self.client.post(f"/lifecycle/v1/plans/{soort}/preview", json=body,
-                             headers=self.auth("operator", idem=True))
+        if "catalog_binding" in body:  # zoals de Hub (§8.2): dienst-JWT met claim over het verzoek
+            r = h.stuur(self.client, self.hub, body)
+        else:
+            r = self.client.post(f"/lifecycle/v1/plans/{soort}/preview", json=body,
+                                 headers=self.auth("operator", idem=True))
         assert r.status_code == 201, r.text
         view: dict[str, Any] = r.json()
         return view

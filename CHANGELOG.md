@@ -2,6 +2,11 @@
 
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
+- **Losse installatiepreview zonder stap** (S-P2-420, R-MANIFEST-1; contract 1.3 §8.2): een installatiepreview zonder
+  geverifieerde `catalog_binding` krijgt de blokkade `catalogusbinding_ontbreekt` en geeft geen stap vrij; alleen het
+  plan dat de Hub via zijn catalogusroute maakt, is uitvoerbaar. `HubLezer` toetst `gemeten_op` strikt (UTC met `Z`
+  bij `ja`/`nee`, `null` bij `onbekend`). De Hub-stand-in weigert extra, dubbele of ontbrekende queryvelden zoals de
+  echte Hub. Sim-getest; NIET GEVALIDEERD (echte NAS).
 - **Node-RED en besluit C-12** (S-P3-445, ADR-0023 besluit 2): het manifest blijft zonder `accounts` en `adminAuth`
   zonder gebruikers, volgens ADR-0016 punt 7 van appstore-en-fork (gebruiker: optie A "Wachten"); de repotest faalt bij
   elke `accounts` of andere `adminAuth`, en de gepinde validator weigert een proefkopie met een hash of

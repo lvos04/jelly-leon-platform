@@ -47,8 +47,8 @@ def rijen(pg_url: str, sql: str) -> list[Any]:
 
 def test_installatieplan_diff_met_vereiste_goedkeuring(client: Any, auth: Any, hub: Any, clean_db: str) -> None:
     meetbaar(hub)
-    kop = auth("operator", idem=True)
-    r = client.post(PREVIEW.format("install"), json=body(), headers=kop)
+    key, gebonden = str(uuid.uuid4()), h.hub_body()  # alleen de Hub levert een uitvoerbare stap (§8.2)
+    r = h.stuur(client, hub, gebonden, key=key)
     assert r.status_code == 201, r.text
     view = r.json()
     assert r.headers["ETag"] == view["etag"] and r.headers["Location"] == f"/lifecycle/v1/plans/{view['id']}"
@@ -67,7 +67,7 @@ def test_installatieplan_diff_met_vereiste_goedkeuring(client: Any, auth: Any, h
     assert hub.state.sim.calls["apps"] == 1 and hub.state.sim.calls["catalog_availability"] == 1
 
     # zelfde Idempotency-Key + zelfde inhoud → hetzelfde plan, geen tweede meting of rij
-    opnieuw = client.post(PREVIEW.format("install"), json=body(), headers=kop)
+    opnieuw = h.stuur(client, hub, gebonden, key=key)
     assert opnieuw.status_code == 201 and opnieuw.json()["id"] == view["id"]
     assert opnieuw.headers["Idempotent-Replay"] == "true" and hub.state.sim.calls["apps"] == 1
     assert rijen(clean_db, "SELECT count(*) FROM lifecycle_plans")[0][0] == 1
@@ -191,7 +191,7 @@ def test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij(client: An
     assert r.status_code == 201, r.text
     view = r.json()
     assert view["status"] == "geblokkeerd" and view["vrijgegeven_stappen"] == []
-    assert blokkades(view) == {"version_availability_unknown"}
+    assert blokkades(view) == {"version_availability_unknown", "catalogusbinding_ontbreekt"}
     catalogus = view["plan"]["bronnen"]["catalogus"]
     assert (catalogus["beschikbaar"], catalogus["reden"]) == ("onbekend", "meting_verouderd")
     assert catalogus["gemeten_op"] == p2._iso(p2.catalogus_gemeten_op)
@@ -369,13 +369,13 @@ def test_plan_vervalt_zodra_de_meting_eronder_te_oud_is(client: Any, auth: Any, 
     p2 = meetbaar(hub)
     nu = p2.clock()
     p2.gemeten_op, p2.catalogus_gemeten_op = nu - 600, nu - 300
-    view = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    view = h.stuur(client, hub, h.hub_body()).json()
     assert view["status"] == "klaar_voor_voorstel", view["plan"]["blokkades"]
     inventaris = datetime.fromisoformat(p2._iso(p2.gemeten_op).replace("Z", "+00:00"))
     assert view["expires_at"] == iso_z(inventaris + timedelta(seconds=900))  # de inventaris is de oudste meting
 
     p2.gemeten_op, p2.catalogus_gemeten_op = p2.clock() - 897, None  # nog net vers bij het maken van het plan
-    view = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    view = h.stuur(client, hub, h.hub_body()).json()
     assert view["vrijgegeven_stappen"] == ["installeren"] and view["vervallen"] is False
     time.sleep(4)
     gelezen = client.get(f"/lifecycle/v1/plans/{view['id']}", headers=auth("viewer")).json()
@@ -385,7 +385,7 @@ def test_plan_vervalt_zodra_de_meting_eronder_te_oud_is(client: Any, auth: Any, 
     assert (r.status_code, r.json()["code"]) == (409, "plan_vervallen")
 
     p2.gemeten_op = None  # ook een meting van nu is maar 900 s vers: dat is korter dan het uur van PLAN_TTL
-    vers = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    vers = h.stuur(client, hub, h.hub_body()).json()
     gemeten = datetime.fromisoformat(vers["plan"]["bronnen"]["inventaris"]["gemeten_op"].replace("Z", "+00:00"))
     gemaakt = datetime.fromisoformat(vers["created_at"].replace("Z", "+00:00"))
     assert vers["expires_at"] == iso_z(gemeten + timedelta(seconds=900))
@@ -394,7 +394,7 @@ def test_plan_vervalt_zodra_de_meting_eronder_te_oud_is(client: Any, auth: Any, 
 
 def test_niet_gestart_plan_vervalt(client: Any, auth: Any, hub: Any, clean_db: str) -> None:
     meetbaar(hub)
-    view = client.post(PREVIEW.format("install"), json=body(), headers=auth("operator", idem=True)).json()
+    view = h.stuur(client, hub, h.hub_body()).json()
     engine = create_engine(clean_db)
     with engine.begin() as conn:
         conn.execute(text("UPDATE lifecycle_plans SET expires_at = now() - interval '1 minute'"))

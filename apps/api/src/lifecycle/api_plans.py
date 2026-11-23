@@ -344,6 +344,14 @@ def preview_install(body: InstallPlanIn, request: Request, principal: Annotated[
         if binding is not None:
             _toets_record(document, binding)
             document["catalog_binding"] = binding  # onveranderlijk: niets schrijft het document na aanmaken
+        else:
+            # §8.2: losse manifest_yaml geeft alleen een onvertrouwde preview, zonder uitvoerbare stap.
+            document["blokkades"].append({
+                "code": "catalogusbinding_ontbreekt", "melding_nl": "Dit is een losse preview zonder catalogusbewijs "
+                "van de Hub; er wordt geen stap vrijgegeven.", "voorstel_nl": "Installeer via de catalogus van de "
+                "Hub; die maakt het plan met een geverifieerde catalogusbinding.", "details": {}})
+            for stap in document["stappen"]:
+                stap["geblokkeerd"] = True  # zoals planner._document bij elke blokkade
         return document
 
     return _bewaar(request, principal, idempotency_key, INSTALL_PREVIEW, body, plan_id, maak)

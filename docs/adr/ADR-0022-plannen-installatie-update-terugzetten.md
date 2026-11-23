@@ -36,8 +36,14 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
      Zie [platformcontract §4.4](../platform-v2/PLATFORM_CONTRACTEN.md#catalogusbeschikbaarheid-m3).
      Dit is de route die de Hub bouwde (ai-server-manager, router `catalog_availability`, S-P2-080);
      `hubread.CATALOG_AVAILABILITY_PATH` staat erop. S-P2-420 toetst inventaris, catalogusbeschikbaarheid,
-     poortconflict en een voorstel zonder goedkeuring tegen de echte Hub-code (`make test-conformance-hub`,
-     `tests/conformance/test_plan_echte_hub.py`; Hub-API en -worker echt, alleen de TrueNAS is de simulator).
+     poortconflict en de catalogusroute van de Hub (`/api/v1/catalog/plans/install`, eigen bewijs en binding; het
+     voorstel van die planstap voert zonder goedkeuring niets uit) tegen de echte Hub-code (`make
+     test-conformance-hub`, `tests/conformance/test_plan_echte_hub.py`; Hub-API en -worker echt, de TrueNAS is de
+     simulator en de appstore een nagebootste dienst met een ondertekend testrecord).
+   `gemeten_op` volgt §4.4 strikt: bij `ja`/`nee` een UTC-tijdstip met `Z`, bij `onbekend` `null`; een andere vorm is
+   `unknown` met reden `antwoord_ongeldig`.
+   Een installatiepreview zonder geverifieerde `catalog_binding` (losse `manifest_yaml`) is onvertrouwd: blokkade
+   `catalogusbinding_ontbreekt`, geen enkele stap vrijgegeven (§8.2).
    Zonder scope of route → `capability_unavailable`; onbereikbaar, 5xx, 429/503, verouderd of onleesbaar → `unknown`.
    Verouderd is ook een meting ouder dan 900 s of meer dan 2 minuten in de toekomst (§6.2, reden `meting_verouderd`),
    ook als de Hub haar zelf niet zo noemt en ook voor een update- of terugzetplan; een catalogusmeting zonder
@@ -115,7 +121,8 @@ De voorlopige route `POST /api/v1/actions/proposals` dwingt voor een dienst-toke
 Naast de echte Hub-code gelegd (S-P2-420, ai-server-manager op de commit van `ASM_COMMIT` in de CI):
 
 - inventaris en catalogusbeschikbaarheid: dezelfde routes en vorm; in de stand-in hersteld: 403 `scope_ontbreekt`
-  met `details.vereiste_scope` en 422 `validation_error` voor een onbekende trein (zoals de Hub);
+  met `details.vereiste_scope` en 422 `validation_error` voor een onbekende trein en voor een extra, dubbel of
+  ontbrekend queryveld (zoals de Hub; één lijst `hub_p2.AVAILABILITY_VORMFOUTEN` toetst beide);
 - risicoklassen en kritieke apps in `contract8.py`: gelijk aan `policy/acties.yaml` en `policy/apps.yaml` van de Hub;
 - **verschil dat blijft:** de echte Hub neemt een voorstel alleen aan van een gebruikerssessie op `POST /api/v1/actions`
   en weigert een voorstel, goedkeuring of stapresultaat van een dienst-token (contract 1.3 §8.2). De route

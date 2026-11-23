@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from hub_p2 import app_record
 
+from appstore.manifest import validate_text
 from appstore.manifest.conflicts import Inventory
 from lifecycle.hubread import Beschikbaarheid, Inventaris, installed_app
 from lifecycle.planner import Doel
@@ -23,6 +27,8 @@ OUDE_DIGEST = "sha256:" + "a1" * 32
 GOTIFY = {"host_port": 30215, "data_path": "/mnt/pool-x/apps/gotify", "timezone": "Europe/Amsterdam",
           "rpo": "PT24H", "rto": "PT4H"}
 SCHADUW = {"host_port": 30216}
+INSTALL_PREVIEW = "/lifecycle/v1/plans/install/preview"
+AUD = "jelly-leon-platform"
 
 
 def manifest(naam: str) -> str:
@@ -71,3 +77,43 @@ def stap(document: dict[str, Any], step_id: str) -> dict[str, Any]:
 
 def status(voortgang: list[dict[str, Any]]) -> dict[str, str]:
     return {s["id"]: s["status"] for s in voortgang}
+
+
+# ------------------------------------------------------------------ gebonden installatiepreview (§8.2), zoals de Hub
+def claim_van(key: str, body: dict[str, Any], path: str = INSTALL_PREVIEW) -> str:
+    # Onafhankelijk van de code nagerekend volgens de contracttekst: canonieke JSON, sleutels gesorteerd, geen spaties.
+    tekst = json.dumps(["POST", path, key, body], sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(tekst.encode("utf-8")).hexdigest()
+
+
+def binding(**record: Any) -> dict[str, Any]:
+    report, _m, _r = validate_text(manifest("gotify"))
+    rec = {"app_id": "gotify", "version": report.version, "manifest_sha256": report.manifest_sha256,
+           "entry_id": str(uuid.uuid4()), "version_id": str(uuid.uuid4()), "valid": True, **record}
+    return {
+        "appstore_service_id": str(uuid.uuid4()),
+        "source_approval_revision": "sha256:" + "ab" * 32,
+        "provenance": {"record": rec, "signature": "dGVzdA==", "key_id": "0123456789abcdef", "alg": "EdDSA"},
+        "release": {"catalog": {"train": "stable", "app": "ix-app", "version": "1.4.8"},
+                    "image_digests": [GOTIFY_DIGEST]},
+        "instance": {"host_id": "nas-primary", "instance_id": str(uuid.uuid4()), "registry_revision": "inventaris:1",
+                     "app_name": "gotify", "expected_version": "absent"},
+    }
+
+
+def hub_body(b: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {"manifest_yaml": manifest("gotify"), "parameters": GOTIFY, "app_name": "gotify",
+            "doel": DOEL_JSON, "catalog_binding": binding() if b is None else b}
+
+
+def hub_kop(hub: Any, key: str, claim: str | None) -> dict[str, str]:
+    extra = {} if claim is None else {"catalog_request_sha256": claim}
+    return {"Authorization": "Bearer " + hub.state.sim.mint_service(AUD, extra=extra), "Idempotency-Key": key}
+
+
+def stuur(client: Any, hub: Any, body: dict[str, Any], *, claim_body: dict[str, Any] | None = None,
+          claim: str | None = "", key: str | None = None) -> Any:
+    key = key or str(uuid.uuid4())
+    if claim == "":
+        claim = claim_van(key, body if claim_body is None else claim_body)
+    return client.post(INSTALL_PREVIEW, json=body, headers=hub_kop(hub, key, claim))

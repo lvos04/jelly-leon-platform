@@ -14,6 +14,7 @@ leest hier nooit geheimen en schrijft niets; hij heeft geen TrueNAS-sleutel.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -95,6 +96,14 @@ def _parse_ts(value: Any) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+_UTC_Z = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z")
+
+
+def _utc_z(value: Any) -> bool:
+    """ISO-8601 in UTC met ``Z`` (contract 1.3 §4.4), en een bestaand tijdstip."""
+    return isinstance(value, str) and _UTC_Z.fullmatch(value) is not None and _parse_ts(value) is not None
 
 
 def _te_oud(gemeten: datetime, now: datetime) -> bool:
@@ -292,6 +301,9 @@ class HubLezer:
                 or not isinstance(body["gemeten_op"], str | None)):
             return Beschikbaarheid("onbekend", "unknown", "antwoord_ongeldig", **base)
         waarde, gemeten = body["beschikbaar"], body["gemeten_op"]
-        if waarde != "onbekend" and _parse_ts(gemeten) is None:
+        if waarde != "onbekend" and gemeten is None:
             return Beschikbaarheid("onbekend", "unknown", "meting_zonder_tijdstip", **base)
+        # §4.4: bij ja/nee een UTC-tijdstip met Z, bij onbekend null; elke andere samenhang is geen bruikbare meting.
+        if (gemeten is not None) if waarde == "onbekend" else not _utc_z(gemeten):
+            return Beschikbaarheid("onbekend", "unknown", "antwoord_ongeldig", **base)
         return Beschikbaarheid(str(waarde), "ok", "niet_gemeten" if waarde == "onbekend" else None, gemeten, **base)

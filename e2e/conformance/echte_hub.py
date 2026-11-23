@@ -10,12 +10,19 @@ aan, draait de conformiteitstests met ``JLP_HUB_URL``/``JLP_HUB_ENROLLMENT_TOKEN
 ``JLP_TRUENAS_SIM_URL`` voor de planproef, S-P2-420) en ruimt alles op. Leest alleen in de andere repo; schrijft daar
 niets. Sim-getest; NIET GEVALIDEERD (echte NAS).
 
+Voor de positieve catalogusroute (R-MANIFEST-1, ``/api/v1/catalog/plans/install``) krijgt de Hub een beleidskopie met
+één witte-lijstregel voor een fictief testmanifest (``catalogusbewijs.py``, met de venv van de Hub) en een nagebootste
+appstore op een lokale poort; de planner draait in de test als HTTP-server. De Hub vindt beide via de gemeten
+inventaris van de simulator (eigen image en hostpoort), zoals in productie.
+
     python e2e/conformance/echte_hub.py [--hub-repo ../ai-server-manager] [--pg postgresql+psycopg://postgres@127.0.0.1:5432]
 """
 
 from __future__ import annotations
 
 import argparse
+import http.server
+import json
 import os
 import re
 import secrets
@@ -25,6 +32,7 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -38,6 +46,37 @@ sys.path.insert(0, str(ROOT / "tools"))
 from rooktest import maak_certificaat  # noqa: E402
 
 BESTAANDE_POORT = 38080  # bezet door de bestaande simulatorapp: de planproef verwacht hier port_in_use
+CATALOGUS_MANIFEST = Path(__file__).with_name("demo-app.manifest.yaml")
+CATALOGUS_PARAMETERS = {"data_path": "/mnt/simpool/apps/demo-app"}
+CATALOGUS_DOEL = {"truenas_version": "25.10.8", "ix_app_version": "1.4.8"}
+
+
+def eigen_app(app_id: str, host_poort: int, container_poort: int) -> dict[str, object]:
+    """Een eigen dienst zoals de Hub haar in de inventaris herkent: eigen image en een gemeten TCP-hostpoort."""
+    return {"app_name": app_id, "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
+            "values": {"image": {"repository": f"ghcr.io/lvos04/{app_id}", "tag": "0.1.0"},
+                       "ports": [{"bind_mode": "published", "port_number": host_poort,
+                                  "container_port": container_poort, "protocol": "tcp", "host_ips": []}]}}
+
+
+def nagebootste_appstore(routes: dict[str, object], poort: int) -> http.server.ThreadingHTTPServer:
+    """Alleen GET op de drie routes van het catalogusbewijs; de Hub verifieert de handtekening zelf."""
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            body = routes.get(self.path.split("?")[0])
+            data = json.dumps(body if body is not None else {"code": "not_found"}).encode()
+            self.send_response(200 if body is not None else 404)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", poort), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
 
 
 def free_port() -> int:
@@ -93,13 +132,25 @@ def main() -> int:
         conn.execute(sa.text(f'CREATE DATABASE "{db_name}"'))
     data = Path(tempfile.mkdtemp(prefix="jlp-echte-hub-"))
     sim_dir = Path(tempfile.mkdtemp(prefix="jlp-echte-hub-sim-"))
-    port = free_port()
+    port, planner_poort, appstore_poort = free_port(), free_port(), free_port()
     env = {**os.environ, "HUB_DATA_DIR": str(data), "HUB_DATABASE_URL": f"{args.pg}/{db_name}",
            "HUB_PORT": str(port), "HUB_HOST": "127.0.0.1", "HUB_AI_ENABLED": "false", "PYTHONUNBUFFERED": "1",
-           "HUB_WORKER_POLL_SECONDS": "1"}
+           "HUB_WORKER_POLL_SECONDS": "1", "ASM_POLICY_DIR": str(sim_dir / "bewijs" / "policy")}
     api: subprocess.Popen[str] | None = None
     procs: list[subprocess.Popen[str]] = []
+    appstore: http.server.ThreadingHTTPServer | None = None
     try:
+        (sim_dir / "bewijs").mkdir()
+        r = subprocess.run([str(hub_python), str(Path(__file__).with_name("catalogusbewijs.py")), "--hub-repo",
+                            str(hub_repo), "--manifest", str(CATALOGUS_MANIFEST), "--parameters",
+                            json.dumps(CATALOGUS_PARAMETERS), "--doel", json.dumps(CATALOGUS_DOEL), "--app-name",
+                            "demo-app", "--uit", str(sim_dir / "bewijs")], cwd=hub_repo / "apps" / "api",
+                           capture_output=True, text=True, check=False)
+        if r.returncode != 0:
+            print(r.stdout + r.stderr, file=sys.stderr)
+            return 3
+        bewijs = json.loads((sim_dir / "bewijs" / "appstore.json").read_text(encoding="utf-8"))
+        appstore = nagebootste_appstore(bewijs["routes"], appstore_poort)
         sim_port = free_port()
         cert, key, fp = maak_certificaat(sim_dir, "127.0.0.1")
         procs.append(subprocess.Popen(
@@ -116,7 +167,9 @@ def main() -> int:
             except httpx.HTTPError:
                 pass
             time.sleep(0.3)
-        sim.post("/_sim/fixtures", json={"datasets": ["simpool/apps/gotify"], "apps": [{
+        sim.post("/_sim/fixtures", json={"datasets": ["simpool/apps/gotify", "simpool/apps/demo-app"], "apps": [
+            eigen_app("jelly-leon-platform", planner_poort, 30440),
+            eigen_app("appstore-en-fork", appstore_poort, 30430), {
             "app_name": "bestaande-app", "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
             "values": {"image": {"repository": "ghcr.io/sim/bestaande-app", "tag": "1.0.0"},
                        "ports": [{"bind_mode": "published", "port_number": BESTAANDE_POORT, "container_port": 8080,
@@ -167,6 +220,14 @@ def main() -> int:
                            headers={"X-CSRF-Token": csrf})
                 r.raise_for_status()
                 grants.append(r.json())
+            r = c.post("/api/v1/services/enrollment-tokens", json={"app_id": "appstore-en-fork"},
+                       headers={"X-CSRF-Token": csrf})
+            r.raise_for_status()
+            r = c.post("/api/v1/services/enroll", json={
+                "app_id": "appstore-en-fork", "enrollment_token": r.json()["enrollment_token"], "version": "0.1.0",
+                "base_url": None, "public_key_jwk": {"kty": "OKP", "crv": "Ed25519", "x": bewijs["jwk_x"]}},
+                headers={"X-CSRF-Token": csrf})
+            r.raise_for_status()
             session_cookie = c.cookies.get("hub_session") or ""
         grant = grants[0]
         print(f"echte Hub: ai-server-manager {commit} op {base}; vingerafdruk {grant['keyset_fingerprint']}",
@@ -176,11 +237,16 @@ def main() -> int:
                     "JLP_HUB_ENROLLMENT_TOKEN_2": grants[1]["enrollment_token"],
                     "JLP_HUB_ENROLLMENT_TOKEN_3": grants[2]["enrollment_token"],
                     "JLP_HUB_SESSION_COOKIE": session_cookie, "JLP_HUB_CSRF": csrf, "JLP_TRUENAS_SIM_URL": sim_url,
-                    "JLP_TRUENAS_SIM_CA": str(cert),
+                    "JLP_TRUENAS_SIM_CA": str(cert), "JLP_PLANNER_POORT": str(planner_poort),
+                    "JLP_CATALOGUS_VERSION_ID": bewijs["version_id"], "JLP_CATALOGUS_APP_ID": bewijs["app_id"],
+                    "JLP_CATALOGUS_PARAMETERS": json.dumps(CATALOGUS_PARAMETERS),
+                    "JLP_CATALOGUS_DOEL": json.dumps(CATALOGUS_DOEL),
                     "JLP_HUB_COMMIT": commit}
         return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rs",
                                str(ROOT / "tests" / "conformance")], env=test_env, check=False).returncode
     finally:
+        if appstore is not None:
+            appstore.shutdown()
         for proc in procs:
             proc.terminate()
             try:

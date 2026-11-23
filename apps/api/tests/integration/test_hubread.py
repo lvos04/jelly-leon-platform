@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 import pytest
-from hub_p2 import app_record
+from hub_p2 import AVAILABILITY_VORMFOUTEN, app_record
 from planhulp import GOTIFY_REPO, gotify_record
 from starlette.testclient import TestClient
 
@@ -135,6 +135,28 @@ def test_onleesbaar_antwoord_is_unknown() -> None:
         assert lezer.beschikbaarheid("stable", "ix-app", "1.4.8").beschikbaar == "ja"
 
 
+@pytest.mark.parametrize(("waarde", "gemeten", "verwacht"), [
+    ("ja", "2026-11-23T00:00:00", "antwoord_ongeldig"),  # zonder tijdzone
+    ("nee", "2026-11-23T01:00:00+01:00", "antwoord_ongeldig"),  # geen Z
+    ("ja", "2026-11-23", "antwoord_ongeldig"),
+    ("ja", "2026-13-40T00:00:00Z", "antwoord_ongeldig"),
+    ("onbekend", "willekeurige tekst", "antwoord_ongeldig"),
+    ("onbekend", "2026-11-23T00:00:00Z", "antwoord_ongeldig"),  # onbekend draagt geen tijdstip
+    ("onbekend", None, "niet_gemeten"),
+    ("ja", "2026-11-23T00:00:00.5Z", None),
+])
+def test_tijdstip_volgt_de_contractvorm(waarde: str, gemeten: Any, verwacht: str | None) -> None:
+    """Contract §4.4 (R-MANIFEST-2): ja/nee met een UTC-tijdstip met Z, onbekend met null; anders onbruikbaar."""
+    antwoord = httpx.Response(200, json={**PIN, "beschikbaar": waarde, "gemeten_op": gemeten})
+    with httpx.Client(transport=httpx.MockTransport(lambda _r: antwoord)) as client:
+        b = HubLezer(client, URL, "token").beschikbaarheid("stable", "ix-app", "1.4.8")
+    if verwacht == "antwoord_ongeldig":
+        assert (b.beschikbaar, b.status, b.reden, b.gemeten_op, b.available_versions) == (
+            "onbekend", "unknown", "antwoord_ongeldig", None, None)
+    else:
+        assert (b.beschikbaar, b.status, b.reden, b.gemeten_op) == (waarde, "ok", verwacht, gemeten)
+
+
 def test_catalogusbeschikbaarheid_ja_nee_onbekend(hub: Any, lezer: HubLezer) -> None:
     p2 = hub.state.sim.p2
     p2.zet_beschikbaar("stable", "ix-app", "1.4.8", "ja")
@@ -147,6 +169,20 @@ def test_catalogusbeschikbaarheid_ja_nee_onbekend(hub: Any, lezer: HubLezer) -> 
     assert (onbekend.beschikbaar, onbekend.reden, onbekend.available_versions) == ("onbekend", "niet_gemeten", None)
     assert ja.view() == {"train": "stable", "app": "ix-app", "version": "1.4.8", "beschikbaar": "ja", "status": "ok",
                          "reden": None, "gemeten_op": ja.gemeten_op}
+
+
+@pytest.mark.parametrize("vorm", sorted(AVAILABILITY_VORMFOUTEN))
+def test_stand_in_dwingt_de_gesloten_verzoekvorm_af(hub: Any, vorm: str) -> None:
+    """R-MANIFEST-3: zoals de echte Hub (``_check_shape``) 422 bij een extra, dubbel of ontbrekend queryveld."""
+    _sid, token = hub.state.sim.register_service("jelly-leon-platform")
+    hub.state.sim.p2.zet_beschikbaar("stable", "ix-app", "1.4.8", "ja")
+    with TestClient(hub, base_url=URL) as client:
+        r = client.get(hubread.CATALOG_AVAILABILITY_PATH, params=AVAILABILITY_VORMFOUTEN[vorm],
+                       headers={"Authorization": f"Bearer {token}"})
+        assert (r.status_code, r.json()["code"]) == (422, "validation_error"), r.text
+        goed = client.get(hubread.CATALOG_AVAILABILITY_PATH, headers={"Authorization": f"Bearer {token}"},
+                          params={"train": "stable", "app": "ix-app", "version": "1.4.8"})
+        assert goed.status_code == 200 and goed.json()["beschikbaar"] == "ja", goed.text
 
 
 def test_catalogus_zonder_route_of_scope_is_capability_unavailable(hub: Any, lezer: HubLezer) -> None:

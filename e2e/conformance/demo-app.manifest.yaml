@@ -1,0 +1,110 @@
+# ALLEEN TEST (S-P2-420, R-MANIFEST-1): fictieve app met testdigest voor de planproef tegen de echte Hub.
+# Zelfde vorm als het testmanifest van ai-server-manager tests/interop/test_keten_echt.py. Nooit installeren.
+manifest_version: '1'
+app_id: demo-app
+name: Demo
+owner_repo: voorbeeld/demo-app
+category: other
+description_nl: Fictieve testapp voor de planproef tegen de echte Hub (S-P2-420).
+version: 1.2.3
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/voorbeeld/demo-app
+  tag: 1.2.3
+  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+custom_app:
+  storage:
+  - name: data
+    type: host_path
+    host_path:
+      param: data_path
+  env:
+  - name: APP_MODE
+    value: prod
+  resources:
+    cpus: 2
+    memory_mib: 1024
+  gpu: none
+  run_as:
+    mode: custom
+    user: 568
+    group: 568
+  timezone: Etc/UTC
+  restart_policy: unless-stopped
+  portal:
+    port: web
+    scheme: http
+    path: /
+    name: Web UI
+parameters:
+- name: web_port
+  type: port
+  source: default
+  default: 30555
+  required: true
+  description_nl: Hostpoort voor de webinterface.
+- name: data_path
+  type: path
+  source: dataset_picker
+  dataset_role: demo_data
+  decision: D02
+  required: true
+  description_nl: Dataset voor de gegevens.
+storage:
+- name: data
+  mount: /data
+  kind: data
+  required_dataset_role: demo_data
+network:
+  ports:
+  - name: web
+    container_port: 8080
+    host_port:
+      param: web_port
+    protocol: tcp
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: 'Upstream-image als Custom App. Restrisico: zonder no-new-privileges
+  kan een setuid-programma binnen de container root worden.'
+healthcheck:
+  type: http
+  path: /healthz
+  port: web
+  interval_s: 30
+  timeout_s: 5
+  retries: 3
+backup:
+  db_export:
+    method: none
+  snapshot_datasets:
+  - data
+  rpo: PT24H
+  rto: PT4H
+dependencies: []
+sso: native
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+compatibility:
+  truenas_min_version: 24.10.2
+  truenas_max_version: null
+  ix_app_min_version: null
+upgrade:
+  migrations: false
+  tag_only_rollback_safe: true
+decisions_required:
+- D02
+docs:
+- B08_APPSTORE_LIFECYCLE
+validation_status: unvalidated
+post_install_checks:
+- id: http_bereikbaar
+  soort: http
+  beschrijving_nl: De webinterface antwoordt.

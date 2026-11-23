@@ -43,7 +43,7 @@ def muterend(keten: k.Keten) -> list[str]:
 
 
 def test_installatie_door_de_hele_keten(keten: k.Keten) -> None:
-    view = keten.plan("install", keten.body())
+    view = keten.plan("install", keten.body(app_name="gotify", catalog_binding=h.binding()))
     assert (view["status"], view["vrijgegeven_stappen"]) == ("klaar_voor_voorstel", ["installeren"]), view["plan"]
     assert view["plan"]["bronnen"]["catalogus"]["beschikbaar"] == "ja"
 

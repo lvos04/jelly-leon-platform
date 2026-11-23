@@ -48,6 +48,14 @@ if TYPE_CHECKING:
 SCOPE_INVENTARIS = "inventaris.lezen"
 SCOPE_CATALOGUS = "catalogus.lezen"
 TRAINS = ("stable", "community", "enterprise")
+AVAILABILITY_VELDEN = ("train", "app", "version")
+# Verzoekvormen die de echte Hub (``catalog_availability._check_shape``) met 422 weigert; dezelfde lijst toetst de
+# stand-in en, in ``make test-conformance-hub``, de echte Hub (R-MANIFEST-3).
+AVAILABILITY_VORMFOUTEN: dict[str, list[tuple[str, str]]] = {
+    "extra_veld": [("train", "stable"), ("app", "ix-app"), ("version", "1.4.8"), ("extra", "1")],
+    "dubbel_veld": [("train", "stable"), ("app", "ix-app"), ("app", "ix-app"), ("version", "1.4.8")],
+    "ontbrekend_veld": [("train", "stable"), ("app", "ix-app")],
+}
 SCOPE_VOORSTEL = "acties.voorstellen"  # voorlopig: het contract kent nog geen scope voor voorstellen van een dienst
 APPROVAL_TTL_S = 900
 REQUEST_TTL_S = 300
@@ -336,14 +344,22 @@ def attach(app: FastAPI, state: HubState) -> None:
         return err(404, "not_found", "App niet gevonden.")
 
     @app.get("/api/v1/catalog/availability")
-    def availability(train: str, app: str, version: str,
-                     authorization: str | None = Header(default=None)) -> Response:
+    def availability(request: Request, authorization: str | None = Header(default=None)) -> Response:
         state.calls["catalog_availability"] += 1
         if not p2.catalogus_route:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         svc = dienst(authorization, SCOPE_CATALOGUS)
         if isinstance(svc, JSONResponse):
             return svc
+        # Gesloten verzoekvorm zoals de echte Hub: elk veld precies één keer, geen extra velden.
+        query = request.query_params
+        fouten = [{"veld": v, "fout": "Deze parameter is precies één keer verplicht.", "type": "count"}
+                  for v in AVAILABILITY_VELDEN if len(query.getlist(v)) != 1]
+        if set(query) - set(AVAILABILITY_VELDEN):
+            fouten.append({"veld": "query", "fout": "Extra parameters zijn verboden.", "type": "extra_forbidden"})
+        if fouten:
+            return err(422, "validation_error", "De invoer is ongeldig.", {"fouten": fouten})
+        train, app, version = (query[v] for v in AVAILABILITY_VELDEN)
         if train not in TRAINS:  # de echte Hub: Literal["stable", "community", "enterprise"]
             return err(422, "validation_error", "De invoer is ongeldig.",
                        {"fouten": [{"veld": "train", "fout": "Onbekende trein.", "type": "literal_error"}]})
