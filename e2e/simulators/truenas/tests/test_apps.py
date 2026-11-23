@@ -92,6 +92,11 @@ def test_catalog_app_trains_pinned_upgrade_rollback(client: TestClient, rw: Rpc)
     assert {"authentik", "immich", "uptime-kuma", "gotify", "node-red", "adguard-home"} <= available
     details = rw.call("catalog.get_app_details", "immich", {"train": "community"})
     assert details["latest_version"] == "1.14.63" and list(details["versions"]) == ["1.14.63"]
+    # catalog.apps: de index die de Hub meet (S-P2-420); alle treinen alleen met retrieve_all_trains
+    index = rw.call("catalog.apps", {"cache": True, "cache_only": True, "retrieve_all_trains": True})
+    assert index["stable"]["ix-app"]["latest_version"] == "1.4.8" and index["stable"]["ix-app"]["healthy"] is True
+    assert index["community"]["immich"]["name"] == "immich"
+    assert set(rw.call("catalog.apps", {})) == {"stable", "community"}
     with pytest.raises(RpcFailed):
         rw.call("catalog.get_app_details", "bestaat-niet", {"train": "community"})
     app = rw.job("app.create", {"app_name": "immich", "catalog_app": "immich", "train": "community",

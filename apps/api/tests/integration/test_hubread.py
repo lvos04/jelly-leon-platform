@@ -105,12 +105,21 @@ def test_onbereikbare_hub_en_geweigerd_token(hub: Any) -> None:
         assert (fout.status, fout.reden) == ("unknown", "service_token_geweigerd")
 
 
+PIN = {"train": "stable", "app": "ix-app", "version": "1.4.8", "beschikbaar": "ja",
+       "gemeten_op": "2026-11-23T00:00:00Z"}
+
+
 def test_onleesbaar_antwoord_is_unknown() -> None:
     antwoorden = iter([httpx.Response(200, text="<html>"), httpx.Response(200, json={"items": []}),
                        httpx.Response(200, json={"items": [], "inventaris": {"status": "ok"}}),
-                       httpx.Response(200, json={"beschikbaar": "misschien"}),
-                       httpx.Response(200, json={"beschikbaar": "ja"}),
-                       httpx.Response(200, json=["ja"])])
+                       httpx.Response(200, json={**PIN, "beschikbaar": "misschien"}),
+                       httpx.Response(200, json={**PIN, "gemeten_op": None}),
+                       httpx.Response(200, json=["ja"]),
+                       httpx.Response(200, json={"beschikbaar": "ja", "gemeten_op": "2026-11-23T00:00:00Z"}),
+                       httpx.Response(200, json={**PIN, "extra": 1}),
+                       httpx.Response(200, json={**PIN, "version": "1.4.9"}),
+                       httpx.Response(200, json={**PIN, "gemeten_op": 5}),
+                       httpx.Response(200, json=PIN)])
     with httpx.Client(transport=httpx.MockTransport(lambda _r: next(antwoorden))) as client:
         lezer = HubLezer(client, URL, "token")
         assert lezer.inventaris().reden == "antwoord_ongeldig"
@@ -120,6 +129,10 @@ def test_onleesbaar_antwoord_is_unknown() -> None:
         zonder_tijd = lezer.beschikbaarheid("stable", "ix-app", "1.4.8")
         assert (zonder_tijd.beschikbaar, zonder_tijd.reden) == ("onbekend", "meting_zonder_tijdstip")
         assert lezer.beschikbaarheid("stable", "ix-app", "1.4.8").reden == "antwoord_ongeldig"
+        # Positieve lijst: ontbrekend, extra of verkeerd getypt veld, of een antwoord op een andere vraag
+        for _ in range(4):
+            assert lezer.beschikbaarheid("stable", "ix-app", "1.4.8").reden == "antwoord_ongeldig"
+        assert lezer.beschikbaarheid("stable", "ix-app", "1.4.8").beschikbaar == "ja"
 
 
 def test_catalogusbeschikbaarheid_ja_nee_onbekend(hub: Any, lezer: HubLezer) -> None:

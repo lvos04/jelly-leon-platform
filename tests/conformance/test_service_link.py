@@ -5,9 +5,7 @@ Vereist PostgreSQL (``LIFECYCLE_TEST_PG``, zoals de andere integratietests) en e
 from __future__ import annotations
 
 import json
-import os
 import uuid
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,28 +15,8 @@ from starlette.testclient import TestClient
 
 from lifecycle.app import create_app, default_http_client_factory
 from lifecycle.config import Settings
-from lifecycle.migrations_util import upgrade
 from lifecycle.secrets_store import ensure_secrets
 from lifecycle.worker import Worker
-
-PG_ADMIN = os.environ.get("LIFECYCLE_TEST_PG", "postgresql+psycopg://postgres@127.0.0.1:5432/postgres")
-
-
-@pytest.fixture
-def service_db() -> Iterator[str]:
-    admin = sa.create_engine(PG_ADMIN, isolation_level="AUTOCOMMIT")
-    try:
-        with admin.connect() as conn:
-            name = f"jlp_conf_svc_{uuid.uuid4().hex[:8]}"
-            conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
-    except sa.exc.OperationalError:
-        pytest.skip("PostgreSQL niet bereikbaar (zet LIFECYCLE_TEST_PG)")
-    url = f"{PG_ADMIN.rsplit('/', 1)[0]}/{name}"
-    upgrade(url)
-    yield url
-    with admin.connect() as conn:
-        conn.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-    admin.dispose()
 
 
 def test_worker_links_with_hub_and_hub_jwt_is_accepted(target: Any, service_db: str, tmp_path: Path) -> None:

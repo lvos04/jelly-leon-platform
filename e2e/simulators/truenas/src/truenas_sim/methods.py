@@ -329,6 +329,16 @@ async def app_available(ctx: Ctx, filters: list[Any] | None = None, options: dic
     return filter_list(rows, filters, options)
 
 
+@register("catalog.apps", roles=("CATALOG_READ",))
+async def catalog_apps(ctx: Ctx, options: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Catalogusindex per trein (``{trein: {app: item}}``), zoals de Hub die voor de beschikbaarheidsmeting leest.
+    Zonder ``retrieve_all_trains`` alleen de voorkeurstreinen; ``cache``/``cache_only`` verandert hier niets."""
+    catalog = ctx.state.catalog
+    trains = list(catalog) if (options or {}).get("retrieve_all_trains") else \
+        [t for t in ctx.state.preferred_trains if t in catalog]
+    return {train: {name: _catalog_item(catalog, train, name) for name in catalog[train]} for train in trains}
+
+
 @register("catalog.get_app_details", roles=("CATALOG_READ",))
 async def catalog_get_app_details(ctx: Ctx, app_name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
     """Details en versies van één catalogusapp (``{"train": …}``)."""

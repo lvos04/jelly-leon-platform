@@ -181,7 +181,7 @@ jobs:
     timeout-minutes: 45
     needs: test
     env:
-      ASM_COMMIT: 5e2177515714c51ab01f2d1b278d546cebf6733c
+      ASM_COMMIT: f9f0a448666cd209f535bb20b0a82a8ae6185af0
       HUB_IMAGE: jlp-rooktest/ai-server-manager:ci-${{ github.run_id }}
       EXECUTOR_IMAGE: jlp-rooktest/ai-server-manager-executor:ci-${{ github.run_id }}
       LIFECYCLE_IMAGE: jlp-rooktest/jelly-leon-platform:ci-${{ github.run_id }}

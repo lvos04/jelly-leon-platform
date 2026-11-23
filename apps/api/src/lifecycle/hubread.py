@@ -2,8 +2,10 @@
 
 - ``inventaris.lezen``: ``GET /api/v1/apps`` (cursor over één momentopname; bij 409 ``snapshot_changed`` opnieuw vanaf
   de eerste pagina, hooguit ``MAX_HERSTART`` keer) en per app ``GET /api/v1/apps/{id}`` (poorten, opslag, catalogus).
-- ``catalogus.lezen``: ``{train, app, version}`` → ``{beschikbaar: ja|nee|onbekend, gemeten_op}``. Het contract noemt
-  geen pad en de Hub heeft de route nog niet; het pad hieronder is een **voorlopige** keuze op één plek (ADR-0022).
+- ``catalogus.lezen``: ``GET /api/v1/catalog/availability?train=&app=&version=`` → ``{train, app, version,
+  beschikbaar: ja|nee|onbekend, gemeten_op}``; dit is de route van de Hub (router ``catalog_availability`` in
+  ai-server-manager, S-P2-080) en staat op één plek (ADR-0022). Getoetst tegen de echte Hub-code in
+  ``make test-conformance-hub`` (S-P2-420).
 
 Eerlijk bij elke storing: zonder scope (403 ``scope_ontbreekt``) of zonder route (404/501) → ``capability_unavailable``;
 onbereikbaar, 5xx, 429/503 of een onleesbaar antwoord → ``unknown``. Nooit een verzonnen inventaris of ``ja``. De dienst
@@ -22,8 +24,18 @@ from appstore.manifest.conflicts import HostPort, InstalledApp, Inventory, UsedP
 from lifecycle.enrollment import retry_after_seconds
 
 APPS_PATH = "/api/v1/apps"
-# VOORLOPIG (contract 1.3 §4.4 noemt geen pad): één plek om het echte pad in te vullen zodra de Hub de route heeft.
+# De route van de Hub voor catalogus.lezen (S-P2-080); de conformiteitsproef tegen de echte Hub-code toetst haar.
 CATALOG_AVAILABILITY_PATH = "/api/v1/catalog/availability"
+# De leesscopes die deze dienst nodig heeft (contract 1.3 §4.4). De Hub legt ze vast; de dienst kiest ze niet.
+BENODIGDE_SCOPES = frozenset({"inventaris.lezen", "catalogus.lezen"})
+
+
+def ontbrekende_scopes(uitgegeven: Any) -> list[str]:
+    """De benodigde scopes die de Hub niet uitgeeft. Alleen een lijst van tekenreeksen telt; elke andere vorm geeft
+    alle scopes als ontbrekend (onbekend is nooit toegekend)."""
+    if not isinstance(uitgegeven, list) or not all(isinstance(s, str) for s in uitgegeven):
+        return sorted(BENODIGDE_SCOPES)
+    return sorted(BENODIGDE_SCOPES - set(uitgegeven))
 PAGE_SIZE = 100
 MAX_HERSTART = 3
 MAX_APPS = 2000
@@ -272,12 +284,14 @@ class HubLezer:
             return Beschikbaarheid("onbekend", status, reden, **base)
         try:
             body = response.json()
-            waarde = body["beschikbaar"]
-        except (ValueError, KeyError, TypeError):
+        except ValueError:
+            body = None
+        # Positieve lijst (CatalogPin van de Hub): precies deze velden, en het antwoord hoort bij deze vraag.
+        if (not isinstance(body, dict) or set(body) != {*base, "beschikbaar", "gemeten_op"}
+                or any(body[k] != v for k, v in base.items()) or body["beschikbaar"] not in ("ja", "nee", "onbekend")
+                or not isinstance(body["gemeten_op"], str | None)):
             return Beschikbaarheid("onbekend", "unknown", "antwoord_ongeldig", **base)
-        if waarde not in ("ja", "nee", "onbekend"):
-            return Beschikbaarheid("onbekend", "unknown", "antwoord_ongeldig", **base)
-        gemeten = body.get("gemeten_op") if isinstance(body.get("gemeten_op"), str) else None
+        waarde, gemeten = body["beschikbaar"], body["gemeten_op"]
         if waarde != "onbekend" and _parse_ts(gemeten) is None:
             return Beschikbaarheid("onbekend", "unknown", "meting_zonder_tijdstip", **base)
         return Beschikbaarheid(str(waarde), "ok", "niet_gemeten" if waarde == "onbekend" else None, gemeten, **base)

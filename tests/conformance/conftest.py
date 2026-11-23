@@ -9,15 +9,19 @@ import socket
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
+import sqlalchemy as sa
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "e2e" / "simulators" / "hub"))
+
+from lifecycle.migrations_util import upgrade  # noqa: E402
 
 
 @dataclass
@@ -42,6 +46,26 @@ class Target:
                        headers={"X-CSRF-Token": self.csrf or ""})
             r.raise_for_status()
             return str(r.json()["token"])
+
+
+PG_ADMIN = os.environ.get("LIFECYCLE_TEST_PG", "postgresql+psycopg://postgres@127.0.0.1:5432/postgres")
+
+
+@pytest.fixture(scope="module")
+def service_db() -> Iterator[str]:
+    admin = sa.create_engine(PG_ADMIN, isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            name = f"jlp_conf_svc_{uuid.uuid4().hex[:8]}"
+            conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    except sa.exc.OperationalError:
+        pytest.skip("PostgreSQL niet bereikbaar (zet LIFECYCLE_TEST_PG)")
+    url = f"{PG_ADMIN.rsplit('/', 1)[0]}/{name}"
+    upgrade(url)
+    yield url
+    with admin.connect() as conn:
+        conn.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+    admin.dispose()
 
 
 def _free_port() -> int:

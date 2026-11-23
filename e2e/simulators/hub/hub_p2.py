@@ -6,18 +6,22 @@ Wat de levenscyclusdienst en de flows in fase P2 van de Hub nodig hebben:
   ai-server-manager, gelezen op commit ``7d3a8ce``): Bearer service-token met scope ``inventaris.lezen`` (anders 403
   ``scope_ontbreekt``), cursor = base64url van ``{"o": offset, "s": snapshot}``, 400 ``invalid_cursor``, 409
   ``snapshot_changed`` als de meting tussen twee pagina's wisselt.
-- **Catalogusbeschikbaarheid** (contract 1.3 §4.4, scope ``catalogus.lezen``): ``{train, app, version}`` →
-  ``{beschikbaar: ja|nee|onbekend, gemeten_op}``. Het contract noemt **geen pad** en de echte Hub heeft de route nog
-  niet; ``GET /api/v1/catalog/availability`` is hier een **voorlopige** keuze (ADR-0022). ``catalogus_route = False``
-  geeft 404, precies zoals de echte Hub nu.
+- **Catalogusbeschikbaarheid** (contract 1.3 §4.4, scope ``catalogus.lezen``): ``GET /api/v1/catalog/availability``
+  met ``{train, app, version}`` → ``{train, app, version, beschikbaar: ja|nee|onbekend, gemeten_op}``, zoals de router
+  ``catalog_availability`` van de echte Hub (S-P2-080; naast elkaar gelegd in S-P2-420): onbekende trein → 422
+  ``validation_error``, zonder scope 403 ``scope_ontbreekt`` met ``details.vereiste_scope``. ``catalogus_route = False``
+  geeft 404 (een Hub van vóór S-P2-080).
 - **Beleid, goedkeuring en ondertekening** (§8) als stand-in: ``propose`` → risicoklasse volgens de contracttabel
   (``risk_claim`` telt nooit mee) en de regels ``beschermd`` van het Hub-beleid (Emby nooit; mediaserver en
   MediaGuard niet bijwerken, terugzetten of verwijderen; gepinde kopie van ``policy/apps.yaml``, ADR-0025: 403 met de
   code van de Hub), ``approve`` → ``Approval`` gebonden aan de diff, ``execution_request`` → ondertekend
-  met de policy-sleutel. De echte Hub heeft hiervoor nog geen routes; ``POST /api/v1/actions/proposals`` is
-  **voorlopig** en dwingt voor een dienst-token de actor ``flow`` af (een flow kiest nooit zelf wie hij is).
+  met de policy-sleutel. ``POST /api/v1/actions/proposals`` met dienst-token en scope ``acties.voorstellen`` bestaat
+  **niet** in de echte Hub: die neemt een voorstel alleen aan van een gebruikerssessie op ``POST /api/v1/actions`` en
+  weigert een voorstel, goedkeuring of stapresultaat van een dienst-token (contract 1.3 §8.2). Deze route blijft
+  alleen voor de Node-RED-testflow (standaard uit); zie VERVOLGPUNT in ADR-0022.
 
-Sim-getest; tegen de echte Hub NIET GEVALIDEERD.
+Inventaris en catalogusbeschikbaarheid zijn tegen de echte Hub-code getoetst met ``make test-conformance-hub``
+(``tests/conformance/test_plan_echte_hub.py``); voorstel, goedkeuring en uitvoering van deze stand-in niet.
 """
 
 from __future__ import annotations
@@ -43,6 +47,7 @@ if TYPE_CHECKING:
 
 SCOPE_INVENTARIS = "inventaris.lezen"
 SCOPE_CATALOGUS = "catalogus.lezen"
+TRAINS = ("stable", "community", "enterprise")
 SCOPE_VOORSTEL = "acties.voorstellen"  # voorlopig: het contract kent nog geen scope voor voorstellen van een dienst
 APPROVAL_TTL_S = 900
 REQUEST_TTL_S = 300
@@ -275,7 +280,7 @@ def attach(app: FastAPI, state: HubState) -> None:
         if found is None:
             return err(401, "unauthorized", "Onbekend of ingetrokken service-token")
         if scope not in p2.scopes.get(found[0].app_id, set()):
-            return err(403, "scope_ontbreekt", f"Deze dienst heeft de scope {scope} niet.", {"scope": scope})
+            return err(403, "scope_ontbreekt", f"Deze dienst heeft de scope {scope} niet.", {"vereiste_scope": scope})
         return found[0]
 
     @app.get("/api/v1/apps")
@@ -339,6 +344,9 @@ def attach(app: FastAPI, state: HubState) -> None:
         svc = dienst(authorization, SCOPE_CATALOGUS)
         if isinstance(svc, JSONResponse):
             return svc
+        if train not in TRAINS:  # de echte Hub: Literal["stable", "community", "enterprise"]
+            return err(422, "validation_error", "De invoer is ongeldig.",
+                       {"fouten": [{"veld": "train", "fout": "Onbekende trein.", "type": "literal_error"}]})
         waarde = p2.catalogus.get((train, app, version), "onbekend")
         return JSONResponse({"train": train, "app": app, "version": version, "beschikbaar": waarde,
                              "gemeten_op": None if waarde == "onbekend" else p2._iso(p2.catalogus_gemeten_op)})

@@ -34,6 +34,10 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
    - de catalogusbeschikbaarheid via `GET /api/v1/catalog/availability?train=<train>&app=<app>&version=<version>`
      met scope `catalogus.lezen`. Het antwoord bevat `train`, `app`, `version`, `beschikbaar` en `gemeten_op`.
      Zie [platformcontract §4.4](../platform-v2/PLATFORM_CONTRACTEN.md#catalogusbeschikbaarheid-m3).
+     Dit is de route die de Hub bouwde (ai-server-manager, router `catalog_availability`, S-P2-080);
+     `hubread.CATALOG_AVAILABILITY_PATH` staat erop. S-P2-420 toetst inventaris, catalogusbeschikbaarheid,
+     poortconflict en een voorstel zonder goedkeuring tegen de echte Hub-code (`make test-conformance-hub`,
+     `tests/conformance/test_plan_echte_hub.py`; Hub-API en -worker echt, alleen de TrueNAS is de simulator).
    Zonder scope of route → `capability_unavailable`; onbereikbaar, 5xx, 429/503, verouderd of onleesbaar → `unknown`.
    Verouderd is ook een meting ouder dan 900 s of meer dan 2 minuten in de toekomst (§6.2, reden `meting_verouderd`),
    ook als de Hub haar zelf niet zo noemt en ook voor een update- of terugzetplan; een catalogusmeting zonder
@@ -99,14 +103,25 @@ heeft geen TrueNAS-sleutel en krijgt die ook niet.
 
 ## Test-stand-ins
 
-De echte Hub heeft nog geen routes voor voorstellen/goedkeuring en de echte executor weigert nog elke actie
-(allowlist leeg tot P2 daar klaar is). Voor de ketentest staan er daarom drie stand-ins **alleen in de testmap**:
+Toen deze stand-ins ontstonden, had de echte Hub nog geen routes voor voorstellen/goedkeuring en weigerde de echte
+executor elke actie. Voor de ketentest staan er daarom drie stand-ins **alleen in de testmap**:
 `contract8.py` (canonieke JSON, ETag, allowlist met risicoklassen, parametergrenzen, Ed25519), `hub_p2.py`
 (inventaris en catalogus in de vorm van de echte Hub, `propose` → `approve` → ondertekend `ExecutionRequest`) en
 `executor_sim.py` (de uitvoerder: controleert het ondertekende verzoek opnieuw in de volgorde en met de codes van
 `docs/EXECUTION_REQUEST.md` van de Hub, voert de vaste acties uit via JSON-RPC tegen de TrueNAS-simulator, bewaart
 de vorige waarden voor terugzetten en leest terug).
 De voorlopige route `POST /api/v1/actions/proposals` dwingt voor een dienst-token de actor `flow` af.
+
+Naast de echte Hub-code gelegd (S-P2-420, ai-server-manager op de commit van `ASM_COMMIT` in de CI):
+
+- inventaris en catalogusbeschikbaarheid: dezelfde routes en vorm; in de stand-in hersteld: 403 `scope_ontbreekt`
+  met `details.vereiste_scope` en 422 `validation_error` voor een onbekende trein (zoals de Hub);
+- risicoklassen en kritieke apps in `contract8.py`: gelijk aan `policy/acties.yaml` en `policy/apps.yaml` van de Hub;
+- **verschil dat blijft:** de echte Hub neemt een voorstel alleen aan van een gebruikerssessie op `POST /api/v1/actions`
+  en weigert een voorstel, goedkeuring of stapresultaat van een dienst-token (contract 1.3 §8.2). De route
+  `POST /api/v1/actions/proposals` met scope `acties.voorstellen` bestaat daar niet. Alleen de Node-RED-testflow
+  `testflow-herstart` (standaard uit) gebruikt haar. VERVOLGPUNT: die flow aanpassen of laten vervallen, na een
+  besluit van de contracteigenaar over voorstellen door een flow; tot dan is de flow tegen de echte Hub niet bruikbaar.
 
 Eigen keuzes in de uitvoerder-stand-in, omdat het contract ze niet vastlegt (veiligste lezing):
 
