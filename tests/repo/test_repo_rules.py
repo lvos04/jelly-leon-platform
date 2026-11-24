@@ -430,15 +430,19 @@ def test_evidence_check_rejects_section_11_violations(fout: dict[str, str]) -> N
 def _controleer_nas_claim(rijen: list[dict[str, Any]]) -> None:
     geselecteerd = {r["id"]: r for r in rijen if r["id"].startswith(("I03-03-", "I04-04-"))}
     assert len(geselecteerd) == 16
+    vervolgwerk = {"I03-03-04", "I03-03-08", "I04-04-05", "I04-04-07", "I04-04-08"}
+    aantekening = "alleen nas-test nodig"
     for id_, rij in geselecteerd.items():
         opmerking = rij["opmerking"].lower()
-        if "alleen nas-test nodig" not in opmerking or "niet alleen nas-test nodig" in opmerking:
+        if aantekening not in opmerking:
             continue
+        assert id_ not in vervolgwerk, id_
+        assert f"niet {aantekening}" not in opmerking, id_
         tekst = (rij["blokkade"] + " " + rij["opmerking"]).lower()
         extra = ("eerst afronden", "eerst aantonen", "herstelbewijs", "herstelgate", "geïsoleerde")
         assert not any(woord in tekst for woord in extra), id_
         for verwijzing in re.findall(r"I0[34]-0[34]-\d\d", tekst.upper()):
-            assert "niet alleen nas-test nodig" not in geselecteerd[verwijzing]["opmerking"].lower(), id_
+            assert verwijzing in geselecteerd and verwijzing not in vervolgwerk, id_
 
 
 def test_i03_i04_geen_te_ruime_nas_claim() -> None:
