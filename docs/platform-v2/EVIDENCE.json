@@ -22,12 +22,12 @@
  {
   "id": "B08-006",
   "status": "Bezig",
-  "validatie": "Sim-getest",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
   "bewijs": "commit 3adbfeb; docs/platform-v2/TRUENAS_APP_API.md §4 (app.delete remove_ix_volumes=false); e2e/simulators/truenas/tests/test_apps.py::test_delete_keeps_data_unless_remove_ix_volumes; contract 1.2: TrueNAS-simulator ongewijzigd voor app.delete (remove_ix_volumes=false); commit cc4cd73 catalogus met één versie per trein; P2: geen wijziging (viel buiten deze ronde)",
-  "blokkade": "",
+  "blokkade": "De plannen voor verwijderen en verplaatsen ontbreken nog. Behoud van de appgegevens op de echte NAS is niet aangetoond (N-P6-03).",
   "opmerking": "P0: onderzoek + simulator (verwijderen houdt data; remove_ix_volumes=true wordt als overtreding geregistreerd). Uninstall/move-plannen geven 501 capability_unavailable tot P2. Review P0: validatie van 'Unit-getest' naar 'Sim-getest' (het bewijs is een simulatortest van TrueNAS-gedrag, geen eigen uninstall). Acceptatie 'Uninstall wist geen Immich media of MediaGuard DB' NIET aangetoond. Geen functionele wijziging in deze ronde. P2 (2026-11-11): niet in deze ronde gebouwd; de uninstall/move-plannen geven nog steeds 501 capability_unavailable.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-11"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I01-01-01",
@@ -52,12 +52,12 @@
  {
   "id": "I01-01-03",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "docs/platform-v2/TRUENAS_APP_API.md §3 (app.gpu_choices); e2e/simulators/truenas/tests/test_storage_faults.py::test_disks_smart_gpu_tasks; P1: commit 8896264 install/checklists/I01_TRUENAS_BASIS.checklist.yaml (stap I01-01-03) + tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions (alleen-lezen-key, 25.04.2.6 en 25.10.8)",
   "blokkade": "Echte Intel Arc A310/UHD 770 en /dev/dri-mapping nodig (D08).",
   "opmerking": "Simulator levert zichtbaar nep-GPU's; geen hardwareclaim. P1: geen shellopdrachten (contract §1): GPU-inventaris via app.gpu_choices + bewijsrecord D08 (ADR-0015).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I01-01-04",
@@ -142,12 +142,12 @@
  {
   "id": "I23-23-08",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "JP11 statuspagina in Peil 1.1.0: commits b0f7da7 (versie-gepinde kopie design/ontwerptaal/ + tools/peil_kopie.py + tests/repo/test_peil_kopie.py: kopie intact, bron op gepinde commit 172ee87, geen drift met de kop van ai-server-manager), a14660f (lifecycle/peil, statuspage.py; apps/api/tests/integration/test_statuspage_peil.py: 13 toestanden met PostgreSQL + Hub-simulator — niet gekoppeld, koppelen mislukt (code + trace-ID), invoer ongeldig, gekoppeld (neutraal, Alles gezond alleen gemeten), beperkt, ingetrokken, ontkoppeld, koppelen bezig, onleesbaar, leesfout, niet gereed bij database-storing en zonder geheimen; apps/api/tests/unit/test_peil_renderer.py), 205bc48 (CI-job statuspagina + tests/ui/controle.mjs), 63143fb (ADR-0013), ae64483 (docs/screenshots/peil/statuspagina/: 30 schermafdrukken 360/768/1440 × licht/donker + rapport.json), 90f5fd2; browsercontrole Chromium 158 (Playwright 1.65.0, axe-core 4.14.0, tags wcag2a/2aa/21a/21aa/22aa): 10 toestanden × 320/360/390/768/1024/1440 px × licht/donker — axe 0 overtredingen, overloop op 320 px 0 px, doelen ≥ 44 px, tekst ≥ 14 px, focusring ≥ 3 px en niet bedekt (Tab-doorloop op 390 en 1440), geen CSP-overtreding of extra verzoek; tests/e2e/test_allinone_image.py::test_first_start_as_root_then_drops_to_568 (Peil-sjabloon in de image, CSP); GitHub Actions-runs 42654234949 (commit ae64483) en 42655091874 (commit 90f5fd2) groen: jobs test, statuspagina en image; lokaal: 202 dienst-tests, 25 repo-controles, 6 image-E2E; ontwerpreview design-agent (docs/ontwerp/PEIL_REVIEW.md, ADR-0017): commits 05ea191 (vaste statuswoorden in de controles, Peil-microcopy, link naar het foute veld, korte skiplink), a6ec08c (tests/ui/controle.mjs: gemeten contrast tekst/UI/focusring, statusregels, microcopy, skiplink, tekstafstand WCAG 1.4.12, forced colors), 16e7d43 (tests/ui/live/: dienst als echte processen api + worker + Hub-simulator, Chromium vult het formulier zelf in; make test-ui-live/ontwerpreview), e6e72c5 (schermafdrukken release-set 5 toestanden × 320/360/390/768/1440 × licht/donker; live set 14 toestanden × 320/1440 in docs/ontwerp/shots/, rapport-live.json, live.json), 0eb51a7 (docs); live uitkomst Chromium 158 / Playwright 1.65.0 / axe-core 4.14.0: 14 toestanden × 320/360/390/768/1024/1440 × licht/donker — axe 0, tekstcontrast ≥ 8,34:1 (licht) / 9,32:1 (donker), UI-grenzen ≥ 4,86:1, focusring ≥ 7,79:1, overloop 0 px op 320, Tab-doorloop zonder bedekte focus; beschadigde pagina als tegenproef faalt op elke nieuwe controle; lokaal 202 dienst-tests, 65 repo-controles, 16 conformiteit; GitHub Actions-run 42672818584 (commit 2a3e458, poging 2) groen: test, statuspagina (13 toestandstests; browsercontrole 10 momentopnamen en live review 14 toestanden, axe 0, contrast tekst ≥ 4,5:1 en UI/focus ≥ 3:1), image en rooktest; contract 1.3 + Peil 1.1.1 (ADR-0019): commits 6e00b64 (gepinde kopie 1.1.1, renderer in één doorgang, byte-gelijk met bouw/sjabloon.py), e0f06d6 (statuspagina: onleesbaar, koppelen bezig, nieuwe tonen, melding_rol, dienstgereedheid), b41cce6 (tests/ui: tonen 1.1.1, inhoud buiten zijn element, --letter, negatieve herkomstgevallen; schermafdrukken 7 hoofdtoestanden × 5 breedtes × licht/donker en 17 live toestanden × 320/1440); lokaal en in GitHub Actions-run 42783537307 (commit 5c5f67c) groen: test, statuspagina, image en rooktest: 12 momentopnamen en 17 live toestanden × 320/360/390/768/1024/1440 × licht/donker, axe 0, tekst ≥ 8,34:1 (licht) / 9,32:1 (donker), UI ≥ 4,86:1, focusring ≥ 7,79:1, geen overloop, ook met DejaVu Sans",
-  "blokkade": "Acceptatie 'complete walkthrough phone/tablet/desktop' vraagt een echte telefoon/tablet en schermlezer (NVDA/TalkBack); de Hub-UI (alle andere schermen) is van ai-server-manager.",
+  "blokkade": "Acceptatie 'complete walkthrough phone/tablet/desktop' vraagt een echte telefoon/tablet en schermlezer (NVDA/TalkBack); de Hub-UI (alle andere schermen) is van ai-server-manager. De mobiele doorloop op de geïnstalleerde omgeving staat open (N-P6-03).",
   "opmerking": "Deze repo levert alleen de statuspagina (GET /): framework-vrij Peil-sjabloon zonder JavaScript (CSP default-src 'none'), NL, precies één koppeltoestand volgens contract 1.3 §3.5/§3.7, eerste signaal nooit groen als de dienst niet gereed is. Ontwerpreview door de design-agent gedaan (9 bevindingen gerepareerd; de 7 sjabloonpunten zijn in Peil 1.1.1 opgelost en overgenomen). Tekstafstand en forced colors alleen in Chromium-emulatie; echte telefoon/tablet, schermlezer (NVDA/TalkBack) en echte browserzoom niet getest. CI-runs 42671892793 en 42672513980 startten niet door een storing bij GitHub Actions (githubstatus: Actions major_outage, 'Internal server error' zonder jobs; het inkorten van stapnamen in 9f9ef34 was een voorzorg, niet de oorzaak); na herstel is run 42672818584 groen. Op een echte NAS NIET GEVALIDEERD.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-10"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I01-01-06",
@@ -172,12 +172,12 @@
  {
   "id": "I02-02-01",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (account)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (account); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "P1: commit 8896264 install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml (stap I02-02-01) + tests/repo/test_checklists.py",
-  "blokkade": "OneDrive-account en D04 (methode, scope, herstelgegevens) nodig.",
+  "blokkade": "OneDrive-account en D04 (methode, scope, herstelgegevens) nodig. De bestaande back-uptaken en hun dekking moeten op de NAS worden uitgelezen.",
   "opmerking": "Cloud-sync-, replicatie- en snapshottaken alleen gelezen; back-upmatrix per app uit de manifesten (backup).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I02-02-02",
@@ -202,22 +202,22 @@
  {
   "id": "I02-02-06",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (account)",
+  "validatie": "NIET GEVALIDEERD (account); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "P1: commit 8896264 install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml (stap I02-02-06) + tests/repo/test_checklists.py",
-  "blokkade": "OneDrive-account nodig (in deze bouwomgeving onmogelijk).",
+  "blokkade": "OneDrive-account nodig (in deze bouwomgeving onmogelijk). De gebruiker moet de bestaande uploadtaak in het TrueNAS-formulier uitbreiden.",
   "opmerking": "Alleen versleutelde exports buiten de NAS (contract R10).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I02-02-07",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "P1: commit 8896264 install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml (stap I02-02-07) + tests/repo/test_checklists.py; P1: commit 5c8042f e2e/simulators/gotify/tests (test_gotify_sim.py); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_push_monitor_as_dead_mans_switch)",
-  "blokkade": "Testmelding op een echte telefoon nodig.",
+  "blokkade": "Testmelding op een echte telefoon nodig. De proef moet de melding vanaf de back-upbewaking op de NAS tot op de telefoon volgen.",
   "opmerking": "Melding buiten de Hub om via Gotify (simulator); de telefoon zelf is niet getest.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I02-02-08",
@@ -302,12 +302,12 @@
  {
   "id": "I08-08-02",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/uptime-kuma.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_metrics_requires_the_api_key_and_reports_the_version)",
   "blokkade": "Eerste beheerder en API-sleutel op de echte app nodig.",
   "opmerking": "Na installatie direct een beheerder aanmaken (setup staat open tot dan); /metrics alleen met API-sleutel.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I08-08-03",
@@ -322,12 +322,12 @@
  {
   "id": "I08-08-04",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "P1: commit 739bc9f install/manifests/uptime-kuma.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_push_monitor_as_dead_mans_switch); P1: commit 5c8042f e2e/simulators/gotify/tests (test_message_with_an_application_token); QA-review P1: commit bfae532 e2e/simulators/uptime_kuma (push-token nooit in het verzoeklog; ping-validatie zoals 2.5.9), in Docker bevestigd met de echte image (upstream-rooktest stap U1)",
   "blokkade": "Echte telefoon en een gestopte Hub op de NAS nodig (EX22).",
   "opmerking": "Hub-hartslag als push-monitor; meldingen via Gotify buiten de Hub om.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I08-08-05",
@@ -372,12 +372,12 @@
  {
   "id": "I09-09-03",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/authentik.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py)",
-  "blokkade": "MFA en herstel in een echte Authentik nodig.",
+  "blokkade": "MFA en herstel in een echte Authentik nodig. De beheerder moet de aanmelding met MFA en de toegang via het herstelaccount beproeven.",
   "opmerking": "Het noodaccount van de Hub (ai-server-manager) voorkomt een totale lockout; niet in deze repo getest.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I09-09-04",
@@ -432,12 +432,12 @@
  {
   "id": "I13-13-03",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (hardware)",
+  "validatie": "NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/gotify/tests (GET /message als 'telefoon')",
-  "blokkade": "Echte telefoon met de Gotify-app nodig.",
+  "blokkade": "Echte telefoon met de Gotify-app nodig. De melding van de op de NAS geïnstalleerde Gotify moet op die telefoon aankomen (N-P6-04).",
   "opmerking": "Ontvangst alleen in de simulator nagebootst.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-09"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I13-13-04",
@@ -502,62 +502,62 @@
  {
   "id": "I10-10-01",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; stap N1 (digest-readback, alle processen uid 568, alleen /data, niet privileged, geen Docker-socket; anoniem GET /flows, /nodes, /settings en /diagnostics → 401, POST /flows → 401, export zonder aanmelding geweigerd), N2 (controleproef zonder FLOWS: alles 200 en de monitor faalt), N3 (login met een wegwerpaccount, fout wachtwoord geweigerd); tests/repo/test_nodered.py::test_admin_auth_without_anonymous_rights_or_users_is_enforced (elke default-variant en een gebruiker in het manifest geweigerd), ::test_the_manifest_gives_no_anonymous_rights, ::test_post_install_checks_follow_decision_c11; tests/repo/test_installeerbare_manifesten.py::test_node_red_variants_with_extra_rights_are_refused_by_the_validator (privileged, cap_add en Docker-socket door de validator geweigerd, elk met de eigen foutcode: privileged_forbidden, capability_forbidden, docker_socket_forbidden; mutatieproef rood), ::test_overrides_only_accept_the_fixed_keys (adminAuth.default en elke andere onbekende sleutel in FLOWS geweigerd), ::test_the_manifest_turns_off_proxies_from_the_environment; S-P3-445 (2026-11-21): manifest zonder accounts en adminAuth zonder gebruikers volgens C-12 met ADR-0016 punt 7 \"Wachten\" (tests/repo/test_nodered.py::test_the_manifest_keeps_the_waiting_state_of_c12, toestandstabel met zes rijen; ::test_the_validator_refuses_a_copy_with_account_secrets: proefkopie met hash of credentialSecret in FLOWS of een omgevingsvariabele geweigerd met account_gegevens_verboden door appstore-en-fork@a994c2a); rooktest N3 met een wegwerp-dienstaccount (rechten read): geen token met scope *, GET /flows 200, POST /flows geweigerd (gemeten status in docs/platform-v2/bewijs/nodered-rooktest-p2.json); N1 anoniem 401",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: beheerder en dienstaccount (besluit C-12): de voorziening zonder geheim (veld accounts, S-P3-490) bestaat, maar deze officiële image kan er geen beheerder of dienstaccount mee leveren; de gebruiker koos ADR-0016 punt 7 van appstore-en-fork, optie A \"Wachten\". Het manifest heeft daarom geen accounts en de editor is dicht (contractvraag C-5); een weg vraagt een nieuw besluit van de gebruiker. Dataset en netwerk op de echte NAS: D02, D03, D16.",
   "opmerking": "Het manifest levert een standaard Custom App met de officiële image op digest, 568:568, één dataset op /data, zonder extra rechten. Beveiliging via de omgevingsvariabele FLOWS (gemeten gedrag van deze digest: de entrypoint geeft $FLOWS ongequoot door). Anoniem geen toegang (besluit C-11, gemeten in de rooktest: 401 op /flows, /nodes, /settings); zonder beheerder is de editor dicht (C-5). De monitor verwacht 401 op /diagnostics; dat bewijst alleen dat adminAuth zonder anonieme rechten actief is, niet de rest van FLOWS (ADR-0023 punt 3). Credentials worden versleuteld opgeslagen, maar de sleutel staat in dezelfde /data: de bescherming is de eigenaar en de toegang tot de dataset. 'Editor via trusted network' en of het echte TrueNAS-formulier de waarde van FLOWS ongewijzigd doorgeeft: niet op een NAS gemeten. S-P3-445: beheerder en dienstaccount niet via het manifest: C-12 met ADR-0016 punt 7 \"Wachten\" (gebruiker); het dienstaccount met alleen lezen is in de rooktest gemeten (lezen mag, flows schrijven niet), met wegwerpwaarden in FLOWS, niet via de voorziening; anoniem 401 (C-11).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-21"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I10-10-02",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; stap N1 (POST /nodes anoniem → 404), N3 (alleen kern-nodes geladen, gelezen als beheerder; een via de rauwe Admin-API gezette exec/function-flow voert niets uit; POST /nodes als beheerder → 404; de eigen controle weigert de flow), N10 (een bundel met env op het tabblad, met een tweede regel op msg.url of met msg.hasOwnProperty = msg.isPrototypeOf wordt geweigerd vóór Node-RED iets verandert en een luisteraar ontvangt niets; een doorverwijzing 307/302 naar een andere poort of host volgt de flow uit Git niet; controleproef via de rauwe Admin-API met msg.hasOwnProperty = msg.isPrototypeOf: het doel krijgt de bearer-kop; met http_proxy in de omgeving en proxyOptions uit het manifest krijgt een proxy niets, controleproef zonder proxyOptions: CONNECT en de bearer-kop bij de proxy; met daarbij NODE_USE_ENV_PROXY=1 of NODE_OPTIONS=--use-env-proxy krijgt een proxy van de drie bundels uit Git (persist: true) niets en een eigen Hub-simulator heartbeat, inventaris, event en voorstel met het token, na 8 s stilte staat daar geen verbinding meer open, controleproef met persist: false via de rauwe Admin-API: de proxy krijgt de bearer-kop; een vreemd tabblad met een geneste draad, een draad als object of een node met een eigen id (inject of http request) wordt geweigerd vóór Node-RED iets verandert en geen luisteraar ontvangt iets); tools/nodered_flows.py lint (witte lijst) + tests/repo/test_nodered.py::test_own_check_refuses (134 gevallen, waaronder de omwegen uit de review: msg.hasOwnProperty = msg.isPrototypeOf, inject met flow['__proto__'], tot env, JSONata met $flowContext, de oude vorm van de change-node, redirect_niet_uit, persist en de switch- en debug-node), ::test_every_prototype_name_is_refused_in_every_place (13 namen × 11 plekken, ook de switch-node), ::test_every_http_request_in_git_has_its_own_connection (persist: true), ::test_jsonata_is_limited_to_the_expressions_of_the_bundles, ::test_import_refuses_a_foreign_node_wired_into_an_own_node, ::test_import_refuses_every_form_of_a_foreign_node_that_reaches_an_own_node (geneste lijst, array-achtig object, dubbel id bij een inject en bij een http request, wires in een andere vorm, een eigen id in een ander veld), ::test_import_restores_the_previous_flows_whatever_breaks_the_readback (R-VEILIG-5); mutatieproeven: zonder het herstel worden deze tests rood",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: het Custom App-formulier kent geen regels voor uitgaand verkeer; beperken tot de Hub is niet afdwingbaar (contractvraag).",
   "opmerking": "Acceptatie 'onbekend tool node mag niet script uitvoeren' Sim-getest: alleen genoemde kern-nodes worden geladen, er kan niets bij geïnstalleerd worden, en een flow met een niet-geladen nodetype voert niets uit. Node-RED heeft geen TrueNAS-sleutel en geen Docker-socket. Uitgaand verkeer: beperkt is wat deze repo levert (bundels mogen alleen vaste Hub-routes, zonder doorverwijzing) en wat de Hub een service-token toestaat. Gemeten bij deze digest: zonder msg.followRedirects = false stuurt de http request-node bij een doorverwijzing naar een andere host de bearer-kop met het token mee (controleproef N10); de bundels uit Git zetten die regel en lint eist hem. lint is sinds het herstel van S-P2-410 een witte lijst (msg-namen, flow/global-namen, waardesoorten, alleen de JSONata uit de bundels; sinds herstelpoging 2 ook voor de switch-node, en een debug-node voert geen JSONata uit): ook msg.hasOwnProperty = msg.isPrototypeOf, dat de regel buiten werking zet (controleproef N10: het doel krijgt dan de bearer-kop), komt er niet door. Met proxyOptions uit FLOWS en persist: true in de bundels gebruikt een flow uit Git geen proxy uit de omgeving van de container, ook niet met NODE_USE_ENV_PROXY=1 of NODE_OPTIONS=--use-env-proxy (N10, Hub over HTTP; met proxyOptions alleen ging het token met die variabelen nog naar de proxy). Niet gemeten: een Hub over HTTPS achter een proxy, en of een proxy-instelling van TrueNAS zelf in die omgeving komt (geen NAS). Een node buiten de eigen tabbladen die een eigen node kan raken (draad in elke vorm, dubbel id, eigen id als tekst) laat de import weigeren of terugzetten. Een flow die een beheerder zelf in de editor maakt, valt daarbuiten.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-12"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I10-10-03",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; install/node-red/flows/mediaguard-offline.json (versie 1.2.0), flows.lock.json, install/node-red/README.md (eventschema); stap N4 (import met versleuteld token, checksum-readback gelijk aan het lock, eigen_controle over de teruggelezen tabbladen leeg), N5 (MediaGuard gestopt → flow.app_watch.down, hersteld → flow.app_watch.recovered, onbekend/storing → geen event)",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: de flow 'my_house sensor verouderd → melding' is niet gebouwd: het contract heeft geen route voor sensorversheid (capability_unavailable; contractvraag C-6) en my_house krijgt zijn connector pas in P3 (C1.3-MH-04). Flows, HUB_URL en service-token op een NAS plaatsen kan het manifest niet (een flowruntime kan zich niet inschrijven, §3.3; C-5, C-12); echte Hub nodig.",
   "opmerking": "Eén van de twee gevraagde flows is gebouwd en Sim-getest (MediaGuard offline → melding, alleen lezen); de my_house-flow bestaat niet en is niet nagebootst. De flow meldt een event (domein flow, source_app node-red); of de echte Hub daar een incident van maakt, legt het contract niet vast. Flowhistorie = Git + flows.lock.json (versie en sha256 per bundel), zichtbaar via de export; het eventschema staat in de README.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-12"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I10-10-04",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; install/node-red/flows/testflow-herstart.json (versie 1.2.0); stap N6 (uitgeschakeld: inject → 404 en geen voorstel; ingeschakeld: gewone app → R1 toegestaan, kritieke app → R2 wacht_op_goedkeuring; actor door de Hub gezet)",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: de echte Hub heeft nog geen route waarmee een dienst of flow een ActionProposal indient; POST /api/v1/actions/proposals en de scope zijn voorlopige keuzes van de simulator (contractvraag). Echte Hub en echte executor nodig.",
   "opmerking": "Acceptatie 'een testflow-herstart vraagt goedkeuring volgens R-klasse' Sim-getest tegen de Hub-stand-in: de flow kan alleen aanvragen, de Hub bepaalt de risicoklasse en vraagt bij R2 goedkeuring. Er is geen node die een app of de NAS kan wijzigen. De goedgekeurde herstart is niet door een uitvoerder uitgevoerd in deze proef. De bundel staat in Git uitgeschakeld.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-12"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I10-10-05",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; tools/nodered_flows.py (exporteer, lock, importeer); stap N4 en N8 (export als beheerder; andere versie zichtbaar als afwijkend; herstel van de versie uit Git → gelijk_aan_lock; andere bundels onaangeroerd), N9 (herstart zonder verlies van flows en versleutelde credentials); tests/repo/test_nodered.py::test_cli_asks_for_an_administrator_with_a_clear_message (exporteren en importeren alleen met een beheerder), ::test_make_nodered_fails_on_a_changed_bundle_a_bad_bundle_or_a_stale_manifest, ::test_the_jsonata_list_holds_every_released_version en ::test_a_previous_version_is_only_refused_for_a_later_security_rule (vaste testkopie van de versies 1.0.0, 1.1.0 en 1.1.1 in tests/repo/fixtures/node-red-versies)",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: herstel op de echte NAS (snapshot van /data met gestopte app); importeren en exporteren vragen een beheerder die het manifest niet kan leveren (C-5, C-12).",
   "opmerking": "Acceptatie 'herstel van oude flowversie slaagt' alleen voor de huidige versie Sim-getest in Docker: een andere versie (een variant) wordt bij de export als afwijkend gemeld en het terugzetten van het bestand uit Git geeft weer de checksum uit het lock. Een echte oudere versie terugzetten kan nu niet: de versies vóór 1.2.0 missen persist: true en lint weigert ze bewust (niet om hun JSONata: TOEGESTANE_JSONATA houdt die van elke uitgebrachte versie bij); dat kan pas met een versie na 1.2.0. Back-up van /data = stopped_snapshot in het manifest; die is niet op een NAS gemaakt of teruggezet. Het hulpmiddel is voor beheerder/ontwikkelaar (de eindgebruiker heeft geen terminal). Exporteren vraagt sinds besluit C-11 een beheerder (--gebruiker).",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-12"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "I10-10-06",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P2-410 (2026-11-11, herstel en herstelpoging 2 2026-11-12): commits 3f4d401 (besluit C-11), 69408c8 (restpunten van de review, geen doorverwijzing met het token), f4128f5 (make nodered in CI), f695e02 en fd64562 (herstel na de review: witte lijst in lint, proxyOptions, vaste sleutels in FLOWS, vreemde draden, foutcode per validatorvariant), a3af165 en b912eda (herstelpoging 2: persist in de bundels, vreemde nodes in elke vorm, JSONata van elke uitgebrachte versie, switch en debug in lint); GitHub Actions-run 43170401797 op b912eda groen (jobs test, statuspagina, image en rooktest; in de rooktest stappen N1–N10 geslaagd); install/manifests/node-red.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 1967069: 0 fouten; tests/repo/test_installeerbare_manifesten.py), tools/nodered_rooktest.py met rapport docs/platform-v2/bewijs/nodered-rooktest-p2.json (gestart 2026-11-12T06:36:02Z; echte image op digest in Docker, geen TrueNAS, tegen de Hub-simulator); tests/repo/test_nodered.py; docs/adr/ADR-0023-node-red-als-custom-app.md; install/node-red/flows/hartslag.json (versie 1.2.0); commit 2650b76 Hub-simulator heartbeat-route §6.1 (apps/api/tests/integration/test_hub_sim_heartbeat.py); stap N1 (monitor: 401 op /diagnostics), N2 (zonder FLOWS slaagt de monitor niet), N7 (heartbeat healthy met check flow_vertraging), N9 (na docker stop: monitor faalt; heartbeat verouderd → unknown/meting_verouderd, 3 × het interval gevraagd aan de simulator, niet gewacht)",
   "blokkade": "NIET GEVALIDEERD (echte NAS): manifest gevalideerd en rooktest tegen de gepinde image geslaagd; installatie als standaard Custom App op TrueNAS nog uitvoeren; het beheerdersaccount kan het manifest nog niet leveren (ADR-0023); zie STAPPEN_P6.md. Verder: incident in de echte Hub of in Uptime Kuma na het stoppen van Node-RED: echte Hub en echte NAS nodig.",
   "opmerking": "Gezondheid en wachtrijvertraging gaan als heartbeat naar de Hub (check flow_vertraging = tijd tussen de tik en het opbouwen van het bericht). Er is geen eigen koppeling met Uptime Kuma: die krijgt zijn monitor van de Hub uit het monitorplan van het manifest (401 op /diagnostics zonder aanmelding). Acceptatie 'stop Node-RED → zichtbaar incident' alleen in de simulator zichtbaar gemaakt als mislukte monitor en verouderde heartbeat.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-12"
+  "bijgewerkt": "2026-11-25"
  },
  {
   "id": "C1.3-JLP-01",

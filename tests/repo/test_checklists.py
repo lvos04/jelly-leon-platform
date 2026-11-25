@@ -84,6 +84,23 @@ def _kopie(map_: Path, naam: str, doel: str | None = None, wijzig: Any = None) -
 LIJSTEN = [p.name for p in cl.lijsten()]
 
 
+def test_evidence_dekt_de_praktijkproeven_van_de_checklists() -> None:
+    bewijs = {r["id"]: r for r in json.loads((cl.DOCS / "EVIDENCE.json").read_text(encoding="utf-8"))}
+    for naam in LIJSTEN:
+        for stap in _load(naam)["stappen"]:
+            verwacht = {v for v in stap["validatie_nu"] if v.startswith("NIET GEVALIDEERD (")}
+            if {"meting_truenas_api", "handmatig_in_truenas_ui"}.intersection(stap["wijze"]):
+                verwacht.add("NIET GEVALIDEERD (echte NAS)")
+            assert verwacht <= set(bewijs[stap["id"]]["validatie"].split("; ")), stap["id"]
+
+
+def test_evidence_uitvalmelding_vermeldt_nas_en_telefoon() -> None:
+    rijen = json.loads((cl.DOCS / "EVIDENCE.json").read_text(encoding="utf-8"))
+    melding = next(r for r in rijen if r["id"] == "I08-08-04")
+    verwacht = {"NIET GEVALIDEERD (echte NAS)", "NIET GEVALIDEERD (hardware)"}
+    assert verwacht <= set(melding["validatie"].split("; "))
+
+
 def test_copies_of_the_real_lists_pass_in_a_separate_folder(tmp_path: Path) -> None:
     """Controle op de proefmap zelf: zonder overtreding is alles groen (anders bewijzen de tests hieronder niets)."""
     for naam in LIJSTEN:
