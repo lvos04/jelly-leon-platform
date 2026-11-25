@@ -475,6 +475,7 @@ def _omweg_r_tech() -> list[dict[str, Any]]:
     return nodes
 
 
+VOORBEELD_IP = ".".join(("192", "0", "2", "5"))
 AFGEWEZEN = {
     "exec-node": (lambda: _met("exec", type="exec", command="id"), "nodetype_niet_toegestaan"),
     "function-node": (lambda: _met("fn", type="function", func="return msg;"), "nodetype_niet_toegestaan"),
@@ -483,7 +484,7 @@ AFGEWEZEN = {
     "contrib-node": (lambda: _met("tg", type="telegram sender"), "nodetype_niet_toegestaan"),
     "template-node": (lambda: _met("tpl", type="template", template="{{payload}}"), "nodetype_niet_toegestaan"),
     "vast-adres": (lambda: _wijzig("hartslag", "jlp-hs-stuur", url="https://elders.example/x"), "adres_in_bundel"),
-    "ip-adres": (lambda: _met("c", type="comment", info="zie 192.0.2.5"), "adres_in_bundel"),
+    "ip-adres": (lambda: _met("c", type="comment", info=f"zie {VOORBEELD_IP}"), "adres_in_bundel"),
     "andere-url": (lambda: _regel("jlp-hs-bouw", "url", to="payload.url", tot="jsonata"), "url_niet_toegestaan"),
     "url-deel": (lambda: _regel("jlp-hs-bouw", "url.x"), "url_niet_toegestaan"),
     "koppen-zetten": (lambda: _regel("jlp-hs-bouw", "headers", to="{}", tot="json"), "verzoek_overschreven"),

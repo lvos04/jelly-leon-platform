@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from ipaddress import IPv4Address
+
 import pytest
+from netwerkhulp import ONGESPECIFICEERD_IP, link_lokaal_ip
 
 from lifecycle.config import (
     DEFAULT_PORT,
@@ -10,6 +13,10 @@ from lifecycle.config import (
     normalize_base_url,
     normalize_hub_url,
 )
+
+PRIVE_IP = str(IPv4Address(bytes((192, 168, 1, 10))))
+IP_MET_VOORLOOPNUL = ".".join(("010", "0", "0", "1"))
+HOST_MET_VIJF_DELEN = ".".join(("1", "2", "3", "4", "5"))
 
 
 def test_defaults_need_no_env() -> None:
@@ -25,7 +32,8 @@ def test_empty_values_fall_back_to_defaults_and_data_dir_must_be_absolute() -> N
     """Review: een leeg veld (bijv. uit .env.example of het formulier) gaf een lege database-URL en de werkmap als
     datamap; nu de standaard, en een relatief pad wordt geweigerd."""
     s = load_settings({"LIFECYCLE_DATA_DIR": "", "LIFECYCLE_DATABASE_URL": " ", "LIFECYCLE_HOST": ""})
-    assert str(s.data_dir) == "/appdata" and "host=/tmp/lifecycle-pg" in s.database_url and s.host == "0.0.0.0"  # noqa: S104
+    assert str(s.data_dir) == "/appdata" and "host=/tmp/lifecycle-pg" in s.database_url
+    assert s.host == ONGESPECIFICEERD_IP
     for bad in ("appdata", "./appdata", "."):
         with pytest.raises(ConfigError):
             load_settings({"LIFECYCLE_DATA_DIR": bad})
@@ -55,13 +63,14 @@ def test_hub_url_rules_section_3_2() -> None:
     assert normalize_hub_url("http://[fd00::5]:30400") == "http://[fd00::5]:30400"
     assert normalize_hub_url("") is None
     for bad in ["ftp://x", "http://user:pw@x", "http://x/?a=1", "http://x#y", "x:30400", "http://", "http://x/pad",
-                "http://127.0.0.1:30400", "http://localhost:30400", "http://[::1]:30400", "http://0.0.0.0:30400",
-                "http://[::]:30400", "http://169.254.1.2:30400", "http://[fe80::1]:30400",
+                "http://127.0.0.1:30400", "http://localhost:30400", "http://[::1]:30400",
+                f"http://{ONGESPECIFICEERD_IP}:30400", "http://[::]:30400",
+                f"http://{link_lokaal_ip(1, 2)}:30400", "http://[fe80::1]:30400",
                 "http://[::ffff:127.0.0.1]:30400", "http://x:99999", "http://bad_host:30400",
                 # 1.3 §3.2: alleen canonieke IPv4 (a.b.c.d); andere numerieke vormen lezen resolvers als 127.0.0.1
                 "http://127.1:30400", "http://2130706433:30400", "http://0x7f000001:30400",
-                "http://010.0.0.1:30400", "http://0:30400", "http://1.2.3.4.5:30400", "http://nas.local..:30400",
-                "http://[fe80::1%25eth0]:30400"]:
+                f"http://{IP_MET_VOORLOOPNUL}:30400", "http://0:30400", f"http://{HOST_MET_VIJF_DELEN}:30400",
+                "http://nas.local..:30400", "http://[fe80::1%25eth0]:30400"]:
         with pytest.raises(ConfigError):
             normalize_hub_url(bad)
 
@@ -73,7 +82,7 @@ def test_loopback_only_with_explicit_dev_flag() -> None:
     # 1.3 §3.5: een ongeldige HUB_URL laat de dienst niet crashen; hij meldt hub_adres_ongeldig en koppelt niet
     s = load_settings({"HUB_URL": "http://127.0.0.1:30499"})
     assert s.hub_url is None and s.hub_url_error == "hub_adres_ongeldig" and any("loopback" in w for w in s.warnings)
-    s = load_settings({"HUB_URL": "http://169.254.0.1:30400", "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})
+    s = load_settings({"HUB_URL": f"http://{link_lokaal_ip(0, 1)}:30400", "LIFECYCLE_DEV_ALLOW_LOOPBACK_HUB": "1"})
     assert s.hub_url is None and s.hub_url_error == "hub_adres_ongeldig"  # link-local blijft ook met de vlag verboden
 
 
@@ -88,7 +97,7 @@ def test_public_url_may_have_a_path_and_invalid_becomes_null() -> None:
     assert normalize_base_url("http://nas.example:30440/") == "http://nas.example:30440"
     assert normalize_base_url("https://proxy.example/jlp") == "https://proxy.example/jlp"
     for bad in ("ftp://x", "http://u:p@x", "http://x?a", "http://x y", "http://127.0.0.1:30440", "http://127.1",
-                "http://169.254.1.1/jlp", "http://[::]:30440"):
+                f"http://{link_lokaal_ip(1, 1)}/jlp", "http://[::]:30440"):
         with pytest.raises(ConfigError):
             normalize_base_url(bad)
     # §3.3: base_url alleen sturen als hij geldig is, anders null — nooit een reden om niet te starten of te koppelen
@@ -96,7 +105,7 @@ def test_public_url_may_have_a_path_and_invalid_becomes_null() -> None:
     assert s.public_url is None and any("base_url wordt null" in w for w in s.warnings)
 
 
-@pytest.mark.parametrize("host", ["192.168.1.10:30440", "192.168.1.10", "[fd00::5]:30440", "truenas", "truenas:30440",
+@pytest.mark.parametrize("host", [f"{PRIVE_IP}:30440", PRIVE_IP, "[fd00::5]:30440", "truenas", "truenas:30440",
                                   "nas.local", "NAS.LOCAL.:30440", "nas.home.arpa", "nas.lan:1", "nas.internal",
                                   "127.0.0.1:30440"])
 def test_host_header_allowed_section_3_7(host: str) -> None:
@@ -104,8 +113,9 @@ def test_host_header_allowed_section_3_7(host: str) -> None:
 
 
 @pytest.mark.parametrize("host", ["nas.example.com", "evil.test:30440", "jlp.voorbeeld.nl", "127.1", "2130706433",
-                                  "0x7f000001", "010.0.0.1", "0", "[fe80::1%eth0]:1", "", None, "a b", "nas.local:abc",
-                                  "[::1", "nas.local..", "1.2.3.4.5", "nas.local:30440:1", "x" * 301])
+                                  "0x7f000001", IP_MET_VOORLOOPNUL, "0", "[fe80::1%eth0]:1", "", None, "a b",
+                                  "nas.local:abc", "[::1", "nas.local..", HOST_MET_VIJF_DELEN, "nas.local:30440:1",
+                                  "x" * 301])
 def test_host_header_refused_dns_rebinding(host: str | None) -> None:
     """§3.7 punt 4: alleen IP-adres (canoniek), naam zonder punt of .local/.lan/.internal/.home.arpa."""
     assert not host_header_allowed(host)

@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 import pytest
 from hub_sim import HubState, create_hub_app
+from netwerkhulp import CLIENT_IP, documentatie_ip
 from starlette.testclient import TestClient
 
 from lifecycle.app import create_app
@@ -35,7 +36,7 @@ def form(code: str, fingerprint: str, token: str, hub_url: str = "http://hub.tes
     return {"hub_adres": hub_url, "koppelcode": code, "hub_vingerafdruk": fingerprint, "csrf": token}
 
 
-def unlinked_client(make_app: Any, ip: str = "192.0.2.10") -> TestClient:
+def unlinked_client(make_app: Any, ip: str = CLIENT_IP) -> TestClient:
     return TestClient(make_app(hub_url=None, linked=False), base_url=BASE, client=(ip, 50000), headers=ORIGIN)
 
 
@@ -70,12 +71,12 @@ def test_melding_belongs_to_this_browser_and_never_to_a_query_parameter(make_app
     alleen een query-parameter (ook de sleutel in een andere browser) toont nooit "gekoppeld"."""
     sim = hub.state.sim
     app = make_app(hub_url=None, linked=False)
-    with TestClient(app, base_url=BASE, client=("192.0.2.10", 50000), headers=ORIGIN) as c:
+    with TestClient(app, base_url=BASE, client=(CLIENT_IP, 50000), headers=ORIGIN) as c:
         r = c.post("/koppelen", data=form(sim.add_grant("koppelcode", APP), sim.keyset_fingerprint(),
                                           csrf(c.get("/").text)), follow_redirects=False)
         location = r.headers["location"]
         assert c.get(location).text.count("De Hub heeft de koppeling bevestigd") == 1
-    with TestClient(app, base_url=BASE, client=("192.0.2.11", 50000), headers=ORIGIN) as other:
+    with TestClient(app, base_url=BASE, client=(documentatie_ip(11), 50000), headers=ORIGIN) as other:
         assert "De Hub heeft de koppeling bevestigd" not in other.get(location).text  # andere browser
         assert "De Hub heeft de koppeling bevestigd" not in other.get("/?gekoppeld=1").text
         assert "De Hub heeft de koppeling bevestigd" not in other.get("/?melding=verzonnen").text
@@ -133,7 +134,7 @@ def test_host_restriction_against_dns_rebinding(make_app: Any, hub: Any, host: s
     het al."""
     sim = hub.state.sim
     app = make_app(hub_url=None, linked=False)
-    with TestClient(app, base_url=f"http://{host}", client=("192.0.2.10", 50000),
+    with TestClient(app, base_url=f"http://{host}", client=(CLIENT_IP, 50000),
                     headers={"Origin": f"http://{host}"}) as c:
         page = c.get("/").text
         assert "Code <code>host_niet_toegestaan</code>" in page and 'role="' not in page.split('id="inhoud"')[1][:200]
@@ -143,11 +144,11 @@ def test_host_restriction_against_dns_rebinding(make_app: Any, hub: Any, host: s
     assert sim.calls["enroll"] == 0 and HubLinkStore(app.state.settings.secrets_dir).read().state == "nooit_gekoppeld"
 
 
-@pytest.mark.parametrize("host", ["192.0.2.20:30440", "[fd00::5]:30440", "truenas:30440", "nas.home.arpa",
+@pytest.mark.parametrize("host", [f"{documentatie_ip(20)}:30440", "[fd00::5]:30440", "truenas:30440", "nas.home.arpa",
                                   "nas.lan", "nas.internal", "nas.local."])
 def test_allowed_hosts_reach_the_hub(make_app: Any, hub: Any, host: str) -> None:
     sim = hub.state.sim
-    with TestClient(make_app(hub_url=None, linked=False), base_url=f"http://{host}", client=("192.0.2.10", 50000),
+    with TestClient(make_app(hub_url=None, linked=False), base_url=f"http://{host}", client=(CLIENT_IP, 50000),
                     headers={"Origin": f"http://{host}"}) as c:
         page = c.get("/").text
         assert "host_niet_toegestaan" not in page
@@ -196,14 +197,14 @@ def test_input_is_checked_as_a_whole_never_truncated(make_app: Any, hub: Any) ->
     sim = hub.state.sim
     fp = sim.keyset_fingerprint()
     code = sim.add_grant("koppelcode", APP)
-    with unlinked_client(make_app, ip="192.0.2.30") as c:
+    with unlinked_client(make_app, ip=documentatie_ip(30)) as c:
         token = csrf(c.get("/").text)
         for data in (form(code + " " * 30, fp, token), form(code, fp + " " * 60, token),
                      form(code, fp, token, hub_url="http://hub.test/" + "a" * 500)):
             r = c.post("/koppelen", data=data)
             assert r.status_code == 422 and "Te lang; kopieer de waarde uit de Hub." in r.text, r.text
         assert sim.calls["enroll"] == 0
-    with unlinked_client(make_app, ip="192.0.2.31") as c:
+    with unlinked_client(make_app, ip=documentatie_ip(31)) as c:
         lang_maar_geldig = "  ".join(fp.replace("-", "")) + " " * 10
         assert 32 < len(lang_maar_geldig) <= 64
         r = c.post("/koppelen", data=form(code, lang_maar_geldig, csrf(c.get("/").text)), follow_redirects=False)
@@ -220,15 +221,15 @@ def test_rate_limit_per_source_ip_and_for_the_whole_service(make_app: Any, hub: 
             return c.post("/koppelen", data=form(code, fp, csrf(c.get("/").text))).status_code
 
     for _ in range(5):
-        assert attempt("192.0.2.10") == 400
-    assert attempt("192.0.2.10") == 429
-    assert attempt("192.0.2.10", **{"X-Forwarded-For": "192.0.2.99"}) == 429  # header nooit gebruikt
-    for ip in ("192.0.2.11", "192.0.2.12", "192.0.2.13"):  # dienstbreed max. 20 per 15 min
+        assert attempt(CLIENT_IP) == 400
+    assert attempt(CLIENT_IP) == 429
+    assert attempt(CLIENT_IP, **{"X-Forwarded-For": documentatie_ip(99)}) == 429  # header nooit gebruikt
+    for host in (11, 12, 13):  # dienstbreed max. 20 per 15 min
         for _ in range(5):
-            assert attempt(ip) == 400
-    assert attempt("192.0.2.14") == 429
+            assert attempt(documentatie_ip(host)) == 400
+    assert attempt(documentatie_ip(14)) == 429
     good = sim.add_grant("koppelcode", APP)
-    assert attempt("192.0.2.15", code=good) == 429  # ook een geldige code: geen verzoek naar de Hub
+    assert attempt(documentatie_ip(15), code=good) == 429  # ook een geldige code: geen verzoek naar de Hub
     assert sim.calls["enroll"] == 20
 
 
@@ -252,7 +253,7 @@ def test_every_post_counts_also_when_refused_by_state(make_app: Any, hub: Any, d
             os.chmod(store.path, 0o600)
         else:
             mark_pending(store, kind="token", secret_sha="a" * 64, hub_url="http://hub.test")
-    with TestClient(app, base_url=BASE, client=("192.0.2.40", 50000), headers=ORIGIN) as c:
+    with TestClient(app, base_url=BASE, client=(documentatie_ip(40), 50000), headers=ORIGIN) as c:
         page = c.get("/").text
         assert 'name="csrf"' not in page  # in geen van deze toestanden een formulier (een POST uit een oud tabblad)
         token = c.cookies.get("jlp_csrf")
@@ -471,7 +472,7 @@ def test_too_many_attempts_has_retry_after_until_a_slot_frees(make_app: Any, hub
     header weet een browser of script niet wanneer opnieuw. Geen verzoek naar de Hub."""
     sim = hub.state.sim
     app = make_app(hub_url=None, linked=False)
-    with TestClient(app, base_url=BASE, client=("192.0.2.50", 50000), headers=ORIGIN) as c:
+    with TestClient(app, base_url=BASE, client=(documentatie_ip(50), 50000), headers=ORIGIN) as c:
         token = csrf(c.get("/").text)
         for _ in range(5):
             assert c.post("/koppelen", data=form("x", sim.keyset_fingerprint(), token)).status_code == 422
@@ -480,6 +481,6 @@ def test_too_many_attempts_has_retry_after_until_a_slot_frees(make_app: Any, hub
         assert r.headers["Retry-After"].isdigit() and 880 <= int(r.headers["Retry-After"]) <= 900
     limiter = app.state.pairing_limiter
     limiter.window_s = 0.5  # het oudste verzoek valt bijna uit het venster: korte wachttijd, minstens 1 s
-    assert limiter.retry_after("192.0.2.50") == 1
-    assert limiter.retry_after("192.0.2.51") >= 1  # een bron zonder pogingen: nooit 0
+    assert limiter.retry_after(documentatie_ip(50)) == 1
+    assert limiter.retry_after(documentatie_ip(51)) >= 1  # een bron zonder pogingen: nooit 0
     assert sim.calls["enroll"] == 0

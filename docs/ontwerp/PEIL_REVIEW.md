@@ -148,7 +148,7 @@ maakt de taak moeilijker; **Laag** = afwerking.
 
 | # | Bevinding | Regel | Ernst | Voorstel |
 |---|---|---|---|---|
-| S-01 | Native browservalidatie gaat vóór de NL-veldfout: `type="url"` + `required` blokkeren "192.168.1.10:30400" (een gangbare invoer) met de browsermelding "Please enter a URL." / "Voer een URL in." zonder vormhint en zonder Peil-stijl; "nas.local:30400" gaat wél door en krijgt de NL-fout. Gemeten in Chromium. | §9 (formulier: veldfout bij het veld + samenvatting), WCAG 3.3.1/3.3.3 | Middel | `novalidate` op alle formulieren van de statuspagina; de diensten valideren al alles server-side met vaste NL-teksten. |
+| S-01 | Native browservalidatie gaat vóór de NL-veldfout: `type="url"` + `required` blokkeren een IPv4-adres met poort zonder URL-schema met de browsermelding "Please enter a URL." / "Voer een URL in." zonder vormhint en zonder Peil-stijl; "nas.local:30400" gaat wél door en krijgt de NL-fout. Gemeten in Chromium. | §9 (formulier: veldfout bij het veld + samenvatting), WCAG 3.3.1/3.3.3 | Middel | `novalidate` op alle formulieren van de statuspagina; de diensten valideren al alles server-side met vaste NL-teksten. |
 | S-02 | Een controlerij kan alleen het icoon van zijn toon tonen. "Niet gekoppeld" (`link-2-off`), "Nog niet beschikbaar" (`hourglass`) en beleid (`ban`) kunnen daardoor niet met hun eigen icoon; deze dienst toont "Nog niet beschikbaar" nu met het slot van de gate. | §4.3, §7 | Middel | Tonen `nog-niet` (hourglass, neutraal op `--muted`) en `beleid` (ban), of een optionele plek `{{icoon}}` per rij uit een vaste lijst. |
 | S-03 | De melding heeft altijd `role="alert"`, ook bij een blijvende toestand die bij het laden van de pagina al bestaat (laatste mislukte poging, onleesbaar bestand). | COMPONENTEN §13 ("geen alert-spam bij laden") | Laag | Plek voor de rol: `alert` alleen bij het antwoord op een verzoek, anders geen live-rol. |
 | S-04 | De code staat alleen in een opmaak met trace-ID; blijvende toestanden zetten de code daarom in de lopende tekst (niet in mono). | §5 (codes in mono) | Laag | `melding_code` los van `trace_id` (al gemeld in ADR-0013). |
@@ -193,7 +193,7 @@ Alle sjabloonpunten van §3 zijn in Peil 1.1.1 opgelost en hier overgenomen via 
 
 | Punt | In 1.1.1 | Hoe deze dienst het gebruikt |
 |---|---|---|
-| S-01 | `novalidate` op alle formulieren, "(verplicht)" bij de velden (E09) | `192.168.1.10:30400` krijgt nu de vaste NL-veldfout in plaats van de browsermelding |
+| S-01 | `novalidate` op alle formulieren, "(verplicht)" bij de velden (E09) | Een IPv4-adres met poort zonder URL-schema krijgt nu de vaste NL-veldfout in plaats van de browsermelding |
 | S-02 | tonen `nog-niet` (hourglass), `beleid` (ban), `niet-gekoppeld` (link-2-off), `verouderd`, `niet-beschikbaar`, `feit` (E03/E04) | "Nog niet beschikbaar" met hourglass, "Alleen via de executor" als beleid, de koppelrij als Niet gekoppeld/Ontkoppeld met link-2-off, een verouderde hartslag als Verouderd |
 | S-03 | `melding_rol` alert/status/leeg (E05) | alert alleen voor de fout van dít verzoek, status na een geslaagde koppeling, geen rol voor een toestand die al bestond |
 | S-04 | `melding_code` los van `trace_id`, `melding_pad` (E06) | code in mono, ook zonder trace-ID; het pad van het koppelbestand bij "onleesbaar" |

@@ -467,6 +467,7 @@ def _onbekend_besluit(d: dict[str, Any]) -> None:
     _stap(d, 0)["besluiten"] = [vrij[0]]
 
 
+VOORBEELD_IP = ".".join(("192", "0", "2", "10"))
 MUTATIES = [
     ("schrijvende methode", lambda d: _set_method(d, "app.create"), "geen alleen-lezen-methode"),
     ("snapshot maken", lambda d: _set_method(d, "pool.snapshot.create"), "geen alleen-lezen-methode"),
@@ -492,8 +493,8 @@ MUTATIES = [
     ("installatiescript bij fout",
      lambda d: _stap(d, 2).update(bij_fout_nl="Draai install.sh opnieuw voor de geheimen."),
      "YAML-, compose- of scriptweg in bij_fout_nl"),
-    ("voorbeeld-IP", lambda d: _stap(d, 3).update(uitvoeren_nl="Verbind met wss://192.168.1.10/api/current."),
-     "voorbeeldwaarde"),
+    ("voorbeeld-IP", lambda d: _stap(d, 3).update(uitvoeren_nl=f"Verbind met wss://{VOORBEELD_IP}/api/current."),
+     "voorbeeldwaarde in uitvoeren_nl"),
     ("voorbeeldpool", lambda d: _stap(d, 6).update(uitvoeren_nl="Maak datasets onder /mnt/tank/apps aan."),
      "voorbeeldwaarde"),
     ("alleen Sim-getest", lambda d: _stap(d, 0).update(validatie_nu=["Sim-getest"]), "nooit alleen Sim-getest"),

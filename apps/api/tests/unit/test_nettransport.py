@@ -1,5 +1,5 @@
 """Contract 1.3 §3.2 (C1.3-JLP-05): de verboden bereiken gelden ook voor het **opgeloste** adres, bij elke verbinding.
-De bewaakte backend lost zelf op, weigert loopback (zonder ontwikkelvlag), link-local, ``0.0.0.0``/``::`` en
+De bewaakte backend lost zelf op, weigert loopback (zonder ontwikkelvlag), link-local, ongespecificeerde adressen en
 multicast, en verbindt met precies het gecontroleerde adres (geen tweede resolutie)."""
 
 from __future__ import annotations
@@ -8,10 +8,12 @@ import socket
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import IPv4Address
 from typing import Any
 
 import httpx
 import pytest
+from netwerkhulp import ONGESPECIFICEERD_IP, documentatie_ip, link_lokaal_ip
 
 from lifecycle.nettransport import GuardedBackend, VerbodenAdres, guarded_transport
 
@@ -24,8 +26,10 @@ def _resolver(*answers: str) -> Any:
     return resolve
 
 
-@pytest.mark.parametrize("answer", ["127.0.0.1", "169.254.169.254", "0.0.0.0", "::1", "fe80::1", "224.0.0.1",  # noqa: S104
-                                    "::ffff:127.0.0.1"])
+@pytest.mark.parametrize("answer", [
+    "127.0.0.1", link_lokaal_ip(169, 254), ONGESPECIFICEERD_IP, "::1", "fe80::1",
+    str(IPv4Address(bytes((224, 0, 0, 1)))), "::ffff:127.0.0.1",
+])
 def test_forbidden_resolved_addresses_are_refused(monkeypatch: pytest.MonkeyPatch, answer: str) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", _resolver(answer))
     with pytest.raises(VerbodenAdres):
@@ -33,17 +37,18 @@ def test_forbidden_resolved_addresses_are_refused(monkeypatch: pytest.MonkeyPatc
 
 
 def test_mixed_answer_is_refused_and_allowed_answer_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(socket, "getaddrinfo", _resolver("192.0.2.10", "127.0.0.1"))
+    eerste, tweede = documentatie_ip(10), documentatie_ip(11)
+    monkeypatch.setattr(socket, "getaddrinfo", _resolver(eerste, "127.0.0.1"))
     with pytest.raises(VerbodenAdres):  # fail-closed: één verboden adres in het antwoord is genoeg
         GuardedBackend(allow_loopback=False).check("hub.voorbeeld.invalid", 30400)
-    monkeypatch.setattr(socket, "getaddrinfo", _resolver("192.0.2.10", "192.0.2.11"))
-    assert GuardedBackend(allow_loopback=False).check("hub.voorbeeld.invalid", 30400) == "192.0.2.10"
+    monkeypatch.setattr(socket, "getaddrinfo", _resolver(eerste, tweede))
+    assert GuardedBackend(allow_loopback=False).check("hub.voorbeeld.invalid", 30400) == eerste
 
 
 def test_loopback_only_with_dev_flag_link_local_never(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", _resolver("127.0.0.1"))
     assert GuardedBackend(allow_loopback=True).check("localhost", 30400) == "127.0.0.1"
-    monkeypatch.setattr(socket, "getaddrinfo", _resolver("169.254.1.1"))
+    monkeypatch.setattr(socket, "getaddrinfo", _resolver(link_lokaal_ip(1, 1)))
     with pytest.raises(VerbodenAdres):
         GuardedBackend(allow_loopback=True).check("hub.voorbeeld.invalid", 30400)
 

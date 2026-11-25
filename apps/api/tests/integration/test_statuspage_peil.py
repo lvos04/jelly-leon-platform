@@ -19,6 +19,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from netwerkhulp import CLIENT_IP
 from starlette.testclient import TestClient
 
 from lifecycle.app import create_app
@@ -130,7 +131,7 @@ def snapshot(naam: str, response: Any) -> None:
     (out / f"{naam}.headers.json").write_text(json.dumps({k: response.headers[k] for k in keep}, indent=1))
 
 
-def unlinked(make_app: Any, ip: str = "192.0.2.10") -> TestClient:
+def unlinked(make_app: Any, ip: str = CLIENT_IP) -> TestClient:
     return TestClient(make_app(hub_url=None, linked=False), base_url=BASE, client=(ip, 50000), headers=ORIGIN)
 
 
