@@ -118,6 +118,13 @@ def koppel_nas(c: httpx.Client, csrf: str, sim_port: int, readonly_key: str, fin
     c.post("/api/v1/apps/discover", headers=idem()).raise_for_status()
 
 
+def foutmelding(exc: BaseException) -> str:
+    """Alleen het soort fout: de tekst van een protocolfout kan een token of CSRF-waarde citeren."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"Voorbereiding van de conformiteitsproef gaf HTTP {exc.response.status_code}"
+    return f"Voorbereiding van de conformiteitsproef mislukt ({type(exc).__name__})"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hub-repo", default=str(ROOT.parent / "ai-server-manager"))
@@ -247,8 +254,9 @@ def main() -> int:
                     "JLP_HUB_COMMIT": commit}
         return subprocess.run([sys.executable, "-m", "pytest", *PYTEST_ZWIJGEND,
                                str(ROOT / "tests" / "conformance")], env=test_env, check=False).returncode
-    except httpx.HTTPStatusError as exc:
-        print(f"Voorbereiding van de conformiteitsproef gaf HTTP {exc.response.status_code}", file=sys.stderr)
+    # Nooit een traceback: die kan een token of CSRF-waarde citeren.
+    except Exception as exc:
+        print(foutmelding(exc), file=sys.stderr)
         return 3
     finally:
         if appstore is not None:

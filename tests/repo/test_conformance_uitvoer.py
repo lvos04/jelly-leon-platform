@@ -62,3 +62,14 @@ def test_conformiteitsrun_drukt_geen_foutteksten_af(tmp_path: Path) -> None:
     if geheim in uit.stdout + uit.stderr:
         pytest.fail("Een testgeheim staat in de uitvoer van de conformiteitsrun", pytrace=False)
     assert uit.returncode == pytest.ExitCode.TESTS_FAILED and "2 failed" in uit.stdout
+
+
+def test_voorbereiding_citeert_geen_protocolfout() -> None:
+    # Herreview 3 S-P6-13: protocolfouten tijdens de voorbereiding citeren het servicetoken of de CSRF-waarde.
+    import httpx
+
+    geheim = "svc_" + secrets.token_urlsafe(24)
+    for exc in (httpx.RemoteProtocolError(f"ongeldig antwoord {geheim}"),
+                httpx.LocalProtocolError(f"Illegal header value b'{geheim} '"), KeyError(geheim)):
+        melding = _echte_hub().foutmelding(exc)
+        assert geheim not in melding and type(exc).__name__ in melding
