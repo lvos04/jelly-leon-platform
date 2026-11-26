@@ -35,6 +35,8 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 |---|---|
 | kern | hub, executor, truenas, lifecycle |
 | media | mediaguard, mso. De invoerimages voor MediaGuard komen uit de lokale encoder-, web- en forkbronnen. |
+| media-inhoud | MediaGuard-kern en herstelwerker uit `apps/core`, plus Seerr en Sonarr uit de arr-simulator. De diensten delen een projectgebonden testbibliotheek. |
+| media-kwaliteit | CPU-encoder uit `services/encoder` met FFmpeg en libvmaf. |
 | huis | my-house, home-control-hub |
 | appstore, onedrive, herstel | Respectievelijk appstore, onedrive en truenas-twee |
 | derden | beszel-sim, kuma-sim, gotify-sim en authentik-sim delen één image |
@@ -44,6 +46,16 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 Een nieuw bestand `scenarios/EXnn_naam.py` bevat een `test_*`-functie en een letterlijke dictionary `SCENARIO`. De velden `eigenaar`, `verwachting` en `groepen` zijn verplicht. In `diensten` staan de extra Compose-diensten voor dat scenario. De runner start de kern en precies die diensten met lokale images. Alleen bij een ontbrekende mediaserver slaat hij de daarvan afhankelijke proef over. Onbekende ID's, lege selecties en ontbrekende vereiste images geven een foutcode.
 
 De fixture `kern` levert ingelogde clients en de gekoppelde simulator. Voor een extra testdienst geeft `kern.client(dienst, poort)` een interne client. `kern.simulatorfout(client, naam)` en `kern.verzoeklog(client)` bedienen de derden-simulators. Een scenario kan verwachte teksten van `pytest.skip` declareren in `overslagredenen`. Andere overslagen verwijzen naar de regel met de testvoorwaarde.
+
+### MediaGuard-inhoud
+
+Bouw de profielen `kern`, `media-inhoud` en `media-kwaliteit` met de bouwopdracht hierboven. De vijf proeven draaien met één selectie.
+
+```bash
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX03,EX04,EX05,EX09,EX37
+```
+
+Elke proef schrijft `inhoud.json` met de SHA-256 per proefbestand en de voortgang per bestaande MediaGuard-taak. EX05 leest ook de controlesommen op het moment dat Sonarr het verwijderverzoek ontvangt. De herstelwerker behandelt het terugzetverzoek. EX09 gebruikt de native vervangmodus van de CPU-encoder op twee kopieën van dezelfde clip. De storingsvrije controle levert een AV1-bestand op.
 
 ## Bewijs en opruimen
 

@@ -47,11 +47,17 @@ Beperk bijvoorbeeld `http_503` tot `/sonarr-anime/api/v3/series$` met `aantal: 1
 staat bij het betrokken verzoek de toegepaste fout. `POST /_sim/reset` wist aanvragen, bibliotheken,
 wachtrijen en log en roteert de testsleutels. Prowlarr heeft dezelfde bediening op zijn eigen poort.
 
+Met `--stagingproef` leest Sonarr Series de twee vaste afleveringsnamen onder
+`/media/sonarr-series/De vuurtoren/staging` in het projectvolume. Een geauthenticeerde
+`DELETE` op hun bestands-ID verwijdert het bijbehorende proefbestand. Het verzoeklog meet
+vooraf de SHA-256 van de bron en van de aanwezige quarantainekopie. Buiten deze opzet
+bevat de simulator alleen catalogusgegevens over bestanden.
+
 ## Niet nagebootst (afwijkingen)
 
 De catalogus bevat drie synthetische titels en één seizoen per serie. Alleen de genoemde beheer- en
 zoekroutes zijn uitgewerkt. Seerr voert de aanvraag direct uit en meldt een downstreamfout aan de
 aanroeper. Authenticatie via gebruikerssessies, goedkeuringswachtrijen, cutover, externe metadata,
-fysieke mediabestanden, indexerkwaliteit en echte download- of importvoortgang vallen buiten de proef.
+indexerkwaliteit en echte download- of importvoortgang vallen buiten de proef.
 De MSO-Radarr-fixture blijft beschikbaar voor zijn bestaande proef met een vaste film en wachtrij.
 Seerr-routering, twee afzonderlijke bibliotheken en afleveringsbestanden vereisen deze arr-fixture.

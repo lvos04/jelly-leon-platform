@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import secrets
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -13,7 +15,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, StrictInt
 from simkit import ALGEMENE_FOUTEN, Fouten, Verzoeklog, install
 
-from .instances import CATALOGUS, INSTANTIES, Instantie, Json, instantie_routes
+from .instances import CATALOGUS, INSTANTIES, Instantie, Json, heeft_toegang, instantie_routes
 
 
 class Aanvraag(BaseModel):
@@ -26,7 +28,7 @@ class Aanvraag(BaseModel):
 
 
 def create_app(*, sab_url: str | None = None, sab_key: str | None = None,
-               sab_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
+               sab_transport: httpx.AsyncBaseTransport | None = None, testbibliotheek: Path | None = None) -> FastAPI:
     if sab_url:
         url = urlsplit(sab_url)
         if (url.scheme != "http" or url.hostname not in {"localhost", "127.0.0.1", "::1", "sabnzbd", "sabnzbd-sim"}
@@ -38,18 +40,44 @@ def create_app(*, sab_url: str | None = None, sab_key: str | None = None,
     aanvragen: dict[int, Json] = {}
     aanvraag_lock = asyncio.Lock()
     seerr_key = ""
+    staging = testbibliotheek / "sonarr-series/De vuurtoren/staging" if testbibliotheek else None
 
     def reset() -> None:
         nonlocal seerr_key
         seerr_key = secrets.token_hex(16)
         instanties.update({naam: Instantie(naam) for naam in INSTANTIES})
+        instanties["sonarr-series"].staging = staging
         aanvragen.clear()
 
     def sleutels() -> Json:
         return {"seerr": seerr_key, **{k: i.sleutel for k, i in instanties.items()}}
 
+    async def beschrijf(request: Request) -> dict[str, str]:
+        # Onafhankelijke waarnemer vóór de schijfhandeling, ook als de quarantainekopie ontbreekt.
+        if request.method != "DELETE" or staging is None or testbibliotheek is None:
+            return {}
+        inst = instanties["sonarr-series"]
+        if not heeft_toegang(request, inst):
+            return {}
+        for serie in inst.titels.values():
+            if serie["tmdbId"] != 101:
+                continue
+            for ep in inst.afleveringen(serie["id"]):
+                if not ep["hasFile"] or request.url.path != f"/sonarr-series/api/v3/episodefile/{ep['episodeFileId']}":
+                    continue
+                pad = staging / f"S01E{ep['episodeNumber']:02d}.mkv"
+                if pad.is_symlink():
+                    return {}
+                kopieen = list((testbibliotheek / ".mediaguard-quarantine").glob(f"txn-*/{pad.name}"))
+                details = {"bron_sha256": hashlib.sha256(pad.read_bytes()).hexdigest()}
+                if len(kopieen) == 1 and not kopieen[0].is_symlink():
+                    details["quarantaine_sha256"] = hashlib.sha256(kopieen[0].read_bytes()).hexdigest()
+                return details
+        return {}
+
     reset()
     install(app, fouten=Fouten(dict(ALGEMENE_FOUTEN)), log=Verzoeklog(), reset=reset, sleutels=sleutels,
+            beschrijf=beschrijf,
             fout_body=lambda status, melding: {"message": melding})
 
     for naam in INSTANTIES:

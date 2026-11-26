@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -30,6 +31,8 @@ class Instantie:
     opdrachten: dict[int, Json] = field(default_factory=dict)
     omgekeerd: set[int] = field(default_factory=set)
 
+    staging: Path | None = None
+
     @property
     def serie(self) -> bool:
         return self.naam.startswith("sonarr")
@@ -52,21 +55,28 @@ class Instantie:
         rows = []
         for n in (1, 2):
             eid = sid * 100 + n
+            aanwezig = anime
+            if self.staging is not None and serie["tmdbId"] == 101:
+                aanwezig = (self.staging / f"S01E{n:02}.mkv").is_file()
             rows.append({"id": eid, "seriesId": sid, "seasonNumber": 1, "episodeNumber": n,
                          "absoluteEpisodeNumber": 12 + n if anime else None,
                          "sceneAbsoluteEpisodeNumber": 15 - n if anime else None,
                          "sceneSeasonNumber": 2 if anime else None, "sceneEpisodeNumber": 3 - n if anime else None,
                          "title": f"Aflevering {n}", "monitored": serie["seasons"][0]["monitored"],
-                         "hasFile": anime, "episodeFileId": eid + 10000 if anime else 0})
+                         "hasFile": aanwezig, "episodeFileId": eid + 10000 if aanwezig else 0})
         return rows[::-1] if sid in self.omgekeerd else rows
+
+
+def heeft_toegang(request: Request, instantie: Instantie) -> bool:
+    header = request.headers.get("X-Api-Key", request.headers.get("Authorization", "").removeprefix("Bearer "))
+    sleutel = next((v for k, v in request.query_params.multi_items() if k.lower() == "apikey"), header)
+    return sleutel == instantie.sleutel
 
 
 def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str | None,
                      sab_key: str | None, sab_transport: httpx.AsyncBaseTransport | None) -> APIRouter:
     async def toegang(request: Request) -> None:
-        header = request.headers.get("X-Api-Key", request.headers.get("Authorization", "").removeprefix("Bearer "))
-        sleutel = next((v for k, v in request.query_params.multi_items() if k.lower() == "apikey"), header)
-        if sleutel != instanties[naam].sleutel:
+        if not heeft_toegang(request, instanties[naam]):
             raise HTTPException(401, "API-sleutel geweigerd")
 
     r = APIRouter(prefix=f"/{naam}/api/v3", dependencies=[Depends(toegang)])
@@ -165,11 +175,35 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
         @r.get("/episodefile")
         async def bestanden(seriesId: int) -> list[Json]:
             inst = instanties[naam]
+            map_ = inst.staging if inst.staging and inst.titels.get(seriesId, {}).get("tmdbId") == 101 else None
+            # De bestandslijst heeft een eigen volgorde, onafhankelijk van de afleveringen na RefreshSeries.
+            episodes_op_id = sorted(inst.afleveringen(seriesId), key=lambda e: e["episodeFileId"])
             return [{"id": e["episodeFileId"], "seriesId": seriesId,
-                     "path": f"{inst.titels[seriesId]['path']}/S01E{e['episodeNumber']:02d}.mkv",
-                     "relativePath": f"S01E{e['episodeNumber']:02d}.mkv", "size": 2048,
+                     "path": str(map_ or inst.titels[seriesId]["path"]) + f"/S01E{e['episodeNumber']:02d}.mkv",
+                     "relativePath": f"S01E{e['episodeNumber']:02d}.mkv",
+                     "size": (map_ / f"S01E{e['episodeNumber']:02d}.mkv").stat().st_size if map_ else 2048,
                      "languages": [{"id": 1, "name": "English"}, {"id": 8, "name": "Japanese"}]}
-                    for e in inst.afleveringen(seriesId) if e["hasFile"]]
+                    for e in episodes_op_id if e["hasFile"]]
+
+        @r.get("/episodefile/{nummer}")
+        async def bestand(nummer: int) -> Json:
+            for f in await bestanden((nummer - 10000) // 100):
+                if f["id"] == nummer:
+                    return f
+            raise HTTPException(404, "Bestand ontbreekt")
+
+        @r.delete("/episodefile/{nummer}")
+        async def verwijder_proefbestand(nummer: int) -> Json:
+            f = await bestand(nummer)
+            inst = instanties[naam]
+            # Alleen de twee vaste namen van de optionele stagingfixture hebben een schijfhandeling.
+            if inst.staging is None or inst.titels[f["seriesId"]]["tmdbId"] != 101:
+                raise HTTPException(409, "Dit bestand valt buiten de stagingproef")
+            pad = inst.staging / f["relativePath"]
+            if pad.is_symlink():
+                raise HTTPException(409, "De proef vereist een gewoon bestand")
+            pad.unlink()
+            return {}
 
     @r.get("/release")
     async def zoek_release(episodeId: int | None = None, seriesId: int | None = None,
@@ -227,12 +261,15 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
         actie = body.get("name")
         sid = body.get("seriesId")
         gevonden: list[Json] = []
-        if serie and actie in ("SeriesSearch", "SeasonSearch", "RefreshSeries"):
+        if serie and actie in ("SeriesSearch", "SeasonSearch", "RefreshSeries", "RescanSeries"):
             if type(sid) is not int or sid not in inst.titels:
                 raise HTTPException(400, "Onbekende serie")
             if actie == "SeasonSearch" and body.get("seasonNumber") != 1:
                 raise HTTPException(400, "Onbekende serie of seizoen")
-            if actie == "RefreshSeries":
+            if actie == "RescanSeries":
+                if inst.staging is None:
+                    raise HTTPException(400, "Herscan vereist de stagingproef")
+            elif actie == "RefreshSeries":
                 inst.omgekeerd.symmetric_difference_update({sid})
             else:
                 for ep in inst.afleveringen(sid):

@@ -1,6 +1,7 @@
 """Start de arr-instanties met Seerr, of de Prowlarr-mock van MSO."""
 
 import os
+from pathlib import Path
 
 from simkit import basis_args, serve
 
@@ -12,9 +13,11 @@ def main() -> None:
     parser.set_defaults(port=None)
     parser.add_argument("--prowlarr", action="store_true", help="Gebruik de Prowlarr-mock van MSO")
     parser.add_argument("--sab-url", help="Loopback of de SAB-dienst in het interne testnet")
+    parser.add_argument("--stagingproef", action="store_true", help="Gebruik de twee bestanden in de eigen teststaging")
     args = parser.parse_args()
-    app = prowlarr.create_app() if args.prowlarr else create_app(sab_url=args.sab_url,
-                                                               sab_key=os.environ.get("SIM_SAB_APIKEY"))
+    bibliotheek = Path("/media") if args.stagingproef else None
+    app = prowlarr.create_app() if args.prowlarr else create_app(
+        sab_url=args.sab_url, sab_key=os.environ.get("SIM_SAB_APIKEY"), testbibliotheek=bibliotheek)
     port = args.port if args.port is not None else (30219 if args.prowlarr else 30216)
     serve(app, args.host, port, args.ssl_certfile, args.ssl_keyfile)
 

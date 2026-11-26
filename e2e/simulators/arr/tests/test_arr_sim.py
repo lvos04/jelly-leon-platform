@@ -199,3 +199,29 @@ def test_start_weigert_een_extern_luisteradres(naam, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         main.main()
     assert exc.value.code == 2
+
+
+def test_staging_herkent_alleen_het_eigen_episodebestand(tmp_path):
+    staging = tmp_path / "sonarr-series/De vuurtoren/staging"
+    staging.mkdir(parents=True)
+    bestand = staging / "S01E01.mkv"
+    ander = staging / "bewaard.mkv"
+    bestand.write_bytes(b"aflevering een")
+    ander.write_bytes(b"bewaren")
+    with TestClient(create_app(testbibliotheek=tmp_path)) as sim:
+        r = sim.post("/api/v1/request", headers=key(sim), json={"mediaType": "tv", "mediaId": 101, "seasons": [1]})
+        assert r.status_code == 201
+        basis = "/sonarr-series/api/v3"
+        headers = key(sim, "sonarr-series")
+        sid = r.json()["media"]["externalServiceId"]
+        item, = sim.get(f"{basis}/episodefile", params={"seriesId": sid}, headers=headers).json()
+        pad = f"{basis}/episodefile/{item['id']}"
+        assert item["size"] == bestand.stat().st_size and item["path"] == str(bestand)
+        assert sim.delete(pad).status_code == 401
+        assert sim.delete(f"{basis}/episodefile/999", headers=headers).status_code == 404
+        assert bestand.read_bytes() == b"aflevering een"
+        assert sim.delete(pad, headers=headers).status_code == 200
+        assert not bestand.exists() and sim.get(pad, headers=headers).status_code == 404
+        assert ander.read_bytes() == b"bewaren"
+        wis = [v for v in sim.get("/_sim/verzoeken").json() if v["methode"] == "DELETE" and v["aanmelding"]]
+        assert set(wis[-1]["details"]) == {"bron_sha256"}  # de waarnemer verzint geen voorafgaande kopie

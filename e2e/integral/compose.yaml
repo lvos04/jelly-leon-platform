@@ -12,6 +12,14 @@ x-derden: &derden
     <<: *bouw
     context: ../..
     dockerfile: e2e/integral/Dockerfile.simulators
+# De inhoudsproeven gebruiken de productiekern en de herstelwerker met dezelfde testbibliotheek.
+x-mg-inhoud: &mg-inhoud
+  profiles: [media-inhoud]
+  image: jlp-integraal/mg-inhoud:${INTEGRAAL_TAG:-lokaal}
+  build:
+    <<: *bouw
+    context: ${INTEGRAAL_BRONMAP:-../../..}/media-guard-ultimate/apps/core
+  volumes: [inhoud-config:/config, inhoud-werk:/work, inhoud-media:/media]
 x-truenas: &truenas
   image: jlp-integraal/truenas:${INTEGRAAL_TAG:-lokaal}
   build:
@@ -99,6 +107,30 @@ services:
         RADARR_IMAGE: jlp-integraal/mg-radarr:${INTEGRAAL_TAG:-lokaal}
     ports: ["127.0.0.1:${INTEGRAAL_MEDIAGUARD_POORT:-30080}:30080"]
     volumes: [mediaguard:/config]
+  mg-inhoud:
+    <<: *mg-inhoud
+    environment:
+      MG_LIBRARY_ROOTS: /media
+      MG_START_BACKGROUND: "0"
+  mg-inhoud-herstel:
+    <<: *mg-inhoud
+    environment:
+      MG_LIBRARY_ROOTS: /media
+      MG_ROLE: recovery
+  arr-inhoud:
+    <<: *derden
+    profiles: [media-inhoud]
+    command: [arr-sim, --host, intern, --stagingproef]
+    volumes: [inhoud-media:/media]
+  mg-kwaliteitsmeting:
+    profiles: [media-kwaliteit]
+    image: jlp-integraal/mg-kwaliteitsmeting:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/media-guard-ultimate/services/encoder
+      target: runtime
+    cpus: 2
+    volumes: [inhoud-media:/media]
   mso:
     profiles: [media]
     image: jlp-integraal/mso:${INTEGRAAL_TAG:-lokaal}
@@ -193,6 +225,9 @@ volumes:
   executor: {}
   lifecycle: {}
   mediaguard: {}
+  inhoud-config: {}
+  inhoud-werk: {}
+  inhoud-media: {}
   mso: {}
   huis: {}
   integraties: {}
