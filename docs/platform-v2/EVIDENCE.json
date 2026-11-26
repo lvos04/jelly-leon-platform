@@ -1448,5 +1448,75 @@
   "validatie": "Sim-geslaagd",
   "blokkade": "",
   "opmerking": "Twee gekruiste absolute nummers bleven na verversen gekoppeld aan hun eigen video en aan de juiste ingebedde en losse Nederlandse ondertitel."
+ },
+ {
+  "id": "EX24",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX24) en e2e/integral/scenarios/EX24_gree_offline.py",
+  "blokkade": "",
+  "opmerking": "De laatst gemeten doeltemperatuur bleef staan. De waarschuwing was zichtbaar en de bediening uitgeschakeld. HTTP 503 en nul nieuwe opdrachten in de wachtrij of op UDP.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX25",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX25) en e2e/integral/scenarios/EX25_gedeelde_buitenunit.py",
+  "blokkade": "",
+  "opmerking": "Koelen op unit B tijdens verwarmen op A gaf HTTP 409. Verwarmen gaf HTTP 202 en is op B teruggelezen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX26",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (hardware); Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX26) en e2e/integral/scenarios/EX26_afstandsbediening.py",
+  "blokkade": "NIET GEVALIDEERD (hardware)",
+  "opmerking": "Extern uit tijdens schema. Bij gewijzigde doeltemperatuur bleven twee uitlezingen en de wachtrij vrij van nieuwe opdrachten tot handmatig hervatten. Echte afstandsbediening nog toetsen in N-P6-06.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX27",
+  "status": "Bezig",
+  "validatie": "Sim-mislukt",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX27) en e2e/integral/scenarios/EX27_boiler.py",
+  "blokkade": "",
+  "opmerking": "Boilerkaart alleen leesbaar. Hub HTTP 403, ondertekende assistentactor en directe huis-API HTTP 409. Vermogen leesbaar en nul schakelverzoeken. Ook het geteste HomeWizard-stopcontact zonder boilerrol kreeg HTTP 409 wegens het meetbeleid. Het vereiste positieve voorstel ontbreekt.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX28",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX28) en e2e/integral/scenarios/EX28_p1_meterreset.py",
+  "blokkade": "",
+  "opmerking": "B14 berekende 23 en 25 kWh op de korte en lange dag uit de uur-export van my_house. Elk uur 1 kWh, alleen het resetuur om 01.00 UTC gemarkeerd. Dagkwaliteit gemeten.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX29",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX29) en e2e/integral/scenarios/EX29_zigbee_stil.py",
+  "blokkade": "",
+  "opmerking": "Na 345,1 seconden kwam de waarschuwing bij een ingestelde termijn van 300 seconden. Geen nieuwe MQTT-publicaties, OEM-terugval en nul correctie. De eerste volledige reeks gaf voor EX29 exitcode 1 zonder opgeslagen eindwaarden.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX30",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (hardware); Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX30) en e2e/integral/scenarios/EX30_gree_firmware.py",
+  "blokkade": "NIET GEVALIDEERD (hardware)",
+  "opmerking": "De koppeling mislukte met beide protocolversies. De integratie werd uitgeschakeld, bediening geweigerd en er volgde geen UDP-commando. Echte afwijkende firmware nog toetsen in N-P6-06.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
  }
 ]

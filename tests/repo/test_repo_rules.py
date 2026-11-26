@@ -415,6 +415,8 @@ def test_evidence_json_follows_section_11() -> None:
     ("C1.3-JLP-10", "account"),
     ("C1.3-JLP-11", "account"),
     ("C1.3-JLP-14", "account"),
+    ("EX26", "hardware"),
+    ("EX30", "hardware"),
     ("I01-01-01", "hardware"),
     ("I01-01-01", "account"),
     ("I01-01-03", "account"),

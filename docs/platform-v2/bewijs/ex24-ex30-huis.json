@@ -1,0 +1,212 @@
+{
+  "run": "20261126t092134z-d735c7e716",
+  "datum": "2026-11-26",
+  "runnercommit": "76c6b5dd32939dd122fd402f80d1398326cf1921",
+  "images": {
+    "hub": {
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "bronstatus": "schoon",
+      "image_id": "sha256:62fc8e62ff3e08a320c73494320832db13e73d7bf4521b80ec7b532ad05b3c2b"
+    },
+    "executor": {
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "bronstatus": "schoon",
+      "image_id": "sha256:f010d51dc40536d2160080475e90ad6321bbb42879eebd43c9d64f008b094e2c"
+    },
+    "truenas": {
+      "broncommit": "96270420080e1f1769f4ea88da1c9159277dac73",
+      "bronstatus": "schoon",
+      "image_id": "sha256:72c63ce9471d443be45e70e755b59d9e9aec78afe170af4c9adffcd6f0254643"
+    },
+    "lifecycle": {
+      "broncommit": "96270420080e1f1769f4ea88da1c9159277dac73",
+      "bronstatus": "schoon",
+      "image_id": "sha256:bab12a244b42cbbf2f1f8ff0d1578cdd79a31cb61c11d2405d678616143c07fa"
+    },
+    "my-house": {
+      "broncommit": "b97d2efbec1f29806baadb353dff72ae119b49dd",
+      "bronstatus": "schoon",
+      "image_id": "sha256:b82bf3b93352df7ecf48f662d136e3f45e7884adac31a9f067b10ef38fa7bd71"
+    },
+    "huis-browser": {
+      "broncommit": "96270420080e1f1769f4ea88da1c9159277dac73",
+      "bronstatus": "schoon",
+      "image_id": "sha256:e5aa1a23b5339c2e847c571cf4c818fc2782aa5a3321da20b94f55a3926c1808"
+    },
+    "home-control-hub": {
+      "broncommit": "0e91b3199118ceddab14f1b2e11bccd051c2a4fd",
+      "bronstatus": "schoon",
+      "image_id": "sha256:035beb010c007b796c213b60361b8d404872ae3d621305460c286f04b5180221"
+    }
+  },
+  "scenarios": {
+    "EX24": {
+      "bestand": "e2e/integral/scenarios/EX24_gree_offline.py",
+      "git_blob": "72b104e5525cb06af3abfd7c2efb75eff7e756a4",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "offline": {
+          "http": 503,
+          "waarschuwing": true,
+          "laatste_stand_behouden": true,
+          "bediening_beschikbaar": false,
+          "nieuwe_opdrachten": 0
+        }
+      }
+    },
+    "EX25": {
+      "bestand": "e2e/integral/scenarios/EX25_gedeelde_buitenunit.py",
+      "git_blob": "df7bc9651d7e44b2dfac87b9c1dec1a6458e1ac1",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "modi": {
+          "koelen": 409,
+          "verwarmen": 202,
+          "tweede_unit_verwarmt": true
+        }
+      }
+    },
+    "EX26": {
+      "bestand": "e2e/integral/scenarios/EX26_afstandsbediening.py",
+      "git_blob": "80c5b13e977ead9eb15f0687f2555fcdfc38ee14",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "afstandsbediening": {
+          "uit_tijdens_schema": true,
+          "nieuwe_opdrachten_voor_hervatten": 0,
+          "na_handmatig_hervatten": "heat"
+        }
+      }
+    },
+    "EX27": {
+      "bestand": "e2e/integral/scenarios/EX27_boiler.py",
+      "git_blob": "d00e27ae75d3046f3d400774230aa28eb5e8fa91",
+      "uitkomst": "Sim-mislukt",
+      "exitcode": 1,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "gewoon_stopcontact": {
+          "http": 409,
+          "voorstel": false,
+          "alleen_meten": true
+        },
+        "browser": {
+          "beleidsslot_zichtbaar": true,
+          "schakelbedieningen": 0
+        },
+        "hub": 403,
+        "ondertekende_assistentactor": 409,
+        "rechtstreeks_http": 409,
+        "meter": {
+          "vermogen_gelezen": true,
+          "relais_ongewijzigd": true,
+          "schakelverzoeken": 0
+        }
+      }
+    },
+    "EX28": {
+      "bestand": "e2e/integral/scenarios/EX28_p1_meterreset.py",
+      "git_blob": "8021ae708b0553c57a82cb949c126dc30d5c6b06",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "naar_zomertijd": {
+          "uren": 23,
+          "tijdvakken_utc": 23,
+          "totaal_kwh": 23.0,
+          "kwaliteit": "gemeten",
+          "reset_uren_utc": [
+            1
+          ],
+          "gas_lokale_tijden": [
+            "0130",
+            "0330"
+          ]
+        },
+        "naar_wintertijd": {
+          "uren": 25,
+          "tijdvakken_utc": 25,
+          "totaal_kwh": 25.0,
+          "kwaliteit": "gemeten",
+          "reset_uren_utc": [
+            1
+          ],
+          "gas_lokale_tijden": [
+            "0230",
+            "0230"
+          ]
+        }
+      }
+    },
+    "EX29": {
+      "bestand": "e2e/integral/scenarios/EX29_zigbee_stil.py",
+      "git_blob": "85dc5554183d3ad22d543d565241152b478a2dbd",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "voor_stilte": {
+          "termijn_s": 300,
+          "waarschuwingen": 0,
+          "verbonden": true,
+          "schematemperatuur_c": 21,
+          "gemeten_temperatuur_c": 21,
+          "correctie": 0
+        },
+        "sensorstilte": {
+          "termijn_s": 300,
+          "melding_na_s": 345.1,
+          "aantal_meldingen": 1,
+          "nieuwe_publicaties": 0,
+          "verbonden": true,
+          "regeling": "oem_fallback",
+          "temperatuur_verouderd": true,
+          "correctie": 0.0
+        }
+      }
+    },
+    "EX30": {
+      "bestand": "e2e/integral/scenarios/EX30_gree_firmware.py",
+      "git_blob": "4d5e0b458f48695d6cc61afca13a70caac8b689f",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "metingen": {
+        "intern_projectnetwerk": true,
+        "firmware": {
+          "bind": "unsupported",
+          "integratie_actief": false,
+          "bedienopdrachten": 0
+        }
+      }
+    }
+  },
+  "eerdere_metingen_EX29": [
+    {
+      "run": "20261126t082959z-cd02ddef5c",
+      "runnercommit": "f180fc792542ce47a19bb7f4a41b1a15e17155ce",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "sensorstilte": {
+        "termijn_s": 300,
+        "melding_na_s": 345.6,
+        "nieuwe_publicaties": 0,
+        "regeling": "oem_fallback",
+        "correctie": 0
+      }
+    },
+    {
+      "run": "20261126t085010z-627344c9be",
+      "runnercommit": "49dfdb5375d3024fea9edb8b98785731c830dad1",
+      "uitkomst": "Sim-mislukt",
+      "exitcode": 1,
+      "sensorstilte": null
+    }
+  ]
+}
