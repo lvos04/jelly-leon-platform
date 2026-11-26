@@ -1234,7 +1234,7 @@
   "info": {
     "description": "Lifecycle-dienst van het TrueNAS Home Platform V2 (installatie, updates, rollback, verwijderen/verhuizen). Fase P0: datamodel, API en connectorcontract; uitvoering volgt in P2 — tot dan `capability_unavailable`. Fouten: `{code, message, details, trace_id}` (foutcatalogus contract 1.3 §5); mutaties vereisen `Idempotency-Key`. Aanmelden alleen met een door de Hub ondertekende JWT (gepinde sleutels, `aud` één string, `token_use` user of hub_service, `jti` verplicht en per mutatie verbruikt; contract 1.3 §4). Zonder geldige aanmelding altijd 401, ook bij een onleesbare body.",
     "title": "jelly-leon-platform (lifecycle)",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "openapi": "3.1.0",
   "paths": {

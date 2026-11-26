@@ -5,6 +5,6 @@ verwijderen/verhuizen van het hele platform plant en vastlegt. Uitvoering via de
 tot die tijd geven niet-gebouwde functies eerlijk ``capability_unavailable``.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 APP_ID = "jelly-leon-platform"
 SCHEMA_VERSION = "1.0"

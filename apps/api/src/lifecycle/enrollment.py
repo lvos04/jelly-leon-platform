@@ -498,7 +498,7 @@ class EnvEnrollment:
         self.clock = clock
         self.next_at = 0.0
         self.backoff = BACKOFF_START_S
-        self.failed_here: set[str] = set()  # alleen als hub-link.json onleesbaar is (dan kan de hash er niet in)
+        self.failed_here: set[str] = set()  # afgehandeld; telt als hub-link.json de hash niet kon opslaan
         # eerste poging per token in het geheugen: de 60-minutengrens geldt ook als ``pending`` niet in hub-link.json
         # kan staan (onleesbaar bestand); normaal telt ``pending.started_at`` (blijft over herstarts bewaard)
         self.first_attempt: dict[str, datetime] = {}
@@ -594,8 +594,8 @@ class EnvEnrollment:
         return "gekoppeld"
 
     def _remember_failure(self, sha: str) -> None:
-        if self.store.read().corrupt:
-            self.failed_here.add(sha)
+        # ook als het bestand niet te schrijven was (HubLinkNotSaved): het token is afgehandeld, nooit blijven proberen
+        self.failed_here.add(sha)
 
 
 def clear_interrupted_pairing(store: HubLinkStore) -> None:

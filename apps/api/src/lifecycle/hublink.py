@@ -9,7 +9,8 @@ geen oude koppeling, oude pins of een ingetrokken token terugbrengen, en DB-expo
 - Lezen: elk proces leest het bestand opnieuw zodra inode, mtime of grootte verandert, zodat een ontkoppeling,
   intrekking of rotatie door het ene proces direct voor het andere geldt.
 - **Onleesbaar** (geen geldige JSON, een andere major van ``schema_version``, ontbrekende verplichte velden, verkeerde
-  eigenaar of rechten) is **fail-closed**: de dienst vertrouwt geen Hub-JWT (401 ``not_linked``), toont geen
+  eigenaar of rechten volgens :mod:`lifecycle.geheimbestand`; op een NFSv4-ACL-dataset tellen groepsrechten niet)
+  is **fail-closed**: de dienst vertrouwt geen Hub-JWT (401 ``not_linked``), toont geen
   koppelformulier en meldt ``last_error.code = koppelstatus_onleesbaar`` (``/readyz`` blijft 200). Alleen een poging
   met een **nieuw env-token** vervangt het bestand, bij haar **eerste schrijfactie** (``pending`` of ``last_error``),
   dus vóór het verzoek aan de Hub (1.3, RV6): het origineel blijft als ``hub-link.json.onleesbaar-<UTC-tijd>`` (0600)
@@ -25,11 +26,11 @@ from __future__ import annotations
 import contextlib
 import copy
 import fcntl
+import functools
 import json
 import os
 import re
 import secrets
-import stat
 import threading
 import uuid
 from collections.abc import Callable, Iterator
@@ -39,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from lifecycle import APP_ID
+from lifecycle.geheimbestand import alleen_eigenaar, eigen_geheim
 from lifecycle.keys import KeyFormatError, Pin, pin_from_entry
 from lifecycle.timeutil import iso_z, utcnow
 
@@ -89,6 +91,10 @@ ERROR_MESSAGES_NL = {
 
 class HubLinkCorrupt(RuntimeError):
     """``hub-link.json`` is onleesbaar of ongeldig (fail-closed)."""
+
+
+class HubLinkNotSaved(HubLinkCorrupt):
+    """Het nieuwe bestand zou onleesbaar zijn (rechten); niets vervangen, de vorige toestand blijft staan."""
 
 
 def empty_doc() -> dict[str, Any]:
@@ -314,7 +320,7 @@ class HubLinkStore:
 
     def read(self) -> Link:
         try:
-            st = os.stat(self.path)
+            st = os.lstat(self.path)
         except FileNotFoundError:
             return Link()
         except OSError:
@@ -323,7 +329,7 @@ class HubLinkStore:
         with self._mutex:
             if self._cache is not None and self._cache[0] == key:
                 return self._cache[1]
-        if not _owner_and_mode_ok(st):  # §3.5: verkeerde eigenaar of rechten = onleesbaar (fail-closed)
+        if not eigen_geheim(self.path, st):  # §3.5: verkeerde eigenaar of rechten = onleesbaar (fail-closed)
             return Link(corrupt=True)
         link = self._load()
         with self._mutex:
@@ -332,7 +338,7 @@ class HubLinkStore:
 
     def _load(self) -> Link:
         try:
-            if not _owner_and_mode_ok(os.stat(self.path)):
+            if not eigen_geheim(self.path, os.lstat(self.path)):
                 return Link(corrupt=True)
             return Link(validate_doc(json.loads(self.path.read_bytes())))
         except FileNotFoundError:
@@ -357,14 +363,16 @@ class HubLinkStore:
         Een onleesbaar bestand wordt alleen vervangen als ``replace_corrupt`` (eerste schrijfactie van een poging met
         een nieuw env-token, §3.5/§3.8): het origineel blijft als ``hub-link.json.onleesbaar-<UTC-tijd>`` (0600) en
         ``unreadable_replaced_at`` wordt gezet. Anders ``HubLinkCorrupt`` (nooit stil terug naar
-        ``nooit_gekoppeld``)."""
+        ``nooit_gekoppeld``). Zou het nieuwe bestand zelf onleesbaar zijn (rechten), dan ``HubLinkNotSaved`` en blijft
+        alles zoals het was (ook een onleesbaar origineel: geen lus van kopieën bij elk nieuw token)."""
         with self._locked():
             current = self._load()
+            before_replace: Callable[[], None] | None = None
             if current.corrupt:
                 if not replace_corrupt:
                     raise HubLinkCorrupt("hub-link.json is onleesbaar; alleen een nieuw koppeltoken vervangt het")
                 now = utcnow()
-                self._keep_unreadable(now)
+                before_replace = functools.partial(self._keep_unreadable, now)
                 doc = empty_doc()
                 doc["unreadable_replaced_at"] = now_iso(now)
             else:
@@ -372,7 +380,7 @@ class HubLinkStore:
             change(doc)
             doc["schema_version"] = FILE_SCHEMA_VERSION
             doc = validate_doc(doc)  # nooit een ongeldig bestand schrijven
-            self._write(doc)
+            self._write(doc, before_replace)
         return self.read()
 
     def _keep_unreadable(self, now: datetime) -> None:
@@ -390,12 +398,14 @@ class HubLinkStore:
         with contextlib.suppress(OSError):  # eigen bestand: 0600; van een andere eigenaar kan dat niet (blijft staan)
             os.chmod(target, 0o600)
 
-    def _write(self, doc: dict[str, Any]) -> None:
+    def _write(self, doc: dict[str, Any], before_replace: Callable[[], None] | None = None) -> None:
+        """Het tijdelijke bestand moet de leescontrole halen vóór het ``hub-link.json`` vervangt (ACL-dataset)."""
         data = (json.dumps(doc, ensure_ascii=False, sort_keys=True, indent=1) + "\n").encode("utf-8")
         tmp = self.dir / f".{FILE_NAME}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             try:
+                alleen_eigenaar(fd)
                 view = memoryview(data)
                 while view:
                     written = os.write(fd, view)
@@ -403,6 +413,10 @@ class HubLinkStore:
                 os.fsync(fd)
             finally:
                 os.close(fd)
+            if not eigen_geheim(tmp, os.lstat(tmp)):
+                raise HubLinkNotSaved("nieuw koppelbestand zou onleesbaar zijn (rechten); niets vervangen")
+            if before_replace is not None:
+                before_replace()
             os.replace(tmp, self.path)
         except BaseException:
             with contextlib.suppress(FileNotFoundError):
@@ -413,11 +427,6 @@ class HubLinkStore:
             os.fsync(dir_fd)
         finally:
             os.close(dir_fd)
-
-
-def _owner_and_mode_ok(st: os.stat_result) -> bool:
-    """§3.5: eigenaar = deze dienst (568 in de image) en geen rechten voor groep of anderen."""
-    return st.st_uid == os.geteuid() and not st.st_mode & 0o077 and stat.S_ISREG(st.st_mode)
 
 
 # ---------------------------------------------------------------------------------------------- wijzigingen (puur)

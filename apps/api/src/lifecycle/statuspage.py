@@ -60,7 +60,7 @@ from lifecycle.enrollment import (
 )
 from lifecycle.errors import trace_id_of
 from lifecycle.health import collect_health, readiness
-from lifecycle.hublink import ERROR_MESSAGES_NL, FILE_NAME, HubLinkCorrupt, Link
+from lifecycle.hublink import ERROR_MESSAGES_NL, FILE_NAME, HubLinkCorrupt, HubLinkNotSaved, Link
 from lifecycle.keys import normalize_fingerprint, normalize_pairing_code
 from lifecycle.peil import render, statuspagina_template
 from lifecycle.timeutil import iso_z, utcnow
@@ -144,6 +144,11 @@ MELDINGEN: dict[str, Melding] = {
     "koppelstatus_onleesbaar": Melding("fout", "De koppelstatus is onleesbaar", "Deze dienst kon zijn koppelbestand "
                                        "niet lezen en voert daarom niets uit; hier staat bewust geen formulier. "
                                        "Herstel gaat alleen met een nieuw koppeltoken via de Hub. Het bestand:"),
+    "koppelbestand_niet_opgeslagen": Melding("fout", "Koppelbestand niet opgeslagen", "Deze dienst kon geen "
+                                             "koppelbestand opslaan dat alleen hij kan lezen (rechten van de map "
+                                             "/appdata/secrets). Er is niets vervangen. Controleer de rechten van de "
+                                             "dataset van /appdata en probeer het opnieuw; lukt het niet, maak dan in "
+                                             "de Hub een nieuwe koppelcode."),
     # Fouten van de Hub-aanroep (vaste codes §3.5, tekst uit ERROR_MESSAGES_NL); veldfout bij het waarschijnlijke veld
     "hub_onbereikbaar": Melding("fout", _MISLUKT, ERROR_MESSAGES_NL["hub_onbereikbaar"], "hub_adres",
                                 "Geen antwoord van een Hub op dit adres. Controleer het adres en of de Hub draait."),
@@ -609,6 +614,8 @@ def _pair(request: Request, hub_adres: str, koppelcode: str, hub_vingerafdruk: s
         refused = {"ever_linked": "al_gekoppeld", "onleesbaar": "koppelstatus_onleesbaar"}.get(exc.reason,
                                                                                                "koppelen_bezig")
         return _weiger(request, refused, 409)
+    except HubLinkNotSaved:  # niets vervangen; de vorige toestand staat er nog (ACL-dataset die 0600 weigert)
+        return _weiger(request, "koppelbestand_niet_opgeslagen", 503)
     except HubLinkCorrupt:
         return _weiger(request, "koppelstatus_onleesbaar", 409)
     if confirmed == "ingetrokken":  # de Hub kent het nieuwe token al niet meer (bijv. een herhaald verzoek)

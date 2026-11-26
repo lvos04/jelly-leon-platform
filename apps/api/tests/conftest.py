@@ -172,3 +172,40 @@ def gebonden_updateroute(monkeypatch: pytest.MonkeyPatch) -> None:
     from lifecycle import api_plans
 
     monkeypatch.setattr(api_plans, "GEBONDEN_UPDATEROUTE", True)
+
+
+@pytest.fixture
+def acl_dataset(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Bootst een ZFS-dataset met NFSv4-ACL na (TrueNAS-preset Apps; ZFS met NFSv4-ACL is lokaal niet beschikbaar):
+    elk nieuw bestand krijgt 0770 uit de overgeërfde ACE's (``aclinherit=passthrough`` negeert de 0600 van open()).
+    ``chmod``: ``werkt`` (aclmode=passthrough), ``geweigerd`` (aclmode=restricted) of ``genegeerd``. ``herkend``: of
+    de NFSv4-ACL zichtbaar is als xattr (``system.nfs4_acl_xdr``). Zelfde nabootsing als de executortests."""
+    import errno
+    import stat
+
+    from lifecycle import geheimbestand
+
+    echte_open, echte_fchmod, echte_chmod = os.open, os.fchmod, os.chmod
+
+    def zet(chmod: str, herkend: bool) -> None:
+        def open_acl(path: Any, flags: int, mode: int = 0o777, *args: Any, **kwargs: Any) -> int:
+            fd = echte_open(path, flags, mode, *args, **kwargs)
+            if flags & os.O_CREAT and stat.S_ISREG(os.fstat(fd).st_mode):
+                echte_fchmod(fd, 0o770)
+            return fd
+
+        def wijzig(echt: Any) -> Any:
+            def chmod_acl(doel: Any, mode: int, *args: Any, **kwargs: Any) -> None:
+                if chmod == "geweigerd":
+                    raise PermissionError(errno.EPERM, "Operation not permitted")
+                if chmod == "werkt":
+                    echt(doel, mode, *args, **kwargs)
+
+            return chmod_acl
+
+        monkeypatch.setattr(os, "open", open_acl)
+        monkeypatch.setattr(os, "fchmod", wijzig(echte_fchmod))
+        monkeypatch.setattr(os, "chmod", wijzig(echte_chmod))
+        monkeypatch.setattr(geheimbestand, "nfs4_acl", lambda path: herkend)
+
+    return zet

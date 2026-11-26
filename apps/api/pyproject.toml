@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jelly-leon-platform-lifecycle"
-version = "0.1.0"
+version = "0.1.1"
 description = "jelly-leon-platform — lifecycle-dienst (installatie, updates, rollback, verwijderen/verhuizen) van het TrueNAS Home Platform"
 requires-python = ">=3.12,<3.13"
 dependencies = [

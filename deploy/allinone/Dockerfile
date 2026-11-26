@@ -37,7 +37,7 @@ RUN --mount=type=secret,id=ca_bundle,required=false \
 
 # ---------------------------------------------------------------- runtime
 FROM ${PYTHON_IMAGE}
-ARG VERSION=0.1.0
+ARG VERSION=0.1.1
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="jelly-leon-platform" \
       org.opencontainers.image.description="Lifecycle-dienst TrueNAS Home Platform V2 — alles-in-één (PostgreSQL, API, worker)" \

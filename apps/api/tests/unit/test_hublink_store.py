@@ -18,6 +18,7 @@ import pytest
 from lifecycle.hublink import (
     MAX_USED_TOKENS,
     HubLinkCorrupt,
+    HubLinkNotSaved,
     HubLinkStore,
     add_used_token,
     clear_link,
@@ -190,3 +191,74 @@ def test_validate_never_writes_an_invalid_doc(tmp_path: Path) -> None:
     assert not store.path.exists()
     with pytest.raises(HubLinkCorrupt):
         validate_doc({**empty_doc(), "used_enrollment_token_sha256": ["geen-hex"]})
+
+
+# ------------------------------------------------------------------ ACL-dataset (TrueNAS-preset Apps, NFSv4-ACL)
+@pytest.mark.parametrize(("chmod", "herkend"), [("werkt", False), ("geweigerd", True), ("genegeerd", True)])
+def test_acl_dataset_writes_a_readable_file(tmp_path: Path, acl_dataset: Any, chmod: str, herkend: bool) -> None:
+    """0.1.0: op een dataset met preset Apps kreeg het net geschreven bestand groepsrechten (overgeërfde ACE's) en las
+    de dienst het daarna als onleesbaar. Nu fchmod 0600 na aanmaken; waar de ACL dat weigert of negeert, telt de ACL."""
+    acl_dataset(chmod, herkend)
+    store = HubLinkStore(tmp_path)
+    link = store.update(linked_doc)
+    assert link.linked and not link.corrupt
+    assert stat.S_IMODE(store.path.stat().st_mode) == (0o600 if chmod == "werkt" else 0o770)
+
+
+def test_acl_dataset_replaces_a_corrupt_file_once_without_a_loop(tmp_path: Path, acl_dataset: Any) -> None:
+    """Een nieuw env-token vervangt een onleesbaar bestand door een leesbaar (geen lus via replace_corrupt)."""
+    store = HubLinkStore(tmp_path)
+    store.path.write_text("{ kapot")
+    os.chmod(store.path, 0o600)
+    acl_dataset("geweigerd", True)
+    assert not store.update(lambda d: None, replace_corrupt=True).corrupt
+    assert not store.update(linked_doc).corrupt  # daarna gewoon schrijven, zonder nieuwe kopie
+    assert len([p for p in tmp_path.iterdir() if p.name.startswith("hub-link.json.onleesbaar-")]) == 1
+
+
+def test_unreadable_new_file_is_never_written_and_the_old_state_stays(tmp_path: Path, acl_dataset: Any) -> None:
+    """ACL weigert chmod en is niet herkenbaar: het nieuwe bestand zou onleesbaar zijn. Dan wordt niets vervangen
+    (geen tijdelijke resten), ook een onleesbaar origineel niet (geen kopie per poging)."""
+    store = HubLinkStore(tmp_path)
+    store.update(linked_doc)
+    before = store.path.read_bytes()
+    acl_dataset("geweigerd", False)
+    with pytest.raises(HubLinkNotSaved):
+        store.update(lambda d: clear_link(d, "ontkoppeld"))
+    assert store.path.read_bytes() == before and store.read().linked
+    store.path.write_text("{ kapot")
+    for _ in range(2):
+        with pytest.raises(HubLinkNotSaved):
+            store.update(lambda d: None, replace_corrupt=True)
+    assert store.path.read_text() == "{ kapot"
+    assert not [p for p in tmp_path.iterdir() if ".onleesbaar-" in p.name or p.name.endswith(".tmp")]
+    empty = HubLinkStore(tmp_path / "leeg")
+    empty.dir.mkdir()
+    with pytest.raises(HubLinkNotSaved):
+        empty.update(lambda d: None)
+    assert not empty.path.exists() and empty.read().state == "nooit_gekoppeld"
+
+
+def test_read_rules_on_an_acl_dataset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Groeps-/overige-rechten alleen met NFSv4-ACL (dan aangescherpt waar het kan); wereld-schrijfbaar en een symlink
+    blijven altijd onleesbaar, ook met ACL. Zonder ACL alleen 0600, zoals voorheen."""
+    from lifecycle import geheimbestand
+
+    echte_acl = geheimbestand.nfs4_acl
+    store = HubLinkStore(tmp_path)
+    store.update(linked_doc)
+
+    def oordeel(modus: int, *, acl: bool) -> bool:
+        os.chmod(store.path, modus)
+        monkeypatch.setattr(geheimbestand, "nfs4_acl", lambda path: acl)
+        return store.read().linked
+
+    assert oordeel(0o600, acl=False) and not oordeel(0o640, acl=False) and not oordeel(0o660, acl=False)
+    assert oordeel(0o770, acl=True) and stat.S_IMODE(store.path.stat().st_mode) == 0o600  # aangescherpt
+    assert not oordeel(0o666, acl=True) and not oordeel(0o602, acl=True)
+    os.chmod(store.path, 0o600)
+    echt = tmp_path / "echt.json"
+    store.path.rename(echt)
+    store.path.symlink_to(echt)
+    assert store.read().corrupt
+    assert not echte_acl(echt)  # gewoon bestandssysteem: geen NFSv4-ACL

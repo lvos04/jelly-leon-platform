@@ -484,3 +484,36 @@ def test_too_many_attempts_has_retry_after_until_a_slot_frees(make_app: Any, hub
     assert limiter.retry_after(documentatie_ip(50)) == 1
     assert limiter.retry_after(documentatie_ip(51)) >= 1  # een bron zonder pogingen: nooit 0
     assert sim.calls["enroll"] == 0
+
+
+@pytest.mark.parametrize(("chmod", "herkend"), [("werkt", False), ("geweigerd", True), ("genegeerd", True)])
+def test_pairing_on_an_acl_dataset(make_app: Any, hub: Any, data_dir: Path, acl_dataset: Any, chmod: str,
+                                   herkend: bool) -> None:
+    """0.1.0 op een dataset met preset Apps: het net geschreven hub-link.json kreeg groepsrechten uit de ACL, de dienst
+    las het als onleesbaar (409 koppelstatus_onleesbaar, geen formulier meer). Nu koppelt de volledige flow."""
+    acl_dataset(chmod, herkend)
+    sim = hub.state.sim
+    code = sim.add_grant("koppelcode", APP)
+    with unlinked_client(make_app) as c:
+        r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), csrf(c.get("/").text)),
+                   follow_redirects=False)
+        assert r.status_code == 303, r.text
+        assert "Gekoppeld met de Hub" in c.get(r.headers["location"]).text
+    doc = file_doc(data_dir)
+    assert doc["state"] == "gekoppeld" and doc["confirmed_at"] and doc["pending"] is None
+    modus = (data_dir / "secrets" / "hub-link.json").stat().st_mode & 0o777
+    assert modus == (0o600 if chmod == "werkt" else 0o770)
+
+
+def test_pairing_never_leaves_an_unreadable_file(make_app: Any, hub: Any, data_dir: Path, acl_dataset: Any) -> None:
+    """Kan de dienst geen leesbaar bestand schrijven (ACL weigert chmod en is niet herkenbaar), dan een vaste melding,
+    niets naar de Hub en de vorige toestand (geen bestand: nooit gekoppeld, formulier terug)."""
+    acl_dataset("geweigerd", False)
+    sim = hub.state.sim
+    code = sim.add_grant("koppelcode", APP)
+    with unlinked_client(make_app) as c:
+        r = c.post("/koppelen", data=form(code, sim.keyset_fingerprint(), csrf(c.get("/").text)))
+        assert r.status_code == 503 and "Code <code>koppelbestand_niet_opgeslagen</code>" in r.text, r.text
+        assert 'role="alert"' in r.text and sim.calls["enroll"] == 0
+        assert not (data_dir / "secrets" / "hub-link.json").exists()
+        assert 'name="csrf"' in c.get("/").text

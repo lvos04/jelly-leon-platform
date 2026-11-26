@@ -565,3 +565,20 @@ def test_failed_rotation_backs_off_and_follows_retry_after(clean_db: str, data_d
     assert worker.tick()["rotation"] == "geroteerd" and sim.calls["rotate"] == 3
     assert worker.store.read().service_token != old and worker.rotate_backoff == 5.0
     assert worker.store.read().doc["token_rotation_requested_at"] is None
+
+
+def test_env_token_on_an_acl_dataset_replaces_an_unreadable_file_once(clean_db: str, data_dir: Path, hub: Any,
+                                                                       acl_dataset: Any) -> None:
+    """Herstel van een 0.1.0-installatie op een dataset met preset Apps: een nieuw env-token vervangt het onleesbare
+    bestand en koppelt (geen lus via replace_corrupt); het origineel blijft als .onleesbaar-<tijd> bewaard."""
+    secrets = data_dir / "secrets"
+    (secrets / "hub-link.json").write_text("{ kapot")
+    acl_dataset("geweigerd", True)
+    sim = hub.state.sim
+    worker = make_worker(clean_db, data_dir, hub, sim.add_grant("token", APP),
+                         hub_key_fingerprint=sim.keyset_fingerprint())
+    assert worker.tick()["enrollment"] == "gekoppeld"
+    doc = file_doc(data_dir)
+    assert doc["state"] == "gekoppeld" and doc["first_linked_at"] and doc["unreadable_replaced_at"]
+    assert HubLinkStore(secrets).read().linked and not HubLinkStore(secrets).read().onleesbaar
+    assert len([p for p in secrets.iterdir() if p.name.startswith("hub-link.json.onleesbaar-")]) == 1

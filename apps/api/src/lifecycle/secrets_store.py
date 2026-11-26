@@ -4,13 +4,15 @@
 - ``vault.key``         32 willekeurige bytes, AES-256-GCM-sleutel voor opgeslagen credentials;
 - ``identity.ed25519``  eigen Ed25519-identiteit (PKCS#8 PEM), publieke sleutel gaat mee bij de enrollment.
 
-Bestaande bestanden worden **nooit** overschreven; alleen te ruime rechten worden teruggezet naar 0600.
+Bestaande bestanden worden **nooit** overschreven; alleen te ruime rechten worden teruggezet naar 0600. Weigert een
+NFSv4-ACL (TrueNAS-preset *Apps*, ``aclmode=restricted``) dat, dan start de dienst toch (zie ``geheimbestand``).
 De database heeft geen wachtwoord nodig: de ingebouwde PostgreSQL luistert alleen op een unix-socket in de container.
 """
 
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import secrets
 from dataclasses import dataclass
@@ -19,6 +21,10 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+from lifecycle.geheimbestand import alleen_eigenaar
+
+log = logging.getLogger(__name__)
 
 VAULT_KEY = "vault.key"
 IDENTITY_KEY = "identity.ed25519"
@@ -34,6 +40,7 @@ def _write_new(path: Path, data: bytes) -> bool:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
         return False
+    alleen_eigenaar(fd)
     with os.fdopen(fd, "wb") as fh:
         fh.write(data)
         fh.flush()
@@ -44,7 +51,10 @@ def _write_new(path: Path, data: bytes) -> bool:
 def _tighten(path: Path, mode: int) -> None:
     current = path.stat().st_mode & 0o777
     if current & ~mode:
-        os.chmod(path, mode)
+        try:
+            os.chmod(path, mode)
+        except OSError:  # ACL weigert chmod: de rechten komen dan uit de dataset-ACL, niet uit deze dienst
+            log.warning("rechten van %s niet aan te scherpen tot %o (ACL van de dataset)", path.name, mode)
 
 
 def ensure_secrets(secrets_dir: Path) -> list[str]:

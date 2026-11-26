@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import stat
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -66,3 +67,14 @@ def test_redaction() -> None:
     text = redact_text("trace 123e4567-e89b-12d3-a456-426614174000 digest " + "b" * 64)
     assert "123e4567-e89b-12d3-a456-426614174000" in text and "b" * 64 in text
     assert last4("abcdefgh1234") == "1234" and last4("kort") is None
+
+
+@pytest.mark.parametrize("chmod", ["werkt", "geweigerd", "genegeerd"])
+def test_first_start_on_an_acl_dataset_never_crashes(tmp_path: Path, acl_dataset: Any, chmod: str) -> None:
+    """TrueNAS-preset Apps: bij aclmode=restricted weigert chmod; de eerste start (en elke volgende) gaat toch door."""
+    acl_dataset(chmod, True)
+    secrets_dir = tmp_path / "secrets"
+    assert sorted(ensure_secrets(secrets_dir)) == [IDENTITY_KEY, VAULT_KEY]
+    assert ensure_secrets(secrets_dir) == []
+    modus = stat.S_IMODE((secrets_dir / VAULT_KEY).stat().st_mode)
+    assert modus == (0o600 if chmod == "werkt" else 0o770)

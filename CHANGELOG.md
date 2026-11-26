@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 — nog niet uitgebracht
+
+- **Koppelen op een dataset met preset Apps** (TrueNAS NFSv4-ACL): ZFS negeerde de 0600 van een nieuw
+  `hub-link.json` (overgeërfde ACE's); de dienst las het daarna als onleesbaar en een nieuw koppeltoken gaf een lus.
+  Nu `fchmod 0600` na het aanmaken; bij het lezen tellen groeps-/overige-rechten alleen niet als het bestand een
+  NFSv4-ACL draagt (wereld-schrijfbaar, een andere eigenaar en een symlink blijven onleesbaar). Een nieuw bestand dat
+  toch onleesbaar zou zijn, vervangt niets (`koppelbestand_niet_opgeslagen`, 503): de vorige toestand blijft. De eerste
+  start crasht niet meer als de ACL `chmod` op `vault.key`/`identity.ed25519` weigert. Sim-getest (ACL nagebootst);
+  NIET GEVALIDEERD (echte NAS).
+
 ## 0.1.0 — nog niet uitgebracht (fase P0)
 
 - **Losse installatiepreview zonder stap** (S-P2-420, R-MANIFEST-1; contract 1.3 §8.2): een installatiepreview zonder
