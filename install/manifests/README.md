@@ -7,9 +7,8 @@ Installatieregel (contract §1/§2): standaard Custom App (`ix-app`) met één g
 TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit YAML/compose.
 
 > **Status (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
-> appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in het manifest zelf, `accepted_findings`;
-> `overgang-1.3.yaml` alleen voor de I23-kopieën van ai-server-manager en het monitorplan van de Beszel-agent; de
-> kopieën van I03, I04 en I05 hebben er geen vermelding nodig), vertaald naar
+> appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in `accepted_findings`, alleen het
+> monitorplan van de Beszel-agent in `overgang-1.3.yaml`), vertaald naar
 > `app.create`-waarden en tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Op een echte TrueNAS is niets
 > geïnstalleerd: **NIET GEVALIDEERD (echte NAS)** — installeren gebeurt via de Hub en de executor (P2).
 >
@@ -50,7 +49,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
 | I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
-| I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `55ed151` | de twee formulieren uit `../truenas/INSTALLATIE.md`; digest volgt bij de release |
+| I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `e11c41f` | digests uit release `v0.1.0` voor de formulieren in `../truenas/INSTALLATIE.md` |
 | I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
 | I04 | `media-source-optimizer.manifest.yaml` | Custom App | kopie · bron `lvos04/media-source-optimizer` `deploy/manifest/media-source-optimizer.manifest.yaml` @ `335e26e` | doel: formulier van de standaard Custom App voor I04; de controlelijst verwijst ernaar (I04-04-01); digest volgt bij de release |
 | I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) verwijst ernaar; digest volgt bij de release |

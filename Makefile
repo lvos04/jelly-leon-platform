@@ -2,6 +2,7 @@
 PY ?= .venv/bin/python
 NICE ?= nice -n 10
 IMAGE ?= jelly-leon-platform:dev
+TEST_TMPDIR := $(or $(TMPDIR),/tmp)
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
 	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest upstream-rooktest \
@@ -39,13 +40,13 @@ test-repo:
 # ASF_COMMIT: dezelfde vaste commit als env.ASF_COMMIT in .github/workflows/ci.yml (P-INSTALLATIE punt 1).
 APPSTORE ?= ../appstore-en-fork
 ASF_COMMIT ?= a994c2a51f45b81b2c48c6533b0ccf51ba857f5a
-VALIDATOR_SRC ?= /tmp/jlp-appstore-validator
+VALIDATOR_SRC ?= $(TEST_TMPDIR)/jlp-appstore-validator
 validator-venv:
-	rm -rf $(VALIDATOR_SRC) && mkdir -p $(VALIDATOR_SRC)
-	git -C $(APPSTORE) archive $(ASF_COMMIT) apps/api | tar -x -C $(VALIDATOR_SRC)
+	rm -rf -- "$(VALIDATOR_SRC)" && mkdir -p -- "$(VALIDATOR_SRC)"
+	git -C "$(APPSTORE)" archive $(ASF_COMMIT) apps/api | tar -x -C "$(VALIDATOR_SRC)"
 	python3.12 -m venv .venv-validator
-	.venv-validator/bin/pip install -q --require-hashes -r $(VALIDATOR_SRC)/apps/api/requirements.lock
-	.venv-validator/bin/pip install -q --no-deps $(VALIDATOR_SRC)/apps/api
+	.venv-validator/bin/pip install -q --require-hashes -r "$(VALIDATOR_SRC)/apps/api/requirements.lock"
+	.venv-validator/bin/pip install -q --no-deps "$(VALIDATOR_SRC)/apps/api"
 	@echo "validator: appstore-en-fork@$$(git -C $(APPSTORE) rev-parse $(ASF_COMMIT)^{commit})"
 
 manifesten:
@@ -129,28 +130,28 @@ audit:
 ASM ?= ../ai-server-manager
 ASM_REF ?= HEAD
 LOCK ?= $(abspath ..)/.lokaal/docker-build.lock
-ROOKTEST_SRC ?= /tmp/jlp-rooktest-asm
+ROOKTEST_SRC ?= $(TEST_TMPDIR)/jlp-rooktest-asm
 rooktest: validator-venv
-	rm -rf $(ROOKTEST_SRC) && mkdir -p $(ROOKTEST_SRC)
-	git -C $(ASM) archive $(ASM_REF) | tar -x -C $(ROOKTEST_SRC)
+	rm -rf -- "$(ROOKTEST_SRC)" && mkdir -p -- "$(ROOKTEST_SRC)"
+	git -C "$(ASM)" archive $(ASM_REF) | tar -x -C "$(ROOKTEST_SRC)"
 	c=$$(git -C $(ASM) rev-parse $(ASM_REF)); cs=$$(git -C $(ASM) rev-parse --short=12 $(ASM_REF)); \
 	e=$$(git rev-parse HEAD); es=$$(git rev-parse --short=12 HEAD); \
-	flock $(LOCK) $(NICE) docker buildx build --load -f $(ROOKTEST_SRC)/deploy/allinone/Dockerfile \
-		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager:$$cs $(ROOKTEST_SRC) && \
-	flock $(LOCK) $(NICE) docker buildx build --load -f $(ROOKTEST_SRC)/deploy/executor/Dockerfile \
-		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager-executor:$$cs $(ROOKTEST_SRC) && \
+	flock $(LOCK) $(NICE) docker buildx build --load -f "$(ROOKTEST_SRC)/deploy/allinone/Dockerfile" \
+		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager:$$cs "$(ROOKTEST_SRC)" && \
+	flock $(LOCK) $(NICE) docker buildx build --load -f "$(ROOKTEST_SRC)/deploy/executor/Dockerfile" \
+		--build-arg REVISION=$$c -t jlp-rooktest/ai-server-manager-executor:$$cs "$(ROOKTEST_SRC)" && \
 	flock $(LOCK) $(NICE) docker buildx build --load -f deploy/allinone/Dockerfile --build-arg VERSION=$$(cat VERSION) \
 		--build-arg REVISION=$$e -t jlp-rooktest/jelly-leon-platform:$$es . && \
 	$(PY) tools/rooktest.py --hub-image jlp-rooktest/ai-server-manager:$$cs \
 		--executor-image jlp-rooktest/ai-server-manager-executor:$$cs \
 		--lifecycle-image jlp-rooktest/jelly-leon-platform:$$es --hub-commit $$c --eigen-commit $$e \
-		--validator-commit $(ASF_COMMIT) --rapport /tmp/jlp-rooktest-rapport.json
+		--validator-commit $(ASF_COMMIT) --rapport "$(TEST_TMPDIR)/jlp-rooktest-rapport.json"
 
 # Upstream-images uit install/manifests (Beszel hub + agent, Gotify, Uptime Kuma) op digest, als 568:568 met een lege
 # map zoals een standaard Custom App: digest-readback, health, kernroutes zoals de simulators, herstart zonder
 # dataverlies, Beszel-agent in SSH-modus met alleen de publieke hubsleutel. Docker, geen TrueNAS (Sim-getest).
 upstream-rooktest:
-	$(NICE) $(PY) tools/upstream_rooktest.py --rapport /tmp/jlp-upstream-rooktest.json
+	$(NICE) $(PY) tools/upstream_rooktest.py --rapport "$(TEST_TMPDIR)/jlp-upstream-rooktest.json"
 
 # Node-RED (I10, ADR-0023). nodered: manifest-FLOWS gelijk aan install/node-red/settings-overrides.json, flowbundels
 #   door de eigen controle en het lock (checksums) actueel — zonder Docker.
@@ -163,4 +164,4 @@ nodered:
 	$(PY) tools/nodered_flows.py lock --check
 
 nodered-rooktest:
-	$(NICE) $(PY) tools/nodered_rooktest.py --rapport /tmp/jlp-nodered-rooktest.json
+	$(NICE) $(PY) tools/nodered_rooktest.py --rapport "$(TEST_TMPDIR)/jlp-nodered-rooktest.json"

@@ -46,7 +46,12 @@ def test_manifest_rules_section_9() -> None:
     assert "compose" not in _walk_keys(m) and "custom_compose_config" not in _walk_keys(m)
     assert m["image"]["repository"] == "ghcr.io/lvos04/jelly-leon-platform"
     assert m["image"]["tag"] != "latest" and re.fullmatch(r"\d+\.\d+\.\d+", m["image"]["tag"])
-    assert m["image"]["digest"] is None or re.fullmatch(r"sha256:[0-9a-f]{64}", m["image"]["digest"])
+    release = json.loads((ROOT / "release/digests.json").read_bytes())
+    gepubliceerd = release["images"][m["image"]["repository"]]
+    assert release["app_id"] == m["app_id"] and release["version"] == gepubliceerd["tag"]
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", gepubliceerd["digest"])
+    # Een volgende versie heeft pas een eigen digest zodra de tagworkflow haar bijlage heeft gepubliceerd.
+    assert m["image"]["digest"] == (gepubliceerd["digest"] if m["image"]["tag"] == release["version"] else None)
     assert m["privileges"] == {"privileged": False, "cap_add": [], "devices": [], "gpu": "none"}
     assert m["custom_app"]["gpu"] == "none"  # geen GPU; dus ook geen gpu-parameter (contract 1.2 §9)
     assert m["network"]["host_network"] is False
@@ -69,7 +74,7 @@ def test_manifest_rules_section_9() -> None:
     assert all(p["source"] not in {"secret", "generated"} for p in params.values())
     assert m["validation_status"] == "unvalidated"
     assert m["upgrade"]["tag_only_rollback_safe"] is False
-    # contract 1.3 §9 (C1.3-JLP-09): kop 1.3, monitorplan op /readyz, digest_pending_release alleen in het manifest
+    # Contract 1.3 §9 (C1.3-JLP-09): kop 1.3 en monitorplan op /readyz.
     assert "platformcontract 1.3 §9" in MANIFEST.read_text(encoding="utf-8").splitlines()[0]
     assert m["healthcheck"]["monitor"] == {"pad": "/readyz", "verwachte_status": 200, "timeout_s": 10, "interval_s": 60}
     accepted = {f["code"] for f in m.get("accepted_findings", [])}
@@ -111,8 +116,7 @@ def _jl_manifest() -> str | None:
 
 
 def test_manifest_passes_the_appstore_validator() -> None:
-    """De validator van de eigenaar van de manifeststandaard (contract 1.2 §9) moet het manifest accepteren, ook in
-    --strict; alleen de digest ontbreekt nog tot de release-CI hem invult (digest_pending_release)."""
+    """De validator van de eigenaar accepteert het manifest in --strict, ook vóór publicatie van de volgende versie."""
     import os
     import subprocess
 
@@ -125,8 +129,8 @@ def test_manifest_passes_the_appstore_validator() -> None:
                        text=True, check=False)
     report = json.loads(r.stdout)
     assert report["valid"] is True and report["errors"] == 0, report
-    # 1.3: de enige melding is geaccepteerd in het manifest zelf (accepted_findings) en --strict slaagt
-    assert {f["code"] for f in report["findings"]} <= {"digest_pending_release"}, report
+    verwacht = {"digest_pending_release"} if load_manifest()["image"]["digest"] is None else set()
+    assert {f["code"] for f in report["findings"]} == verwacht, report
     assert all(f.get("accepted") for f in report["findings"]) and r.returncode == 0, report
 
 

@@ -10,7 +10,7 @@ validator altijd gelden: geen compose-velden, geen ``latest``, upstream-images m
 
 Gebruik::
 
-    python tools/manifesten.py [--validator <pad naar jl-manifest>] [--json]
+    python tools/manifesten.py [--map <manifestmap>] [--validator <pad naar jl-manifest>] [--json]
 
 Zonder ``--validator``: ``$JL_MANIFEST``, anders ``.venv-validator/bin/jl-manifest`` in deze repo.
 Exitcode 0 = alles in orde, 1 = afwijking, 2 = validator niet gevonden.
@@ -30,6 +30,7 @@ from typing import Any
 
 import yaml
 from manifest_kopie import PER_BESTAND as KOPIEEN
+from manifest_kopie import KopieFout, controleer_bestand
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = ROOT / "install" / "manifests"
@@ -65,16 +66,16 @@ def validator_pad(opgegeven: str | None) -> Path:
     )
 
 
-def manifesten() -> list[Path]:
-    return sorted(MANIFEST_DIR.glob("*.manifest.yaml"))
+def manifesten(manifest_dir: Path = MANIFEST_DIR) -> list[Path]:
+    return sorted(manifest_dir.glob("*.manifest.yaml"))
 
 
-def lees_uitzonderingen() -> dict[str, tuple[str, set[tuple[str, str]]]]:
+def lees_uitzonderingen(pad: Path = UITZONDERINGEN) -> dict[str, tuple[str, set[tuple[str, str]]]]:
     """app_id → (soort ``kopieen``/``hiaten``, {(code, pad)}). Een code uit de vaste lijst van ``accepted_findings``
     mag nooit onder ``hiaten`` staan (die hoort in het manifest)."""
-    data = yaml.safe_load(UITZONDERINGEN.read_text(encoding="utf-8")) or {}
+    data = yaml.safe_load(pad.read_text(encoding="utf-8")) or {}
     if set(data) - {"kopieen", "hiaten"}:
-        raise ValueError(f"onbekende soort in {UITZONDERINGEN.name}: {sorted(set(data) - {'kopieen', 'hiaten'})}")
+        raise ValueError(f"onbekende soort in {pad.name}: {sorted(set(data) - {'kopieen', 'hiaten'})}")
     out: dict[str, tuple[str, set[tuple[str, str]]]] = {}
     for soort in ("kopieen", "hiaten"):
         for app_id, lijst in (data.get(soort) or {}).items():
@@ -86,7 +87,7 @@ def lees_uitzonderingen() -> dict[str, tuple[str, set[tuple[str, str]]]]:
                     raise ValueError(f"{app_id}: {item['code']} hoort in accepted_findings van het manifest")
                 regels.add((str(item["code"]), str(item["pad"])))
             if str(app_id) in out:
-                raise ValueError(f"{app_id} staat dubbel in {UITZONDERINGEN.name}")
+                raise ValueError(f"{app_id} staat dubbel in {pad.name}")
             out[str(app_id)] = (soort, regels)
     return out
 
@@ -126,11 +127,11 @@ def eigen_controles(data: dict[str, Any]) -> list[str]:
     return fout
 
 
-def controleer(validator: Path) -> list[Uitkomst]:
-    uitzonderingen = lees_uitzonderingen()
+def controleer(validator: Path, manifest_dir: Path = MANIFEST_DIR) -> list[Uitkomst]:
+    uitzonderingen = lees_uitzonderingen(manifest_dir / UITZONDERINGEN.name)
     uitkomsten: list[Uitkomst] = []
     gezien: set[str] = set()
-    for pad in manifesten():
+    for pad in manifesten(manifest_dir):
         data = yaml.safe_load(pad.read_text(encoding="utf-8"))
         app_id = str(data.get("app_id"))
         gezien.add(app_id)
@@ -148,7 +149,12 @@ def controleer(validator: Path) -> list[Uitkomst]:
                          if b.get("severity") == "warning" and not b.get("accepted"))
         u = Uitkomst(pad.name, app_id, res.returncode, len(fouten), waarsch)
         # een kopie houdt de bestandsnaam van de bron (tools/manifest_kopie.py; my_house heeft app_id smart-home)
-        if pad.name != f"{app_id}.manifest.yaml" and pad.name not in KOPIEEN:
+        if pad.name in KOPIEEN:
+            try:
+                controleer_bestand(pad.name, manifest_dir)
+            except KopieFout as exc:
+                u.afwijkingen.append(str(exc))
+        elif pad.name != f"{app_id}.manifest.yaml":
             u.afwijkingen.append(f"bestandsnaam hoort {app_id}.manifest.yaml te zijn")
         if fouten or not rapport.get("valid"):
             u.afwijkingen.append("ongeldig: " + "; ".join(f"{b['code']} @ {b['path']}" for b in fouten))
@@ -173,6 +179,7 @@ def controleer(validator: Path) -> list[Uitkomst]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Installeerbare manifesten controleren (jl-manifest --strict)")
+    parser.add_argument("--map", type=Path, default=MANIFEST_DIR, help="map met manifesten en overgang-1.3.yaml")
     parser.add_argument("--validator")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
@@ -181,7 +188,11 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(f"FOUT: {exc}", file=sys.stderr)
         return 2
-    uitkomsten = controleer(validator)
+    try:
+        uitkomsten = controleer(validator, args.map)
+    except (OSError, ValueError) as exc:
+        print(f"FOUT: {exc}", file=sys.stderr)
+        return 1
     if args.json:
         print(json.dumps([u.__dict__ | {"in_orde": u.in_orde} for u in uitkomsten], ensure_ascii=False, indent=2))
     else:

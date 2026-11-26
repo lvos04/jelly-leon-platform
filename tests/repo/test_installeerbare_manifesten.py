@@ -154,13 +154,13 @@ def test_transition_file_never_holds_acceptable_codes_for_own_manifests() -> Non
     assert not (mf.MANIFEST_DIR / "validatie-uitzonderingen.yaml").exists()
 
 
-def _controleer_met(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra: dict[str, Any]) -> dict[str, list[str]]:
-    data = yaml.safe_load(mf.UITZONDERINGEN.read_text(encoding="utf-8"))
+def _controleer_met(tmp_path: Path, extra: dict[str, Any]) -> dict[str, list[str]]:
+    map_ = shutil.copytree(mf.MANIFEST_DIR, tmp_path / "manifests")
+    pad = map_ / mf.UITZONDERINGEN.name
+    data = yaml.safe_load(pad.read_text(encoding="utf-8"))
     data["kopieen"].update(extra)
-    pad = tmp_path / "overgang-1.3.yaml"
     pad.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
-    monkeypatch.setattr(mf, "UITZONDERINGEN", pad)
-    return {u.bestand: u.afwijkingen for u in mf.controleer(_validator()) if not u.in_orde}
+    return {u.bestand: u.afwijkingen for u in mf.controleer(_validator(), map_) if not u.in_orde}
 
 
 def test_copies_of_s_p3_450_need_no_transition_entry() -> None:
@@ -177,17 +177,15 @@ def test_copies_of_s_p3_450_need_no_transition_entry() -> None:
         assert [f["code"] for f in m["accepted_findings"]] == ["digest_pending_release"]
 
 
-def test_a_transition_entry_the_validator_no_longer_gives_fails(tmp_path: Path,
-                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_transition_entry_the_validator_no_longer_gives_fails(tmp_path: Path) -> None:
     """Negatief (c): een vermelding in overgang-1.3.yaml die de validator niet geeft, laat tools/manifesten.py falen."""
     extra = {"mediaguard": [{"code": "digest_pending_release", "pad": "image.digest", "reden_nl": "proef"}]}
-    fouten = _controleer_met(tmp_path, monkeypatch, extra)
+    fouten = _controleer_met(tmp_path, extra)
     assert list(fouten) == ["mediaguard.manifest.yaml"], fouten
     assert any("niet meer nodig" in a for a in fouten["mediaguard.manifest.yaml"])
 
 
-def test_only_a_copy_may_keep_a_file_name_other_than_its_app_id(tmp_path: Path,
-                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+def test_only_a_copy_may_keep_a_file_name_other_than_its_app_id(tmp_path: Path) -> None:
     """my_house heeft app_id ``smart-home``; de kopie houdt de bronnaam. Een eigen manifest met zo'n naam faalt."""
     assert _load("my_house.manifest.yaml")["app_id"] == "smart-home"
     eigen = tmp_path / "manifests"
@@ -195,12 +193,30 @@ def test_only_a_copy_may_keep_a_file_name_other_than_its_app_id(tmp_path: Path,
     data = _load("gotify.manifest.yaml")
     (eigen / "mijn-gotify.manifest.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     shutil.copy(mf.MANIFEST_DIR / "my_house.manifest.yaml", eigen / "my_house.manifest.yaml")
-    monkeypatch.setattr(mf, "MANIFEST_DIR", eigen)
-    leeg = tmp_path / "overgang.yaml"
+    leeg = eigen / mf.UITZONDERINGEN.name
     leeg.write_text("kopieen: {}\nhiaten: {}\n", encoding="utf-8")
-    monkeypatch.setattr(mf, "UITZONDERINGEN", leeg)
-    fouten = {u.bestand: u.afwijkingen for u in mf.controleer(_validator()) if not u.in_orde}
+    fouten = {u.bestand: u.afwijkingen for u in mf.controleer(_validator(), eigen) if not u.in_orde}
     assert fouten == {"mijn-gotify.manifest.yaml": ["bestandsnaam hoort gotify.manifest.yaml te zijn"]}, fouten
+
+
+def test_manifestcontrole_weigert_een_gewijzigd_digestteken(tmp_path: Path) -> None:
+    map_ = shutil.copytree(mf.MANIFEST_DIR, tmp_path / "manifests")
+    hub = map_ / "ai-server-manager.manifest.yaml"
+    tekst = hub.read_text(encoding="utf-8")
+    digest = yaml.safe_load(tekst)["image"]["digest"]
+    assert mf.DIGEST_RE.fullmatch(digest)
+    ander = digest[:-1] + ("0" if digest[-1] != "0" else "1")
+    hub.write_text(tekst.replace(digest, ander, 1), encoding="utf-8")
+    proef = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "manifesten.py"), "--map", str(map_),
+         "--validator", str(_validator()), "--json"],
+        capture_output=True, text=True, check=False,
+    )
+    assert proef.returncode == 1, proef.stderr
+    fouten = [u for u in json.loads(proef.stdout) if not u["in_orde"]]
+    assert [u["bestand"] for u in fouten] == [hub.name]
+    assert fouten[0]["strict_exit"] == 0
+    assert any("wijkt af van de gepinde sha256" in a for a in fouten[0]["afwijkingen"])
 
 
 def test_upstream_digests_are_the_measured_ones() -> None:

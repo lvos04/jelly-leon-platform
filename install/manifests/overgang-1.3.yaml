@@ -12,23 +12,7 @@
 #
 # tools/manifesten.py faalt bij elke andere waarschuwing, bij een vermelding die niet (meer) optreedt en bij een
 # vermelding voor een manifest van deze repo onder kopieen.
-kopieen:
-  ai-server-manager:
-    - code: digest_pending_release
-      pad: image.digest
-      reden_nl: Eigen image van ai-server-manager zonder release; de eigenaar zet accepted_findings in zijn manifest.
-    - code: healthcheck_monitor_missing
-      pad: healthcheck.monitor
-      reden_nl: >-
-        ai-server-manager voegt het monitorplan toe zodra de validator het kent (commentaar in zijn manifest,
-        commit 4541370); daarna een nieuwe kopie.
-  ai-server-manager-executor:
-    - code: digest_pending_release
-      pad: image.digest
-      reden_nl: Idem voor de executor-image.
-    - code: healthcheck_monitor_missing
-      pad: healthcheck.monitor
-      reden_nl: Idem voor de executor.
+kopieen: {}
 hiaten:
   beszel-agent:
     - code: healthcheck_monitor_missing

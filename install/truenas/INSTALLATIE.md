@@ -15,8 +15,7 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 >   komen uit de broncode van de TrueNAS-web-UI (`truenas/webui` tag TS-25.10.8) en de Custom App-definitie
 >   (`truenas/apps` `ix-app` 1.4.8); in 25.04 en latere versies kunnen namen iets afwijken.
 > - De images van de Hub en de executor worden gebouwd in `ai-server-manager`. Tag, setupcode, wizard en koppelpagina
->   zijn van die repo; controleer de release-notes daar. Zolang er geen release is, kun je deze stappen nog niet
->   uitvoeren (**Geblokkeerd**).
+>   zijn van die repo. Release `v0.1.0` bevat de digests voor beide images in de bijlage `digests.json`.
 > - Vul nergens voorbeeldwaarden in. NAS-adres (D03), pool en datasets (D02) en de TrueNAS-versie (D01) zijn van
 >   jouw NAS; `<…>` betekent: jouw eigen waarde.
 
@@ -41,13 +40,9 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 
 ## Stap 1 — Images ophalen (GHCR)
 
-- **A. Standaard: publieke pakketten, geen login.** Besluit 3 van de gebruiker: alle repos en GHCR-images worden
-  publiek, pas na een scan van de volledige historie op geheimen en privégegevens. Dan haalt TrueNAS de images zonder
-  registry-login op en hoef je in deze stap niets te doen. Controle in de browser:
-  `https://ghcr.io/token?scope=repository:lvos04/ai-server-manager:pull` moet `{"token":"…"}` tonen. Zie je
-  `DENIED` ("requested access to the resource is denied", HTTP 403), dan is het pakket nog privé of bestaat het
-  (nog) niet. (Gedrag van GHCR gecontroleerd op 2026-11-09 met een openbaar en een niet-bestaand pakket.)
-  **Op de peildatum zijn de pakketten nog niet publiek: installeren is tot dan Geblokkeerd.**
+- **A. Publieke pakketten.** Ga voor release `v0.1.0` direct door naar stap 2. Op 26 november 2026 waren de
+  manifesten van de Hub en de executor bij GHCR zonder aanmelding opvraagbaar. Beide digests kwamen overeen met
+  `digests.json` bij de [Hub-release v0.1.0](https://github.com/lvos04/ai-server-manager/releases/tag/v0.1.0).
 - **B. Alleen als terugvaloptie: registry-login in TrueNAS.** *Apps → Configuration → Sign-in to a Docker registry*
   → *Other Registry* → URI `https://ghcr.io`, gebruikersnaam = je GitHub-gebruikersnaam, wachtwoord = een
   GitHub-token met alleen `read:packages`. Dit geheim staat dan in TrueNAS, nooit in een app-formulier, manifest,

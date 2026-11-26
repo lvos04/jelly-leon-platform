@@ -1,9 +1,13 @@
 {
   "schema_version": "1",
   "app_id": "jelly-leon-platform",
-  "version": null,
-  "images": {},
-  "source_commit": null,
-  "built_at": null,
-  "note_nl": "Nog geen release gepubliceerd. De release-workflow (.github/workflows/release.yml) vult dit bestand bij tag v<VERSION> met de echte GHCR-digest; nooit handmatig een digest invullen."
+  "version": "0.1.0",
+  "images": {
+    "ghcr.io/lvos04/jelly-leon-platform": {
+      "tag": "0.1.0",
+      "digest": "sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca"
+    }
+  },
+  "source_commit": "ac213b8c0fd359986660dc35fcd96cb598c0c56f",
+  "built_at": "2026-11-26T02:12:32.244749+00:00"
 }

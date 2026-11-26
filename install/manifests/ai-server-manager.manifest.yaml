@@ -1,9 +1,9 @@
-# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@55ed1519bbcb2cf6dc13ef40b80b53486c07bf93:deploy/manifest/ai-server-manager.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 7e47e25fc9cfb0977113075f5a15e23f00504dd278e0f8365d7c2997727cba6d
+# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@e11c41f4b2597066fa9b1dfa2147a827007612a7:deploy/manifest/ai-server-manager.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 9ef5f990073a45a2916a942d33006f62dc1fe8db9dc7d3ad45f26c6fb07c2d5f
 # Versie-gepinde kopie (I23, installatie via install/truenas/INSTALLATIE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
-# Manifest (manifeststandaard v1, platformcontract 1.2 §9) van de Hub: ai-server-manager (alles-in-één).
+# Manifest (manifeststandaard v1, platformcontract 1.3 §9) van de Hub: ai-server-manager (alles-in-één).
+# Geen HUB_*-variabelen (gereserveerd, §3.2): de Hub koppelt niet met zichzelf.
 # Installatie uitsluitend als standaard TrueNAS Custom App (één image + formulierwaarden); nooit compose/YAML.
-# Eerste installatie gebeurt handmatig met het formulier in deploy/truenas/CUSTOM_APP.md. De digest van de eigen
-# GHCR-image vult de release-CI in (release/digests.json); tot dan is dit manifest niet installeerbaar via de API.
+# Eerste installatie met het formulier in deploy/truenas/CUSTOM_APP.md. De digest komt uit de releasebijlage digests.json.
 manifest_version: "1"
 app_id: ai-server-manager
 name: AI Server Manager (Hub)
@@ -20,7 +20,7 @@ install:
 image:
   repository: ghcr.io/lvos04/ai-server-manager
   tag: "0.1.0"
-  digest: null
+  digest: "sha256:4accffc49b8d4180a302c974f4acf6e2c0d36b2a4fe458e80741b8ffc94546fa"
 custom_app:
   storage:
     - name: appdata
@@ -94,6 +94,9 @@ privileges:
 privilege_reason: null
 healthcheck:
   type: builtin
+  # Monitorplan (contract 1.3 §9, B09): /readyz via de webpoort (database, migraties, geheimen; /healthz zou groen
+  # blijven als de database weg is). De beheerder neemt het over in Uptime Kuma en bevestigt het per monitor.
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
     method: pg_dump
@@ -129,4 +132,5 @@ provenance:
   source_repo: https://github.com/lvos04/ai-server-manager
   source_commit: null
   upstream_repo: null
-  license: null
+  license: GPL-3.0
+accepted_findings: []

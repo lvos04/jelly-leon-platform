@@ -1,23 +1,25 @@
-# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@55ed1519bbcb2cf6dc13ef40b80b53486c07bf93:deploy/manifest/ai-server-manager-executor.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 2d2ee42c0c7c8bad81fad607af71f896f21db035d7d0920e292d669dba568dd7
+# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@e11c41f4b2597066fa9b1dfa2147a827007612a7:deploy/manifest/ai-server-manager-executor.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 36224f2a0272333703d794c341f72dc7da4d71eaed2558f1a74d4ee4bf6722c6
 # Versie-gepinde kopie (I23, installatie via install/truenas/INSTALLATIE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
-# Manifest (manifeststandaard v1, platformcontract 1.2 §9) van de executor: ai-server-manager-executor.
-# Eigen image en eigen standaard TrueNAS Custom App; de enige component die later een TrueNAS-key met
-# schrijfrechten krijgt (alleen op zijn eigen koppelpagina in te voeren). Koppelen met koppelcode; allowlist leeg tot P2.
+# Manifest (manifeststandaard v1, platformcontract 1.3 §9) van de executor: ai-server-manager-executor.
+# Eigen image en eigen standaard TrueNAS Custom App; de enige component met een TrueNAS-key met schrijfrechten (alleen
+# op zijn eigen statuspagina in te voeren). Koppelen met koppelcode; voert alleen acties uit het beleid uit (ADR-0030).
 manifest_version: "1"
 app_id: ai-server-manager-executor
 name: AI Server Manager (executor)
 owner_repo: lvos04/ai-server-manager
 category: platform
 description_nl: >-
-  Executor van het platform: voert later alleen door de Hub ondertekende, op de allowlist staande acties uit via de
-  TrueNAS-API. Koppelen met de Hub gaat met een koppelcode en de Hub-vingerafdruk op de statuspagina; de allowlist is leeg tot fase P2 en elke actie wordt geweigerd.
+  Executor van het platform: voert alleen door de Hub ondertekende acties uit die op de allowlist van het beleid staan,
+  via de TrueNAS-API, en controleert elk verzoek zelf opnieuw. Koppelen met de Hub gaat met een koppelcode en de
+  Hub-vingerafdruk op de statuspagina; zolang hij niet gekoppeld is of geen TrueNAS-sleutel met schrijfrechten heeft,
+  voert hij niets uit.
 version: "0.1.0"
 install:
   method: custom_app
 image:
   repository: ghcr.io/lvos04/ai-server-manager-executor
   tag: "0.1.0"
-  digest: null
+  digest: "sha256:f1809cb1316c18b77478a93c930ee800e0154b34d9647dc46e661c4aa58523aa"
 custom_app:
   storage:
     - name: appdata
@@ -79,6 +81,9 @@ privileges:
 privilege_reason: null
 healthcheck:
   type: builtin
+  # Monitorplan (contract 1.3 §9, B09): /readyz (eigen geheimen en datamap; de koppeling telt niet mee, §5). De
+  # beheerder neemt het over in Uptime Kuma en bevestigt het per monitor ("handmatig bevestigd").
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 10, interval_s: 60}
 backup:
   db_export:
     method: none
@@ -89,7 +94,7 @@ backup:
 dependencies:
   - app_id: ai-server-manager
     kind: required
-    reason_nl: De executor koppelt met de Hub en voert alleen door de Hub ondertekende verzoeken uit (uitvoeren volgt in fase P2).
+    reason_nl: De executor koppelt met de Hub en voert alleen door de Hub ondertekende verzoeken uit.
 sso: none
 risk:
   install: R2
@@ -98,7 +103,9 @@ risk:
 upgrade:
   migrations: false
   tag_only_rollback_safe: true
-  notes_nl: Geen database; hub-link.json (schema 1.2) blijft bij een oudere tag staan maar wordt dan niet gelezen.
+  notes_nl: >-
+    Geen database. hub-link.json (schema 1.3) blijft staan; een lezer accepteert elke 1.x en negeert onbekende velden
+    (contract 1.3 §3.5), dus een oudere tag leest hem gewoon.
 decisions_required: [D01, D02, D03]
 docs: [B02_AI_SERVER_MANAGER, I23_HOME_CONTROL_HUB]
 validation_status: unvalidated
@@ -110,4 +117,5 @@ provenance:
   source_repo: https://github.com/lvos04/ai-server-manager
   source_commit: null
   upstream_repo: null
-  license: null
+  license: GPL-3.0
+accepted_findings: []
