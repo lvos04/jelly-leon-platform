@@ -1398,5 +1398,55 @@
   "opmerking": "De uitgeschakelde AI deed 0 netwerkpogingen en startte 0 hulpprocessen in het meetvenster. De teller registreerde één lokale controleverbinding. De Hub blokkeerde opslagwijzigingen na de vers gemeten poolstoring. Uitputting van tegoed en de kostenmonitor horen bij versie 2. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX03",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26",
+  "bewijs": "e2e/integral/scenarios/EX03_seerr_serie.py, docs/platform-v2/bewijs/mediaguard-inhoud.json (EX03, run 20261126t091732z-6fe6279202)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Eén seizoenaanvraag via de standaardroute van de Seerr-simulator naar Sonarr Series en een gekoppelde aanvraag in MediaGuard."
+ },
+ {
+  "id": "EX04",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26",
+  "bewijs": "e2e/integral/scenarios/EX04_seerr_anime.py, docs/platform-v2/bewijs/mediaguard-inhoud.json (EX04, run 20261126t091732z-6fe6279202)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De expliciet gekozen anime-instantie ontving de aanvraag. Het effectieve dubbele-audiobeleid en het profielgewicht bleven gelijk."
+ },
+ {
+  "id": "EX05",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26",
+  "bewijs": "e2e/integral/scenarios/EX05_quarantaine.py, docs/platform-v2/bewijs/mediaguard-inhoud.json (EX05, run 20261126t091732z-6fe6279202)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Correct bestand ongemoeid. Bekende verwisseling herkend, bytegelijke kopie aanwezig vóór het verwijderverzoek en herstel via de herstelwerker."
+ },
+ {
+  "id": "EX09",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26",
+  "bewijs": "e2e/integral/scenarios/EX09_kwaliteitsmeting.py, docs/platform-v2/bewijs/mediaguard-inhoud.json (EX09, run 20261126t091732z-6fe6279202)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De CPU-job mislukte na de VMAF- en SSIM-meetfout met intact origineel. De afzonderlijke foutvrije kopie werd met gemeten VMAF als AV1 geplaatst."
+ },
+ {
+  "id": "EX37",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26",
+  "bewijs": "e2e/integral/scenarios/EX37_anime_nummering.py, docs/platform-v2/bewijs/mediaguard-inhoud.json (EX37, run 20261126t091732z-6fe6279202)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Twee gekruiste absolute nummers bleven na verversen gekoppeld aan hun eigen video en aan de juiste ingebedde en losse Nederlandse ondertitel."
  }
 ]

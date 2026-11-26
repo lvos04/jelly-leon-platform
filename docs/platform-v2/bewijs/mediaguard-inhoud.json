@@ -1,0 +1,509 @@
+{
+  "run": "20261126t091732z-6fe6279202",
+  "selectie": [
+    "EX03",
+    "EX04",
+    "EX05",
+    "EX09",
+    "EX37"
+  ],
+  "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
+  "images": {
+    "hub": {
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "image_id": "sha256:3f353b4c6c051c5a4798e23580b6fe7153cfd9160d803817fb39fed6392298a3"
+    },
+    "executor": {
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "image_id": "sha256:0676ce6e5506e5c1f9b9d24c7235ffe1529ebb6ce7eb1690d566ad1685e771c3"
+    },
+    "truenas": {
+      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
+      "image_id": "sha256:91704d1d2545cc3245375067fcb6185efbe8f420021ad5de037ba771fcc9afbf"
+    },
+    "lifecycle": {
+      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
+      "image_id": "sha256:ca83cc126e61df05a2776cbbbb2fd130ad18616905007f3887888374c0350d48"
+    },
+    "mg-inhoud": {
+      "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
+      "image_id": "sha256:a285eaab864445213bb2c4be3e5ad49c965efe84bf547bd566c02aeb68229307"
+    },
+    "arr-inhoud": {
+      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
+      "image_id": "sha256:fae8071d4f6ae9ab45bdd6b8c5d6429264273f41dc808bd7049698a4db834dde"
+    },
+    "mg-inhoud-herstel": {
+      "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
+      "image_id": "sha256:a285eaab864445213bb2c4be3e5ad49c965efe84bf547bd566c02aeb68229307"
+    },
+    "mg-kwaliteitsmeting": {
+      "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
+      "image_id": "sha256:2938d3d2862bfdf3372a625e141c50ccbf8605252f5651f659841273f25cac43"
+    }
+  },
+  "scenarios": {
+    "EX03": {
+      "bestand": "e2e/integral/scenarios/EX03_seerr_serie.py",
+      "validatie": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "arr-inhoud",
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-inhoud",
+        "truenas"
+      ],
+      "metingen": {
+        "voor": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "579b5f9d3bd8481bb29921a03e5c3d62bbc8be9fc3cfc1142efaf5a99e38f250",
+            "/media/referentie/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
+            "/media/referentie/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67"
+          },
+          "historie": {
+            "kijkregistratie": "345bd7f925d69697c069a21a33135a35392a63d2e1355368b707ea5e69360dd9",
+            "taaklog": "e1b1a839d24497f3fcc68b0b6ebf79e18610a6f4cdfff5c77a3a6868a0ddeb25"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "routering": {
+          "doel": "sonarr-series",
+          "serieposts": [
+            "/sonarr-series/api/v3/series"
+          ],
+          "seizoen": 1
+        },
+        "koppeling": {
+          "aanvraag": 1,
+          "instantie": "sonarr-series",
+          "arr_id": 1,
+          "bibliotheek_id": 1,
+          "koppelstatus": "linked"
+        },
+        "na": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "579b5f9d3bd8481bb29921a03e5c3d62bbc8be9fc3cfc1142efaf5a99e38f250",
+            "/media/referentie/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
+            "/media/referentie/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67"
+          },
+          "historie": {
+            "kijkregistratie": "345bd7f925d69697c069a21a33135a35392a63d2e1355368b707ea5e69360dd9",
+            "taaklog": "e1b1a839d24497f3fcc68b0b6ebf79e18610a6f4cdfff5c77a3a6868a0ddeb25"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        }
+      }
+    },
+    "EX04": {
+      "bestand": "e2e/integral/scenarios/EX04_seerr_anime.py",
+      "validatie": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "arr-inhoud",
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-inhoud",
+        "truenas"
+      ],
+      "metingen": {
+        "voor": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "7d4ad6173d6e00be9c40c98c21ab133e9148af86961e12c6dc1c8de8fe63f896",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "0736750aeedc572a832fde950fda6d8fb7479e8fd352d7945c6dada3f19ec8a4",
+            "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "8b6add5335e7a88b6900656221076ee201acbc21fb03fdfee68ed46996830b8c",
+            "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+          },
+          "historie": {
+            "kijkregistratie": "7d59486bef4e4caeab2c3b3096f99a1c0cdf0dd1745a29c1543fbcca2877f127",
+            "taaklog": "1a600dcf84412a985422cf3f80969051d6f1d326d4386444bf4e116a10141ac9"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "routering": {
+          "doel": "sonarr-anime",
+          "serieposts": [
+            "/sonarr-anime/api/v3/series"
+          ],
+          "seizoen": 1
+        },
+        "koppeling": {
+          "aanvraag": 1,
+          "instantie": "sonarr-anime",
+          "arr_id": 1,
+          "bibliotheek_id": 1,
+          "koppelstatus": "linked"
+        },
+        "dubbele_audio": {
+          "voor": {
+            "profiel": 2,
+            "formaat": 1,
+            "gewicht": 100,
+            "beleid": "anime-dual-first",
+            "voorkeur": "dual_first"
+          },
+          "na": {
+            "profiel": 2,
+            "formaat": 1,
+            "gewicht": 100,
+            "beleid": "anime-dual-first",
+            "voorkeur": "dual_first"
+          }
+        },
+        "na": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "7d4ad6173d6e00be9c40c98c21ab133e9148af86961e12c6dc1c8de8fe63f896",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "0736750aeedc572a832fde950fda6d8fb7479e8fd352d7945c6dada3f19ec8a4",
+            "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "8b6add5335e7a88b6900656221076ee201acbc21fb03fdfee68ed46996830b8c",
+            "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+          },
+          "historie": {
+            "kijkregistratie": "7d59486bef4e4caeab2c3b3096f99a1c0cdf0dd1745a29c1543fbcca2877f127",
+            "taaklog": "1a600dcf84412a985422cf3f80969051d6f1d326d4386444bf4e116a10141ac9"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        }
+      }
+    },
+    "EX05": {
+      "bestand": "e2e/integral/scenarios/EX05_quarantaine.py",
+      "validatie": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "arr-inhoud",
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-inhoud",
+        "mg-inhoud-herstel",
+        "truenas"
+      ],
+      "metingen": {
+        "voor": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
+            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          },
+          "historie": {
+            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
+            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "routering": {
+          "doel": "sonarr-series",
+          "serieposts": [
+            "/sonarr-series/api/v3/series"
+          ],
+          "seizoen": 1
+        },
+        "koppeling": {
+          "aanvraag": 1,
+          "instantie": "sonarr-series",
+          "arr_id": 1,
+          "bibliotheek_id": 1,
+          "koppelstatus": "linked"
+        },
+        "juist_bestand": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
+            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          },
+          "historie": {
+            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
+            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "na_injectie": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
+            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          },
+          "historie": {
+            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
+            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "quarantaine": {
+          "sha256": {
+            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
+            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          },
+          "historie": {
+            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
+            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "voor_verwijderen": {
+          "bron_sha256": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+          "quarantaine_sha256": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+        },
+        "herstel": {
+          "bestands_id": 10101,
+          "verwijderverzoek": "/sonarr-series/api/v3/episodefile/10101",
+          "oordeel": "mismatch",
+          "quarantaine": 1,
+          "hersteltaak": 2
+        },
+        "na": {
+          "sha256": {
+            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
+            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
+            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          },
+          "historie": {
+            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
+            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+          },
+          "taakvoortgang": {
+            "3": 0.0,
+            "2": 1.0,
+            "1": 0.625
+          }
+        }
+      }
+    },
+    "EX09": {
+      "bestand": "e2e/integral/scenarios/EX09_kwaliteitsmeting.py",
+      "validatie": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-inhoud",
+        "mg-kwaliteitsmeting",
+        "truenas"
+      ],
+      "metingen": {
+        "voor": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
+            "/media/kwaliteitsproef/controle.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669",
+            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+          },
+          "historie": {
+            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
+            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "job_fout": {
+          "id": 1,
+          "uitgevoerd": false,
+          "status": "mislukt",
+          "foutsoort": "QualityUnmeasured",
+          "codec": "h264",
+          "injecties": {
+            "vmaf": 1,
+            "ssim": 1
+          },
+          "metriek": null,
+          "gemeten": 0,
+          "pogingen": 1,
+          "score": null
+        },
+        "na_meetfout": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
+            "/media/kwaliteitsproef/controle.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669",
+            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+          },
+          "historie": {
+            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
+            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "job_controle": {
+          "id": 2,
+          "uitgevoerd": true,
+          "status": "klaar",
+          "foutsoort": null,
+          "codec": "av1",
+          "injecties": {
+            "vmaf": 0,
+            "ssim": 0
+          },
+          "metriek": "vmaf",
+          "gemeten": 1,
+          "pogingen": 1,
+          "score": 96.37
+        },
+        "na_controle": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
+            "/media/kwaliteitsproef/controle.mkv": "11ec7afac650cc6e9e793138d0e09ac3e196545c52b6ec5f64e1c25a4404c4a1",
+            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+          },
+          "historie": {
+            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
+            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "na": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
+            "/media/kwaliteitsproef/controle.mkv": "11ec7afac650cc6e9e793138d0e09ac3e196545c52b6ec5f64e1c25a4404c4a1",
+            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+          },
+          "historie": {
+            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
+            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        }
+      }
+    },
+    "EX37": {
+      "bestand": "e2e/integral/scenarios/EX37_anime_nummering.py",
+      "validatie": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "arr-inhoud",
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-inhoud",
+        "truenas"
+      ],
+      "metingen": {
+        "voor": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "74864fe98a80f3e6217df216104119b7a8672666090ee8ce9bf71a76b0fdf727",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+            "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+            "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+          },
+          "historie": {
+            "kijkregistratie": "ac1dc3d282fd91d5dd9babe554917c2fb61cdb1c375f2149fbebefb2be7c5a9a",
+            "taaklog": "86dc07078721b4d1c756a11d29d99722643111d1271b50d2c585c04bf1c8150c"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        },
+        "routering": {
+          "doel": "sonarr-anime",
+          "serieposts": [
+            "/sonarr-anime/api/v3/series"
+          ],
+          "seizoen": 1
+        },
+        "koppeling": {
+          "aanvraag": 1,
+          "instantie": "sonarr-anime",
+          "arr_id": 1,
+          "bibliotheek_id": 1,
+          "koppelstatus": "linked"
+        },
+        "koppelingen": {
+          "voor": {
+            "1": {
+              "aflevering": 101,
+              "bestand": 10101,
+              "tvdb": 13,
+              "scene": 14,
+              "video": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+              "ondertitel": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80"
+            },
+            "2": {
+              "aflevering": 102,
+              "bestand": 10102,
+              "tvdb": 14,
+              "scene": 13,
+              "video": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+              "ondertitel": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+            }
+          },
+          "na": {
+            "2": {
+              "aflevering": 102,
+              "bestand": 10102,
+              "tvdb": 14,
+              "scene": 13,
+              "video": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+              "ondertitel": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+            },
+            "1": {
+              "aflevering": 101,
+              "bestand": 10101,
+              "tvdb": 13,
+              "scene": 14,
+              "video": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+              "ondertitel": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80"
+            }
+          }
+        },
+        "na": {
+          "sha256": {
+            "/media/bestaand/bewaard.mkv": "74864fe98a80f3e6217df216104119b7a8672666090ee8ce9bf71a76b0fdf727",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+            "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+            "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
+          },
+          "historie": {
+            "kijkregistratie": "ac1dc3d282fd91d5dd9babe554917c2fb61cdb1c375f2149fbebefb2be7c5a9a",
+            "taaklog": "86dc07078721b4d1c756a11d29d99722643111d1271b50d2c585c04bf1c8150c"
+          },
+          "taakvoortgang": {
+            "1": 0.625
+          }
+        }
+      }
+    }
+  }
+}
