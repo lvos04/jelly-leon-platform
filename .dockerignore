@@ -11,3 +11,5 @@ release
 tests
 apps/api/tests
 e2e/simulators/*/tests
+.venv-validator
+e2e/integral/evidence

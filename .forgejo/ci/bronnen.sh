@@ -4,6 +4,7 @@ set -euo pipefail
 : "${BRON_TOKEN:?leestoken ontbreekt}"
 branch=ccr-c133d7a0-kuz1cv
 case "$1" in
+  kern|conformiteit) manager=ai-server-manager ;;
   test) manager=peil-bron ;;
   rooktest) manager=asm ;;
   *) exit 2 ;;
@@ -12,6 +13,12 @@ esac
 export GIT_TERMINAL_PROMPT=0
 # shellcheck disable=SC2016 # Git evalueert de helper pas bij het opvragen van de credential.
 helper='!f() { if [ "$1" = get ]; then printf "username=platform-bot\npassword=%s\n" "$BRON_TOKEN"; fi; }; f'
+if [[ $1 == kern || $1 == conformiteit ]]; then
+  if [[ ${GITHUB_REF_TYPE:-} != tag ]]; then branch=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-$branch}}; fi
+  git -c credential.helper= -c "credential.https://git.medialeon.nl.helper=$helper" clone --quiet --no-tags \
+    --single-branch --branch "$branch" https://git.medialeon.nl/leon/ai-server-manager.git "$RUNNER_TEMP/$manager"
+  exit 0
+fi
 status=0
 for repo in ai-server-manager appstore-en-fork; do
   doel="$RUNNER_TEMP/$manager"

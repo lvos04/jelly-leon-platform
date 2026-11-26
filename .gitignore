@@ -17,3 +17,4 @@ bin/
 obj/
 .peil-bron/
 .venv-validator/
+e2e/integral/evidence/

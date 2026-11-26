@@ -1,0 +1,47 @@
+name: Integrale kernrook
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kernrook:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      INTEGRAAL_TAG: kern-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Hub en executor van dezelfde branch ophalen
+        env:
+          BRON_TOKEN: ${{ secrets.BRON_LEESTOKEN }}
+        run: bash .forgejo/ci/bronnen.sh kern
+      - name: Python voor de proef voorbereiden
+        run: bash .forgejo/ci/python.sh
+      - name: Runner installeren
+        run: pip install -e 'apps/api[test]'
+      - name: Kernimages na elkaar bouwen en de rookproef draaien
+        env:
+          LOCKMAP: ${{ vars.INTEGRAAL_LOCKMAP }}
+        run: |
+          export TMPDIR="$RUNNER_TEMP" INTEGRAAL_BRONMAP="$RUNNER_TEMP"
+          lockmap=${LOCKMAP:-$RUNNER_TEMP}
+          flock "$lockmap/docker-build.lock" nice -n 10 python e2e/integral/run.py --bouw --profiel kern
+          flock "$lockmap/stack.lock" nice -n 10 python e2e/integral/run.py --groep rook
+      - name: Geredigeerd bewijs bewaren
+        if: always()
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e
+        with:
+          name: integrale-kern
+          path: e2e/integral/evidence/
+          if-no-files-found: warn
+      - name: Eigen imagetags opruimen
+        if: always()
+        run: |
+          for dienst in hub executor truenas lifecycle; do
+            ref="jlp-integraal/$dienst:$INTEGRAAL_TAG"
+            if docker image inspect "$ref" >/dev/null 2>&1; then docker image rm "$ref"; fi
+          done

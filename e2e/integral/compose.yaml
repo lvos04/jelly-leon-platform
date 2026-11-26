@@ -1,0 +1,201 @@
+# Uitsluitend lokale integratieproeven. Alle volumes en het interne netwerk zijn projectgebonden.
+x-bouw: &bouw
+  labels: &herkomst
+    nl.jelly-leon.bronstatus: ${INTEGRAAL_BRONSTATUS:-onbekend}
+    nl.jelly-leon.broncommit: ${INTEGRAAL_BRONCOMMIT:-onbekend}
+  args:
+    REVISION: ${INTEGRAAL_BRONCOMMIT:-onbekend}
+x-derden: &derden
+  profiles: [derden]
+  image: jlp-integraal/simulators:${INTEGRAAL_TAG:-lokaal}
+  build:
+    <<: *bouw
+    context: ../..
+    dockerfile: e2e/integral/Dockerfile.simulators
+x-truenas: &truenas
+  image: jlp-integraal/truenas:${INTEGRAAL_TAG:-lokaal}
+  build:
+    <<: *bouw
+    context: ../simulators/truenas
+  tmpfs:
+    - /certificaat:uid=568,mode=0700
+  command:
+    - sh
+    - -ec
+    - |
+      umask 077
+      openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 2 \
+        -subj "/CN=$$HOSTNAME" -addext "subjectAltName=DNS:$$HOSTNAME" \
+        -keyout /certificaat/sim.key -out /certificaat/sim.crt
+      exec python -m truenas_sim --host "$$HOSTNAME" --port 8080 \
+        --ssl-certfile /certificaat/sim.crt --ssl-keyfile /certificaat/sim.key
+  healthcheck:
+    test: ["CMD", "python", "-c", "import json,os,ssl,urllib.request as u; c=ssl.create_default_context(cafile='/certificaat/sim.crt'); assert json.load(u.urlopen('https://'+os.environ['HOSTNAME']+':8080/api/versions',context=c,timeout=3))"]
+    interval: 5s
+    timeout: 4s
+    retries: 12
+
+services:
+  hub:
+    profiles: [kern]
+    image: jlp-integraal/hub:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/ai-server-manager
+      dockerfile: deploy/allinone/Dockerfile
+    environment:
+      HUB_AI_ENABLED: "false"
+    ports: ["127.0.0.1:${INTEGRAAL_HUB_POORT:-30400}:30400"]
+    volumes: [hub:/appdata]
+  executor:
+    profiles: [kern]
+    image: jlp-integraal/executor:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/ai-server-manager
+      dockerfile: deploy/executor/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_EXECUTOR_POORT:-30410}:30410"]
+    volumes: [executor:/appdata]
+  truenas:
+    <<: *truenas
+    profiles: [kern]
+    hostname: truenas
+  lifecycle:
+    profiles: [kern]
+    image: jlp-integraal/lifecycle:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ../..
+      dockerfile: deploy/allinone/Dockerfile
+    environment:
+      HUB_URL: http://hub:30400
+      HUB_ENROLLMENT_TOKEN: ${INTEGRAAL_ENROLLMENT:-}
+      HUB_KEY_FINGERPRINT: ${INTEGRAAL_VINGERAFDRUK:-}
+    ports: ["127.0.0.1:${INTEGRAAL_LIFECYCLE_POORT:-30440}:30440"]
+    volumes: [lifecycle:/appdata]
+
+  mediaguard:
+    profiles: [media]
+    image: jlp-integraal/mediaguard:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/media-guard-ultimate/deploy/aio
+      labels:
+        <<: *herkomst
+        nl.jelly-leon.mg.encode: ${INTEGRAAL_MG_ENCODE_ID:-onbekend}
+        nl.jelly-leon.mg.web: ${INTEGRAAL_MG_WEB_ID:-onbekend}
+        nl.jelly-leon.mg.sonarr: ${INTEGRAAL_MG_SONARR_ID:-onbekend}
+        nl.jelly-leon.mg.radarr: ${INTEGRAAL_MG_RADARR_ID:-onbekend}
+      additional_contexts:
+        core: ${INTEGRAAL_BRONMAP:-../../..}/media-guard-ultimate/apps/core
+        release: ${INTEGRAAL_BRONMAP:-../../..}/media-guard-ultimate/deploy
+      args:
+        ENCODE_IMAGE: jlp-integraal/mg-encode:${INTEGRAAL_TAG:-lokaal}
+        WEB_IMAGE: jlp-integraal/mg-web:${INTEGRAAL_TAG:-lokaal}
+        SONARR_IMAGE: jlp-integraal/mg-sonarr:${INTEGRAAL_TAG:-lokaal}
+        RADARR_IMAGE: jlp-integraal/mg-radarr:${INTEGRAAL_TAG:-lokaal}
+    ports: ["127.0.0.1:${INTEGRAAL_MEDIAGUARD_POORT:-30080}:30080"]
+    volumes: [mediaguard:/config]
+  mso:
+    profiles: [media]
+    image: jlp-integraal/mso:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/media-source-optimizer
+      dockerfile: deploy/allinone/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_MSO_POORT:-38081}:38081"]
+    volumes: [mso:/appdata]
+  my-house:
+    profiles: [huis]
+    image: jlp-integraal/my-house:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/my_house
+      dockerfile: deploy/allinone/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_MY_HOUSE_POORT:-8088}:8080"]
+    volumes: [huis:/appdata]
+  home-control-hub:
+    profiles: [huis]
+    image: jlp-integraal/home-control-hub:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/home-control-hub
+      dockerfile: deploy/allinone/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_HOME_CONTROL_HUB_POORT:-30420}:30420"]
+    volumes: [integraties:/appdata]
+  appstore:
+    profiles: [appstore]
+    image: jlp-integraal/appstore:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/appstore-en-fork
+      dockerfile: deploy/allinone/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_APPSTORE_POORT:-30430}:30430"]
+    volumes: [appstore:/appdata]
+  zoeken:
+    profiles: [zoeken]
+    image: jlp-integraal/zoeken:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ${INTEGRAAL_BRONMAP:-../../..}/zoeken-en-persoonlijke-ai
+      dockerfile: deploy/allinone/Dockerfile
+    ports: ["127.0.0.1:${INTEGRAAL_ZOEKEN_POORT:-30450}:30450"]
+    volumes: [zoeken:/appdata]
+  jelly-leon:
+    profiles: [mediaserver]
+    image: jelly-leon:p6
+    ports: ["127.0.0.1:${INTEGRAAL_JELLY_LEON_POORT:-30460}:8096"]
+    volumes: [mediaserver:/config]
+
+  beszel-sim:
+    <<: *derden
+    command: [beszel-sim, --host, beszel-sim]
+  kuma-sim:
+    <<: *derden
+    command: [uptime-kuma-sim, --host, kuma-sim]
+  gotify-sim:
+    <<: *derden
+    command: [gotify-sim, --host, gotify-sim]
+  authentik-sim:
+    <<: *derden
+    command: [authentik-sim, --host, authentik-sim]
+  onedrive:
+    <<: *derden
+    profiles: [onedrive]
+    command: [onedrive-sim, --host, intern]
+  truenas-twee:
+    <<: *truenas
+    profiles: [herstel]
+    hostname: truenas-twee
+
+  node-red:
+    profiles: [meldingen]
+    image: nodered/node-red:5.0.9-24@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f
+    volumes: [flows:/data]
+  uptime-kuma:
+    profiles: [meldingen]
+    image: ghcr.io/louislam/uptime-kuma:2.5.9@sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd
+    volumes: [kuma:/app/data]
+  gotify:
+    profiles: [meldingen]
+    image: ghcr.io/gotify/server:3.1.1@sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86
+    volumes: [gotify:/app/data]
+
+networks:
+  default:
+    internal: true
+
+volumes:
+  hub: {}
+  executor: {}
+  lifecycle: {}
+  mediaguard: {}
+  mso: {}
+  huis: {}
+  integraties: {}
+  appstore: {}
+  zoeken: {}
+  mediaserver: {}
+  flows: {}
+  kuma: {}
+  gotify: {}

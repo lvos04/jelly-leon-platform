@@ -41,6 +41,7 @@ jobs:
           bash .forgejo/ci/workflowlint.sh
       - name: Mypy (strict)
         run: |
+          mypy --strict --explicit-package-bases e2e/integral
           (cd apps/api && mypy)
           mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
             tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
@@ -92,6 +93,36 @@ jobs:
       - name: pip-audit (runtime-lock)
         run: pip-audit --cache-dir "$(mktemp -d "$RUNNER_TEMP/pip-audit.XXXXXXXX")" --strict --require-hashes --disable-pip -r apps/api/requirements.lock
       - name: Eigen testdatabase opruimen
+        if: always()
+        run: bash .forgejo/ci/postgres.sh stop
+
+  conformiteit-hub:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Hub-bron op dezelfde branch ophalen
+        env:
+          BRON_TOKEN: ${{ secrets.BRON_LEESTOKEN }}
+        run: bash .forgejo/ci/bronnen.sh conformiteit
+      - name: Python voor platform en Hub installeren
+        run: bash .forgejo/ci/python.sh
+      - name: Eigen testomgevingen installeren
+        run: |
+          pip install -e 'apps/api[test]' -e 'e2e/simulators/truenas[test]'
+          python -m venv "$RUNNER_TEMP/ai-server-manager/.venv"
+          hub="$RUNNER_TEMP/ai-server-manager"
+          "$hub/.venv/bin/pip" install -r "$hub/apps/api/requirements.lock"
+          "$hub/.venv/bin/pip" install --no-deps "$hub/apps/policy" "$hub/apps/api"
+      - name: Eigen PostgreSQL starten
+        run: bash .forgejo/ci/postgres.sh start
+      - name: Conformiteit tegen de lokale Hub en simulator
+        run: |
+          TMPDIR="$RUNNER_TEMP" python e2e/conformance/echte_hub.py \
+            --hub-repo "$RUNNER_TEMP/ai-server-manager" --pg "${LIFECYCLE_TEST_PG%/postgres}"
+      - name: Eigen PostgreSQL opruimen
         if: always()
         run: bash .forgejo/ci/postgres.sh stop
 

@@ -1,4 +1,4 @@
-# Integrale E2E-omgeving (opzet P0; uitvoering in P6)
+# Integrale E2E-omgeving
 
 Deze map bevat de testomgeving waarin **alle** platform-apps samen draaien tegen simulators, om de scenario's
 EX01–EX50 uit `docs/platform-v2/05_TESTS/INTEGRALE_E2E_TESTMATRIX.md` te draaien zonder echte NAS. `docker compose`
@@ -14,13 +14,13 @@ is hier toegestaan (contract §1: alleen ontwikkeling, CI en deze E2E-omgeving) 
 |---|---|---|
 | TrueNAS-simulator (JSON-RPC 2.0/WebSocket, 25.04/25.10, apps/catalogus/snapshots/jobs, storingsinjectie) | `simulators/truenas/` | gebouwd + eigen tests (Sim-getest) |
 | Hub-simulator volgens contract 1.2 (enroll exact §3.3, `services/self`, rotatie, dienst-JWT, `key-rotations`, inbox) — alleen voor geïsoleerde dienst-tests | `simulators/hub/hub_sim.py` | gebouwd, gebruikt in `tests/e2e`, `tests/conformance` en `apps/api/tests` |
-| Conformiteitstests Hub ↔ dienst (contract 1.2, JP10): dezelfde tests tegen de simulator (CI) en tegen de echte Hub | `../tests/conformance/`, `conformance/echte_hub.py` | gebouwd; tegen de echte Hub lokaal gedraaid (zie hieronder) |
+| Conformiteitstests Hub ↔ dienst (contract 1.2, JP10): dezelfde tests tegen de simulator (CI) en tegen de echte Hub | `../tests/conformance/`, `conformance/echte_hub.py` | gebouwd; dezelfde tests draaien in Forgejo ook tegen de lokale Hub-branchekop |
 | Dienst-E2E jelly-leon-platform (alles-in-één image + Hub-simulator) | `../tests/e2e/` | gebouwd (Sim-getest) |
 | Simulators Beszel, Uptime Kuma, Gotify en Authentik (OIDC + beheer-API), met foutinjectie (P1) | `simulators/{beszel,uptime_kuma,gotify,authentik}/`, gedeeld `simulators/simkit/` | gebouwd + eigen tests (Sim-getest); protocol per README, overzicht `simulators/README.md` |
 | Installatie-rooktest zonder YAML: Hub + executor als twee "Custom Apps" (`docker run`, één volume + één poort), wizard tegen de TrueNAS-simulator, plan/preview van een app (P1) | `../tests/rooktest/`, `tools/rooktest.py` | gebouwd; lokaal gedraaid (zie EVIDENCE.json I23-23-02) |
 | Hub-stand-in fase P2 (inventaris, catalogusbeschikbaarheid, voorstel → beleid → goedkeuring → ondertekend verzoek), uitvoerder-stand-in en heartbeat-route §6.1 | `simulators/hub/{hub_p2,contract8,executor_sim}.py`, `simulators/hub/hub_sim.py` | gebouwd; ketentest `../apps/api/tests/integration/test_keten_plan_hub_executor_nas.py` (Sim-getest); voorlopige routes, zie `simulators/README.md` |
 | Node-RED-proef: echte image op digest als 568:568 tegen de Hub-simulator (beveiliging, flowbundels, melding, actieaanvraag, hartslag, herstel, stoppen) | `../tools/nodered_rooktest.py` | gebouwd; lokaal gedraaid: `../docs/platform-v2/bewijs/nodered-rooktest-p2.json` (Sim-getest) |
-| Integrale compose + scenariorunner | `integral/` (P6) | **nog niet gebouwd** |
+| Integrale compose + scenariorunner | [Runner en gebruik](integral/README.md) | Kernprofiel, enrollment-rookproef en runbewijs gebouwd |
 
 ## Conformiteit met contract 1.2 (JP10)
 
@@ -34,15 +34,15 @@ worker echt met die Hub en gebruikt een door die Hub gemaakte gebruikers-JWT op 
 - Tegen de **echte Hub** (naburige checkout `../ai-server-manager` met eigen `.venv`, lokale PostgreSQL):
   `python e2e/conformance/echte_hub.py`. Het script start de Hub met een wegwerp-datamap en een eigen
   `jlp_`-database, maakt het eerste beheerdersaccount met de setupcode uit de log, vraagt twee enrollment-tokens aan,
-  draait dezelfde tests en ruimt alles op. Dit is een lokale integratietest, **geen** NAS-test.
+  draait dezelfde tests en ruimt alles op. De Forgejo-job `conformiteit-hub` gebruikt hiervoor een eigen PostgreSQL.
 
 ## Opbouw (P6)
 
 ```
 e2e/
-  integral/compose.yaml        # bouwt de alles-in-één images uit de naburige repo-mappen (../../<repo>)
+  integral/compose.yaml        # bouwt de alles-in-één images uit de naburige repo-mappen (INTEGRAAL_BRONMAP)
   integral/scenarios/EXnn_*.py # één pytest-bestand per scenario, met eigenaar, build/digest en bewijs
-  integral/run.py              # draait een selectie, schrijft bewijs naar evidence/<run-id>/ en EVIDENCE.json-regels
+  integral/run.py              # draait een selectie, schrijft bewijs naar evidence/<run-id>/ en EVIDENCE-voorstellen in de runmap
   simulators/<naam>/           # één simulator per externe afhankelijkheid
 ```
 

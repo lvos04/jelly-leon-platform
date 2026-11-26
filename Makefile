@@ -6,7 +6,7 @@ TEST_TMPDIR := $(or $(TMPDIR),/tmp)
 
 .PHONY: venv lint typecheck test test-sim test-repo test-conformance test-conformance-hub test-e2e openapi image \
 	sim-image audit peil-kopie test-ui test-ui-live statuspagina-shots ontwerpreview validator-venv manifesten rooktest upstream-rooktest \
-	nodered nodered-rooktest
+	nodered nodered-rooktest test-integraal
 
 venv:
 	python3.12 -m venv .venv
@@ -16,6 +16,7 @@ lint:
 	$(PY) -m ruff check .
 
 typecheck:
+	$(PY) -m mypy --strict --explicit-package-bases e2e/integral
 	cd apps/api && ../../$(PY) -m mypy
 	$(PY) -m mypy --strict --python-version 3.12 e2e/simulators/truenas/src/truenas_sim tools/peil_kopie.py tools/contract_kopie.py \
 		tools/manifesten.py tools/manifest_kopie.py tools/checklists.py tools/rooktest.py tools/upstream_rooktest.py \
@@ -59,6 +60,11 @@ manifesten:
 # Contract 1.2: Hub ↔ dienst tegen de Hub-simulator; test-conformance-hub tegen de echte Hub uit ../ai-server-manager
 test-conformance:
 	$(PY) -m pytest -q tests/conformance
+
+# De aanroeper kiest de bouw- of stacklock zoals beschreven in e2e/integral/README.md.
+INTEGRAAL_ARGS ?= --groep rook
+test-integraal:
+	$(PY) e2e/integral/run.py $(INTEGRAAL_ARGS)
 
 test-conformance-hub:
 	$(NICE) $(PY) e2e/conformance/echte_hub.py

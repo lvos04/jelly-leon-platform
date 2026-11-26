@@ -1,0 +1,8 @@
+# Alleen voor de integrale testomgeving. Eén pakket met de bestaande startmodules.
+FROM docker.io/library/python:3.12.16-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
+COPY apps/api/requirements.lock /bouw/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r /bouw/requirements.lock
+COPY e2e/simulators /bouw/simulators
+RUN pip install --no-deps --no-cache-dir /bouw/simulators
+USER 568:568
+ENV PYTHONDONTWRITEBYTECODE=1
