@@ -9,6 +9,8 @@ Voer de opdrachten uit vanuit de platformrepo met de Python-omgeving uit `make v
 ```bash
 mkdir -p "${KETEN:?}/tmp" "$KETEN/cache"
 export TMPDIR="$KETEN/tmp" XDG_CACHE_HOME="$KETEN/cache"
+export DOCKER_CONFIG="$XDG_CACHE_HOME/docker" BUILDX_CONFIG="$XDG_CACHE_HOME/docker/buildx"
+mkdir -p "$BUILDX_CONFIG"
 export INTEGRAAL_BRONMAP="${WERKMAP:?}"
 flock "$WERKMAP/.lokaal/docker-build.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --bouw --profiel kern
 flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 make test-integraal
