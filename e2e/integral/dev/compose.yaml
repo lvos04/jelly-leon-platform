@@ -2,7 +2,7 @@
 # Op TrueNAS wordt jelly-leon-platform uitsluitend als standaard Custom App geïnstalleerd (formulier of door de Hub
 # via de TrueNAS-API met ix-app-waarden); zie deploy/truenas/CUSTOM_APP.md. Nooit 'Install via YAML'.
 #
-#   docker compose -f deploy/dev/compose.yaml up --build
+#   docker compose -f e2e/integral/dev/compose.yaml up --build
 #
 # Diensten: de alles-in-één image (lokaal gebouwd), de Hub-simulator en de TrueNAS-simulator. Het token hieronder is
 # een vaste ontwikkelwaarde (geen geheim, werkt alleen met de simulator); zonder HUB_KEY_FINGERPRINT is de koppeling
@@ -11,7 +11,7 @@ name: jlp-dev
 services:
   lifecycle:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: deploy/allinone/Dockerfile
     image: jelly-leon-platform:dev
     ports:
@@ -29,12 +29,12 @@ services:
     entrypoint: ["python", "/sim/hub_sim.py", "--host", "0.0.0.0", "--port", "30499",
                  "--grant", "token:jelly-leon-platform:enr_ontwikkeling-alleen-compose-geen-geheim-000"]
     volumes:
-      - ../../e2e/simulators/hub:/sim:ro
+      - ../../simulators/hub:/sim:ro
     ports:
       - "127.0.0.1:30499:30499"
   truenas-sim:
     build:
-      context: ../../e2e/simulators/truenas
+      context: ../../simulators/truenas
     image: jlp-truenas-sim:dev
     environment:
       TRUENAS_SIM_VERSION: "25.10.8"

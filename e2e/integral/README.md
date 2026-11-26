@@ -1,6 +1,6 @@
 # Integrale kernrook
 
-Deze omgeving is geen installatiemethode. De kern draait de Hub, executor en lifecycle uit lokale broncode, samen met de TrueNAS-simulator. De rookproef leest de drie ready-antwoorden en het simulatorprofiel, test de verbinding vanuit de Hub en zoekt de actieve lifecycle-registratie op in het dienstenregister. De ontwikkeltests gebruiken de bestaande compose in `deploy/dev/`.
+Deze omgeving is geen installatiemethode. De kern draait de Hub, executor en lifecycle uit lokale broncode, samen met de TrueNAS-simulator. De rookproef leest de drie ready-antwoorden en het simulatorprofiel, test de verbinding vanuit de Hub en zoekt de actieve lifecycle-registratie op in het dienstenregister. De ontwikkeltests gebruiken de [ontwikkelcompose](dev/compose.yaml).
 
 ## De kern draaien
 

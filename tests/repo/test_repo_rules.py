@@ -280,9 +280,17 @@ def test_forgejo_publiceert_alleen_bij_een_tagpush() -> None:
 
 
 def test_compose_only_for_development() -> None:
-    text = (ROOT / "deploy/dev/compose.yaml").read_text()
+    text = (ROOT / "e2e/integral/dev/compose.yaml").read_text()
     assert "ALLEEN VOOR ONTWIKKELING" in text and "GEEN installatiemethode" in text
     assert ":latest" not in text
+
+
+@pytest.mark.parametrize("mapnaam", ["install", "deploy"])
+def test_geen_compose_in_installatiemappen(mapnaam: str) -> None:
+    naam = re.compile(r"(?:docker-)?compose.*\.ya?ml", re.IGNORECASE)
+    gevonden = [pad.relative_to(ROOT) for pad in (ROOT / mapnaam).rglob("*")
+                if naam.fullmatch(pad.name) and (pad.is_file() or pad.is_symlink())]
+    assert not gevonden, gevonden
 
 
 IP = re.compile(r"\b(?!127\.0\.0\.1\b)(?!0\.0\.0\.0\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")

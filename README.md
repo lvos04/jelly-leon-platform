@@ -42,7 +42,7 @@ De broncode en CI-runs staan in de [Forgejo-repository](https://git.medialeon.nl
 apps/api/                 pakket 'lifecycle' (FastAPI, SQLAlchemy 2, Alembic-migraties in het pakket), tests
 deploy/allinone/          Dockerfile + procesbewaker + healthcheck (PostgreSQL 16 ingebouwd, unix-socket)
 deploy/truenas/           CUSTOM_APP.md (formulier)        deploy/manifest/  manifest (contract §9)
-deploy/dev/compose.yaml   alleen ontwikkeling              .env.example      alle variabelen
+e2e/integral/dev/compose.yaml  alleen ontwikkeling         .env.example      alle variabelen
 docs/openapi/             geëxporteerde OpenAPI            docs/adr/         ADR-0001…0026
 design/ontwerptaal/       gepinde kopie Peil 1.1.1-statuspagina (HERKOMST.md)    tools/peil_kopie.py  kopie maken/controleren
 tests/ui/                 browsercontrole statuspagina (Playwright + axe-core)   docs/screenshots/peil/  schermafdrukken
