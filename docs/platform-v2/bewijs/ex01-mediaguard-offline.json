@@ -1,0 +1,143 @@
+{
+  "id": "EX01",
+  "datum": "2026-11-26",
+  "eigenaar": "MediaGuard, MSO en Hub",
+  "scenariocommit": "aa88ab82c691279a02d5688c2a3ee2f7706e9b0f",
+  "status": "Bezig",
+  "validatie": "Sim-mislukt",
+  "verwachting": "MSO werkt zelfstandig tijdens uitval, de Hub meldt een incident met onbekende gezondheid en na herstel blijven de jobs uniek.",
+  "bevinding": "Tijdens de uitval gaf de MSO-statusroute HTTP 500. De Hub-catalogus toonde down en de incidenteninbox bevatte geen nieuw actief MediaGuard-incident.",
+  "statusroute": "GET /api/v1/mediaguard/status?refresh=true",
+  "mso_logtelling": "MSO-statusroute: 25 interne fouten, waarvan 25 met UnsafeTarget en onoplosbare dienstnaam.",
+  "images": {
+    "hub": {
+      "broncommit": "29e1bd88724465da057fc8aab3b8ad1867fb6892",
+      "bronstatus": "gewijzigd",
+      "image_id": "sha256:825dd4b36a138814110030f8710717752a5b76d8189d3728b86f8e17403a340d"
+    },
+    "executor": {
+      "broncommit": "29e1bd88724465da057fc8aab3b8ad1867fb6892",
+      "bronstatus": "gewijzigd",
+      "image_id": "sha256:baacfb3a73f83dc3969d0473c1cbfbe987af125b198a94010e434aab96931dc4"
+    },
+    "truenas": {
+      "broncommit": "f180fc792542ce47a19bb7f4a41b1a15e17155ce",
+      "bronstatus": "schoon",
+      "image_id": "sha256:3b19c158391c50afaa90ddbdb32c0288256a2405fac46953279b995a54a01c58"
+    },
+    "lifecycle": {
+      "broncommit": "f180fc792542ce47a19bb7f4a41b1a15e17155ce",
+      "bronstatus": "schoon",
+      "image_id": "sha256:c15a38f23519a35933a02731e759bbad6341c35f92222c5c262256e9beaf36d9"
+    },
+    "mediaguard": {
+      "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
+      "bronstatus": "schoon",
+      "image_id": "sha256:e48e5ea95d21acb2ec2a48b5cb3835f31ca3b8bd1654e87e7154d97a92e62000"
+    },
+    "mso": {
+      "broncommit": "4285903c4ddbb14eb49ddce7d74c01768eea92e7",
+      "bronstatus": "schoon",
+      "image_id": "sha256:77887dad5aec096df15de3bae770a153920620dde6feb9a6c33e6baff5b7a148"
+    }
+  },
+  "met_storing": {
+    "run": "20261126t082615z-fc2186047f",
+    "exitcode": 1,
+    "waarnemingen": {
+      "mso_voor": "connected",
+      "mso_http_tijdens": {
+        "500": 25
+      },
+      "mediaguard_gestopt": true,
+      "mso_eigen_wijziging_teruggelezen": true,
+      "mso_modus": null,
+      "hub_gezondheid": "down",
+      "nieuwe_incidenten": 0,
+      "meetduur_sec": 60.9,
+      "mso_na": "connected",
+      "jobs_na_herhaling": 1,
+      "job_met_historie_leesbaar": true
+    },
+    "voortgang": {
+      "jobs": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 1,
+        "verdwenen_na": 0
+      },
+      "job_logs": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 1,
+        "verdwenen_na": 0
+      },
+      "audit_events": {
+        "voor": 2,
+        "tijdens": 2,
+        "verdwenen_tijdens": 0,
+        "na": 2,
+        "verdwenen_na": 0
+      },
+      "mediaserver_watch": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 1,
+        "verdwenen_na": 0
+      }
+    }
+  },
+  "controle_zonder_storing": {
+    "run": "20261126t083645z-2088f2222b",
+    "exitcode": 1,
+    "waarnemingen": {
+      "mso_voor": "connected",
+      "mso_http_tijdens": {
+        "200": 19
+      },
+      "mediaguard_gestopt": false,
+      "mso_eigen_wijziging_teruggelezen": true,
+      "mso_modus": "connected",
+      "hub_gezondheid": "unknown",
+      "nieuwe_incidenten": 0,
+      "meetduur_sec": 61.0,
+      "mso_na": "connected",
+      "jobs_na_herhaling": 1,
+      "job_met_historie_leesbaar": true
+    },
+    "voortgang": {
+      "jobs": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 13,
+        "verdwenen_na": 0
+      },
+      "job_logs": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 1,
+        "verdwenen_na": 0
+      },
+      "audit_events": {
+        "voor": 2,
+        "tijdens": 2,
+        "verdwenen_tijdens": 0,
+        "na": 45,
+        "verdwenen_na": 0
+      },
+      "mediaserver_watch": {
+        "voor": 1,
+        "tijdens": 1,
+        "verdwenen_tijdens": 0,
+        "na": 1,
+        "verdwenen_na": 0
+      }
+    }
+  },
+  "opstelling": "Interne Compose-stack met lokale applicatie-images en een TrueNAS-simulator. De simulator nam de gemeten containerstaat over. Bij stilstand las een tijdelijke container het eigen MediaGuard-volume alleen-lezen."
+}

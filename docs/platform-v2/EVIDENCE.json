@@ -30,6 +30,46 @@
   "bijgewerkt": "2026-11-25"
  },
  {
+  "id": "EX01",
+  "status": "Bezig",
+  "validatie": "Sim-mislukt",
+  "bewijs": "docs/platform-v2/bewijs/ex01-mediaguard-offline.json",
+  "blokkade": "",
+  "opmerking": "Tijdens de uitval gaf de MSO-statusroute HTTP 500. De Hub-catalogus toonde down en de incidenteninbox bevatte geen nieuw actief MediaGuard-incident.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX02",
+  "status": "Niet gestart",
+  "validatie": "Niet getest",
+  "bewijs": "",
+  "blokkade": "",
+  "opmerking": "De proef wacht op de aparte herstelketen voor de productfout bij EX01.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX06",
+  "status": "Niet gestart",
+  "validatie": "Niet getest",
+  "bewijs": "",
+  "blokkade": "",
+  "opmerking": "De proef wacht op de aparte herstelketen voor de productfout bij EX01.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX07",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (hardware)",
+  "bewijs": "",
+  "blokkade": "NIET GEVALIDEERD (hardware)",
+  "opmerking": "De stilstandsimulatie wacht op het vervolg van S-P6-14. De echte A310-lane valt onder N-P6-09.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
   "id": "I01-01-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
