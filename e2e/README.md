@@ -100,7 +100,7 @@ run; **Echt** = alleen op echte NAS/hardware/clients/accounts (hier: Geblokkeerd
 | EX18 | Policy-klasse vervalst | Hub policy | voorstel met R0-claim | Sim |
 | EX19 | Approval-drift (digest) | Hub, executor, **lifecycle** | truenas-sim + digestwissel | Sim |
 | EX20 | Approval-replay | Hub, executor | dubbele ExecutionRequest | Sim |
-| EX21 | AI-credits op | Hub | V1: AI uit, netwerkpogingen tellen en een poolregel toetsen. Tegoedwisseling volgt in versie 2. | Sim |
+| EX21 | AI-credits op | Hub | Versie 1 telt netwerkpogingen met uitgeschakelde AI en toetst een poolregel. Tegoedwisseling volgt in versie 2. | Sim |
 | EX22 | Hub offline | Uptime Kuma, Gotify | Hub stoppen | Sim+ (telefoon echt) |
 | EX23 | Volledige NAS offline | — | — | Echt (externe host) |
 | EX24 | Gree offline | my_house | gree-sim | Sim |

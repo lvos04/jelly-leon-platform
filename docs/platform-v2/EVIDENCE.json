@@ -1338,5 +1338,65 @@
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen installatie-, apparaat-, herstel- of NAS-proef uitgevoerd. Z-18: optie 2 (titels hernoemd). Installatieweg: formulier van de standaard Custom App volgens deploy/truenas/CUSTOM_APP.md van my_house.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-21"
+ },
+ {
+  "id": "EX16",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/integral/scenarios/EX16_sleutel_ingetrokken.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX16)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS)",
+  "opmerking": "De ingetrokken leessleutel gaf op beide aanmeldroutes en in twee bestaande sessies geen toegang. De Hub meldde de weigering en hield de vorige inventaris zichtbaar als verouderd. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX17",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "e2e/integral/scenarios/EX17_logregel.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX17)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "opmerking": "De testlog kwam bij het bijbehorende incident. Het hersteladvies was niet uitvoerbaar. De Hub weigerde de logschrijver beide actievoorstellen. De simulator telde nul schrijfacties. Een aangesloten assistent valt onder versie 2. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX18",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/integral/scenarios/EX18_risicoklasse.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX18)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS)",
+  "opmerking": "De Hub registreerde de R0-claim, classificeerde het voorstel als R3 met menselijke goedkeuring vereist en weigerde de destructieve actie. De simulator telde nul schrijfacties. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX19",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/integral/scenarios/EX19_digestdrift.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX19)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS)",
+  "opmerking": "Alleen de digest in de preview veranderde. Het eerste akkoord verviel vóór verzending. De nieuwe preview kreeg een nieuw akkoord en leidde bij stabiele digest tot één herstart. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX20",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "e2e/integral/scenarios/EX20_eenmalig_akkoord.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX20)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS)",
+  "opmerking": "Hetzelfde goedgekeurde bericht werd twee keer afgeleverd. De executor bevestigde de herhaling, met dezelfde uitkomst en één schrijfactie. Twee afzonderlijke akkoorden leidden tot twee herstarts. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX21",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "e2e/integral/scenarios/EX21_ai_uit.py, docs/platform-v2/bewijs/ex16-ex21-hubveiligheid.json (EX21)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "opmerking": "De uitgeschakelde AI deed 0 netwerkpogingen en startte 0 hulpprocessen in het meetvenster. De teller registreerde één lokale controleverbinding. De Hub blokkeerde opslagwijzigingen na de vers gemeten poolstoring. Uitputting van tegoed en de kostenmonitor horen bij versie 2. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-26"
  }
 ]

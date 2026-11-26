@@ -1,0 +1,96 @@
+{
+  "run": "20261126t084546z-dc4559ed89",
+  "datum": "2026-11-26",
+  "eigenaar": "jelly-leon-platform",
+  "broncommit_proef": "7902af49c3f450883964b719b7778263a14f4ef3",
+  "images": {
+    "hub": {
+      "image_id": "sha256:b1b90580a4a28270910f7c260024f3c0a495c5643829a7ce85f94153b32453e9",
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "bronstatus": "schoon"
+    },
+    "executor": {
+      "image_id": "sha256:df874eb545d745f1bd6b5e9a5af1751bd688273b2cbf84473fa178532946a171",
+      "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
+      "bronstatus": "schoon"
+    },
+    "truenas": {
+      "image_id": "sha256:e07793ce80b4f3b4248d496f7d62ab478dcaa0cecbdd296a0529b660c484bdad",
+      "broncommit": "7902af49c3f450883964b719b7778263a14f4ef3",
+      "bronstatus": "schoon"
+    },
+    "lifecycle": {
+      "image_id": "sha256:6fd4805f5c2fb99e2b320639c40d53eb21bd9cc2917d1fad23db2bbc2c212473",
+      "broncommit": "7902af49c3f450883964b719b7778263a14f4ef3",
+      "bronstatus": "schoon"
+    }
+  },
+  "scenarios": {
+    "EX16": {
+      "bestand": "e2e/integral/scenarios/EX16_sleutel_ingetrokken.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "aanmeldpogingen_hub": 2,
+        "verouderd": true,
+        "schrijfacties": 0
+      }
+    },
+    "EX17": {
+      "bestand": "e2e/integral/scenarios/EX17_logregel.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "gecorreleerde_logregels": 1,
+        "uitvoerbaar": false,
+        "schrijfacties": 0
+      }
+    },
+    "EX18": {
+      "bestand": "e2e/integral/scenarios/EX18_risicoklasse.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "oordeel_http": 403,
+        "r3": true,
+        "goedkeuring_nodig": true,
+        "uitvoering_http": 409,
+        "schrijfacties": 0
+      }
+    },
+    "EX19": {
+      "bestand": "e2e/integral/scenarios/EX19_digestdrift.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "geweigerde_drift_http": 409,
+        "verschillen": 2,
+        "mutaties_bij_drift": 0,
+        "mutaties_bij_stabiele_digest": 1
+      }
+    },
+    "EX20": {
+      "bestand": "e2e/integral/scenarios/EX20_eenmalig_akkoord.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "afleveringen_eerste_akkoord": 2,
+        "mutaties_eerste_akkoord": 1,
+        "onafhankelijke_akkoorden": 2,
+        "mutaties_totaal": 2
+      }
+    },
+    "EX21": {
+      "bestand": "e2e/integral/scenarios/EX21_ai_uit.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "controle": 1,
+        "netwerk": 0,
+        "hulpprocessen": 0,
+        "actuele_poolmetingen": 1,
+        "poolblokkades": 1
+      }
+    }
+  }
+}
