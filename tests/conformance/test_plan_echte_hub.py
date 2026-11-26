@@ -12,6 +12,8 @@ slaat deze module over (die heeft eigen tests onder ``apps/api/tests``). Sim-get
    claim), de planner geeft alleen die planstap vrij; het voorstel van de geregistreerde planstap voert zonder
    goedkeuring niets uit (409, nul schrijfaanroepen) en het stapresultaat zonder readback weigert de planner.
 5. De catalogusroute van de Hub weigert een extra, dubbel of ontbrekend queryveld, net als de stand-in (R-MANIFEST-3).
+
+PYTEST_DONT_REWRITE houdt Hub-antwoorden en autorisatieheaders uit de foutuitvoer.
 """
 
 from __future__ import annotations
@@ -107,7 +109,7 @@ def _plan(echt: Any, planner: TestClient, poort: int) -> dict[str, Any]:
     h = {"Authorization": f"Bearer {echt.mint_user_jwt()}", "Idempotency-Key": str(uuid.uuid4())}
     r = planner.post("/lifecycle/v1/plans/install/preview", headers=h,
                      json={"manifest_yaml": MANIFEST, "parameters": _params(poort), "app_name": "gotify", "doel": DOEL})
-    assert r.status_code == 201, r.text
+    assert r.status_code == 201, "Installatiepreview aanmaken mislukt"
     return dict(r.json())
 
 
@@ -132,12 +134,12 @@ def _melden(echt: Any, planner: TestClient, plan: dict[str, Any], stap: str, bod
 
 def test_de_hub_geeft_precies_de_scopes_die_de_planner_nodig_heeft(echt: Any, hub: httpx.Client) -> None:
     r = hub.get("/api/v1/services")
-    assert r.status_code == 200, r.text
+    assert r.status_code == 200, "Dienstenregister opvragen mislukt"
     body = r.json()
     rijen = [d for d in body.get("items", body) if d.get("app_id") == "jelly-leon-platform"]
     assert rijen, "jelly-leon-platform staat niet in het register van de Hub"
     for rij in rijen:
-        assert _precies_benodigd(rij.get("scopes")), rij.get("scopes")
+        assert _precies_benodigd(rij.get("scopes")), "De uitgegeven scopes wijken af"
 
 
 def _precies_benodigd(uitgegeven: Any) -> bool:
@@ -162,12 +164,13 @@ def test_een_scope_die_de_hub_niet_uitgeeft_laat_de_proef_falen() -> None:
 def test_installatieplan_op_gemeten_inventaris_en_catalogus_van_de_echte_hub(echt: Any, planner: TestClient) -> None:
     plan = _plan_na_meting(echt, planner, 30215)
     inv, cat = plan["plan"]["bronnen"]["inventaris"], plan["plan"]["bronnen"]["catalogus"]
-    assert inv["status"] == "ok" and inv["bron"] == "hub_snapshot" and inv["aantal_apps"] >= 1, inv
+    assert inv["status"] == "ok" and inv["bron"] == "hub_snapshot" and inv["aantal_apps"] >= 1, "Inventaris wijkt af"
     assert cat == {**cat, "status": "ok", "beschikbaar": "ja", "train": "stable", "app": "ix-app",
-                   "version": "1.4.8"}, cat
+                   "version": "1.4.8"}, "Catalogusmeting wijkt af"
     assert cat["gemeten_op"] and inv["gemeten_op"]
     # Losse manifest_yaml: alleen een onvertrouwde preview, ook op een verse meting zonder andere blokkade (§8.2).
-    assert plan["status"] == "geblokkeerd" and _codes(plan) == {"catalogusbinding_ontbreekt"}, _codes(plan)
+    assert plan["status"] == "geblokkeerd" and _codes(plan) == {"catalogusbinding_ontbreekt"}, (
+        "Ontbrekende catalogusbinding blokkeert de preview niet op de verwachte wijze")
     assert plan["plan"]["uitvoering"]["deze_dienst_voert_uit"] is False and plan["vrijgegeven_stappen"] == []
     assert plan["catalog_binding"] is None
 
@@ -175,11 +178,11 @@ def test_installatieplan_op_gemeten_inventaris_en_catalogus_van_de_echte_hub(ech
 def test_poortconflict_met_een_gemeten_app_blokkeert_tegen_de_echte_hub(echt: Any, planner: TestClient) -> None:
     plan = _plan_na_meting(echt, planner, BEZETTE_POORT)
     assert plan["plan"]["bronnen"]["inventaris"]["status"] == "ok"
-    assert plan["status"] == "geblokkeerd" and "port_in_use" in _codes(plan), plan["plan"]["blokkades"]
+    assert plan["status"] == "geblokkeerd" and "port_in_use" in _codes(plan), "Poortconflict blokkeert het plan niet"
     assert all(s["status"] == "geblokkeerd" for s in plan["voortgang"]) and plan["vrijgegeven_stappen"] == []
     stap = next(s["id"] for s in plan["plan"]["stappen"] if s["soort"] == "actie")
     r = _melden(echt, planner, plan, stap, {"status": "voltooid", "execution_id": str(uuid.uuid4())})
-    assert r.status_code == 409 and r.json()["code"] == "plan_geblokkeerd", r.text
+    assert r.status_code == 409 and r.json()["code"] == "plan_geblokkeerd", "Stap van geblokkeerd plan niet geweigerd"
 
 
 def test_catalogusroute_van_de_hub_geeft_de_planstap_vrij_en_zonder_goedkeuring_gebeurt_er_niets(
@@ -189,9 +192,9 @@ def test_catalogusroute_van_de_hub_geeft_de_planstap_vrij_en_zonder_goedkeuring_
         "app_id": os.environ["JLP_CATALOGUS_APP_ID"], "version_id": os.environ["JLP_CATALOGUS_VERSION_ID"],
         "app_name": "demo-app", "parameters": json.loads(os.environ["JLP_CATALOGUS_PARAMETERS"]),
         "doel": json.loads(os.environ["JLP_CATALOGUS_DOEL"])})
-    assert r.status_code == 201, r.text
+    assert r.status_code == 201, "Catalogusplan aanmaken mislukt"
     cplan = r.json()
-    assert (cplan["status"], cplan["step_id"]) == ("klaar_voor_voorstel", "installeren"), cplan
+    assert (cplan["status"], cplan["step_id"]) == ("klaar_voor_voorstel", "installeren"), "Onverwachte catalogusstap"
 
     # Bij de planner: precies de binding van de Hub, en alleen deze stap vrijgegeven.
     kop = {"Authorization": f"Bearer {echt.mint_user_jwt()}"}
@@ -200,27 +203,29 @@ def test_catalogusroute_van_de_hub_geeft_de_planstap_vrij_en_zonder_goedkeuring_
     assert set(binding) == {"appstore_service_id", "source_approval_revision", "provenance", "release", "instance"}
     assert binding["instance"]["app_name"] == "demo-app" and binding["instance"]["expected_version"] == "absent"
     assert binding["provenance"]["record"]["version_id"] == os.environ["JLP_CATALOGUS_VERSION_ID"]
-    assert plan["etag"] == cplan["plan_etag"] and plan["vrijgegeven_stappen"] == ["installeren"], plan["voortgang"]
+    assert plan["etag"] == cplan["plan_etag"] and plan["vrijgegeven_stappen"] == ["installeren"], (
+        "Vrijgave komt niet overeen met de geregistreerde planstap")
 
     # Het voorstel van de geregistreerde planstap: de Hub neemt het aan, maar zonder goedkeuring gebeurt er niets.
     r = hub.post(f"/api/v1/catalog/plans/{cplan['plan_id']}/steps/{cplan['step_id']}/propose", headers=_idem(echt))
-    assert r.status_code == 201, r.text
+    assert r.status_code == 201, "Voorstel van de geregistreerde planstap mislukt"
     aanvraag = r.json()
     rid = aanvraag["request_id"]
-    assert aanvraag["risk_class"] in ("R2", "R3") and aanvraag["status"] == "wacht_op_goedkeuring", aanvraag
+    assert aanvraag["risk_class"] in ("R2", "R3") and aanvraag["status"] == "wacht_op_goedkeuring", (
+        "Risicoklasse of goedkeuringsstatus van het voorstel wijkt af")
     voor = _sim_schrijfaanroepen()
     r = hub.post(f"/api/v1/actions/{rid}/execute", headers=_idem(echt))
-    assert r.status_code == 409 and r.json()["code"] == "goedkeuring_nodig", r.text
+    assert r.status_code == 409 and r.json()["code"] == "goedkeuring_nodig", "Uitvoering zonder goedkeuring aanvaard"
     na = hub.get(f"/api/v1/actions/{rid}").json()
-    assert na["status"] not in ("bezig", "geslaagd", "uitgevoerd"), na["status"]
+    assert na["status"] not in ("bezig", "geslaagd", "uitgevoerd"), "Aanvraag kreeg een uitvoeringsstatus"
     assert _sim_schrijfaanroepen() == voor, "de NAS-simulator kreeg een schrijfaanroep zonder goedkeuring"
     assert "demo-app" not in _sim_state()["apps"]
     nu = hub.get(f"/api/v1/catalog/plans/{cplan['plan_id']}").json()
-    assert nu["status"] == "voorgesteld" and nu["registratie"] is None, nu
+    assert nu["status"] == "voorgesteld" and nu["registratie"] is None, "Planstatus of registratie wijkt af"
 
     # Zonder uitvoering is er geen readback: de planner weigert het stapresultaat; de stap blijft open.
     r = _melden(echt, planner, plan, "installeren", {"status": "voltooid", "execution_id": rid})
-    assert r.status_code == 422 and r.json()["code"] == "readback_ontbreekt", r.text
+    assert r.status_code == 422 and r.json()["code"] == "readback_ontbreekt", "Stapresultaat zonder readback aanvaard"
     later = planner.get(f"/lifecycle/v1/plans/{cplan['plan_id']}", headers=kop).json()
     assert later["etag"] == plan["etag"] and later["voortgang"] == plan["voortgang"]
 
@@ -232,7 +237,7 @@ def test_catalogusroute_weigert_een_open_verzoekvorm(echt: Any, planner: TestCli
     with httpx.Client(base_url=echt.base_url, trust_env=False, timeout=10) as c:
         r = c.get(CATALOG_AVAILABILITY_PATH, params=AVAILABILITY_VORMFOUTEN[vorm],
                   headers={"Authorization": f"Bearer {token}"})
-    assert (r.status_code, r.json()["code"]) == (422, "validation_error"), r.text
+    assert (r.status_code, r.json()["code"]) == (422, "validation_error"), "Ongeldige catalogusvraag niet geweigerd"
 
 
 def _sim() -> httpx.Client:

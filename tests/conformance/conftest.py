@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "e2e" / "simulators" / "hub"))
 from lifecycle.migrations_util import upgrade  # noqa: E402
 
 
-@dataclass
+@dataclass(repr=False)  # Pytest toont fixtureargumenten bij een fout. Dit object bevat tokens en sessiegegevens.
 class Target:
     kind: str  # "simulator" | "echte Hub"
     base_url: str
@@ -44,7 +44,8 @@ class Target:
                           cookies={"hub_session": self.session_cookie or ""}) as c:
             r = c.post("/api/v1/auth/service-jwt", json={"audience": audience},
                        headers={"X-CSRF-Token": self.csrf or ""})
-            r.raise_for_status()
+            if not r.is_success:
+                pytest.fail("Uitgifte van het gebruikers-JWT mislukt", pytrace=False)
             return str(r.json()["token"])
 
 

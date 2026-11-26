@@ -100,7 +100,7 @@ def koppel_nas(c: httpx.Client, csrf: str, sim_port: int, readonly_key: str, fin
     c.post("/api/v1/truenas/tls/trust", json={"fingerprint_sha256": fingerprint}, headers=idem()).raise_for_status()
     test = c.post("/api/v1/truenas/test", headers=idem()).json()
     if test.get("verbonden") is not True:
-        raise RuntimeError(f"Hub niet verbonden met de simulator: {test.get('reason_code')}")
+        raise RuntimeError("De Hub kon geen verbinding maken met de simulator")
     start_worker()
     job = c.post("/api/v1/inventory/refresh", headers=idem()).json()
     job_id = job.get("job_id") or job.get("id")
@@ -110,7 +110,7 @@ def koppel_nas(c: httpx.Client, csrf: str, sim_port: int, readonly_key: str, fin
             break
         time.sleep(0.5)
     if status != "done":
-        raise RuntimeError(f"inventaris vernieuwen: {status}")
+        raise RuntimeError("De Hub heeft de inventaris niet vernieuwd")
     c.post("/api/v1/apps/discover", headers=idem()).raise_for_status()
 
 
@@ -147,7 +147,7 @@ def main() -> int:
                             "demo-app", "--uit", str(sim_dir / "bewijs")], cwd=hub_repo / "apps" / "api",
                            capture_output=True, text=True, check=False)
         if r.returncode != 0:
-            print(r.stdout + r.stderr, file=sys.stderr)
+            print(f"Catalogusbewijs maken mislukt (exitcode {r.returncode})", file=sys.stderr)
             return 3
         bewijs = json.loads((sim_dir / "bewijs" / "appstore.json").read_text(encoding="utf-8"))
         appstore = nagebootste_appstore(bewijs["routes"], appstore_poort)
@@ -183,7 +183,7 @@ def main() -> int:
             r = subprocess.run([str(hub_python), "-m", "hub", *cmd], env=env, cwd=hub_repo / "apps" / "api",
                                capture_output=True, text=True, check=False)
             if r.returncode != 0:
-                print(r.stdout + r.stderr, file=sys.stderr)
+                print(f"Hub-opdracht {cmd[0]} mislukt (exitcode {r.returncode})", file=sys.stderr)
                 return 3
             if cmd == ["init"]:
                 m = re.search(r"SETUPCODE \(eenmalig[^)]*\): (\S+)", r.stdout)
@@ -230,8 +230,7 @@ def main() -> int:
             r.raise_for_status()
             session_cookie = c.cookies.get("hub_session") or ""
         grant = grants[0]
-        print(f"echte Hub: ai-server-manager {commit} op {base}; vingerafdruk {grant['keyset_fingerprint']}",
-              flush=True)
+        print(f"Conformiteit tegen de lokale Hub op commit {commit}", flush=True)
         test_env = {**os.environ, "JLP_HUB_URL": base, "JLP_HUB_ENROLLMENT_TOKEN": grant["enrollment_token"],
                     "JLP_HUB_KEY_FINGERPRINT": grant["keyset_fingerprint"],
                     "JLP_HUB_ENROLLMENT_TOKEN_2": grants[1]["enrollment_token"],
@@ -243,7 +242,11 @@ def main() -> int:
                     "JLP_CATALOGUS_DOEL": json.dumps(CATALOGUS_DOEL),
                     "JLP_HUB_COMMIT": commit}
         return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rs",
+                               "--tb=short", "--no-showlocals",
                                str(ROOT / "tests" / "conformance")], env=test_env, check=False).returncode
+    except httpx.HTTPStatusError as exc:
+        print(f"Voorbereiding van de conformiteitsproef gaf HTTP {exc.response.status_code}", file=sys.stderr)
+        return 3
     finally:
         if appstore is not None:
             appstore.shutdown()
