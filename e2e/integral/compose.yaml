@@ -54,6 +54,9 @@ services:
       <<: *bouw
       context: ${INTEGRAAL_BRONMAP:-../../..}/ai-server-manager
       dockerfile: deploy/executor/Dockerfile
+    environment:
+      EXECUTOR_TRUENAS_HOST: truenas
+      EXECUTOR_TRUENAS_PORT: "8080"
     ports: ["127.0.0.1:${INTEGRAAL_EXECUTOR_POORT:-30410}:30410"]
     volumes: [executor:/appdata]
   truenas:

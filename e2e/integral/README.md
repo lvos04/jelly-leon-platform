@@ -21,6 +21,7 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 make test-integraal
 | Selectie | Wat draait |
 |---|---|
 | `--groep rook` | Alleen de gekoppelde kern |
+| `--groep hub-veiligheid` | EX16–EX21, elk met een verse gekoppelde kern |
 | `--scenario EX01,EX02` | De genoemde bestanden zodra die in een vervolgstap zijn toegevoegd |
 | `--groep NAAM` | De bestanden die deze groep in hun metadata hebben |
 | `--alles` | Alle aanwezige scenariobestanden, één voor één |

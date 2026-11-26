@@ -65,7 +65,7 @@ dezelfde branch). Elke repo levert één alles-in-één image (`deploy/allinone/
 **Simulators** (gebouwd = ✓; overige volgen in P6, telkens met README "afwijkingen mogelijk"):
 ✓ `truenas` · ✓ `hub` (alleen geïsoleerd) · ✓ `beszel` · ✓ `uptime_kuma` · ✓ `gotify` · ✓ `authentik` · ✓ `arr` (Sonarr/Radarr/Seerr en de Prowlarr-mock van MSO) · ✓ `sabnzbd` · ✓ `qbittorrent` ·
 `gree` (lokaal UDP-protocol) · `homewizard` (P1/Energy Socket, alleen lezen) · `zigbee` · `immich` (alleen-lezen-API) ·
-✓ `onedrive` (offsite-doel + herstel) · `claude-credits` (lege credits) · `stt` (onzekere transcriptie) ·
+✓ `onedrive` (offsite-doel + herstel) · `credits` (lege credits, versie 2) · `stt` (onzekere transcriptie) ·
 ✓ `upstream-git` (Jellyfin-upstream met incompatibele commit). Officiële images (Node-RED, AdGuard Home, NetAlertX en —
 naast de simulators — Uptime Kuma en Gotify) draaien op gepinde digest in de compose (alleen E2E).
 
@@ -95,12 +95,12 @@ run; **Echt** = alleen op echte NAS/hardware/clients/accounts (hier: Geblokkeerd
 | EX13 | OneDrive-hersteltest | Hub (B12) | — (echt account) | Echt (account) |
 | EX14 | Snapshot-restore naar sandbox | executor, **lifecycle** | truenas-sim `pool.snapshot.clone` | Sim |
 | EX15 | DB-schema terugzetten | **lifecycle**, eigen apps | twee image-tags + migratie | Sim |
-| EX16 | Credential verlopen | Hub, connectors | truenas-sim `key_revoked`, hub-sim | Sim |
-| EX17 | Prompt-injectie in log | Hub (AI-runner) | logfixture | Sim |
+| EX16 | Credential verlopen | Hub | truenas-sim `key_revoked`, bestaande sessies en verse inventarismeting | Sim |
+| EX17 | Prompt-injectie in log | Hub, logindex en incidentonderzoek | gecorreleerde logregel van een testdienst | Sim |
 | EX18 | Policy-klasse vervalst | Hub policy | voorstel met R0-claim | Sim |
 | EX19 | Approval-drift (digest) | Hub, executor, **lifecycle** | truenas-sim + digestwissel | Sim |
 | EX20 | Approval-replay | Hub, executor | dubbele ExecutionRequest | Sim |
-| EX21 | AI-credits op | Hub | claude-credits-sim | Sim |
+| EX21 | AI-credits op | Hub | V1: AI uit, netwerkpogingen tellen en een poolregel toetsen. Tegoedwisseling volgt in versie 2. | Sim |
 | EX22 | Hub offline | Uptime Kuma, Gotify | Hub stoppen | Sim+ (telefoon echt) |
 | EX23 | Volledige NAS offline | — | — | Echt (externe host) |
 | EX24 | Gree offline | my_house | gree-sim | Sim |
