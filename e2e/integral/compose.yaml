@@ -148,7 +148,25 @@ services:
       context: ${INTEGRAAL_BRONMAP:-../../..}/my_house
       dockerfile: deploy/allinone/Dockerfile
     ports: ["127.0.0.1:${INTEGRAAL_MY_HOUSE_POORT:-8088}:8080"]
-    volumes: [huis:/appdata]
+    environment:
+      TZ: UTC
+      SHC_NTP_SERVER: ""
+      SHC_PAIRING_ALLOWED_HOSTS: my-house,my-house:30221
+      SHC_CLIMATE_INTERVAL_S: "2"
+    volumes:
+      - huis:/appdata
+      - ../simulators/simkit:/huis-sim/simkit:ro
+      - ../simulators/gree:/huis-sim/gree:ro
+      - ../simulators/homewizard:/huis-sim/homewizard:ro
+      - ../simulators/zigbee:/huis-sim/zigbee:ro
+  huis-browser:
+    profiles: [huis-browser]
+    image: jlp-integraal/huis-browser:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ../..
+      dockerfile: e2e/integral/Dockerfile.huisbrowser
+    command: [sleep, infinity]
   home-control-hub:
     profiles: [huis]
     image: jlp-integraal/home-control-hub:${INTEGRAAL_TAG:-lokaal}

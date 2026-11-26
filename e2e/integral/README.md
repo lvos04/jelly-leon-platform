@@ -37,7 +37,8 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 | media | mediaguard, mso. De invoerimages voor MediaGuard komen uit de lokale encoder-, web- en forkbronnen. |
 | media-inhoud | MediaGuard-kern en herstelwerker uit `apps/core`, plus Seerr en Sonarr uit de arr-simulator. De diensten delen een projectgebonden testbibliotheek. |
 | media-kwaliteit | CPU-encoder uit `services/encoder` met FFmpeg en libvmaf. |
-| huis | my-house, home-control-hub |
+| huis | my-house en home-control-hub voor EX24–EX30 |
+| huis-browser | Chromium voor de apparaatkaart in EX27 |
 | appstore, onedrive, herstel | Respectievelijk appstore, onedrive en truenas-twee |
 | derden | beszel-sim, kuma-sim, gotify-sim en authentik-sim delen één image |
 | meldingen | node-red, uptime-kuma en gotify op de publieke digest uit elk installatiemanifest |
@@ -56,6 +57,16 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 ```
 
 Elke proef schrijft `inhoud.json` met de SHA-256 per proefbestand en de voortgang per bestaande MediaGuard-taak. EX05 leest ook de controlesommen op het moment dat Sonarr het verwijderverzoek ontvangt. De herstelwerker behandelt het terugzetverzoek. EX09 gebruikt de native vervangmodus van de CPU-encoder op twee kopieën van dezelfde clip. De storingsvrije controle levert een AV1-bestand op.
+
+### Huis en energie
+
+Bouw de profielen `kern`, `huis` en `huis-browser` onder de bouwlock. Start daarna de zeven proeven onder de stacklock.
+
+```bash
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX24,EX25,EX26,EX27,EX28,EX29,EX30
+```
+
+De huisproeven controleren het netwerk van de draaiende containers voordat een simulator start. Ze gebruiken de gepinde Gree-fixture uit de lokale my_house-bron en koppelen de binnenunits op naam met unicast. Bij EX27 controleert Chromium de apparaatkaart en verwerkt de schrijfconnector een ondertekend voorstel van een nagebootste assistent. De controle met een gewoon stopcontact gebruikt hetzelfde apparaat vóór het toewijzen van de boilerrol. EX28 volgt de kwartierstanden van de P1-simulator via de uur-export van my_house tot het dagrapport van B14, met een vaste UTC-ontvangsttijd. EX29 gebruikt een lokale MQTT-broker en wacht de ingestelde vijf minuten af. Het dossier bevat de meetwaarden in `huis.json`. De fysieke handelingen voor EX26 en EX30 staan in N-P6-06.
 
 ## Bewijs en opruimen
 
