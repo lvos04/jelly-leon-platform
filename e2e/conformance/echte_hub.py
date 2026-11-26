@@ -281,4 +281,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    # Ook buiten de voorbereiding (bijv. het ontleden van --pg) nooit een traceback met een wachtwoord.
+    except Exception as exc:
+        print(foutmelding(exc), file=sys.stderr)
+        sys.exit(3)

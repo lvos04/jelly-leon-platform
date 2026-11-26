@@ -73,3 +73,17 @@ def test_voorbereiding_citeert_geen_protocolfout() -> None:
                 httpx.LocalProtocolError(f"Illegal header value b'{geheim} '"), KeyError(geheim)):
         melding = _echte_hub().foutmelding(exc)
         assert geheim not in melding and type(exc).__name__ in melding
+
+
+def test_ongeldige_pg_url_citeert_geen_wachtwoord(tmp_path: Path) -> None:
+    # Herreview 4 S-P6-13: een ongecodeerd '@:' laat de URL-parser het wachtwoord als poort lezen.
+    nep_python = tmp_path / "hub" / ".venv" / "bin" / "python"
+    nep_python.parent.mkdir(parents=True)
+    nep_python.touch()
+    geheim = "Pw" + secrets.token_hex(12)
+    uit = subprocess.run([sys.executable, str(ROOT / "e2e" / "conformance" / "echte_hub.py"),
+                          "--hub-repo", str(tmp_path / "hub"), "--pg", f"postgresql+psycopg://u:{geheim}@:x@localhost:1"],
+                         capture_output=True, text=True, check=False, timeout=60)
+    if geheim in uit.stdout + uit.stderr:
+        pytest.fail("Het wachtwoord uit --pg staat in de uitvoer", pytrace=False)
+    assert uit.returncode == 3
