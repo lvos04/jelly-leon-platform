@@ -27,6 +27,7 @@ class Inhoud:
         self.metingen: dict[str, Any] = {}
         self.verwacht: dict[str, str] = {}
         self.voortgang: dict[str, float] = {}
+        self.historie: dict[str, str] = {}
 
     def fixture(self, *args: str) -> str:
         return self.kern.net.project.compose("exec", "-T", "mg-inhoud", "python", "-", *args,
@@ -59,11 +60,14 @@ class Inhoud:
         schrijf(self.kern.net.dossier / "inhoud.json", self.metingen)
 
     def meet(self, naam: str) -> dict[str, str]:
-        hashes: dict[str, str] = json.loads(self.fixture("inventaris"))
+        inventaris: dict[str, dict[str, str]] = json.loads(self.fixture("inventaris"))
+        hashes = inventaris["sha256"]
         jobs = self.mg.get("/api/v1/jobs", params={"limit": 1000}).raise_for_status().json()
         assert 0 < len(jobs) < 1000 and hashes
         stand = {str(j["id"]): float(j["progress"]) for j in jobs}
-        self.noteer(naam, {"sha256": hashes, "taakvoortgang": stand})
+        self.noteer(naam, {**inventaris, "taakvoortgang": stand})
+        assert not self.historie or self.historie == inventaris["historie"]
+        self.historie = inventaris["historie"]
         assert all(j in stand and stand[j] >= waarde for j, waarde in self.voortgang.items())
         self.voortgang = stand
         return hashes

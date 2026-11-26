@@ -58,19 +58,31 @@ def maak(soort: str) -> None:
         raise ValueError("Onbekende testbibliotheek")
 
 
-def inventaris() -> dict[str, str]:
+def inventaris() -> dict[str, dict[str, str]]:
     bestanden = {}
     for root in (MEDIA, Path("/work/quarantine")):
         for pad in sorted(root.rglob("*")):
             if pad.is_file():
                 assert not pad.is_symlink() and pad.stat().st_size > 0
                 bestanden[str(pad)] = hashlib.sha256(pad.read_bytes()).hexdigest()
-    return bestanden
+    with sqlite3.connect("file:/config/mediaguard.db?mode=ro", uri=True) as db:
+        kijk = db.execute("SELECT path,title,user_name,last_seen FROM mediaserver_watch WHERE path=?",
+                          ("/media/bestaand/bewaard.mkv",)).fetchone()
+        log = db.execute("SELECT id,job_id,ts,level,message FROM job_logs WHERE message=?",
+                         ("Bestaande proefreeks ingepland",)).fetchall()
+    assert kijk and len(log) == 1
+    historie = {naam: hashlib.sha256(json.dumps(rij).encode()).hexdigest() for naam, rij in
+                (("kijkregistratie", kijk), ("taaklog", log[0]))}
+    return {"sha256": bestanden, "historie": historie}
 
 
 def vul_voortgang(job: int) -> None:
     with sqlite3.connect("/config/mediaguard.db") as db:
         assert db.execute("UPDATE jobs SET progress=0.625 WHERE id=? AND status='queued'", (job,)).rowcount == 1
+        db.execute("INSERT INTO job_logs(job_id,ts,level,message) VALUES (?,CURRENT_TIMESTAMP,'info',?)",
+                   (job, "Bestaande proefreeks ingepland"))
+        db.execute("INSERT INTO mediaserver_watch(path,title,user_name,last_seen) VALUES (?,?,?,CURRENT_TIMESTAMP)",
+                   ("/media/bestaand/bewaard.mkv", "Bewaarde proefvideo", "proefkijker"))
 
 
 def onthoud_referenties() -> None:
