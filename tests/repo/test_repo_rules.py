@@ -386,6 +386,51 @@ def test_evidence_json_follows_section_11() -> None:
     assert {f"C1.3-JLP-{n:02d}" for n in range(1, 14)} <= seen
 
 
+@pytest.mark.parametrize(("rid", "soort"), [
+    ("B08-003", "account"),
+    ("C1.3-JLP-09", "account"),
+    ("I01-01-01", "hardware"),
+    ("I01-01-04", "account"),
+    ("I03-03-03", "account"),
+    ("I03-03-04", "account"),
+    ("I03-03-07", "account"),
+    ("I03-03-08", "account"),
+    ("I04-04-03", "account"),
+    ("I04-04-08", "account"),
+    ("I05-05-03", "account"),
+    ("I05-05-04", "account"),
+    ("I05-05-06", "account"),
+    ("I05-05-08", "account"),
+    ("I07-07-02", "account"),
+    ("I07-07-03", "account"),
+    ("I07-07-04", "hardware"),
+    ("I07-07-05", "hardware"),
+    ("I07-07-06", "account"),
+    ("I08-08-03", "account"),
+    ("I08-08-05", "hardware"),
+    ("I09-09-01", "account"),
+    ("I09-09-02", "account"),
+    ("I09-09-04", "account"),
+    ("I09-09-05", "account"),
+    ("I09-09-06", "account"),
+    ("I13-13-01", "account"),
+    ("I13-13-02", "account"),
+    ("I13-13-03", "account"),
+    ("I15-15-03", "hardware"),
+    ("I15-15-04", "account"),
+    ("I15-15-05", "account"),
+    ("I20-20-05", "hardware"),
+    ("I23-23-03", "account"),
+    ("I23-23-04", "account"),
+    ("I23-23-05", "account"),
+    ("I23-23-06", "account"),
+    ("I23-23-07", "account"),
+])
+def test_evidence_vermeldt_de_afhankelijkheid_van_de_praktijkproef(rid: str, soort: str) -> None:
+    per_id = {rij["id"]: rij for rij in _evidence()}
+    assert f"NIET GEVALIDEERD ({soort})" in per_id[rid]["validatie"].split("; ")
+
+
 def test_vaste_lijst_is_de_tabel_van_paragraaf_11() -> None:
     """De vaste lijst volgt de contractkopie: een waarde erbij of eraf zonder contracttekst is rood (C12-6)."""
     tekst = (ROOT / "docs/platform-v2/PLATFORM_CONTRACTEN.md").read_text(encoding="utf-8")
@@ -471,13 +516,15 @@ def test_klein105_bewijs_en_accountoordeel() -> None:
     rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
     geselecteerd = [r for r in rijen if r["id"].startswith(("I03-03-", "I04-04-"))]
     assert len(geselecteerd) == 16
+    accountstappen = {"I03-03-03", "I03-03-04", "I03-03-07", "I03-03-08", "I04-04-03", "I04-04-08"}
     for rij in geselecteerd:
         for tekst in ("040f4ea", "25fec3a", "cbf74db", "44186697403", "N-P6-05",
                       "test_i03_i04_geen_te_ruime_nas_claim", "test_i03_proefomgeving_is_geen_alleen_nas_claim",
                       "test_i04_hersteloverdracht_mutatie_wordt_geweigerd",
                       "test_menupaden_gebruiken_letterlijke_bronnamen"):
             assert tekst in rij["bewijs"], (rij["id"], tekst)
-        assert "NIET GEVALIDEERD (account)" not in rij["validatie"]
+        account_gemarkeerd = "NIET GEVALIDEERD (account)" in rij["validatie"].split("; ")
+        assert account_gemarkeerd == (rij["id"] in accountstappen), rij["id"]
     hub = next(r for r in geselecteerd if r["id"] == "I03-03-08")
     assert "zolang B-6/ASF-15 ontbreekt" not in hub["opmerking"]
 
@@ -502,14 +549,14 @@ def _controleer_bestaande_app_bewijs(
 
 def test_i15_bewijsgrenzen() -> None:
     rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
-    _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2})
+    _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2, 4, 5})
 
 
 def test_i15_te_ruime_nas_claim_wordt_geweigerd() -> None:
     rijen = json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text(encoding="utf-8"))
     next(r for r in rijen if r["id"] == "I15-15-02")["opmerking"] = "alleen NAS-test nodig"
     with pytest.raises(AssertionError, match="I15-15-02"):
-        _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2})
+        _controleer_bestaande_app_bewijs(rijen, "I15", {1, 3}, {4, 5}, {2, 4, 5})
 
 
 def test_i16_bewijsgrenzen() -> None:

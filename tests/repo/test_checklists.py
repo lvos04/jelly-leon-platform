@@ -1191,7 +1191,7 @@ def test_i18_i19_i20_bewijs_claimt_geen_functionele_acceptatie() -> None:
         assert "Unit-getest" in r["validatie"] and "Sim-getest" not in r["validatie"]
         assert "NIET GEVALIDEERD (echte NAS)" in r["validatie"]
         assert ("NIET GEVALIDEERD (echte Hub)" in r["validatie"]) == (sid == "I19-19-05")
-        assert ("NIET GEVALIDEERD (hardware)" in r["validatie"]) == (sid == "I20-20-03")
+        assert ("NIET GEVALIDEERD (hardware)" in r["validatie"]) == (sid in {"I20-20-03", "I20-20-05"})
         assert "NIET GEVALIDEERD (account)" not in r["validatie"]
         assert "alleen NAS-test nodig" not in r["opmerking"]
         assert r["blokkade"] and "geen functionele" in r["opmerking"]

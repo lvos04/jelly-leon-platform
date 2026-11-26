@@ -2,7 +2,7 @@
  {
   "id": "B08-003",
   "status": "Bezig",
-  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "commit 3adbfeb; apps/api/src/lifecycle/statemachine.py + apps/api/tests/unit/test_statemachine.py; docs/platform-v2/TRUENAS_APP_API.md §3/§5; e2e/simulators/truenas/tests/test_apps.py::test_port_conflict_fails_job_with_validation; contract 1.2 (JP7): commit cc4cd73 apps/api/src/lifecycle/custom_app.py (catalog_version_blocker, form_tag) + apps/api/tests/integration/test_custom_app_rules.py::test_catalog_app_rollback_and_version_unavailable, ::test_ix_app_version_itself_unavailable tegen de TrueNAS-simulator (catalogus met één versie per trein); P2: commit 7366de3 apps/api/src/lifecycle/planner.py, hubread.py, api_plans.py, migratie 0003_lifecycle_plans; apps/api/tests/unit/test_planner.py (stand P2-bouw; nu 39 testfuncties, 69 gevallen; o.a. ::test_poortconflict_blokkeert_de_installatie, ::test_ontbrekende_vereiste_afhankelijkheid_blokkeert_de_installatie); apps/api/tests/integration/test_plans_api.py::test_installatieplan_diff_met_vereiste_goedkeuring, ::test_poortconflict_blokkeert_en_er_komt_geen_stap_vrij, ::test_ontbrekende_afhankelijkheid_blokkeert, ::test_zonder_gemeten_inventaris_is_het_plan_geblokkeerd, ::test_ongeldig_manifest_geeft_een_geblokkeerd_plan_zonder_stappen; commit 08f0a55 manifeststandaard als gepinde kopie (apps/api/src/appstore, tests/repo/test_validator_kopie.py, ADR-0021); commit d795466 Hub-stand-in fase P2 (e2e/simulators/hub/hub_p2.py, contract8.py; apps/api/tests/integration/test_hub_sim_p2.py, 22 tests); commit 8e0833d ketentest apps/api/tests/integration/test_keten_plan_hub_executor_nas.py::test_installatie_door_de_hele_keten, ::test_poortconflict_uit_de_gemeten_inventaris_blokkeert_de_deployment, ::test_ontbrekende_afhankelijkheid_blokkeert_de_deployment (plan → Hub-stand-in → uitvoerder-stand-in e2e/simulators/hub/executor_sim.py → TrueNAS-simulator; apps/api/tests/integration/test_executor_sim.py, 16 tests); docs/adr/ADR-0022-plannen-installatie-update-terugzetten.md; docs/openapi/jelly-leon-platform.openapi.json; lokaal 2026-11-11 (P2-bouw): make test 449 geslaagd; GitHub Actions-run 42984345142 (commit 2a32bfe) groen: test, statuspagina, image en rooktest; review P2 (S-P2-395): commits 35fc44d t/m b1da564 (ADR-0024, ADR-0025); GitHub Actions-run 43027178119 (commit b1da564) groen: test, statuspagina, rooktest en image; o.a. apps/api/tests/unit/test_planner.py::test_onbekende_beschikbaarheid_geeft_niets_vrij, ::test_gemeten_afwezige_catalogusversie_geeft_version_unavailable, ::test_verouderde_inventaris_geeft_voor_geen_enkel_soort_plan_een_stap_vrij, ::test_naam_al_in_gebruik_blokkeert, ::test_geheime_waarden_komen_nooit_in_een_plan, ::test_update_van_een_beschermde_app_geeft_niets_vrij; apps/api/tests/integration/test_plans_api.py::test_oude_meting_die_de_hub_niet_verouderd_noemt_geeft_niets_vrij, ::test_plan_vervalt_zodra_de_meting_eronder_te_oud_is; apps/api/tests/integration/test_keten_plan_hub_executor_nas.py::test_hub_stand_in_weigert_een_voorstel_voor_een_beschermde_app; docs/adr/ADR-0024-review-p2.md, docs/adr/ADR-0025-herstel-review-p2.md; controle S-P2-400: lokaal 2026-11-11 (S-P2-400, op e7d1fba): make test 494 geslaagd, 0 overgeslagen; make test-sim 36 + 47 geslaagd; make test-conformance 16 geslaagd; KLEIN-101 (2026-11-17): validator en dienstkopie gepind op appstore-en-fork@a994c2a51f45b81b2c48c6533b0ccf51ba857f5a (Makefile ASF_COMMIT, .github/workflows/ci.yml, apps/api/src/appstore/KOPIE.json; ADR-0021); tests/repo/test_validator_kopie.py, tests/repo/test_checklist_contract.py en tests/repo/test_repo_rules.py::test_validator_of_appstore_is_pinned_to_one_commit_in_ci_and_make; nul-/nameting van negen manifesten en drie controlelijsten zonder gewijzigde exitcode of melding; rapport KLEIN-101/RAPPORT-A-BOUW.md; S-P2-420: tests/conformance/test_plan_echte_hub.py (make test-conformance-hub; o.a. ::test_installatieplan_op_gemeten_inventaris_en_catalogus_van_de_echte_hub, ::test_poortconflict_met_een_gemeten_app_blokkeert_tegen_de_echte_hub, ::test_catalogusroute_van_de_hub_geeft_de_planstap_vrij_en_zonder_goedkeuring_gebeurt_er_niets (herstel R-MANIFEST-1: de Hub maakt het plan zelf via /api/v1/catalog/plans/install met eigen bewijs en binding; het voorstel van die planstap geeft zonder goedkeuring 409 en nul schrijfaanroepen, het stapresultaat zonder readback 422; een losse installatiepreview zonder catalogusbinding geeft geen stap vrij, code catalogusbinding_ontbreekt, apps/api/tests/integration/test_plans_catalog_binding.py::test_losse_preview_geeft_geen_uitvoerbare_stap), ::test_een_scope_die_de_hub_niet_uitgeeft_laat_de_proef_falen), e2e/conformance/echte_hub.py, tests/repo/test_sim_naast_hub.py, apps/api/tests/integration/test_hubread.py::test_onleesbaar_antwoord_is_unknown; mutatieproef: met een ander catalogspad faalt test-conformance-hub (2 rood); lokaal 2026-11-23 (S-P2-420): make test 525 geslaagd; make test-sim 36 + 171 geslaagd; make test-conformance 17 geslaagd, 4 overgeslagen (alleen tegen de echte Hub); make test-conformance-hub 21 geslaagd; make test-repo 1156 geslaagd; tests/e2e 6 geslaagd; make rooktest geslaagd met Hub en executor op f9f0a448666c",
   "blokkade": "NIET GEVALIDEERD (echte NAS): plannen zijn alleen uitgevoerd tegen de Hub-simulator, de executor-simulator en de TrueNAS-simulator; zie STAPPEN_P6.md.",
   "opmerking": "P0: datamodel/statusmachine; POST /lifecycle/v1/plans/install/preview gaf toen eerlijk 501 capability_unavailable (verouderd sinds P2: de planroutes bestaan, zie hieronder). Dry-run, poortconflict- en afhankelijkheidsblokkade volgen in P2 (simulator ondersteunt app.used_ports en poortconflicten al). Review P0: het acceptatiecriterium (poortconflict/ontbrekende afhankelijkheid blokkeert deployment) is in deze repo nog NIET aangetoond; 'Unit-getest' slaat alleen op de statusmachine. Contract 1.2: blokkade version_unavailable (ook voor de ix-app-versie zelf) en tag <versie>@sha256 als pure planner-regels Sim-getest; de plan-route gaf toen nog 501 (verouderd sinds P2). Poortconflict- en afhankelijkheidsblokkade in het plan zelf: nog niet aangetoond (P2). P2 (2026-11-11): POST /lifecycle/v1/plans/install/preview legt een plan vast met diff (image + digest, datasets, privileges, poorten, uitgaand verkeer, geheimen, afhankelijkheden), blokkades en een expliciete volgorde van stappen met vaste revisies; het plan is een voorstel, de dienst voert niets uit en heeft geen TrueNAS-sleutel. Acceptatie 'poortconflict/dependency ontbreken blokkeren deployment' is nu aangetoond in het plan zelf en door de hele keten met stand-ins: er komt geen stap vrij en er bereikt niets de TrueNAS-simulator (Sim-getest). Nog open: de echte Hub heeft geen route om voorstellen te ontvangen en geen route voor catalogusbeschikbaarheid (voorlopige paden, contractvraag), de echte executor wordt nog gebouwd; installatieplannen van apps met geheime parameters (bijvoorbeeld Authentik) zijn altijd geblokkeerd (stand na de review: de standaard kent kluisverwijzingen sinds appstore-en-fork 1967069, maar de planner vertaalt zonder trusted_app_id zolang de app_id van het manifest niet vastligt; ADR-0025 besluit 7); TrueNAS-versie en ix-app-versie komen van de aanvrager (de Hub-inventaris levert ze niet); uitgaand verkeer is in het Custom App-formulier niet af te dwingen (het plan zegt dat). Het scherm 'Diff met vereiste goedkeuring' staat in de Hub; deze dienst levert de gegevens. Tegen de echte Hub/executor en op een echte NAS NIET GEVALIDEERD. Stand S-P2-400 (2026-11-11): de planroutes POST /lifecycle/v1/plans/{install|update|rollback}/preview, GET /lifecycle/v1/plans/{id} en het melden van een stapresultaat bestaan; alleen /plans/uninstall/preview en /plans/move/preview (B08-006) geven nog 501 capability_unavailable. Na de review (ADR-0024, ADR-0025): voor een beschermde app volgens het Hub-beleid (Emby altijd; de mediaserver en MediaGuard bij update, terugzetten en verwijderen) komt geen enkele stap vrij; zonder leesbaar beleid blokkeert beleid_onbekend; een plan vervalt uiterlijk 900 s na de oudste gebruikte meting. Nog open (daarom rest hier niet alleen de NAS-test): de echte Hub heeft nog geen route om voorstellen aan te nemen en geen route voor catalogusbeschikbaarheid (ai-server-manager, S-P2-050 en S-P2-080); de proef van deze dienst tegen de echte Hub- en executorcode (S-P2-420); daarna de test op een echte NAS (P6). Gebouwd en Sim-getest; tegen de echte Hub/executor en op een echte NAS NIET GEVALIDEERD. De zinnen hierboven dat de echte Hub geen route voor voorstellen en catalogusbeschikbaarheid heeft, zijn verouderd: S-P2-050 en S-P2-080 bouwden ze in ai-server-manager. S-P2-420 (2026-11-23): conformiteit met de echte Hub-code op commit f9f0a448666cd209f535bb20b0a82a8ae6185af0 (ai-server-manager; Hub-API en -worker echt, de TrueNAS is de simulator van deze repo, verbonden via de wizardroutes van de Hub). Een installatieplan op de gemeten inventaris en de gemeten catalogusbeschikbaarheid van de echte Hub is klaar_voor_voorstel; een poortconflict met een gemeten app blokkeert en een stapresultaat wordt dan geweigerd (409 plan_geblokkeerd); het voorstel uit het plan neemt de echte Hub aan (POST /api/v1/actions, gebruikerssessie), zonder goedkeuring voert hij niets uit (409, geen schrijfaanroep naar de simulator) en het stapresultaat zonder readback weigert de planner (422 readback_ontbreekt). Nog open naast de NAS-test: een goedgekeurd plan uitgevoerd door de echte executor (in deze proef bewust zonder goedkeuring; nog geen stap gepland, VERVOLGPUNT van S-P2-420). CI S-P2-420: Forgejo-run 27 (workflow ci, commit b1b7609) groen, met de rooktest tegen Hub en executor op ASM_COMMIT f9f0a448666cd209f535bb20b0a82a8ae6185af0.",
@@ -32,7 +32,7 @@
  {
   "id": "I01-01-01",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "docs/platform-v2/TRUENAS_APP_API.md (bronnen middleware TS-25.04.2.6/TS-25.10.8; sectie 'Controle tegen de officiële API-documentatie'); commit 4e1d5d0 e2e/simulators/truenas/tests/test_protocol_auth.py::test_login_and_methods_differ_per_version; commit a9fd6e1 e2e/simulators/truenas/tests/test_storage_faults.py::test_disks_smart_gpu_tasks, test_protocol_auth.py::test_25_04_profile; P1: commit 8896264 install/checklists/I01_TRUENAS_BASIS.checklist.yaml (stap I01-01-01) + tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions (alleen-lezen-key, 25.04.2.6 en 25.10.8); P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap W6: D01 en D03 'Getest' door de echte Hub (efb7f3b) tegen de simulator)",
   "blokkade": "Echte TrueNAS nodig (versie, pool, apps en SMART-status uitlezen; D01/D02/D07).",
   "opmerking": "Sim-getest: system.info/system.version/core.get_methods per versie in de simulator. Officiële API-docs (api.truenas.com v25.10/v25.04) zijn nu bereikbaar en geraadpleegd: 46 van 47 vaste simulatormethoden + pool.snapshot.* bevestigd in v25.10; smart.test.results bestaat in 25.10 niet (ook niet in de broncode) → simulator alleen nog in 25.04, Hub moet in 25.10 'smart' als capability_unavailable melden. Parameters app.delete (remove_ix_volumes standaard false), app.image.query (repo_digests), app.rollback en app.create bevestigd. Geen echte NAS uitgelezen. Review P0-afronding: de 50 methoden van het 25.10-profiel van de simulator opnieuw vergeleken met de methode-index van api.truenas.com/v25.10 (alleen lezen): alle 50 staan erin; de index bevat geen smart.*-methode. P1: controlelijst I01 (eigen formaat, ADR-0015) met alleen-lezen-methoden per versie; de echte Hub mat D01/D03 tegen de TrueNAS-simulator via WSS met bevestigde vingerafdruk. Geen echte NAS.",
@@ -62,7 +62,7 @@
  {
   "id": "I01-01-04",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "commit 4e1d5d0; e2e/simulators/truenas/tests/test_protocol_auth.py::test_readonly_key_cannot_write; tests/test_storage_faults.py::test_key_revoked_mid_session, ::test_insecure_transport_revokes_key; install/truenas/INSTALLATIE.md stap 4; review: commit 1ee4c34 e2e/simulators/truenas/tests/test_protocol_auth.py::test_readonly_key_is_refused_every_write_method, ::test_readonly_key_cannot_see_or_abort_executor_jobs; P1: commit 8896264 install/checklists/I01_TRUENAS_BASIS.checklist.yaml (stap I01-01-04) + tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions (alleen-lezen-key, 25.04.2.6 en 25.10.8); P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap W4/W5: alleen-lezen-key opgeslagen (alleen laatste 4 tekens terug), eerst tls_untrusted, verkeerde vingerafdruk 409, daarna verbonden met key_scope alleen_lezen en tls_modus pinned)",
   "blokkade": "Echte TrueNAS + read-only API-key nodig.",
   "opmerking": "Sim-getest: read-only key leest versie/pools/apps, schrijven geweigerd (EACCES), key intrekbaar; TrueNAS trekt keys in bij onversleuteld transport (bron middleware auth.py). Review P0: read-only key nu voor álle schrijfmethoden geweigerd getest; simulator liet eerder toe dat de read-only key een schrijfjob van de executor afbrak (gerepareerd, zoals middlewared job.py). P1: de echte Hub verbindt alleen via WSS en vertrouwt een zelfondertekend certificaat pas na bevestiging van de vingerafdruk (gezien in de rooktest).",
@@ -132,7 +132,7 @@
  {
   "id": "I23-23-07",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "tests/e2e/test_upgrade_paths.py; deploy/truenas/CUSTOM_APP.md; docs/platform-v2/TRUENAS_APP_API.md §4; docs/adr/ADR-0006-truenas-api-keuzes.md; review: commit 26985c3 tests/e2e/test_allinone_image.py::test_enrollment_with_hub_simulator; contract 1.2: commit 3764dab deploy/truenas/CUSTOM_APP.md en install/truenas/INSTALLATIE.md (tag <versie>@sha256:<digest>, terugzetten = vorige tag met digest); commit cc4cd73 lifecycle/custom_app.py (rollback_recipe, check_digest_readback); P1: commit 9008823 install/manifests/ai-server-manager*.manifest.yaml (versie-gepinde kopie, drift-controle in CI)",
   "blokkade": "Release-image en een dedicated dataset op de echte NAS nodig.",
   "opmerking": "Image-pin, back-up vóór migratie en terugzetten getest in Docker; TrueNAS 'Roll Back' werkt niet voor image-tags van een Custom App (bron rollback.py). Of het formulier een tag met @sha256 accepteert en of TrueNAS daarmee updates detecteert: NIET GEVALIDEERD (echte NAS). P1: de I23-manifesten staan als gepinde kopie naast de andere manifesten.",
@@ -242,7 +242,7 @@
  {
   "id": "I07-07-02",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/beszel-hub.manifest.yaml, beszel-agent.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); digests met docker buildx imagetools inspect gecontroleerd (2026-11-09); QA-review P1: commits 79f70fc, c4de2ba tools/upstream_rooktest.py (make upstream-rooktest; CI-job rooktest, run 42683706136 groen), rapport docs/platform-v2/bewijs/upstream-rooktest-p1.json — echte image op digest in Docker (geen TrueNAS), --user 568:568 met lege eigen map, stappen B1/B3: digest-readback, alle processen 568, /api/health 200 en SSH-poort van de agent",
   "blokkade": "Installatie op de echte NAS via de executor (P2) nodig.",
   "opmerking": "Hub en agent als standaard Custom App, 568:568, geen host network/Docker-socket/GPU; --strict zonder één melding.",
@@ -252,7 +252,7 @@
  {
   "id": "I07-07-03",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/beszel-hub.manifest.yaml, beszel-agent.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/beszel/tests (test_info_systems_and_stats: publieke sleutel via /api/beszel/info); QA-review P1: commits 79f70fc, c4de2ba tools/upstream_rooktest.py (make upstream-rooktest; CI-job rooktest, run 42683706136 groen), rapport docs/platform-v2/bewijs/upstream-rooktest-p1.json — echte image op digest in Docker (geen TrueNAS), --user 568:568 met lege eigen map, stap B3: agent in SSH-modus met alleen de publieke hubsleutel (KEY); hub haalt metingen op (type 1m) met de juiste systeemnaam en tijd",
   "blokkade": "Echte agent-hubverbinding (SSH) op de NAS nodig; de simulator bootst die niet na.",
   "opmerking": "SSH-modus: de agent krijgt alleen de publieke hubsleutel (KEY), geen TOKEN in het formulier.",
@@ -262,7 +262,7 @@
  {
   "id": "I07-07-04",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "commit 739bc9f install/manifests/BESZEL_MEETDEKKING.md; P1: commit 5c8042f e2e/simulators/beszel/tests (geen_arc)",
   "blokkade": "Vergelijken met TrueNAS-reporting op de echte NAS nodig.",
   "opmerking": "Geen misleidende grafieken: schijf en netwerk komen van TrueNAS, niet van Beszel.",
@@ -272,7 +272,7 @@
  {
   "id": "I07-07-05",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "P1: commit 739bc9f install/manifests/beszel-hub.manifest.yaml, beszel-agent.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py)",
   "blokkade": "Alerts in Beszel op de echte NAS instellen en door uitval activeren.",
   "opmerking": "De simulator bootst Beszel-alerts niet na (lege lijst); alertregels van de Hub zijn ai-server-manager (B09-003).",
@@ -282,7 +282,7 @@
  {
   "id": "I07-07-06",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/beszel-hub.manifest.yaml, beszel-agent.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/beszel/tests (dubbele_host, token_verlopen, lijsten zonder token 200-leeg); QA-review P1: commits 79f70fc, c4de2ba tools/upstream_rooktest.py (make upstream-rooktest; CI-job rooktest, run 42683706136 groen), rapport docs/platform-v2/bewijs/upstream-rooktest-p1.json — echte image op digest in Docker (geen TrueNAS), --user 568:568 met lege eigen map, stappen B2/B3: gebruiker bestaat na herstart van de hub; na herstart van de agent precies één systeem, weer up",
   "blokkade": "Herstart en herstel op de echte NAS nodig.",
   "opmerking": "Back-up via PocketBase (app_native) + snapshot. In SSH-modus is de identiteit het systeemrecord in de hub (adres + poort); de agent bewaart dan geen vingerafdruk (alleen de WebSocket-modus doet dat; correctie in de review, ADR-0018).",
@@ -312,7 +312,7 @@
  {
   "id": "I08-08-03",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_status_page_and_heartbeats, test_monitor_state_and_sqlite_busy); contract 1.3: monitorplan per app in het manifest (healthcheck.monitor: pad, verwachte status, time-out, interval) voor Gotify, Uptime Kuma, Beszel-hub, Authentik en jelly-leon-platform, gevalideerd met jl-manifest van appstore-en-fork 9fba129 (commit 5c5f67c)",
   "blokkade": "Het monitorplan staat nu per app in het manifest; de Hub (B09) maakt er nog geen plan van, en de beheerder moet het in de echte Uptime Kuma (Socket.IO-UI) overnemen en per monitor bevestigen. De Beszel-agent (alleen SSH) heeft geen HTTP-monitorplan.",
   "opmerking": "Review P1 (ADR-0018): eerder Sim-getest, maar de simulatortests controleren alleen het uitlezen van monitorstatussen door de Hub, niet de verwachte status of time-out per endpoint.",
@@ -332,7 +332,7 @@
  {
   "id": "I08-08-05",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (onderhoudsstatus 3)",
   "blokkade": "Instellingen in de echte Uptime Kuma nodig.",
   "opmerking": "Alleen de onderhoudsstatus is nagebootst; drempels en vensters zijn instellingen van Uptime Kuma zelf.",
@@ -352,7 +352,7 @@
  {
   "id": "I09-09-01",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/authentik.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); tests/repo/test_installeerbare_manifesten.py::test_authentik_translation_is_blocked_until_the_executor_fills_secrets",
   "blokkade": "Installatie op de echte NAS (catalogusapp, community-trein) en D17 nodig; geheimen vullen door de executor volgt in P2.",
   "opmerking": "Catalogusapp community/authentik 1.3.64 (app 2026.8.5) met vaste versie en gepinde image-digests; geheimen door de Hub gegenereerd (geen voorbeeldsleutel); vertaling eerlijk niet installeerbaar (capability_unavailable).",
@@ -362,7 +362,7 @@
  {
   "id": "I09-09-02",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/authentik.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py)",
   "blokkade": "Echte installatie en upgrade-test tegen een kloon nodig.",
   "opmerking": "Vier datasets uit de datasetkiezer (PostgreSQL 999:999, geen recursieve chown); upgrade met snapshot_hostpaths.",
@@ -382,7 +382,7 @@
  {
   "id": "I09-09-04",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/authentik/tests (code + PKCE, eenmalige code, exacte redirect-URI, iss/aud/exp/nonce/handtekening/kid/alg none, sleutelrotatie, groepen)",
   "blokkade": "Echte Authentik met domein/TLS (D17) en de OIDC-login van de Hub (ai-server-manager B01-006) nodig.",
   "opmerking": "Simulator levert het OIDC-protocol en foutgevallen; de Hub-kant is van ai-server-manager.",
@@ -392,7 +392,7 @@
  {
   "id": "I09-09-05",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/authentik/tests (beheer-API zoals home-control-hub die leest)",
   "blokkade": "Test per bestaande app op de echte NAS nodig.",
   "opmerking": "SSO-mapping per app is van home-control-hub (B13-003); hier alleen de simulator van de beheer-API.",
@@ -402,7 +402,7 @@
  {
   "id": "I09-09-06",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/authentik/tests (revoke, introspect, sessie intrekken met schrijftoken, sleutelrotatie)",
   "blokkade": "Back-up en herstel van een echte Authentik nodig.",
   "opmerking": "Intrekken van tokens en sessies nagebootst; herstel van data niet.",
@@ -412,7 +412,7 @@
  {
   "id": "I13-13-01",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 739bc9f install/manifests/gotify.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap P1/P3: preview als standaard Custom App, app.create in de simulator, digest-readback klopt); P1: commit 5c8042f e2e/simulators/gotify/tests (test_default_admin_password_check); QA-review P1: commits 79f70fc, c4de2ba tools/upstream_rooktest.py (make upstream-rooktest; CI-job rooktest, run 42683706136 groen), rapport docs/platform-v2/bewijs/upstream-rooktest-p1.json — echte image op digest in Docker (geen TrueNAS), --user 568:568 met lege eigen map, stap G1: alle processen 568, /health green, admin/admin bestaat na een verse installatie (controle na installatie blijft nodig), applicatie en bericht blijven na herstart",
   "blokkade": "Installatie op de echte NAS via de executor (P2) nodig.",
   "opmerking": "568:568, registratie uit; na installatie admin/admin vervangen (de Hub controleert: Basic admin:admin → 401).",
@@ -422,7 +422,7 @@
  {
   "id": "I13-13-02",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/gotify/tests (test_client_token_needs_appid_and_sees_scoped_apps)",
   "blokkade": "Applicaties en tokens in de echte Gotify nodig.",
   "opmerking": "Per bron een eigen applicatietoken (Hub, Uptime Kuma, back-up); een applicatietoken kan geen beheer-routes lezen.",
@@ -432,7 +432,7 @@
  {
   "id": "I13-13-03",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/gotify/tests (GET /message als 'telefoon')",
   "blokkade": "Echte telefoon met de Gotify-app nodig. De melding van de op de NAS geïnstalleerde Gotify moet op die telefoon aankomen (N-P6-04).",
   "opmerking": "Ontvangst alleen in de simulator nagebootst.",
@@ -462,7 +462,7 @@
  {
   "id": "I23-23-03",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap W7: inventaris vernieuwen (alleen lezen) en catalogus-discover met een bestaande app)",
   "blokkade": "Echte NAS-inventaris nodig.",
   "opmerking": "Read-only discovery door de echte Hub tegen de simulator; de Hub-functie zelf is van ai-server-manager.",
@@ -472,7 +472,7 @@
  {
   "id": "I23-23-04",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/authentik/tests (groepen voor rolmapping, foutgevallen); P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap W2: eerste account met rol admin, tweede setup 409)",
   "blokkade": "OIDC-login van de Hub (ai-server-manager B01-006) en D17 nodig.",
   "opmerking": "Hier alleen de Authentik-simulator en de setup in de rooktest; rollen viewer/operator/admin zijn van de Hub.",
@@ -482,7 +482,7 @@
  {
   "id": "I23-23-05",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1-rooktest: commit 6a84708 tools/rooktest.py, docs/platform-v2/bewijs/rooktest-p1.json (stap E1: executor gekoppeld met koppelcode + vingerafdruk; /api/v1/execute zonder allowlist → 403)",
   "blokkade": "Allowlist en uitvoering volgen in P2.",
   "opmerking": "Onbekende acties worden geweigerd (allowlist leeg); de executor is van ai-server-manager.",
@@ -492,7 +492,7 @@
  {
   "id": "I23-23-06",
   "status": "Geblokkeerd",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "P1: commit 5c8042f e2e/simulators/beszel/tests (verouderd, agent_down); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (metrics, statuspagina); simkit /_sim/verzoeken (bewijs dat een client niet schrijft)",
   "blokkade": "Echte bronnen en de adapters van de Hub (ai-server-manager) nodig.",
   "opmerking": "Simulators met verouderde toestanden voor 'stale → unknown'; de adapters zelf zijn van de Hub.",
@@ -642,7 +642,7 @@
  {
   "id": "C1.3-JLP-09",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "commits 4a71f3b, 5c5f67c; install/manifests/*.manifest.yaml, install/manifests/overgang-1.3.yaml, install/checklists/*.checklist.yaml (kind: checklist), deploy/manifest/jelly-leon-platform.manifest.yaml; tools/manifesten.py met jl-manifest van appstore-en-fork 9fba129 (C1.3-ASF-08) --strict; tests/repo/test_installeerbare_manifesten.py::test_contract_1_3_fields, ::test_stopped_snapshot_for_apps_without_export, ::test_transition_file_never_holds_acceptable_codes_for_own_manifests; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; rooktest P1/P3 (preview van het nieuwe Gotify-manifest als ix-app) in GitHub Actions-run 42783537307 (commit 5c5f67c) groen: test, statuspagina, image en rooktest",
   "blokkade": "NIET GEVALIDEERD (echte NAS): geen installatie op een echte TrueNAS (P2 via de executor).",
   "opmerking": "Beszel-agent zonder monitorplan: healthcheck.monitor kent alleen een HTTP-pad, de agent alleen SSH (contract_issue). I23-kopieën van ai-server-manager houden tot hun eigenaar ze aanpast digest_pending_release en healthcheck_monitor_missing.",
@@ -732,7 +732,7 @@
  {
   "id": "I03-03-03",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-03); tests/repo/test_checklists.py::test_i03_backup_precedes_update_and_rollback_preserves_progress; tests/repo/test_checklists.py::test_i03_missing_safety_condition_is_detected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Volledige herstelbundle inclusief core, encoder, vier afzonderlijke forkback-ups, sleutels en passende snapshot op geïsoleerde teststack herstellen en voortgang vergelijken. Dekking en veilige herstelweg moeten per onderdeel worden aangetoond; geen volledige forkbundel geclaimd.",
   "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Back-upgate blokkeert de update tot consistentie en volledig proefherstel inclusief alle forks zijn bewezen; een snapshot alleen is onvoldoende.",
@@ -742,7 +742,7 @@
  {
   "id": "I03-03-04",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-04); tests/repo/test_checklists.py::test_i03_backup_precedes_update_and_rollback_preserves_progress; tests/repo/test_checklists.py::test_i03_missing_safety_condition_is_detected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05. Manifestkopie in install/manifests/mediaguard.manifest.yaml (692029f). MediaGuard-deelproeven in media-guard-ultimate@1e05ba5, scripts/upgradebewijs.py en apps/core/tests/test_proefherstel.py.",
   "blokkade": "Toon voor I03-03-03 volledig geïsoleerd herstel via de gebruikersinterface aan, inclusief core, encoder, vier forks en ontsleutelbaarheid. Koppel upgrade en terugval op een gevulde vorige database aan de digest van de exacte kandidaat. Toon vóór de NAS-update aan dat voortgang behouden blijft en de Emby-koppeling beschikbaar blijft. Terugval vereist de vorige image met de bijpassende snapshot.",
   "opmerking": "De unitproef toetst de controlelijst. De gevalideerde manifestkopie bevat nog geen releasedigest. MediaGuard heeft een upgrade- en terugvalproef op een gevulde database en een bundelherstelproef op lege appdata.",
@@ -772,7 +772,7 @@
  {
   "id": "I03-03-07",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-07); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Gebruiker moet op een eigen echte telefoon koppelen, melding, push, dagoverzicht, offline actualiteit en intrekken van uitsluitend de proefkoppeling controleren.",
   "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MediaGuard-, upgrade-, herstel- of NAS-proef uitgevoerd. Voor uitvoering van deze controlelijst: alleen NAS-test nodig (waar genoemd inclusief eigen hardware); geen Sim-getest-claim voor de handmatige acceptatie.",
@@ -782,7 +782,7 @@
  {
   "id": "I03-03-08",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub); NIET GEVALIDEERD (account)",
   "bewijs": "commit 5ccab9650c9844a3aa705c8541eb1f689d0fd7a2; install/checklists/I03_MEDIAGUARD.checklist.yaml; tests/repo/test_checklists.py::test_i03_is_delivered_with_the_literal_excel_tasks; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator (stap I03-03-08); tests/repo/test_checklists.py::test_i03_manual_checks_do_not_claim_live_or_simulated_acceptance; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05. Hub-koppelscherm in ai-server-manager@18171f3, apps/web/src/app/instellingen/diensten/BestaandeApps.tsx. MediaGuard-lezer en bijbehorende unitproeven in ai-server-manager@731550c, apps/api/src/hub/adapters/mediaguard_lezen.py en apps/api/tests/unit/test_mediaguard_lezen.py.",
   "blokkade": "Voor download- en mediaserverstatus ontbreken alleen-lezen bronnen. Vergelijk op de echte Hub en NAS de al ondersteunde statusvelden, bron en meettijd met MediaGuard. Toon aan dat eigenaargegevens en voortgang behouden blijven en de Emby-koppeling beschikbaar blijft.",
   "opmerking": "De controlelijst is unit-getest. Met S-P3-070 kan de Hub de kijkersleutel opslaan. S-P3-082 levert tellingen en de noodstopstand met meettijd. VERSIE 2: de Hub toont downloads als onbekend totdat MediaGuard een bijwerkingsvrije downloadbron levert.",
@@ -812,7 +812,7 @@
   {
     "id": "I04-04-03",
     "status": "Bezig",
-    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
     "blokkade": "Gebruiker moet de bestaande viewer-koppeling alleen-lezen controleren en zelfstandige werking bij een onbereikbare eigen testdienst bewijzen, zonder bestaande MediaGuard of Emby te onderbreken.",
     "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele MSO-, dienst-, back-up-, herstel-, migratie-, Hub- of NAS-proef uitgevoerd. De geïsoleerde uitvalproef met een eigen testdienst en de echte NAS-controle zijn nog nodig; geen functionele koppel- of uitvalproef in deze sessie.",
@@ -862,7 +862,7 @@
   {
     "id": "I04-04-08",
     "status": "Bezig",
-    "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub); NIET GEVALIDEERD (account)",
     "bewijs": "install/checklists/I04_MEDIA_SOURCE_OPTIMIZER.checklist.yaml; tests/repo/test_checklists.py::test_i04_is_delivered_with_literal_tasks_and_safety_gates; tests/repo/test_checklists.py::test_i04_missing_safety_condition_is_detected; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; tests/repo/test_checklists.py::test_i04_one_character_change_in_acceptance_is_rejected; slotstand S-P3-410: commit 040f4ea40e7a4c78ad9e846ab375588e3ef85a03 (I04: 25fec3a; herstel: cbf74db en 040f4ea), CI-run 44186697403 success; tests/repo/test_repo_rules.py::test_i03_i04_geen_te_ruime_nas_claim, ::test_i03_proefomgeving_is_geen_alleen_nas_claim; tests/repo/test_checklists.py::test_i04_hersteloverdracht_mutatie_wordt_geweigerd, ::test_menupaden_gebruiken_letterlijke_bronnamen; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05. MSO-deelproeven in media-source-optimizer@dca9ccf onder apps/core/tests, test_machine_keys.py en test_change_request_guards.py. De grens van de Hub-adapter staat in ai-server-manager@a6cc363, apps/api/tests/unit/test_mso.py.",
     "blokkade": "Sluit de beschermde leesroutes aan zodra de Hub het leesrecht kan verifiëren. Beproef de afzonderlijke goedkeuringsketen in een geïsoleerde omgeving met twee gelijktijdige goedkeuringen voor dezelfde wijziging en toon eenmalige verwerking aan. Vergelijk de KPI’s, meldingen en voorstellen met MSO op de echte Hub en NAS en controleer dat de eigenaarsverdeling intact blijft.",
     "opmerking": "De controlelijst is unit-getest. MSO levert machinesleutels met scopes (S-P3-220) en goedkeuring gebonden aan de wijzigingshash (S-P3-240). De Hub gebruikt openbare MSO-probes. VERSIE 2: de verifieerbare verklaring van uitsluitend leesrecht (S-P3-075) en goedkeuring via de Hub (S-P3-120) zijn uitgesteld.",
@@ -892,7 +892,7 @@
  {
   "id": "I15-15-03",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eigen bouwcommit f50224a; eindcommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; CI-run 44203975900 success; tests/repo/test_checklists.py::test_catalogus_menupaden_scheiden_installatiesoorten, ::test_catalogus_image_pad_wordt_geweigerd; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Gebruiker moet de nulmeting van belasting, geheugen en rechten op de echte NAS vastleggen, zonder extra taken te starten.",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Voor deze uitsluitend lezende controle: alleen NAS-test nodig.",
@@ -902,7 +902,7 @@
  {
   "id": "I15-15-04",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eigen bouwcommit f50224a; eindcommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; CI-run 44203975900 success; tests/repo/test_checklists.py::test_catalogus_menupaden_scheiden_installatiesoorten, ::test_catalogus_image_pad_wordt_geweigerd; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Immich-adapter, opt-in en bijpassende Hub-bediening ontbreken; daarna toegestane metadata met de echte Hub en NAS vergelijken.",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
@@ -912,7 +912,7 @@
  {
   "id": "I15-15-05",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (echte Hub); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-420 (basiscommit 040f4ea); install/checklists/I15_IMMICH.checklist.yaml; tests/repo/test_checklists.py::test_i15_letterlijke_taken_en_fotobescherming; tests/repo/test_checklists.py::test_i15_veiligheidsmutatie_wordt_geweigerd; tests/repo/test_checklists.py::test_i15_stopzin_wordt_bewaakt; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; eigen bouwcommit f50224a; eindcommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; CI-run 44203975900 success; tests/repo/test_checklists.py::test_catalogus_menupaden_scheiden_installatiesoorten, ::test_catalogus_image_pad_wordt_geweigerd; uitvoeren door gebruiker: STAPPEN_P6.md onderdeel N-P6-05",
   "blokkade": "Immich-adapter en aantoonbare SSO-/Hub-ondersteuning ontbreken; versiegebonden rol-/weigeringstest in een geïsoleerde omgeving en behoud van de bestaande login eerst aantonen.",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen functionele app-, herstel-, migratie-, download-, Hub- of NAS-proef uitgevoerd. Er resteert ook afzonderlijk herstel-, proef- of leveringswerk; de lijst bewijst de functionele acceptatie niet.",
@@ -1212,7 +1212,7 @@
  {
   "id": "I20-20-05",
   "status": "Bezig",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
   "bewijs": "S-P3-430 vanaf basiscommit 410de64efe9bf7dafe54bbbe77f84bc2de5f41b3; install/checklists/I20_BAZARR.checklist.yaml; tests/repo/test_checklists.py::test_i20_letterlijke_taken_en_ondertitelbescherming; tests/repo/test_checklists.py::test_i20_veiligheidsmutatie_wordt_geweigerd, ::test_i20_stopzin_wordt_bewaakt, ::test_i20_eentekenmutatie_acceptatie_wordt_geweigerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-05; eigen bouwcommit c8e22b159f20f6c8fbefa58b61bacea8bef72a43; gezamenlijke bouwstand c8e22b159f20f6c8fbefa58b61bacea8bef72a43; CI-run 44211114947 success (test, statuspagina, image en rooktest); 444 checklisttests en 942 repotests lokaal, 0 overgeslagen; vaste bronversies en stopgates gecontroleerd; bewijsafsluiting wijzigt alleen dit bewijsveld",
   "blokkade": "zonder aangetoonde pariteit, bewezen terugvalweg en gebruikersbesluit geen proefstop; Bazarr blijft behouden. Versiegebonden bediening en functioneel bewijs op de echte installatie eerst aantonen; geen bestaande dienst onderbreken.",
   "opmerking": "Controlelijst gebouwd en statisch Unit-getest; geen functionele app-, download-, herstel-, update-, lek-, Hub- of hardwareproef uitgevoerd. Er resteert afzonderlijk herstel-, proef- of leveringswerk; geen claim dat uitsluitend een NAS-test resteert.",
@@ -1242,7 +1242,7 @@
  {
   "id": "I05-05-03",
   "status": "Geblokkeerd",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-440: install/checklists/I05_MY_HOUSE.checklist.yaml (stap I05-05-03); tests/repo/test_checklists.py::test_i05_letterlijke_taken_en_installatieweg, ::test_i05_veiligheidsmutatie_wordt_geweigerd, ::test_i05_stopzin_wordt_bewaakt, ::test_i05_yaml_alleen_in_afwijking_en_excel_acceptatie, ::test_i05_verbeterde_titel_wordt_geweigerd, ::test_i05_bewijs_blijft_geblokkeerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitsluitend statische Unit-controle; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-06",
   "blokkade": "NIET GEVALIDEERD (echte NAS): controlelijst geschreven; installeren via het formulier door de gebruiker (STAPPEN_P6.md onderdeel N-P6-06). De alles-in-één-image van my_house is nog niet uitgebracht (tagplaatshouder zonder digest, BLOK-06).",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen installatie-, apparaat-, herstel- of NAS-proef uitgevoerd. Z-18: optie 2 (titels hernoemd). Installatieweg: formulier van de standaard Custom App volgens deploy/truenas/CUSTOM_APP.md van my_house.",
@@ -1252,7 +1252,7 @@
  {
   "id": "I05-05-04",
   "status": "Geblokkeerd",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-440: install/checklists/I05_MY_HOUSE.checklist.yaml (stap I05-05-04); tests/repo/test_checklists.py::test_i05_letterlijke_taken_en_installatieweg, ::test_i05_veiligheidsmutatie_wordt_geweigerd, ::test_i05_stopzin_wordt_bewaakt, ::test_i05_yaml_alleen_in_afwijking_en_excel_acceptatie, ::test_i05_verbeterde_titel_wordt_geweigerd, ::test_i05_bewijs_blijft_geblokkeerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitsluitend statische Unit-controle; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-06",
   "blokkade": "NIET GEVALIDEERD (hardware): echte Hue, HomeWizard, Gree, Zigbee en telefoon (N-P6-06). Eerst I05-05-01 tot en met I05-05-03 op de echte NAS; de alles-in-één-image van my_house is nog niet uitgebracht (BLOK-06).",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen installatie-, apparaat-, herstel- of NAS-proef uitgevoerd. Z-18: optie 2 (titels hernoemd). Installatieweg: formulier van de standaard Custom App volgens deploy/truenas/CUSTOM_APP.md van my_house.",
@@ -1272,7 +1272,7 @@
  {
   "id": "I05-05-06",
   "status": "Geblokkeerd",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-440: install/checklists/I05_MY_HOUSE.checklist.yaml (stap I05-05-06); tests/repo/test_checklists.py::test_i05_letterlijke_taken_en_installatieweg, ::test_i05_veiligheidsmutatie_wordt_geweigerd, ::test_i05_stopzin_wordt_bewaakt, ::test_i05_yaml_alleen_in_afwijking_en_excel_acceptatie, ::test_i05_verbeterde_titel_wordt_geweigerd, ::test_i05_bewijs_blijft_geblokkeerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitsluitend statische Unit-controle; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-06",
   "blokkade": "NIET GEVALIDEERD (hardware): echte Hue, HomeWizard, Gree, Zigbee en telefoon (N-P6-06). Eerst I05-05-01 tot en met I05-05-03 op de echte NAS; de alles-in-één-image van my_house is nog niet uitgebracht (BLOK-06).",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen installatie-, apparaat-, herstel- of NAS-proef uitgevoerd. Z-18: optie 2 (titels hernoemd). Installatieweg: formulier van de standaard Custom App volgens deploy/truenas/CUSTOM_APP.md van my_house.",
@@ -1292,7 +1292,7 @@
  {
   "id": "I05-05-08",
   "status": "Geblokkeerd",
-  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
   "bewijs": "S-P3-440: install/checklists/I05_MY_HOUSE.checklist.yaml (stap I05-05-08); tests/repo/test_checklists.py::test_i05_letterlijke_taken_en_installatieweg, ::test_i05_veiligheidsmutatie_wordt_geweigerd, ::test_i05_stopzin_wordt_bewaakt, ::test_i05_yaml_alleen_in_afwijking_en_excel_acceptatie, ::test_i05_verbeterde_titel_wordt_geweigerd, ::test_i05_bewijs_blijft_geblokkeerd; tests/repo/test_checklists.py::test_checklists_are_kind_checklist_for_the_appstore_validator; uitsluitend statische Unit-controle; uitvoering door gebruiker: STAPPEN_P6.md onderdeel N-P6-06",
   "blokkade": "NIET GEVALIDEERD (hardware): echte Hue, HomeWizard, Gree, Zigbee en telefoon (N-P6-06). Eerst I05-05-01 tot en met I05-05-03 op de echte NAS; de alles-in-één-image van my_house is nog niet uitgebracht (BLOK-06).",
   "opmerking": "Controlelijst geschreven en statisch Unit-getest; geen installatie-, apparaat-, herstel- of NAS-proef uitgevoerd. Z-18: optie 2 (titels hernoemd). Installatieweg: formulier van de standaard Custom App volgens deploy/truenas/CUSTOM_APP.md van my_house.",
