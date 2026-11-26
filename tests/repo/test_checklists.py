@@ -1192,7 +1192,8 @@ def test_i18_i19_i20_bewijs_claimt_geen_functionele_acceptatie() -> None:
         assert "NIET GEVALIDEERD (echte NAS)" in r["validatie"]
         assert ("NIET GEVALIDEERD (echte Hub)" in r["validatie"]) == (sid == "I19-19-05")
         assert ("NIET GEVALIDEERD (hardware)" in r["validatie"]) == (sid in {"I20-20-03", "I20-20-05"})
-        assert "NIET GEVALIDEERD (account)" not in r["validatie"]
+        # G-19: elke I18/I19/I20-proef op de NAS vraagt een aanmelding, behalve het archiefherstel I20-20-04.
+        assert ("NIET GEVALIDEERD (account)" in r["validatie"]) == (sid != "I20-20-04")
         assert "alleen NAS-test nodig" not in r["opmerking"]
         assert r["blokkade"] and "geen functionele" in r["opmerking"]
 
