@@ -40,3 +40,25 @@ def test_mislukte_tokenvergelijking_en_foutantwoord_blijven_geheim(tmp_path: Pat
             pytest.fail(f"De proef mist de foutmelding ‘{melding}’", pytrace=False)
     if "2 failed, 1 passed" not in proef.stdout:
         pytest.fail("De eerste inschrijving moet lukken en beide afwijzingsproeven moeten falen", pytrace=False)
+
+
+def _echte_hub():  # type: ignore[no-untyped-def]
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("echte_hub", ROOT / "e2e" / "conformance" / "echte_hub.py")
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_conformiteitsrun_drukt_geen_foutteksten_af(tmp_path: Path) -> None:
+    # Herreview S-P6-13: ook een uitzondering buiten de vergelijkingen kan een token citeren.
+    geheim = "proefwaarde-" + secrets.token_urlsafe(24)
+    (tmp_path / "test_lek.py").write_text(
+        f"def test_header():\n    raise ValueError('ongeldige header: Bearer {geheim} ')\n"
+        f"def test_vergelijk():\n    assert '{geheim}' == 'anders'\n")
+    uit = subprocess.run([sys.executable, "-m", "pytest", *_echte_hub().PYTEST_ZWIJGEND, str(tmp_path)],
+                         capture_output=True, text=True, check=False, timeout=60)
+    if geheim in uit.stdout + uit.stderr:
+        pytest.fail("Een testgeheim staat in de uitvoer van de conformiteitsrun", pytrace=False)
+    assert uit.returncode == pytest.ExitCode.TESTS_FAILED and "2 failed" in uit.stdout

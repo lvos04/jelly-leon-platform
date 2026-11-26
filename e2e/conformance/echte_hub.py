@@ -51,6 +51,10 @@ CATALOGUS_PARAMETERS = {"data_path": "/mnt/simpool/apps/demo-app"}
 CATALOGUS_DOEL = {"truenas_version": "25.10.8", "ix_app_version": "1.4.8"}
 
 
+
+# Geen foutteksten of tracebacks in de CI-uitvoer: een uitzondering kan een token citeren.
+PYTEST_ZWIJGEND = ("-q", "-p", "no:cacheprovider", "-rs", "--tb=no", "--no-showlocals")
+
 def eigen_app(app_id: str, host_poort: int, container_poort: int) -> dict[str, object]:
     """Een eigen dienst zoals de Hub haar in de inventaris herkent: eigen image en een gemeten TCP-hostpoort."""
     return {"app_name": app_id, "catalog_app": "ix-app", "train": "stable", "version": "1.4.8",
@@ -241,8 +245,7 @@ def main() -> int:
                     "JLP_CATALOGUS_PARAMETERS": json.dumps(CATALOGUS_PARAMETERS),
                     "JLP_CATALOGUS_DOEL": json.dumps(CATALOGUS_DOEL),
                     "JLP_HUB_COMMIT": commit}
-        return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rs",
-                               "--tb=short", "--no-showlocals",
+        return subprocess.run([sys.executable, "-m", "pytest", *PYTEST_ZWIJGEND,
                                str(ROOT / "tests" / "conformance")], env=test_env, check=False).returncode
     except httpx.HTTPStatusError as exc:
         print(f"Voorbereiding van de conformiteitsproef gaf HTTP {exc.response.status_code}", file=sys.stderr)
