@@ -34,6 +34,7 @@ import sys
 import tempfile
 import threading
 import time
+import typing
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -125,8 +126,14 @@ def foutmelding(exc: BaseException) -> str:
     return f"Voorbereiding van de conformiteitsproef mislukt ({type(exc).__name__})"
 
 
+class _ZwijgendeParser(argparse.ArgumentParser):
+    def error(self, message: str) -> typing.NoReturn:
+        # Geen argumenten herhalen: een verkeerd getypte optie kan een URL met wachtwoord meenemen.
+        self.exit(2, "Ongeldige argumenten; zie --help\n")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = _ZwijgendeParser(description=__doc__)
     parser.add_argument("--hub-repo", default=str(ROOT.parent / "ai-server-manager"))
     parser.add_argument("--pg", default="postgresql+psycopg://postgres@127.0.0.1:5432")
     args = parser.parse_args()

@@ -87,3 +87,14 @@ def test_ongeldige_pg_url_citeert_geen_wachtwoord(tmp_path: Path) -> None:
     if geheim in uit.stdout + uit.stderr:
         pytest.fail("Het wachtwoord uit --pg staat in de uitvoer", pytrace=False)
     assert uit.returncode == 3
+
+
+def test_typefout_in_optie_citeert_geen_wachtwoord() -> None:
+    # Herreview 5 S-P6-13: argparse herhaalt een onbekende optie met de waarde erna.
+    geheim = "Pw" + secrets.token_hex(12)
+    uit = subprocess.run([sys.executable, str(ROOT / "e2e" / "conformance" / "echte_hub.py"),
+                          "--pgg", f"postgresql+psycopg://u:{geheim}@localhost:1"],
+                         capture_output=True, text=True, check=False, timeout=60)
+    if geheim in uit.stdout + uit.stderr:
+        pytest.fail("Het wachtwoord staat in de foutmelding van de opties", pytrace=False)
+    assert uit.returncode == 2
