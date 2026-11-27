@@ -22,7 +22,7 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 make test-integraal
 |---|---|
 | `--groep rook` | Alleen de gekoppelde kern |
 | `--groep hub-veiligheid` | EX16–EX21, elk met een verse gekoppelde kern |
-| `--scenario EX01,EX02` | De genoemde bestanden zodra die in een vervolgstap zijn toegevoegd |
+| `--scenario EX01,EX02` | De uitvalproeven voor MediaGuard en MSO |
 | `--groep NAAM` | De bestanden die deze groep in hun metadata hebben |
 | `--alles` | Alle aanwezige scenariobestanden, één voor één |
 | `--bewaar` | Behoudt het project van de laatste geselecteerde proef voor onderzoek |
@@ -36,6 +36,7 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 | kern | hub, executor, truenas, lifecycle |
 | media | mediaguard, mso. De invoerimages voor MediaGuard komen uit de lokale encoder-, web- en forkbronnen. |
 | mso | MSO met eigen PostgreSQL in het projectvolume, plus de downloadsimulators uit de vastgezette MSO-mockbron. |
+| downloadketen | arr-sim en sabnzbd-sim gebruiken dezelfde gepinde MSO-testimage en de lokale simulatorcode. |
 | media-inhoud | MediaGuard-kern en herstelwerker uit `apps/core`, plus Seerr en Sonarr uit de arr-simulator. De diensten delen een projectgebonden testbibliotheek. |
 | media-kwaliteit | CPU-encoder uit `services/encoder` met FFmpeg en libvmaf. |
 | huis | my-house en home-control-hub voor EX24–EX30 |
@@ -48,6 +49,19 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 Een nieuw bestand `scenarios/EXnn_naam.py` bevat een `test_*`-functie en een letterlijke dictionary `SCENARIO`. De velden `eigenaar`, `verwachting` en `groepen` zijn verplicht. In `diensten` staan de extra Compose-diensten voor dat scenario. De runner start de kern en precies die diensten met lokale images. Alleen bij een ontbrekende mediaserver slaat hij de daarvan afhankelijke proef over. Onbekende ID's, lege selecties en ontbrekende vereiste images geven een foutcode.
 
 De fixture `kern` levert ingelogde clients en de gekoppelde simulator. Voor een extra testdienst geeft `kern.client(dienst, poort)` een interne client. `kern.simulatorfout(client, naam)` en `kern.verzoeklog(client)` bedienen de derden-simulators. Een scenario kan verwachte teksten van `pytest.skip` declareren in `overslagredenen`. Andere overslagen verwijzen naar de regel met de testvoorwaarde.
+
+### Uitval en noodstop
+
+Bouw `kern`, `media` en `downloadketen` onder de bouwlock. Selecteer de vier scenario’s onder de stacklock.
+
+```bash
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX01,EX02,EX06,EX07
+```
+
+Herhaal met `INTEGRAAL_ZONDER_STORING=1` voor de tegenproeven. Dezelfde verwachtingen moeten dan falen. In elk dossier
+geeft `voortgang.json` de aantallen jobs, jobhistorie, audit- en kijkregels en het aantal verdwenen oorspronkelijke
+sleutels. De proef controleert ook de titel, kijker en het kijktijdstip. Bij EX07 levert een proefworker de
+encoderwaarnemingen voor de MediaGuard-bewaking. De echte GPU valt onder N-P6-09.
 
 ### MediaGuard-inhoud
 

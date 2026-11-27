@@ -20,7 +20,9 @@ MAP = Path(__file__).resolve().parent
 ROOT = MAP.parents[1]
 KERN = ("hub", "executor", "truenas", "lifecycle")
 BRONLABEL = "nl.jelly-leon.broncommit"
-MSO_SIMULATORS = {"sabnzbd-sim", "qbittorrent-sim", "qbittorrent-publiek", "prowlarr-sim", "mg-categorie-sim"}
+MSO_SIMULATORS = {
+    "arr-sim", "sabnzbd-sim", "qbittorrent-sim", "qbittorrent-publiek", "prowlarr-sim", "mg-categorie-sim",
+}
 
 
 class Proeffout(RuntimeError):

@@ -153,8 +153,14 @@ services:
       dockerfile: deploy/allinone/Dockerfile
     ports: ["127.0.0.1:${INTEGRAAL_MSO_POORT:-38081}:38081"]
     volumes: [mso:/appdata]
+  arr-sim:
+    <<: *mso-sim
+    profiles: [downloadketen]
+    entrypoint: [python, /start_arr.py]
+    volumes: [../simulators:/sim:ro, ./start_arr.py:/start_arr.py:ro]
   sabnzbd-sim:
     <<: *mso-sim
+    profiles: [mso, downloadketen]
     command: [sabnzbd, --host, intern]
   qbittorrent-sim:
     <<: *mso-sim

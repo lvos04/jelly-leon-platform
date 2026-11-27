@@ -84,12 +84,13 @@ def uitval(kern: Kern, dienst: str) -> Iterator[None]:
             kern.net.project.controleer_images((dienst,))
 
 
-def bestaande_rijen(kern: Kern, *, gestopt: bool = False) -> dict[str, set[Any]]:
+def bestaande_rijen(kern: Kern, *, gestopt: bool = False) -> dict[str, dict[Any, tuple[Any, ...]]]:
     # Primaire sleutels onderscheiden verlies van groei, ook bij gelijkblijvende aantallen.
-    tabellen = {"jobs": "id", "job_logs": "id", "audit_events": "id", "mediaserver_watch": "path"}
+    tabellen = {"jobs": "id", "job_logs": "id", "audit_events": "id",
+                "mediaserver_watch": "path,title,user_name,last_seen"}
     stappen: list[Stap] = [(f"SELECT {kolom} FROM {tabel}", ()) for tabel, kolom in tabellen.items()]  # noqa: S608
     data = sql(kern, *stappen, gestopt=gestopt)
-    return {naam: {r[0] for r in rijen} for naam, rijen in zip(tabellen, data, strict=True)}
+    return {naam: {r[0]: tuple(r[1:]) for r in rijen} for naam, rijen in zip(tabellen, data, strict=True)}
 
 
 # Hetzelfde ingeplande werk aanbieden na herstel gebruikt de eigen idempotentie van de MediaGuard-wachtrij.
@@ -112,8 +113,9 @@ def plan_werk(kern: Kern) -> int:
 @contextmanager
 def behoud(kern: Kern, mg: httpx.Client, job: int) -> Iterator[Callable[[str, bool], None]]:
     sql(kern, ("INSERT INTO job_logs(job_id,ts,level,message) VALUES (?,CURRENT_TIMESTAMP,'info','Proefreeks gepland')",
-               (job,)), ("INSERT INTO mediaserver_watch(path,title,last_seen) "
-                         "VALUES ('/data/proefreeks.mkv','Proefreeks',CURRENT_TIMESTAMP)", ()), schrijven=True)
+               (job,)), ("INSERT INTO mediaserver_watch(path,title,user_name,last_seen) "
+                         "VALUES ('/data/proefreeks.mkv','Proefreeks','Proefkijker',CURRENT_TIMESTAMP)", ()),
+        schrijven=True)
     vooraf = bestaande_rijen(kern)
     pad = kern.net.dossier / "voortgang.json"
     meting = {naam: {"voor": len(ids)} for naam, ids in vooraf.items()}
@@ -124,9 +126,13 @@ def behoud(kern: Kern, mg: httpx.Client, job: int) -> Iterator[Callable[[str, bo
         nu = bestaande_rijen(kern, gestopt=gestopt)
         for naam, oud in vooraf.items():
             meting[naam][moment] = len(nu[naam])
-            meting[naam]["verdwenen_" + moment] = len(oud - nu[naam])
+            meting[naam]["verdwenen_" + moment] = len(oud.keys() - nu[naam].keys())
+        kijk = "mediaserver_watch"
+        gewijzigd = sum(vooraf[kijk][k] != nu[kijk][k] for k in vooraf[kijk].keys() & nu[kijk].keys())
+        meting[kijk]["gewijzigd_" + moment] = gewijzigd
         schrijf(pad, meting)
-        assert all(oud <= nu[naam] for naam, oud in vooraf.items()), "MediaGuard-voortgang verdwenen"
+        assert all(oud.keys() <= nu[naam].keys() for naam, oud in vooraf.items()), "MediaGuard-voortgang verdwenen"
+        assert gewijzigd == 0, "Bestaande kijkgegevens gewijzigd"
 
     try:
         yield meet

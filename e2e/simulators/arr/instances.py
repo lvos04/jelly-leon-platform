@@ -59,6 +59,7 @@ class Instantie:
             if self.staging is not None and serie["tmdbId"] == 101:
                 aanwezig = (self.staging / f"S01E{n:02}.mkv").is_file()
             rows.append({"id": eid, "seriesId": sid, "seasonNumber": 1, "episodeNumber": n,
+                         "airDateUtc": f"2020-01-0{n}T20:00:00Z",
                          "absoluteEpisodeNumber": 12 + n if anime else None,
                          "sceneAbsoluteEpisodeNumber": 15 - n if anime else None,
                          "sceneSeasonNumber": 2 if anime else None, "sceneEpisodeNumber": 3 - n if anime else None,
