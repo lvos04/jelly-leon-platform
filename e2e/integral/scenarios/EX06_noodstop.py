@@ -78,7 +78,7 @@ def test_noodstop(kern: Kern) -> None:
                 hub_codes[actie] = resp.status_code
                 assert resp.json().get("code") == "capability_unavailable"
             herzoek = mso.post(mso_item + "/search")
-            resultaat = mg.post(f"/api/v1/wanted/{keten.wanted}/search").raise_for_status().json()
+            zoeken = mg.post(f"/api/v1/wanted/{keten.wanted}/search")
             invoer = mg.post(f"/api/v1/activity/downloads/{INSTANTIE}/import",
                              json={"download_id": download, "confirm": True})
             av1 = mg.post("/api/v1/encoding/jobs", json={"path": "/data/proefreeks.mkv", "trial_only": True})
@@ -95,7 +95,9 @@ def test_noodstop(kern: Kern) -> None:
                       "historie_leesbaar": historie["id"] == job and bool(historie["logs"]), "noodstop": actief,
                       "hub_http": hub_codes, "mso_http": herzoek.status_code,
                       "mso_weigert_noodstop": herzoek.status_code == 409 and "noodstop" in str(herzoek.json()).lower(),
-                      "zoekopdrachten": resultaat["issued"], "zoeken_overgeslagen": resultaat.get("skipped"),
+                      "zoeken_http": zoeken.status_code, "zoekopdrachten_gemeld": zoeken.json().get("issued"),
+                      "zoeken_weigert_noodstop": zoeken.status_code == 429
+                      and "noodstop" in str(zoeken.json().get("detail")).lower(),
                       "import_http": invoer.status_code, "import_weigert_noodstop": invoer.status_code == 409
                       and "noodstop" in str(invoer.json()).lower(), "av1_http": av1.status_code,
                       "av1_weigert_noodstop": av1.status_code == 409
@@ -112,6 +114,6 @@ def test_noodstop(kern: Kern) -> None:
         assert set(hub_codes.values()) == {501}
         assert not any(nieuwe.values()) and feiten["nieuwe_sab_taken"] == 0, "Nieuwe uitvoering tijdens noodstop"
         assert actief and feiten["historie_leesbaar"] and feiten["mso_weigert_noodstop"]
-        assert resultaat["issued"] == 0 and resultaat["skipped"] == "emergency_stop"
+        assert feiten["zoeken_weigert_noodstop"]
         assert feiten["import_weigert_noodstop"] and feiten["av1_weigert_noodstop"]
         assert opruimen["status"] == "queued" and opruimen["started_at"] is None
