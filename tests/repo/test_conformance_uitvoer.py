@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
 import os
 import secrets
 import subprocess
@@ -62,6 +64,18 @@ def test_conformiteitsrun_drukt_geen_foutteksten_af(tmp_path: Path) -> None:
     if geheim in uit.stdout + uit.stderr:
         pytest.fail("Een testgeheim staat in de uitvoer van de conformiteitsrun", pytrace=False)
     assert uit.returncode == pytest.ExitCode.TESTS_FAILED and "2 failed" in uit.stdout
+
+
+def test_productieaanroep_gebruikt_de_stille_pytestopties() -> None:
+    boom = ast.parse(inspect.getsource(_echte_hub().main))
+    opdrachten = [
+        knoop.args[0].elts for knoop in ast.walk(boom)
+        if isinstance(knoop, ast.Call) and ast.unparse(knoop.func) == "subprocess.run"
+        and knoop.args and isinstance(knoop.args[0], ast.List)
+        and any(isinstance(deel, ast.Constant) and deel.value == "pytest" for deel in knoop.args[0].elts)
+    ]
+    opdracht, = opdrachten
+    assert any(isinstance(deel, ast.Starred) and ast.unparse(deel.value) == "PYTEST_ZWIJGEND" for deel in opdracht)
 
 
 def test_voorbereiding_citeert_geen_protocolfout() -> None:
