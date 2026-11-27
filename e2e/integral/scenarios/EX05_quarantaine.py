@@ -6,7 +6,8 @@ from e2e.integral.media_inhoud import STAGING, Inhoud, inhoud
 from e2e.integral.scenarios.conftest import Kern, wacht
 
 SCENARIO = {
-    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "arr-inhoud", "mg-inhoud-herstel"),
+    "groepen": ("media", "media-inhoud"),
+    "diensten": ("mg-inhoud", "kijkserver-inhoud", "arr-inhoud", "mg-inhoud-herstel"),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "Een juist stagingbestand blijft staan. Een bewezen verwisseling is bytegelijk herstelbaar.",
 }

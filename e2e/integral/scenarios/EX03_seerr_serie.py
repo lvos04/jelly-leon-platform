@@ -4,7 +4,7 @@ from e2e.integral.media_inhoud import inhoud
 from e2e.integral.scenarios.conftest import Kern
 
 SCENARIO = {
-    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "arr-inhoud"),
+    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "kijkserver-inhoud", "arr-inhoud"),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "Seerr vraagt seizoen één aan bij Sonarr Series en MediaGuard koppelt precies die aanvraag.",
 }

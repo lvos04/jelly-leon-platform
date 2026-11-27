@@ -7,7 +7,7 @@ from e2e.integral.media_inhoud import ANIME, Inhoud, inhoud
 from e2e.integral.scenarios.conftest import Kern
 
 SCENARIO = {
-    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "arr-inhoud"),
+    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "kijkserver-inhoud", "arr-inhoud"),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "Twee verschillende scene- en TVDB-nummers houden na verversen hun eigen video en ondertitel.",
 }

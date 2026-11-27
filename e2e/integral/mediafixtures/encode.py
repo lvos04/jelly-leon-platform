@@ -11,13 +11,15 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import httpx
 from app import kwaliteit  # type: ignore[import-not-found]
 from app.config import settings  # type: ignore[import-not-found]
 from app.db import Database  # type: ignore[import-not-found]
+from app.main import create_app  # type: ignore[import-not-found]
 from app.media.beslissen import STANDAARD  # type: ignore[import-not-found]
 from app.media.probe import probe  # type: ignore[import-not-found]
 from app.scanner import scan_library  # type: ignore[import-not-found]
-from app.uitvoerder import create_job_from_decision, run_job  # type: ignore[import-not-found]
+from app.uitvoerder import run_job  # type: ignore[import-not-found]
 
 BIBLIOTHEEK = Path("/media/kwaliteitsproef")
 WERK = Path("/work/kwaliteitsproef")
@@ -36,22 +38,25 @@ async def taak(naam: str) -> dict[str, Any]:
     config.validate_storage()
     db = Database(config)
     db.initialize()
-    if naam == "fout":
-        profiel = {**STANDAARD, "drempel_720": 100, "preset_720": 12, "crf_720": 22, "svt_threads_720": 2,
-                   "gpu_voor_sdr_1080": False}
-        pid = db.execute_insert("INSERT INTO profiel(naam,inst) VALUES (?,?)", ("Inhoudsproef", json.dumps(profiel)))
-        lid = db.execute_insert("INSERT INTO library(naam,pad,profiel_id,verwacht_device) VALUES (?,?,?,?)",
-                                ("Kwaliteitsproef", str(BIBLIOTHEEK), pid, BIBLIOTHEEK.stat().st_dev))
-        db.execute("UPDATE functie SET ingeschakeld=1 WHERE sleutel='vmaf'")
-        scan = scan_library(db, lid)
-        assert scan.gevonden == 2 and scan.uitgesteld == 0
-    bron = BIBLIOTHEEK / (naam + ".mkv")
-    besluit = db.fetch_one("SELECT b.id FROM besluit b JOIN bestand f ON f.id=b.bestand_id "
-                           "WHERE f.pad=? AND b.actie='hercoderen' AND b.baan='cpu'", (str(bron),))
-    assert besluit is not None
-    assert await kwaliteit.vmaf_available()
-    db.execute("UPDATE besluit SET status='goedgekeurd' WHERE id=?", (besluit["id"],))
-    jid = create_job_from_decision(db, besluit["id"])
+    app = create_app(config, db, start_planner=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://encoder") as api:
+        if naam == "fout":
+            profiel = {**STANDAARD, "drempel_720": 100, "preset_720": 12, "crf_720": 22, "svt_threads_720": 2,
+                       "gpu_voor_sdr_1080": False}
+            res = await api.post("/api/profielen", json={"naam": "Inhoudsproef", "instellingen": profiel})
+            pid = res.raise_for_status().json()["id"]
+            res = await api.post("/api/libraries", json={"naam": "Kwaliteitsproef", "pad": str(BIBLIOTHEEK),
+                                                         "profiel_id": pid, "scan_interval": 0})
+            lid = res.raise_for_status().json()["id"]
+            (await api.patch("/api/functies/vmaf", json={"ingeschakeld": True})).raise_for_status()
+            scan = scan_library(db, lid)
+            assert scan.gevonden == 2 and scan.uitgesteld == 0
+        bron = BIBLIOTHEEK / (naam + ".mkv")
+        besluiten = await api.get("/api/besluiten/items", params={"actie": "hercoderen", "baan": "cpu"})
+        bid, = [b["id"] for b in besluiten.raise_for_status().json()["items"] if b["pad"] == str(bron)]
+        assert await kwaliteit.vmaf_available()
+        akkoord = await api.post("/api/besluiten/goedkeuren", json={"ids": [bid]})
+        jid, = akkoord.raise_for_status().json()["job_ids"]
     geraakt = {"vmaf": 0, "ssim": 0}
     echte_meting = kwaliteit.run_measure
 

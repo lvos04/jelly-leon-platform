@@ -135,6 +135,11 @@ services:
     profiles: [media-inhoud]
     command: [arr-sim, --host, intern, --stagingproef]
     volumes: [inhoud-media:/media]
+  kijkserver-inhoud:
+    <<: *derden
+    profiles: [media-inhoud]
+    command: [python, /proef/kijkserver.py, --host, intern]
+    volumes: [./mediafixtures/kijkserver.py:/proef/kijkserver.py:ro]
   mg-kwaliteitsmeting:
     profiles: [media-kwaliteit]
     image: jlp-integraal/mg-kwaliteitsmeting:${INTEGRAAL_TAG:-lokaal}

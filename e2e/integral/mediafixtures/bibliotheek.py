@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -10,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 MEDIA = Path("/media")
 STAGING = MEDIA / "sonarr-series/De vuurtoren/staging"
@@ -58,7 +60,7 @@ def maak(soort: str) -> None:
         raise ValueError("Onbekende testbibliotheek")
 
 
-def inventaris() -> dict[str, dict[str, str]]:
+def inventaris() -> dict[str, Any]:
     bestanden = {}
     for root in (MEDIA, Path("/work/quarantine")):
         for pad in sorted(root.rglob("*")):
@@ -66,32 +68,40 @@ def inventaris() -> dict[str, dict[str, str]]:
                 assert not pad.is_symlink() and pad.stat().st_size > 0
                 bestanden[str(pad)] = hashlib.sha256(pad.read_bytes()).hexdigest()
     with sqlite3.connect("file:/config/mediaguard.db?mode=ro", uri=True) as db:
-        kijk = db.execute("SELECT path,title,user_name,last_seen FROM mediaserver_watch WHERE path=?",
-                          ("/media/bestaand/bewaard.mkv",)).fetchone()
-        log = db.execute("SELECT id,job_id,ts,level,message FROM job_logs WHERE message=?",
-                         ("Bestaande proefreeks ingepland",)).fetchall()
-    assert kijk and len(log) == 1
-    historie = {naam: hashlib.sha256(json.dumps(rij).encode()).hexdigest() for naam, rij in
-                (("kijkregistratie", kijk), ("taaklog", log[0]))}
-    return {"sha256": bestanden, "historie": historie}
+        db.row_factory = sqlite3.Row
+        registraties = {r["path"]: dict(r) for r in db.execute("SELECT * FROM mediaserver_watch ORDER BY path")}
+        regels = {str(r["id"]): dict(r) for r in db.execute("SELECT * FROM job_logs ORDER BY id")}
+    return {"sha256": bestanden, "registraties": registraties, "logregels": regels}
 
 
-def vul_voortgang(job: int) -> None:
-    with sqlite3.connect("/config/mediaguard.db") as db:
-        assert db.execute("UPDATE jobs SET progress=0.625 WHERE id=? AND status='queued'", (job,)).rowcount == 1
-        db.execute("INSERT INTO job_logs(job_id,ts,level,message) VALUES (?,CURRENT_TIMESTAMP,'info',?)",
-                   (job, "Bestaande proefreeks ingepland"))
-        db.execute("INSERT INTO mediaserver_watch(path,title,user_name,last_seen) VALUES (?,?,?,CURRENT_TIMESTAMP)",
-                   ("/media/bestaand/bewaard.mkv", "Bewaarde proefvideo", "proefkijker"))
+def kerncontext() -> Any:
+    from mediaguard.app import create_app  # type: ignore[import-not-found]
+
+    return create_app().state.ctx
+
+
+async def vul_voortgang(job: int) -> None:
+    from mediaguard.jobs import JobContext  # type: ignore[import-not-found]
+    from mediaguard.mediaserver import servers  # type: ignore[import-not-found]
+    from mediaguard.mediaserver.service import poll_sessions  # type: ignore[import-not-found]
+
+    ctx = kerncontext()
+    taak = JobContext(job, "library.sync", {}, "sonarr-series", None, ctx)
+    taak.log("Bestaande proefreeks ingepland")
+    taak.progress(0.625)
+    taak.log("Bestaande voortgang vastgelegd")
+    server = servers.legacy(ctx)
+    assert server and server.kind == "jellyfin" and server.url == "http://kijkserver-inhoud:8096"
+    resultaat = await poll_sessions(ctx, servers.client(ctx, server), server)
+    assert resultaat == {"sessions": 2, "watching": 0}
 
 
 def onthoud_referenties() -> None:
-    from mediaguard.app import create_app  # type: ignore[import-not-found]
     from mediaguard.automation import background_identity  # type: ignore[import-not-found]
     from mediaguard.identity.adapters import remember_hash  # type: ignore[import-not-found]
     from mediaguard.identity.engine import EpisodeRef  # type: ignore[import-not-found]
 
-    ctx = create_app().state.ctx
+    ctx = kerncontext()
     # Dezelfde eerste bestandscontrole als in de achtergrondwerker na het synchroniseren.
     assert background_identity(ctx) == 2
     for n in (1, 2):
@@ -110,7 +120,7 @@ if __name__ == "__main__":
         ouder = pad.stat().st_mtime - 120
         os.utime(pad, (ouder, ouder))
     elif actie == "voortgang":
-        vul_voortgang(int(args[0]))
+        asyncio.run(vul_voortgang(int(args[0])))
     elif actie == "referenties":
         onthoud_referenties()
     elif actie == "verwissel":

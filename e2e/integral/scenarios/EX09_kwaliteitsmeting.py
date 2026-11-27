@@ -7,7 +7,7 @@ from e2e.integral.media_inhoud import FIXTURES, Inhoud, inhoud
 from e2e.integral.scenarios.conftest import Kern
 
 SCENARIO = {
-    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "mg-kwaliteitsmeting"),
+    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "kijkserver-inhoud", "mg-kwaliteitsmeting"),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "Als VMAF én SSIM falen blijft het origineel intact. De controlejob slaagt met gemeten VMAF.",
 }
