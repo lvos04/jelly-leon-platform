@@ -48,11 +48,11 @@ def koppel_proefondertekenaar(huis: Huis) -> Ed25519PrivateKey:
     return sleutel
 
 
-def assistentvoorstel(huis: Huis, sleutel: Ed25519PrivateKey, apparaat: str) -> httpx.Response:
+def assistentvoorstel(huis: Huis, sleutel: Ed25519PrivateKey, actie: str, doel: dict[str, str]) -> httpx.Response:
     nu = datetime.now(UTC).replace(microsecond=0)
     body: dict[str, Any] = {
-        "proposal": {"idempotency_key": str(uuid.uuid4()), "action_id": "light.group.set",
-                     "target": {"group_id": apparaat}, "parameters": {"on": False}, "expected_version": "eigenaar",
+        "proposal": {"idempotency_key": str(uuid.uuid4()), "action_id": actie,
+                     "target": doel, "parameters": {"on": False}, "expected_version": "eigenaar",
                      "actor": {"type": "ai", "id": "huisproef"}, "risk_claim": "R1"},
         "approval": None, "policy_decision": {"risk_class": "R1", "rule_ids": ["huisproef"],
                                              "policy_hash": "sha256:" + hashlib.sha256(b"huisproef").hexdigest()},
@@ -71,16 +71,22 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
     sleutel = koppel_proefondertekenaar(huis)
     stand = toestand(sim)["power_on"]
     wachtrij = huis.wachtrij()
-    assert "boiler" not in huis.get(f"/devices/{apparaat}")["roles"]
-    gewoon = assistentvoorstel(huis, sleutel, apparaat)
+    stekker = huis.get(f"/devices/{apparaat}")
+    assert (stekker["provider"], stekker["kind"], stekker["compatibility"]) == ("homewizard", "energy_socket", "tested")
+    assert stekker["protected"] is False and not stekker["roles"]
+    actie, doel = "socket.relay.propose", {"device_id": apparaat}
+    gewoon = assistentvoorstel(huis, sleutel, actie, doel)
     gewoon_antwoord = gewoon.json()
     huis.meet("gewoon_stopcontact", {
         "http": gewoon.status_code, "voorstel": gewoon_antwoord.get("status") == "proposed",
-        "alleen_meten": (gewoon_antwoord.get("code") == "policy_denied"
-                         and "meten" in gewoon_antwoord.get("message", "")),
+        "alleen_concept": gewoon_antwoord.get("concept_only") is True,
+        "juiste_doel_en_stand": (gewoon_antwoord.get("blast_radius") == [doel]
+                                 and gewoon_antwoord.get("diff", {}).get("proposed") == {"on": False}),
+        "nieuwe_opdrachten": huis.wachtrij() - wachtrij,
     })
     huis.schrijf("POST", f"/devices/{apparaat}/bind", {"role": "boiler"})
-    assert huis.get(f"/devices/{apparaat}")["protected"] is True
+    boiler = huis.get(f"/devices/{apparaat}")
+    assert boiler["protected"] is True and "boiler" in boiler["roles"]
 
     browser = (MAP.parent / "fixtures/huis/boiler-ui.cjs").read_text()
     ui = json.loads(huis.project.compose("exec", "-T", "huis-browser", "node", "-e", browser,
@@ -94,9 +100,12 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
     })
     assert hub.status_code == 403 and "boiler_verboden" in [b["code"] for b in hub.json()["details"]["blokkades"]]
     huis.meet("hub", hub.status_code)
-    ai = assistentvoorstel(huis, sleutel, apparaat)
+    ai = assistentvoorstel(huis, sleutel, actie, doel)
     assert ai.status_code == 409 and ai.json()["code"] == "policy_denied"
     huis.meet("ondertekende_assistentactor", ai.status_code)
+    licht = assistentvoorstel(huis, sleutel, "light.group.set", {"group_id": apparaat})
+    assert licht.status_code == 409 and licht.json()["code"] == "policy_denied"
+    huis.meet("ondertekende_lichtgroepactie_op_boiler", licht.status_code)
     direct = huis.api.post(f"/api/v1/lights/groups/{apparaat}", json={"on": False})
     assert direct.status_code == 409 and direct.json()["detail"]["code"] == "policy_denied"
     huis.meet("rechtstreeks_http", direct.status_code)
@@ -107,7 +116,11 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
         return any(p["role"] == "boiler" and p["watts"] == vermogen for p in live["parts"])
 
     wacht("actueel boilervermogen uit de simulator", leesvermogen)
-    assert huis.wachtrij() == wachtrij
-    assert toestand(sim)["power_on"] == stand and toestand(sim)["schakelverzoeken"] == []
-    huis.meet("meter", {"vermogen_gelezen": True, "relais_ongewijzigd": True, "schakelverzoeken": 0})
-    assert gewoon.status_code == 200 and gewoon.json()["status"] == "proposed", "Gewoon stopcontact kreeg geen voorstel"
+    einde = toestand(sim)
+    meter = {"vermogen_w": einde["data"]["active_power_w"], "relais_ongewijzigd": einde["power_on"] == stand,
+             "schakelverzoeken": len(einde["schakelverzoeken"]), "nieuwe_opdrachten": huis.wachtrij() - wachtrij}
+    huis.meet("meter", meter)
+    assert meter["relais_ongewijzigd"] and meter["schakelverzoeken"] == meter["nieuwe_opdrachten"] == 0
+    assert huis.metingen["gewoon_stopcontact"] == {
+        "http": 200, "voorstel": True, "alleen_concept": True, "juiste_doel_en_stand": True, "nieuwe_opdrachten": 0,
+    }, "Gewoon stopcontact kreeg geen zuiver conceptvoorstel"
