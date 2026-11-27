@@ -1,38 +1,56 @@
 {
-  "run": "20261127t114814z-63c437648b",
+  "run": "20261127t154106z-47a990bbc1",
   "eigenaar": "jelly-leon-platform",
   "datum": "2026-11-27",
-  "broncommit_proef": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
+  "broncommit_proef": "5b5c6cbbc3cdb14f5eb1d2f03c36f500a042df64",
   "images": {
     "hub": {
-      "image_id": "sha256:51cd58b22f932449b60fdc53857a61c4ba4b142d3258d8d9a3151a20e9178c5d",
+      "image_id": "sha256:43fb0216ad9f050811d2bce3e8442def4386381c106428b0861f95cb757aa590",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/hub@sha256:51cd58b22f932449b60fdc53857a61c4ba4b142d3258d8d9a3151a20e9178c5d"
+      "digest": "jlp-integraal/hub@sha256:43fb0216ad9f050811d2bce3e8442def4386381c106428b0861f95cb757aa590",
+      "bronstatus": "schoon"
     },
     "executor": {
-      "image_id": "sha256:af18b2c30daecbb9e5bc9a31cb89fabc6b842ab3be09513797023adc14a86311",
+      "image_id": "sha256:cb90d15c450763ecd6d49aae6522a846775afcfb47718905ce1288072ffd363c",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/executor@sha256:af18b2c30daecbb9e5bc9a31cb89fabc6b842ab3be09513797023adc14a86311"
+      "digest": "jlp-integraal/executor@sha256:cb90d15c450763ecd6d49aae6522a846775afcfb47718905ce1288072ffd363c",
+      "bronstatus": "schoon"
     },
     "truenas": {
-      "image_id": "sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94"
+      "image_id": "sha256:794b57530e4786518f54690821ea3ed9328ad474dd792fe2c0361cf44ceb2a7b",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/truenas@sha256:794b57530e4786518f54690821ea3ed9328ad474dd792fe2c0361cf44ceb2a7b",
+      "bronstatus": "schoon"
     },
     "lifecycle": {
-      "image_id": "sha256:94d22a0f1deea50814972bdde3217ab5ad5f9decfa8d5d91d1304418ded70791",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/lifecycle@sha256:94d22a0f1deea50814972bdde3217ab5ad5f9decfa8d5d91d1304418ded70791"
+      "image_id": "sha256:1a5a0f737f11cdd0f99a3a04b2f667d9aecd6ea910eadf1a978f0a193fdfcbfb",
+      "broncommit": "5b5c6cbbc3cdb14f5eb1d2f03c36f500a042df64",
+      "digest": "jlp-integraal/lifecycle@sha256:1a5a0f737f11cdd0f99a3a04b2f667d9aecd6ea910eadf1a978f0a193fdfcbfb",
+      "bronstatus": "schoon"
     },
     "onedrive": {
-      "image_id": "sha256:72d78535ef43a3b16ae2364403c322cf361a7551bd85c22a3370734549171f6d",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/simulators@sha256:72d78535ef43a3b16ae2364403c322cf361a7551bd85c22a3370734549171f6d"
+      "image_id": "sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/simulators@sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "bronstatus": "schoon"
+    },
+    "emby-opslag": {
+      "image_id": "sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/simulators@sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "bronstatus": "schoon"
+    },
+    "mg-inhoud": {
+      "image_id": "sha256:567442a93a5c4b22f1eaaba69b4cdbd991435088264278c08a5f49c1f6f60836",
+      "broncommit": "ea104d8e2715b31f461a263b65316cd888075c3c",
+      "digest": "jlp-integraal/mg-inhoud@sha256:567442a93a5c4b22f1eaaba69b4cdbd991435088264278c08a5f49c1f6f60836",
+      "bronstatus": "schoon"
+    },
+    "arr-inhoud": {
+      "image_id": "sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/simulators@sha256:82fbfcfb31b9843f28ca953ae542b1aab3c851adc29a83f4930b0229b8f8b785",
+      "bronstatus": "schoon"
     },
     "schema-release": {
       "image_id": "sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca",
@@ -40,28 +58,28 @@
       "digest": "ghcr.io/lvos04/jelly-leon-platform@sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca"
     },
     "schema-nieuw": {
-      "image_id": "sha256:5fec3b55e8680d21fcda1ad6afae321bc0ef5230eb7768ac68e11ad65123e486",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/schema-nieuw@sha256:5fec3b55e8680d21fcda1ad6afae321bc0ef5230eb7768ac68e11ad65123e486"
+      "image_id": "sha256:62cee225b9bc789d9c132af03599c90aad04f72924867eef2f4abd83d836ed5b",
+      "broncommit": "5b5c6cbbc3cdb14f5eb1d2f03c36f500a042df64",
+      "digest": "jlp-integraal/schema-nieuw@sha256:62cee225b9bc789d9c132af03599c90aad04f72924867eef2f4abd83d836ed5b",
+      "bronstatus": "schoon"
     },
     "appstore": {
-      "image_id": "sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353",
+      "image_id": "sha256:cef4ac9981bec735737a99f253fda2642601ad598d0aae29627365ebe78c1b34",
       "broncommit": "ac08829d2671cd99975dfe154351ce677e77ed64",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/appstore@sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353"
+      "digest": "jlp-integraal/appstore@sha256:cef4ac9981bec735737a99f253fda2642601ad598d0aae29627365ebe78c1b34",
+      "bronstatus": "schoon"
     },
     "upstream-git": {
-      "image_id": "sha256:44a8a315e855abd7fcffb8592f3b72e7a185fb54b00065d0f27d132e2b4671b5",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/upstream-git@sha256:44a8a315e855abd7fcffb8592f3b72e7a185fb54b00065d0f27d132e2b4671b5"
+      "image_id": "sha256:92c10cff3693a92c4127b2dde41ec56eaeb690b5e4c9612fb089d6a764666849",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/upstream-git@sha256:92c10cff3693a92c4127b2dde41ec56eaeb690b5e4c9612fb089d6a764666849",
+      "bronstatus": "schoon"
     },
     "truenas-twee": {
-      "image_id": "sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94",
-      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
-      "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94"
+      "image_id": "sha256:794b57530e4786518f54690821ea3ed9328ad474dd792fe2c0361cf44ceb2a7b",
+      "broncommit": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+      "digest": "jlp-integraal/truenas@sha256:794b57530e4786518f54690821ea3ed9328ad474dd792fe2c0361cf44ceb2a7b",
+      "bronstatus": "schoon"
     }
   },
   "scenario's": [
@@ -115,16 +133,76 @@
         "executor",
         "truenas",
         "lifecycle",
-        "onedrive"
+        "onedrive",
+        "emby-opslag",
+        "mg-inhoud",
+        "arr-inhoud"
       ],
       "metingen": {
         "kloon_op_bron_geweigerd_http": 422,
         "oude_config_in_kloon": true,
         "brondata_behouden": true,
-        "kijkpositie": 87,
-        "mediaguard_taak": 12,
+        "kijkstanden": 4,
+        "hervatpunt_ticks": 8700000,
+        "taak_vervolgd": true,
         "emby_sim_draait": true,
         "schrijfacties": 2
+      },
+      "opslagmedia": {
+        "voor": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_snapshot": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "voor_kloon": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "bron_geweigerd": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_herstel": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_voortzetting": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 1.0,
+          "taakstatus": "succeeded",
+          "logregels": 1
+        }
       }
     },
     {
@@ -138,7 +216,10 @@
         "truenas",
         "lifecycle",
         "schema-release",
-        "schema-nieuw"
+        "schema-nieuw",
+        "emby-opslag",
+        "mg-inhoud",
+        "arr-inhoud"
       ],
       "metingen": {
         "verschillende_images": 2,
@@ -148,7 +229,74 @@
         "revisie_na_herstel": 3,
         "proefrij_behouden": true,
         "gemigreerde_database_bewaard": true,
-        "mediacontroles": 4
+        "archief_sha256_gecontroleerd": true,
+        "mediacontroles": 7,
+        "taak_vervolgd": true
+      },
+      "opslagmedia": {
+        "voor": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_upgrade": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "oude_release_geweigerd": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_laden": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_activeren": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_herstel": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_voortzetting": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 1.0,
+          "taakstatus": "succeeded",
+          "logregels": 1
+        }
       }
     },
     {
@@ -201,7 +349,10 @@
         "executor",
         "truenas",
         "lifecycle",
-        "truenas-twee"
+        "truenas-twee",
+        "emby-opslag",
+        "mg-inhoud",
+        "arr-inhoud"
       ],
       "metingen": {
         "simulatoren": 2,
@@ -209,7 +360,91 @@
         "verhuispreview_http": 501,
         "verwijderpreview_http": 501,
         "schrijfacties": 0
+      },
+      "opslagmedia": {
+        "voor": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "move_geweigerd": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "uninstall_geweigerd": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_herstel": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 0.375,
+          "taakstatus": "running",
+          "logregels": 1
+        },
+        "na_voortzetting": {
+          "gebruikers": 2,
+          "kijkstanden": 4,
+          "gebruikersrechten_behouden": true,
+          "taak": 1,
+          "voortgang": 1.0,
+          "taakstatus": "succeeded",
+          "logregels": 1
+        }
       }
     }
-  ]
+  ],
+  "bouwinvoer_simulators": {
+    "bronlabel": "fd5a6b459fdf9e9860dd5b9c04903104e1ad8cd5",
+    "gelijke_invoer_op": "5b5c6cbbc3cdb14f5eb1d2f03c36f500a042df64",
+    "paden": [
+      ".dockerignore",
+      "apps/api/requirements.lock",
+      "e2e/simulators",
+      "e2e/integral/compose.yaml",
+      "e2e/integral/Dockerfile.simulators",
+      "e2e/integral/Dockerfile.upstream"
+    ],
+    "verschillen": 0
+  },
+  "afzonderlijke_herstelproeven": {
+    "broncommit": "5b5c6cbbc3cdb14f5eb1d2f03c36f500a042df64",
+    "imageproef": {
+      "test": "tests/e2e/test_upgrade_paths.py",
+      "exitcode": 0,
+      "schema_na_dumpfout": "0003",
+      "proefrij_leesbaar_met_vorige_image": true
+    },
+    "postgresql_16": {
+      "pg_dump_exit_bij_onbeschrijfbare_map": 1,
+      "gepubliceerde_dumps_na_fout": 0,
+      "schema_na_dumpfout": "0003",
+      "gevulde_tabellen": 8,
+      "tabelverschillen_na_dumpfout": 0,
+      "geldige_dumps_bij_herstel": 2,
+      "onjuiste_sha_geweigerd": true,
+      "schema_bij_geweigerde_wissel": "0004",
+      "herstelde_rijversies": [
+        2,
+        3
+      ],
+      "tabelverschillen_na_herstel": 0
+    }
+  }
 }

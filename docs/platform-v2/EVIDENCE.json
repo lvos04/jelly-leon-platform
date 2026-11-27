@@ -1343,11 +1343,11 @@
   "id": "EX15",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27",
-  "bewijs": "e2e/integral/scenarios/EX15_schema_terugzetten.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX15)",
+  "bewijs": "e2e/integral/scenarios/EX15_schema_terugzetten.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX15), tests/e2e/test_upgrade_paths.py, tests/repo/test_migratiebackup.py",
   "status": "Bezig",
   "validatie": "Sim-geslaagd",
   "blokkade": "",
-  "opmerking": "Release 0.1.0 weigerde het schema van de lokale image met extra proefmigratie 0004. Na herstel van de automatische PostgreSQL-dump startte 0.1.0 op schema 0003 met dezelfde proefrij. De gemigreerde database bleef apart bewaard."
+  "opmerking": "De oude release weigerde proefschema 0004. Na herstel van de bij de upgrade vastgelegde dump startte zij op 0003 met de oorspronkelijke proefrij. De gemigreerde database bleef apart bewaard. Beide kijkers en de lopende MediaGuard-taak zijn ook tussen het laden en het activeren gecontroleerd."
  },
  {
   "id": "EX47",
@@ -1377,7 +1377,7 @@
   "status": "Geblokkeerd",
   "validatie": "NIET GEVALIDEERD (echte NAS)",
   "blokkade": "NIET GEVALIDEERD: verhuisroute B08-006 nog niet gebouwd (501)",
-  "opmerking": "Beide planpreviews gaven met een geldig beheerdersbewijs HTTP 501 capability_unavailable (P2). De twee simulatoren behielden hun gegevens. Bouw het verhuisplan voor Hub, my_house en aanmelding en toets daarna de koppelingen op de tweede simulator en op een echte tweede host (N-P6-14)."
+  "opmerking": "De verhuis- en verwijderpreview gaven anoniem 401 en voor de beheerder 501. Tijdens deze voorcontrole bleven vier kijkstanden en de rechten van twee gebruikers leesbaar en vervolgde dezelfde MediaGuard-taak. Herstel van Hub, my_house en aanmelding op een tweede simulator wacht op B08-006. De tweede echte host valt onder N-P6-14."
  },
  {
   "id": "EX11",
@@ -1407,7 +1407,7 @@
   "status": "Bezig",
   "validatie": "Sim-geslaagd",
   "blokkade": "",
-  "opmerking": "De executor maakte één snapshot en één zandbakkloon van de appconfiguratie. De kloon bevatte de oude instelling, de brondataset de nieuwe. De bijgewerkte kijkpositie en MediaGuard-taak bleven leesbaar en de gesimuleerde Emby-app meldde RUNNING."
+  "opmerking": "De configuratiekloon bevatte de oude waarde en de bron behield de nieuwe. De media-API behield de actuele kijkgegevens en rechten van beide proefkijkers, ook na verder kijken. De bestaande MediaGuard-bibliotheektaak ging van 37,5% naar 100% en synchroniseerde twee afleveringen."
  },
  {
   "id": "EX16",
