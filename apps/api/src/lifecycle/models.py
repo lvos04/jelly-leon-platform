@@ -183,12 +183,12 @@ class AuditEntry(Base):
     trace_id: Mapped[uuid.UUID] = mapped_column(Uuid)
 
 
-PLAN_SOORTEN = ["install", "update", "rollback"]
+PLAN_SOORTEN = ["install", "update", "rollback", "uninstall"]
 PLAN_STATUSSEN = ["geblokkeerd", "klaar_voor_voorstel", "in_uitvoering", "voltooid", "mislukt"]
 
 
 class LifecyclePlan(Base):
-    """Eén plan voor installeren, bijwerken of terugzetten (B08-003/B08-004). ``document`` is het onveranderlijke
+    """Plan voor installatie, update, terugzetten of verwijderen. ``document`` is het onveranderlijke
     plandocument (diff, blokkades, stappen-DAG; nooit geheimen); ``stappen`` is de voortgang per stap zoals de Hub die
     terugmeldt. Het plan voert zelf niets uit: elke stap is een voorstel voor de Hub (contract §8)."""
 

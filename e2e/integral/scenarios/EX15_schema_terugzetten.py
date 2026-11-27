@@ -93,7 +93,7 @@ def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
     start(NIEUW, nieuw)
     archief = upgrade_archief(vooraf, archieven(NIEUW))
     sha = p.compose("exec", "-T", "--user", "568:568", NIEUW, "sha256sum", archief).split()[0]
-    assert sql(NIEUW, REVISIE) == "0004" and sql(NIEUW, KOLOM) == "1" and sql(NIEUW, marker) == "proef-config"
+    assert sql(NIEUW, REVISIE) == "0005" and sql(NIEUW, KOLOM) == "1" and sql(NIEUW, marker) == "proef-config"
     media.meet("na_upgrade")
     p.compose("stop", NIEUW)
     p.start((OUD,))
@@ -113,9 +113,9 @@ def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
         media.meet("na_" + fase)
     start(OUD, oud)
     assert sql(OUD, REVISIE) == "0003" and sql(OUD, KOLOM) == "0" and sql(OUD, marker) == "proef-config"
-    assert sql(OUD, REVISIE, "ex15_nieuw") == "0004" and sql(OUD, marker, "ex15_nieuw") == "proef-config"
+    assert sql(OUD, REVISIE, "ex15_nieuw") == "0005" and sql(OUD, marker, "ex15_nieuw") == "proef-config"
     media.vervolg()
     assert schrijfacties(kern) == []
-    meet(kern, verschillende_images=2, revisie_voor=3, proefrevisie_na=4, tag_alleen_geweigerd=True,
+    meet(kern, verschillende_images=2, revisie_voor=3, proefrevisie_na=5, tag_alleen_geweigerd=True,
          revisie_na_herstel=3, proefrij_behouden=True, gemigreerde_database_bewaard=True,
          archief_sha256_gecontroleerd=True, mediacontroles=len(media.metingen), taak_vervolgd=True)

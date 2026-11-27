@@ -113,7 +113,8 @@ def _vul(url: str, per_tabel: int = 3) -> None:
     R-HARDE-EIS-5: anders ziet de vergelijking verlies in zulke kolommen niet); lifecycle_transitions wijst naar een
     bestaande run."""
     geldig = {("lifecycle_runs", "kind"): "update", ("lifecycle_runs", "state"): "discovered",
-              ("lifecycle_transitions", "to_state"): "discovered"}
+              ("lifecycle_transitions", "to_state"): "discovered",
+              ("lifecycle_plans", "soort"): "install", ("lifecycle_plans", "status"): "voltooid"}
     engine = sa.create_engine(url)
     meta = sa.MetaData()
     meta.reflect(engine)
@@ -171,6 +172,29 @@ def _inhoud(url: str) -> dict[str, tuple[int, str]]:
     return uit
 
 
+def test_verwijdermigratie_bewaart_alle_plannen_bij_upgrade_en_downgrade(fresh_db: str) -> None:
+    upgrade(fresh_db, "0003")
+    _vul(fresh_db)
+    voor = _inhoud(fresh_db)
+    assert voor["lifecycle_plans"][0] == 3
+    upgrade(fresh_db, "0004")
+    assert _inhoud(fresh_db) == voor
+    downgrade(fresh_db, "0003")
+    assert _inhoud(fresh_db) == voor
+    upgrade(fresh_db, "0004")
+
+    engine = sa.create_engine(fresh_db)
+    with engine.begin() as conn:
+        conn.execute(sa.text("UPDATE lifecycle_plans SET soort='uninstall' WHERE id = "
+                             "(SELECT id FROM lifecycle_plans ORDER BY id LIMIT 1)"))
+    engine.dispose()
+    met_verwijderplan = _inhoud(fresh_db)
+    assert met_verwijderplan["lifecycle_plans"] != voor["lifecycle_plans"]
+    with pytest.raises(sa.exc.IntegrityError):
+        downgrade(fresh_db, "0003")
+    assert _rev(fresh_db) == "0004" and _inhoud(fresh_db) == met_verwijderplan
+
+
 def _waarden(url: str) -> tuple[int, int, int]:
     """(aantal waarden, waarvan NULL, aantal kolommen die NULL mogen zijn) over alle tabellen behalve
     alembic_version."""
@@ -197,7 +221,7 @@ def _revisie_na_de_kop(fresh_db: str, tmp_path: Path, naam: str, sql: str) -> An
     scripts = tmp_path / f"migrations-{naam}"
     shutil.copytree(MIGRATIONS_DIR, scripts, ignore=shutil.ignore_patterns("__pycache__"))
     (scripts / "versions" / f"9001_{naam}.py").write_text(
-        'revision = "9001"\ndown_revision = "0003"\nbranch_labels = None\ndepends_on = None\n'
+        f'revision = "9001"\ndown_revision = "{head_revision()}"\nbranch_labels = None\ndepends_on = None\n'
         f"from alembic import op\ndef upgrade():\n    op.execute({sql!r})\ndef downgrade():\n    pass\n"
     )
     cfg = alembic_config(fresh_db)
@@ -208,7 +232,7 @@ def _revisie_na_de_kop(fresh_db: str, tmp_path: Path, naam: str, sql: str) -> An
 
 def test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie(fresh_db: str, tmp_path: Path) -> None:
     """HARDE EIS (review P2, R-HARDE-EIS-4): een gevulde database van de vorige revisie (0002) verliest bij de
-    upgrade naar de kop (0003) niets, en heen en terug ook niet; elke tabel van 0002 heeft rijen en elke kolom een
+    upgrade naar de kop (0004) niets, en heen en terug ook niet; elke tabel van 0002 heeft rijen en elke kolom een
     waarde, ook de kolommen die NULL mogen zijn (herreview R-HARDE-EIS-5). De vergelijking kan falen: een revisie die
     één rij wist, en een revisie die alleen zulke kolommen op NULL zet, worden allebei gezien."""
     upgrade(fresh_db, "0002")
@@ -218,7 +242,7 @@ def test_upgrade_naar_de_kop_houdt_de_data_van_de_vorige_revisie(fresh_db: str, 
     totaal, leeg, mag_leeg = _waarden(fresh_db)
     assert totaal >= 200 and leeg == 0 and mag_leeg >= 13, (totaal, leeg, mag_leeg)  # niets leeg, ook niet waar het mag
     upgrade(fresh_db)
-    assert _rev(fresh_db) == head_revision() == "0003"
+    assert _rev(fresh_db) == head_revision() == "0004"
     na = _inhoud(fresh_db)
     assert {t: na[t] for t in voor} == voor
     assert set(na) - set(voor) == {"lifecycle_plans"}

@@ -30,14 +30,16 @@ import re
 import uuid
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+
+from pydantic import ValidationError
 
 from appstore.manifest import Finding, Severity, validate_text
 from appstore.manifest.conflicts import analyse
 from appstore.manifest.model import Manifest, ParamRef
 from appstore.manifest.translate import Target, translate
-from lifecycle import beschermd
+from lifecycle import beschermd, verwijderen
 from lifecycle.custom_app import (
     DIGEST_RE,
     IX_APP,
@@ -48,6 +50,7 @@ from lifecycle.custom_app import (
     split_form_tag,
 )
 from lifecycle.hubread import Beschikbaarheid, Inventaris, verse_inventaris, verse_meting
+from lifecycle.timeutil import iso_z
 
 SCHEMA = "jlp-plan/1"
 SANDBOX = "asm-sandbox"  # vaste sandbox-dataset van de policy: <pool>/asm-sandbox/<naam>
@@ -716,6 +719,71 @@ def plan_rollback(*, plan_id: uuid.UUID, app_name: str | None, herstel_van: str 
                      inventaris=inventaris, meting=meting, doel=None, diff=huidig, images=beelden,
                      extra={"bron": bron, "eigenaar_herstel": eigenaar or {
                          "toelichting_nl": "Data terugzetten uit een snapshot (R3) doet alleen de eigenaar."}})
+
+
+# ------------------------------------------------------------------ verwijderen (B08-006)
+def plan_verwijderen(*, plan_id: uuid.UUID, app_name: str, inventaris: Inventaris,
+                     herstelpunt: verwijderen.Herstelpunt | None, now: datetime) -> dict[str, Any]:
+    """B08-006. Alleen de Hub levert herstelbewijs. De gebruiker kan geen verwijderopties kiezen."""
+    b = _Bouw("uninstall", plan_id)
+    inventaris = verse_inventaris(inventaris, now)
+    _bron_blokkade(b, inventaris)
+    if inventaris.status != "ok" and inventaris.inventory is not None:
+        b.blokkeer("inventaris_onbekend", "De Hub bevestigt deze inventarismeting niet.")
+    record = inventaris.records.get(app_name, {}) if inventaris.inventory is not None else {}
+    verwijderen.toets_beleid(app_name, record)
+    opslag = None
+    catalogus = _map(record.get("catalogus"))
+    if record.get("aanwezig") is not True or record.get("runtime_id") != app_name:
+        if inventaris.inventory is not None:
+            b.blokkeer("app_niet_geinstalleerd", "De doelapp is niet als aanwezig gemeten onder deze naam.")
+    else:
+        if (record.get("installatiewijze") not in ("catalog_app", "custom_app")
+                or not all(isinstance(catalogus.get(k), str) and catalogus[k] for k in ("app", "trein", "versie"))
+                or catalogus["versie"] == "latest"):
+            b.blokkeer("herinstallatie_onbekend", "De installatiewijze of oorspronkelijke catalogusversie is onbekend.")
+        images = record.get("images")
+        if not isinstance(images, list) or not images or not all(
+                isinstance(im, dict) and isinstance(im.get("repository"), str) and im["repository"] for im in images):
+            b.blokkeer("images_onbekend", "Niet alle images zijn gemeten. De appbescherming kan niet worden getoetst.")
+        try:
+            gemeten = verwijderen.GemetenOpslag.model_validate(record)
+            if gemeten.behoudbaar():
+                opslag = gemeten
+            else:
+                b.blokkeer("opslagbehoud_onzeker", "TrueNAS kan een Docker-volume bij het verwijderen opruimen. "
+                           "Behoud is alleen bevestigd voor gemeten bindmounts, waaronder ix-volumes.")
+        except ValidationError:
+            b.blokkeer("opslag_onbekend", "De inventaris bevat geen volledige lijst van opslag en datasets.")
+
+    diff = {"wordt_verwijderd": [{"soort": "app", "naam": app_name}],
+            "blijft_staan": opslag.blijft_staan() if opslag is not None else None,
+            "verwijderopties": {"remove_ix_volumes": False, "force_remove_ix_volumes": False, "remove_images": False}}
+    punt = herstelpunt
+    terugweg = None
+    grens = None
+    if punt is None:
+        b.blokkeer("herstelpunt_ontbreekt", "Er is geen door de Hub bevestigd herstelpunt voor deze app.")
+    else:
+        fout = verwijderen.toets_herstelpunt(punt, app_name, record, opslag, now)
+        if fout:
+            b.blokkeer(*fout)
+        elif not b.blokkades and opslag is not None and punt.archief is not None and punt.rpo_uren is not None:
+            diff["blijft_staan"] = opslag.blijft_staan(tuple(punt.datasets))
+            grens = iso_z(punt.gemaakt_op + timedelta(hours=punt.rpo_uren))
+            terugweg = {"app_name": app_name, "checkpoint_id": str(punt.checkpoint_id),
+                        "archief": punt.archief.model_dump(mode="json"),
+                        "catalog_app": catalogus["app"], "train": catalogus["trein"], "version": catalogus["versie"],
+                        "gemaakt_op": iso_z(punt.gemaakt_op), "rpo_uren": punt.rpo_uren,
+                        "instructie_nl": "Open het geverifieerde herstelarchief en controleer de twee SHA-256-sommen. "
+                        "Installeer de app onder dezelfde naam met het oorspronkelijke manifest en de oorspronkelijke "
+                        "formulierwaarden. Koppel de opslag uit ‘blijft staan’ weer aan op dezelfde doelen."}
+            b.stap("verwijderen", f"Alleen de app '{app_name}' verwijderen", actie="app.uninstall",
+                   target={"app_id": app_name}, verwacht={"staat": "ABSENT"}, expected_version=punt.resource_etag,
+                   herstelpunt=str(punt.checkpoint_id))
+    return _document(b, app_id=record.get("app_id"), app_name=app_name, manifest=None, inventaris=inventaris,
+                     meting=None, doel=None, diff=diff,
+                     extra={"terugweg": terugweg, "herstelpunt_geldig_tot": grens})
 
 
 # ------------------------------------------------------------------ stappen: vrijgeven en resultaten

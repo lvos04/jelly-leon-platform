@@ -398,7 +398,6 @@ def transition_run(
 
 
 _P2 = {
-    "/plans/uninstall/preview": ("verwijderen zonder data (B08-006)", "P2"),
     "/plans/move/preview": ("verhuizen naar andere host via export (B08-006)", "P2"),
 }
 

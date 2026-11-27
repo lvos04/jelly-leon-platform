@@ -1,3 +1,3 @@
 # Alleen de lokale EX15-image krijgt een extra Alembic-revisie.
 FROM lifecycle_basis
-COPY e2e/integral/schemafixtures/0004_proef.py /usr/local/lib/python3.12/site-packages/lifecycle/migrations/versions/
+COPY e2e/integral/schemafixtures/0005_proef.py /usr/local/lib/python3.12/site-packages/lifecycle/migrations/versions/

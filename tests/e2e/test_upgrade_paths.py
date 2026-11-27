@@ -23,10 +23,10 @@ from conftest import ROOT, docker_ok, free_port
 
 IMAGE = os.environ.get("LIFECYCLE_IMAGE", "jelly-leon-platform:dev")
 pytestmark = pytest.mark.skipif(not docker_ok(), reason="Docker niet beschikbaar")
-HEAD = "0003"  # kop van de migraties in de image (fase P2: lifecycle_plans); alleen hier bijwerken
-NEXT = "0004"
+HEAD = "0004"  # kop van de migraties in de image (verwijderplannen)
+NEXT = "0005"
 
-MIGRATION_OK = (ROOT / "e2e/integral/schemafixtures/0004_proef.py").read_text()
+MIGRATION_OK = (ROOT / "e2e/integral/schemafixtures/0005_proef.py").read_text()
 
 MIGRATION_FAIL = f'''"""test: faalt halverwege"""
 from alembic import op

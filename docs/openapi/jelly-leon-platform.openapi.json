@@ -292,6 +292,137 @@
         "title": "HealthCheck",
         "type": "object"
       },
+      "Herstelarchief": {
+        "additionalProperties": false,
+        "description": "Onveranderlijke verwijzing naar het geverifieerde archief met het vorige manifest en de formulierwaarden.",
+        "properties": {
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "waarden_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Waarden Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "manifest_sha256",
+          "waarden_sha256"
+        ],
+        "title": "Herstelarchief",
+        "type": "object"
+      },
+      "Herstelpunt": {
+        "additionalProperties": false,
+        "description": "De Hub verbindt het herstelpunt, de D16-grens en het herstelarchief aan dezelfde gemeten app.",
+        "properties": {
+          "app": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "App",
+            "type": "string"
+          },
+          "archief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Herstelarchief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoint_id": {
+            "format": "uuid",
+            "title": "Checkpoint Id",
+            "type": "string"
+          },
+          "datasets": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "title": "Datasets",
+            "type": "array"
+          },
+          "gemaakt_op": {
+            "format": "date-time",
+            "title": "Gemaakt Op",
+            "type": "string"
+          },
+          "inventaris_id": {
+            "format": "uuid",
+            "title": "Inventaris Id",
+            "type": "string"
+          },
+          "opslagbronnen": {
+            "description": "Alle gedekte bronnen uit de appconfiguratie.",
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "title": "Opslagbronnen",
+            "type": "array"
+          },
+          "resource_etag": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Resource Etag",
+            "type": "string"
+          },
+          "rpo_uren": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 8760.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpo Uren"
+          },
+          "status": {
+            "enum": [
+              "geverifieerd",
+              "niet_geverifieerd",
+              "ongeldig"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "versie_etag": {
+            "exclusiveMinimum": 0.0,
+            "title": "Versie Etag",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checkpoint_id",
+          "app",
+          "inventaris_id",
+          "versie_etag",
+          "resource_etag",
+          "gemaakt_op",
+          "status",
+          "datasets",
+          "opslagbronnen"
+        ],
+        "title": "Herstelpunt",
+        "type": "object"
+      },
       "HubLinkOut": {
         "description": "Witte lijst van contract 1.3 §3.5 + ``pinned_kids`` en ``rotation_sequence`` (§6). ``state`` is ``null`` als het\nkoppelbestand onleesbaar is (dan ``last_error.code = koppelstatus_onleesbaar``).",
         "properties": {
@@ -1140,6 +1271,33 @@
         "title": "TransitionOut",
         "type": "object"
       },
+      "UninstallPlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "maxLength": 40,
+            "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+            "title": "App Name",
+            "type": "string"
+          },
+          "herstelpunt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Herstelpunt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alleen de aangemelde Hub mag een geverifieerd B12-herstelpunt, RPO uit het beleid en herstelarchief aanleveren."
+          }
+        },
+        "required": [
+          "app_name"
+        ],
+        "title": "UninstallPlanIn",
+        "type": "object"
+      },
       "UpdatePlanIn": {
         "additionalProperties": false,
         "properties": {
@@ -1786,7 +1944,7 @@
     },
     "/lifecycle/v1/plans/uninstall/preview": {
       "post": {
-        "operationId": "placeholder_lifecycle_v1_plans_uninstall_preview_post",
+        "operationId": "preview_uninstall_lifecycle_v1_plans_uninstall_preview_post",
         "parameters": [
           {
             "in": "header",
@@ -1805,7 +1963,28 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UninstallPlanIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Het plan is vastgelegd. `status: geblokkeerd` betekent: geen enkele stap vrijgegeven."
+          },
+          "403": {
+            "description": "De app is beschermd of het herstelbewijs is niet van de Hub."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1816,18 +1995,13 @@
             },
             "description": "Validation Error"
           },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "capability_unavailable — er is niets uitgevoerd"
+          "503": {
+            "description": "De beschermlijst is niet leesbaar of wijkt af van de beleidspin."
           }
         },
-        "summary": "Nog niet gebouwd: verwijderen zonder data (B08-006)",
+        "summary": "Alleen de app verwijderen met behoud van alle opslag en een herstelarchief",
         "tags": [
-          "lifecycle"
+          "plannen"
         ]
       }
     },

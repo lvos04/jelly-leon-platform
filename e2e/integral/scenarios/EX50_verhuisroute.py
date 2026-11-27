@@ -27,13 +27,17 @@ def test_verhuisvoorwaarde(kern: Kern) -> None:
     for naam in ("move", "uninstall"):
         pad = f"/lifecycle/v1/plans/{naam}/preview"
         assert kern.lifecycle.post(pad, json={}).status_code == 401
-        antwoord = kern.lifecycle.post(pad, json={}, headers=beheerheaders(kern, "jelly-leon-platform"))
-        assert antwoord.status_code == 501 and antwoord.json()["code"] == "capability_unavailable"
-        assert antwoord.json()["details"]["planned_phase"] == "P2"
+        body = {"app_name": "emby"} if naam == "uninstall" else {}
+        antwoord = kern.lifecycle.post(pad, json=body, headers=beheerheaders(kern, "jelly-leon-platform"))
+        if naam == "uninstall":
+            assert antwoord.status_code == 403 and antwoord.json()["details"]["reason"] == "emby_nooit_door_platform"
+        else:
+            assert antwoord.status_code == 501 and antwoord.json()["code"] == "capability_unavailable"
+            assert antwoord.json()["details"]["planned_phase"] == "P2"
         media.meet(naam + "_geweigerd")
     assert data == [c.get("/_sim/inhoud").raise_for_status().json() for c in (kern.sim, tweede)]
     media.vervolg()
     assert schrijfacties(kern) == []
     assert not any(r["write"] for r in tweede.get("/_sim/calls").raise_for_status().json())
-    meet(kern, simulatoren=2, anoniem_http=401, verhuispreview_http=501, verwijderpreview_http=501, schrijfacties=0)
+    meet(kern, simulatoren=2, anoniem_http=401, verhuispreview_http=501, verwijderpreview_http=403, schrijfacties=0)
     pytest.skip(SCENARIO["overslagredenen"][0])

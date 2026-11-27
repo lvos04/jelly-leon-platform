@@ -88,7 +88,13 @@ update met databasemigraties loopt eerst als testkopie op een kloon; mislukt die
 aangeraakt. Terugzetten zet alleen de image terug en komt dus alleen vrij met een herstelpunt van vóór de update en
 als het manifest zegt dat dat veilig is; anders zet de eigenaar image en data samen terug. Voor Emby komt nooit een
 stap vrij, en voor de mediaserver en MediaGuard geen update, terugzetting of verwijdering (beleid van de Hub; ADR-0024,
-ADR-0025). Verwijderen en verhuizen (B08-006) geven nog `capability_unavailable`.
+ADR-0025).
+
+Bij `POST /lifecycle/v1/plans/uninstall/preview` toont de diff de app die verdwijnt en de datasets, hostpaden en
+ix-volumes die blijven staan. Een voorstel vraagt een actueel herstelpunt met het oorspronkelijke manifest en de
+formulierwaarden in een geverifieerd archief. Na goedkeuring wordt alleen de app verwijderd. De herstelkaart verwijst
+naar het archief voor herinstallatie met dezelfde opslag. De simulatorproef en de voorwaarden staan in
+[ADR-0022](docs/adr/ADR-0022-plannen-installatie-update-terugzetten.md). De verhuispreview hoort bij S-P5-81.
 
 Bindend: `docs/platform-v2/PLATFORM_CONTRACTEN.md` (`contracts 1.3`; werklijst `CONTRACT_1.3_CONFORMITEIT.md` §4,
 uitgewerkt in ADR-0019).

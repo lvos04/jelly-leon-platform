@@ -177,3 +177,38 @@ en de meetgrenzen vast. `apps/api/src/lifecycle/hubread.py:24–35,167–197,267
 - *Onbekende beschikbaarheid doorlaten met een waarschuwing:* dan faalt de installatie pas op de NAS, na goedkeuring.
 - *De update direct op productie proberen en bij een fout de snapshot terugrollen:* dat overschrijft data automatisch
   en vraagt een actie die de allowlist niet heeft; de schaduwtest vindt de migratiefout vóór productie wordt geraakt.
+
+## Verwijderpreview met een herstelarchief (S-P5-80, 2026-11-27)
+
+`POST /lifecycle/v1/plans/uninstall/preview` vraagt de TrueNAS-appnaam in `app_name`. De diff noemt de app onder
+`wordt_verwijderd`. Onder `blijft_staan` staan de datasets en alle koppelingen met hun bron en doel uit de verse
+Hub-inventaris. Een ix-volume en een hostpad buiten de verwachte pool blijven herkenbaar. Onvolledige inventaris
+blokkeert het voorstel. TrueNAS ruimt Docker named volumes bij de verwijdering op (§4 van TRUENAS_APP_API.md).
+Daarom blokkeert de planner zodra een koppeling geen bindmount met een gemeten absoluut bronpad is.
+De enige stap is `app.uninstall` met lege parameters, risicoklasse R2 en readback `ABSENT`.
+De drie opties `remove_ix_volumes`, `force_remove_ix_volumes` en `remove_images` staan in de diff op `false`.
+Een verwijderoptie in de aanvraag geeft 422. De verwijderpreview configureert geen TrueNAS-client.
+
+De planner toetst de naam, de runtime-identiteit, de catalogusapp en alle gemeten imagerepositories aan de gepinde
+beschermlijst. Een beschermde app geeft 403 met de beleidsregel. Een onleesbare lijst of een afwijkende controlesom
+geeft 503. In beide gevallen ontstaat geen planrij.
+
+Zonder herstelpunt legt de planner een geblokkeerde preview vast. Volgens contract §8 mag alleen de ingeschreven
+Hub met een dienst-JWT het veld `herstelpunt` aanleveren. Een gebruiker die zelf een herstelpunt opgeeft krijgt 403.
+De Hub levert een geverifieerd B12-checkpoint voor dezelfde runtime-naam, inventaris-ID en inventarisrevisie. Hij
+geeft de gemeten resource-ETag, het tijdstip, de maximale leeftijd uit D16 en de gedekte datasets en opslagbronnen
+mee. De bronpaden uit de gearchiveerde configuratie moeten overeenkomen met de inventaris. De preview verloopt
+uiterlijk zodra het herstelpunt zijn maximale leeftijd bereikt of de inventarismeting vervalt. De stap bindt de ETag
+en benoemt het checkpoint voor de goedkeuring.
+
+Het veld `terugweg` geeft de oorspronkelijke appnaam, catalogusapp, trein, versie en de verwijzing naar het
+herstelarchief. Dat archief bevat het oorspronkelijke manifest en de gemeten formulierwaarden. De manifestdigest
+volgt de manifeststandaard, de waardendigest is SHA-256 over canonieke JSON. De eigenaar opent het archief, controleert
+beide digests en installeert via hetzelfde formulier met dezelfde koppelingen. Geheime formulierwaarden blijven in het
+herstelarchief. Het plan, de audit en de events bevatten uitsluitend de verwijzingen en publieke meetgegevens.
+
+De integratieproef leest de configuratie uit de TrueNAS-simulator, maakt snapshots van gevulde datasets en voert na
+goedkeuring één verwijderactie uit. Hij haalt vervolgens het manifest en de waarden via de herstelkaart terug en
+installeert de proefapp opnieuw. De proef vergelijkt foto's, volume-inhoud, kijkstanden per gebruiker en
+MediaGuard-voortgang vóór verwijderen, na verwijderen en na herinstallatie. De Hub-aanlevering is gesimuleerd.
+De aansluiting van het Hub-scherm valt onder S-P5-61. De NAS-proef valt onder N-P6-03.

@@ -70,6 +70,12 @@ class P2Error(Exception):
         self.status, self.code, self.message, self.details = status, code, message, details or {}
 
 
+def _opslagsoort(bron: str) -> str:
+    if bron.startswith("/mnt/.ix-apps/"):
+        return "ixvolume"
+    return "hostpad" if bron.startswith("/mnt/") else "overig"
+
+
 def app_record(naam: str, *, repository: str = "ghcr.io/voorbeeld/app", tag: str = "1.0.0",
                digest: str | None = None, catalogus_app: str = "ix-app", trein: str = "stable",
                versie: str = "1.4.8", staat: str = "RUNNING", app_id: str | None = None,
@@ -94,7 +100,7 @@ def app_record(naam: str, *, repository: str = "ghcr.io/voorbeeld/app", tag: str
         "image_historie": [],
         "poorten": [{"container_poort": c, "host_poort": h, "host_ip": "0.0.0.0", "protocol": p}  # noqa: S104 - simdata
                     for c, h, p in poorten or []],
-        "opslag": [{"bron": b, "doel": d, "type": "bind", "dataset": ds, "soort": "hostpad"}
+        "opslag": [{"bron": b, "doel": d, "type": "bind", "dataset": ds, "soort": _opslagsoort(b)}
                    for b, d, ds in opslag or []],
         "datasets": sorted({ds for _b, _d, ds in opslag or [] if ds}), "portals": [],
         "resourcegrenzen": {"status": "unknown", "reden": "config_niet_gelezen"}, "documentatie": None,

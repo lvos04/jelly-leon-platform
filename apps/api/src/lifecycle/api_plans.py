@@ -36,6 +36,7 @@ from lifecycle.models import LifecyclePlan
 from lifecycle.outbox import emit
 from lifecycle.redact import redact_text
 from lifecycle.timeutil import iso_z, utcnow
+from lifecycle.verwijderen import Herstelpunt
 
 router = APIRouter(prefix="/lifecycle/v1", tags=["plannen"])
 
@@ -136,6 +137,12 @@ class UpdatePlanIn(_ManifestIn):
     schaduw: SchaduwIn | None = None
 
 
+class UninstallPlanIn(_Strikt):
+    app_name: str = Field(pattern=APP_NAME, max_length=40)
+    herstelpunt: Herstelpunt | None = Field(default=None, description="Alleen de aangemelde Hub mag een geverifieerd "
+                                            "B12-herstelpunt, RPO uit het beleid en herstelarchief aanleveren.")
+
+
 class RollbackPlanIn(_Strikt):
     update_plan_id: str | None = Field(default=None, pattern=UUID_PATTERN)
     app_name: str | None = Field(default=None, pattern=APP_NAME, max_length=40)
@@ -182,6 +189,9 @@ def vervaltijd(document: Mapping[str, Any], now: datetime) -> datetime:
             tot = geldig_tot(bron.get("gemeten_op"))
             if tot is not None and tot < grens:
                 grens = tot
+    herstelgrens = document.get("herstelpunt_geldig_tot")
+    if herstelgrens:
+        grens = min(grens, datetime.fromisoformat(herstelgrens))
     return grens
 
 
@@ -384,6 +394,23 @@ def preview_update(body: UpdatePlanIn, request: Request, principal: Annotated[Pr
         return document
 
     return _bewaar(request, principal, idempotency_key, "/lifecycle/v1/plans/update/preview", body, plan_id, maak)
+
+
+@router.post("/plans/uninstall/preview", status_code=201,
+             responses={**_ANTWOORDEN, 403: {"description": "De app is beschermd of het herstelbewijs is niet van "
+                                                            "de Hub."},
+                        503: {"description": "De beschermlijst is niet leesbaar of wijkt af van de beleidspin."}},
+             summary="Alleen de app verwijderen met behoud van alle opslag en een herstelarchief")
+def preview_uninstall(body: UninstallPlanIn, request: Request, principal: Annotated[Principal, Depends(require_write)],
+                      idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None) -> JSONResponse:
+    if body.herstelpunt is not None and (principal.kind != "service" or principal.subject != "hub"):
+        raise ApiError(403, "forbidden", "Alleen de Hub kan een herstelpunt bevestigen.",
+                       {"reason": "herstelpunt_niet_vertrouwd"})
+    plan_id = uuid.uuid4()
+    return _bewaar(request, principal, idempotency_key, "/lifecycle/v1/plans/uninstall/preview", body, plan_id,
+                   lambda: _met_bronnen(request, lambda inventaris, _: planner.plan_verwijderen(
+                       plan_id=plan_id, app_name=body.app_name, inventaris=inventaris,
+                       herstelpunt=body.herstelpunt, now=utcnow())))
 
 
 @router.post("/plans/rollback/preview", status_code=201, responses=_ANTWOORDEN,
