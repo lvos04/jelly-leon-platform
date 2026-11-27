@@ -4,11 +4,12 @@ import httpx
 
 from e2e.integral.scenarios.conftest import Kern, wacht
 from e2e.integral.scenarios.hubveiligheid import meet, schrijfacties
-from e2e.integral.scenarios.opslag import lees_proefmedia, plaats_proefmedia
+from e2e.integral.scenarios.opslag import plaats_proefmedia
 
 SCENARIO = {
     "groepen": ("opslag",), "eigenaar": "jelly-leon-platform",
-    "diensten": ("schema-release", "schema-nieuw"), "later_starten": ("schema-release", "schema-nieuw"),
+    "diensten": ("schema-release", "schema-nieuw", "emby-opslag", "mg-inhoud", "arr-inhoud"),
+    "later_starten": ("schema-release", "schema-nieuw"),
     "verwachting": "Release 0.1.0 weigert het nieuwe schema en start met de herstelde database en proefrij.",
 }
 
@@ -18,21 +19,42 @@ REVISIE = "SELECT version_num FROM alembic_version"
 KOLOM = ("SELECT count(*) FROM information_schema.columns WHERE table_name='lifecycle_runs' "
          "AND column_name='e2e_extra'")
 
-# Beide applicaties zijn gestopt. De bestaande gemigreerde database blijft als aparte database bewaard.
+# Tijdens beide fasen zijn de schema-apps gestopt. De actieve database blijft beschikbaar tot de atomaire wissel.
 HERSTEL = """
 set -eu
-set -- /appdata/backups/voor-upgrade-0003-*.dump
-test "$#" = 1 && test -s "$1"
+fase=$1
+archief=$2
+verwachte_sha=$3
+controleer_archief() {
+    test -s "$archief"
+    test "$(sha256sum "$archief" | cut -d ' ' -f 1)" = "$verwachte_sha"
+}
+controleer_archief
 export PGHOST=/appdata/backups/herstelsocket PGUSER=lifecycle
-mkdir -m 700 "$PGHOST"
+mkdir -p -m 700 "$PGHOST"
 pg_ctl -D /appdata/postgres -l "$PGHOST/postgres.log" -w start \
     -o "-c listen_addresses='' -c unix_socket_directories=$PGHOST -c jit=off"
 trap 'pg_ctl -D /appdata/postgres -m fast -w stop' EXIT
-psql -X -v ON_ERROR_STOP=1 -d postgres -c 'CREATE DATABASE ex15_hersteld TEMPLATE template0'
-pg_restore --exit-on-error --single-transaction -d ex15_hersteld "$1"
-psql -X -v ON_ERROR_STOP=1 -d postgres -c 'ALTER DATABASE lifecycle RENAME TO ex15_nieuw'
-psql -X -v ON_ERROR_STOP=1 -d postgres -c 'ALTER DATABASE ex15_hersteld RENAME TO lifecycle'
+case "$fase" in
+    laden)
+        psql -X -v ON_ERROR_STOP=1 -d postgres -c 'CREATE DATABASE ex15_hersteld TEMPLATE template0'
+        pg_restore --exit-on-error --single-transaction -d ex15_hersteld "$archief"
+        ;;
+    activeren)
+        controleer_archief
+        psql -X -v ON_ERROR_STOP=1 --single-transaction -d postgres \
+            -c 'ALTER DATABASE lifecycle RENAME TO ex15_nieuw' \
+            -c 'ALTER DATABASE ex15_hersteld RENAME TO lifecycle'
+        ;;
+    *) exit 2 ;;
+esac
 """
+
+
+def upgrade_archief(voor: set[str], na: set[str]) -> str:
+    nieuw = na - voor
+    assert len(nieuw) == 1, "De upgrade heeft geen eenduidig nieuw herstelarchief"
+    return nieuw.pop()
 
 
 def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
@@ -49,11 +71,16 @@ def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
         return p.compose("exec", "-T", "--user", "568:568", dienst, "psql", "-X", "-v", "ON_ERROR_STOP=1",
                          "-h", socketmap, "-U", "lifecycle", "-d", db, "-tAc", tekst).strip()
 
+    def archieven(dienst: str) -> set[str]:
+        namen = p.compose("exec", "-T", "--user", "568:568", dienst, "find", "/appdata/backups", "-maxdepth", "1",
+                          "-type", "f", "-name", "voor-upgrade-0003-*.dump", "-print")
+        return set(namen.splitlines())
+
     def start(dienst: str, client: httpx.Client) -> None:
         p.start((dienst,))
         wacht("schema-app gereed", lambda: client.get("/readyz").json()["status"] == "ready")
 
-    plaats_proefmedia(kern)
+    media = plaats_proefmedia(kern)
     start(OUD, oud)
     assert sql(OUD, REVISIE) == "0003" and sql(OUD, KOLOM) == "0"
     sql(OUD, "INSERT INTO lifecycle_runs (id, app_id, kind, state, requested_by_type, requested_by_id, trace_id, "
@@ -61,10 +88,13 @@ def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
         "'user', 'proef', gen_random_uuid(), '{}', 1, now(), now())")
     marker = "SELECT app_id FROM lifecycle_runs WHERE app_id='proef-config'"
     assert sql(OUD, marker) == "proef-config"
+    vooraf = archieven(OUD)
     p.compose("stop", OUD)
     start(NIEUW, nieuw)
+    archief = upgrade_archief(vooraf, archieven(NIEUW))
+    sha = p.compose("exec", "-T", "--user", "568:568", NIEUW, "sha256sum", archief).split()[0]
     assert sql(NIEUW, REVISIE) == "0004" and sql(NIEUW, KOLOM) == "1" and sql(NIEUW, marker) == "proef-config"
-    lees_proefmedia(kern, 41, 7)
+    media.meet("na_upgrade")
     p.compose("stop", NIEUW)
     p.start((OUD,))
     wacht("weigering door oude procesbewaker",
@@ -75,13 +105,17 @@ def test_release_na_schemawijziging_en_databaseherstel(kern: Kern) -> None:
         pass  # De procesbewaker start de API niet na de geweigerde migratie.
     else:
         assert not antwoord.is_success
-    lees_proefmedia(kern, 41, 7)
+    media.meet("oude_release_geweigerd")
     p.compose("stop", OUD)
-    p.compose("run", "--rm", "--no-deps", "-T", "--user", "568:568", "--entrypoint", "sh", OUD, "-ec", HERSTEL)
+    for fase in ("laden", "activeren"):
+        p.compose("run", "--rm", "--no-deps", "-T", "--user", "568:568", "--entrypoint", "sh", OUD,
+                  "-ec", HERSTEL, "herstel", fase, archief, sha)
+        media.meet("na_" + fase)
     start(OUD, oud)
     assert sql(OUD, REVISIE) == "0003" and sql(OUD, KOLOM) == "0" and sql(OUD, marker) == "proef-config"
     assert sql(OUD, REVISIE, "ex15_nieuw") == "0004" and sql(OUD, marker, "ex15_nieuw") == "proef-config"
-    lees_proefmedia(kern, 41, 7)
+    media.vervolg()
     assert schrijfacties(kern) == []
     meet(kern, verschillende_images=2, revisie_voor=3, proefrevisie_na=4, tag_alleen_geweigerd=True,
-         revisie_na_herstel=3, proefrij_behouden=True, gemigreerde_database_bewaard=True, mediacontroles=4)
+         revisie_na_herstel=3, proefrij_behouden=True, gemigreerde_database_bewaard=True,
+         archief_sha256_gecontroleerd=True, mediacontroles=len(media.metingen), taak_vervolgd=True)

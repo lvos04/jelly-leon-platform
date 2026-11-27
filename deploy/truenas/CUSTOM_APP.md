@@ -113,8 +113,9 @@ met een code en een trace-ID (selecteer en kopieer); dezelfde trace-ID staat in 
 
 - **Bijwerken:** app → **Edit** → Tag naar de nieuwe `<versie>@sha256:<digest>` → **Update**. Noteer vooraf de oude
   Tag (de Hub bewaart vanaf P2 de volledige vorige waarden als terugzetrecept). Bij openstaande databasemigraties maakt de
-  app eerst een `pg_dump` in `/appdata/backups` (nieuwste 3 blijven; overgeslagen bij te weinig ruimte, dat staat in
-  de log) en migreert daarna in één transactie. Mislukt de migratie, dan blijft de database op de vorige versie en
+  app eerst een `pg_dump` van de bestaande database in `/appdata/backups` en leest die volledig terug. De drie nieuwste
+  dumps blijven bewaard. Bij onvoldoende ruimte of een onleesbare dump stopt de upgrade vóór de migratie. Na een
+  geldige dump migreert de app in één transactie. Mislukt de migratie, dan blijft de database op de vorige versie en
   start de app niet: zet de vorige Tag terug. Maak vooraf een ZFS-snapshot van de dataset.
 - **Terugzetten:** TrueNAS **Roll Back** werkt bij een Custom App alleen tussen *ix-app*-versies, niet tussen
   image-tags. Terugzetten = **Edit** → vorige Tag (met digest) = `app.update` met de vorige waarden. Is het schema al gemigreerd, dan eerst de snapshot of de

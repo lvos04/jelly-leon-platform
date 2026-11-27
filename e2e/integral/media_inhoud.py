@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from e2e.integral.bewijs import schrijf
 from e2e.integral.scenarios.conftest import Kern, wacht
 
@@ -24,6 +26,20 @@ BEWAARD = "/media/bestaand/bewaard.mkv"
 KIJKERS = ("proefkijker-a", "proefkijker-b")
 DOEL = {"serie": STAGING + "S01E01.mkv", "quarantaine": STAGING + "S01E01.mkv",
         "anime": ANIME + "S01E01.mkv", "kwaliteit": "/media/kwaliteitsproef/controle.mkv"}
+
+
+def lees_kijkstand(kijkserver: httpx.Client, gebruikers: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    kijkstand: dict[str, dict[str, Any]] = {}
+    for u in gebruikers:
+        uid = u["Id"]
+        assert u["Name"] == uid
+        items = kijkserver.get("/Items", params={"UserId": uid, "Fields": "Path", "Recursive": "true",
+                                               "EnableUserData": "true"}).raise_for_status().json()["Items"]
+        for item in items:
+            per_pad = kijkstand.setdefault(item["Path"], {})
+            assert uid not in per_pad and isinstance(item["UserData"], dict), "Ongeldige kijkgegevens"
+            per_pad[uid] = item["UserData"]
+    return kijkstand
 
 
 class Inhoud:
@@ -79,20 +95,6 @@ class Inhoud:
         self.metingen[naam] = meting
         schrijf(self.kern.net.dossier / "inhoud.json", self.metingen)
 
-    def lees_kijkstand(self) -> dict[str, dict[str, Any]]:
-        kijkstand: dict[str, dict[str, Any]] = {}
-        gebruikers = self.kijkserver.get("/Users").raise_for_status().json()
-        for u in gebruikers:
-            uid = u["Id"]
-            assert u["Name"] == uid
-            items = self.kijkserver.get("/Items", params={"UserId": uid, "Fields": "Path", "Recursive": "true",
-                                                           "EnableUserData": "true"}).raise_for_status().json()["Items"]
-            for item in items:
-                per_pad = kijkstand.setdefault(item["Path"], {})
-                assert uid not in per_pad and isinstance(item["UserData"], dict), "Ongeldige kijkgegevens"
-                per_pad[uid] = item["UserData"]
-        return kijkstand
-
     def controleer_begin(self, job: int, verwacht: dict[str, dict[str, Any]]) -> None:
         assert self.historie is not None
         assert verwacht.keys() <= self.verwacht.keys(), "Beginstand mediabestanden"
@@ -126,8 +128,9 @@ class Inhoud:
         jobs = self.mg.get("/api/v1/jobs", params={"limit": 1000}).raise_for_status().json()
         assert 0 < len(jobs) < 1000 and hashes
         stand = {str(j["id"]): float(j["progress"]) for j in jobs}
-        historie = {"kijkgegevens": self.lees_kijkstand(), "kijkregistraties": inventaris["registraties"],
-                    "taaklog": inventaris["logregels"]}
+        gebruikers = self.kijkserver.get("/Users").raise_for_status().json()
+        historie = {"kijkgegevens": lees_kijkstand(self.kijkserver, gebruikers),
+                    "kijkregistraties": inventaris["registraties"], "taaklog": inventaris["logregels"]}
         # Het dossier bevat per log-ID de afdruk van de hele rij, ook als een werker vrije tekst logt.
         loghashes = {k: hashlib.sha256(json.dumps(r, sort_keys=True).encode()).hexdigest()
                      for k, r in historie["taaklog"].items()}

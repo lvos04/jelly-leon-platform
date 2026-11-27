@@ -38,6 +38,7 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 | mso | MSO met eigen PostgreSQL in het projectvolume, plus de downloadsimulators uit de vastgezette MSO-mockbron. |
 | downloadketen | arr-sim en sabnzbd-sim gebruiken dezelfde gepinde MSO-testimage en de lokale simulatorcode. |
 | media-inhoud | MediaGuard-kern en herstelwerker uit `apps/core`, plus Seerr en Sonarr uit de arr-simulator. De diensten delen een projectgebonden testbibliotheek. |
+| opslagmedia | Emby-protocolsimulator voor de opslagproeven. Deze proeven gebruiken ook de MediaGuard-kern en de arr-simulator uit media-inhoud. |
 | media-kwaliteit | CPU-encoder uit `services/encoder` met FFmpeg en libvmaf. |
 | huis | my-house en home-control-hub voor EX24–EX30 |
 | huis-browser | Chromium voor de apparaatkaart in EX27 |
@@ -113,17 +114,19 @@ De huisproeven controleren het netwerk van de draaiende containers voordat een s
 Bouw eerst de kern en daarna de profielen voor deze zeven proeven. De herstelproef gebruikt dezelfde TrueNAS-image als de kern voor de tweede simulator.
 
 ```bash
-for profiel in kern onedrive schema appstore upstream-git; do
-  flock "$WERKMAP/.lokaal/docker-build.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --bouw --profiel "$profiel" || exit 1
+for profiel in kern onedrive media-inhoud schema appstore upstream-git; do
+  "$WERKMAP/.lokaal/stackslot" nice -n 10 .venv/bin/python e2e/integral/run.py --bouw --profiel "$profiel" || exit 1
 done
-flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX11,EX12,EX14,EX15,EX47,EX48,EX50
+"$WERKMAP/.lokaal/stackslot" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX11,EX12,EX14,EX15,EX47,EX48,EX50
 ```
 
 EX11, EX12 en EX14 gebruiken de gekoppelde Hub en executor met een geverifieerde proefexport. De OneDrive-simulator levert de taakstand die de Hub via de TrueNAS-inventaris inleest. EX14 herstelt de configuratie naar een eigen zandbakdataset en leest de actuele gegevens van de bron opnieuw uit.
 
 De Hub-werker controleert ook de back-updekking van appgegevens. De drie proeven leveren daarvoor het synthetische MediaGuard-herstelrapport via een gekoppelde HTTPS-leesadapter en een bevestigd synthetisch Emby-archief met afzonderlijke kopie op het projectvolume. De fixtures komen uit de gebruikte Hub-bron. De Hub berekent zelf of de gate open kan.
 
-EX15 start release 0.1.0 op de gepubliceerde digest en de lokale testimage om beurten op één projectvolume. Beide bronversies hebben schema 0003. Alleen de testimage bevat de extra migratie 0004. Het herstel gebruikt de dump die de procesbewaker vóór de migratie maakt. EX47 gebruikt de manifestfixtures van de appstore. EX48 voert de merge-, bundel- en overdrachtsstap uit de Forgejo-workflow van de fork uit tegen de lokale Git-simulator. De forkbron is alleen-lezen aangekoppeld.
+EX15 start release 0.1.0 op de gepubliceerde digest en de lokale testimage om beurten op één projectvolume. Beide bronversies hebben schema 0003. Alleen de testimage bevat de extra migratie 0004. Het herstel selecteert de enige dump die deze upgrade toevoegde en controleert de vastgelegde SHA-256 vóór het laden en de wissel van de databasenamen. EX47 gebruikt de manifestfixtures van de appstore. EX48 voert de merge-, bundel- en overdrachtsstap uit de Forgejo-workflow van de fork uit tegen de lokale Git-simulator. De forkbron is alleen-lezen aangekoppeld.
+
+EX14, EX15 en de voorcontrole van EX50 lezen per proefkijker de rechten, kijkgeschiedenis, favorieten, beoordelingen en spoorkeuzes via de lokale media-API. De MediaGuard-werker wacht tijdens het herstel met één bestaande bibliotheektaak op 37,5%. Na vrijgave synchroniseert dezelfde taak de twee proefafleveringen. De meetmomenten staan in `opslagmedia.json`.
 
 EX50 registreert de HTTP-antwoorden van de verhuis- en verwijderpreview. Bij de verwachte 501 blijft de verhuizing geblokkeerd op B08-006. De meetwaarden staan per scenario in `metingen.json`.
 

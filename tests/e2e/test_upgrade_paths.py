@@ -112,10 +112,10 @@ def appdata(tmp_path: Path) -> Iterator[Path]:
        check=False)
 
 
-def run(image: str, appdata: Path, port: int) -> str:
+def run(image: str, appdata: Path, port: int, *opties: str) -> str:
     name = f"jlp-up-{uuid.uuid4().hex[:8]}"
     sh("docker", "run", "-d", "--name", name, "-v", f"{appdata}:/appdata", "-p", f"127.0.0.1:{port}:30440",
-       "-e", "LIFECYCLE_FAIL_PAUSE_SECONDS=1", image)
+       "-e", "LIFECYCLE_FAIL_PAUSE_SECONDS=1", *opties, image)
     return name
 
 
@@ -151,6 +151,22 @@ def test_upgrade_backup_restore_and_failed_migration(tmp_path: Path, appdata: Pa
         names.remove(c3)
 
         # terug naar v1 (alleen tag): start gewoon, data en schema onveranderd
+        sh("docker", "start", c1)
+        ready(port)
+        assert psql(c1, "SELECT version_num FROM alembic_version") == HEAD
+        assert psql(c1, f"SELECT count(*) FROM lifecycle_runs WHERE id='{run_id}'") == "1"
+        sh("docker", "stop", c1)
+
+        # Een echte pg_dump naar de volle testbestemming moet de upgrade vóór de eerste schemawijziging stoppen.
+        vol = tmp_path / "pg_dump_vol"
+        vol.write_text('#!/bin/sh\n'
+                       'LD_LIBRARY_PATH=/opt/pglibs exec /usr/lib/postgresql/16/bin/pg_dump "$@" -f /dev/full\n')
+        vol.chmod(0o755)
+        zonder_dump = run(v2, appdata, port, "-v", f"{vol}:/usr/local/bin/pg_dump:ro")
+        names.append(zonder_dump)
+        wait_log(zonder_dump, "upgrade gestopt vóór migratie: pg_dump mislukt")
+        sh("docker", "rm", "-f", zonder_dump)
+        names.remove(zonder_dump)
         sh("docker", "start", c1)
         ready(port)
         assert psql(c1, "SELECT version_num FROM alembic_version") == HEAD

@@ -16,8 +16,8 @@ Regels (naar het voorbeeld van MSO ``deploy/allinone``):
   (PID 1 heeft geen standaard signaalafhandeling); er draait dus geen ``dumb-init`` als root meer.
 - Start hij als 568 (TrueNAS "Custom User"), dan wordt niets aangepast en alleen de schrijfbaarheid gecontroleerd.
 - Duidelijke Nederlandse fout en pauze (geen snelle crashlus) als ``/appdata`` ontbreekt of niet schrijfbaar is.
-- Openstaande migraties: eerst een ``pg_dump`` (als er ruimte is; de nieuwste 3 blijven), dan migreren in één
-  transactie. Mislukt de migratie, dan blijft de database exact op de vorige versie en start de API niet.
+- Openstaande migraties: eerst een volledig leesbare ``pg_dump`` van de bestaande database (nieuwste 3 blijven),
+  dan migreren in één transactie. Bij een fout blijft de vorige revisie actief en stopt de start.
 - Gecrashte processen herstarten met oplopende wachttijd; SIGTERM stopt api → worker → database netjes.
 """
 
@@ -29,12 +29,14 @@ import grp
 import json
 import os
 import pwd
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -301,41 +303,55 @@ def wait_for_db(pg: Child, timeout: float = 90) -> None:
 
 
 def backup_before_migrations() -> None:
-    """``pg_dump`` vóór openstaande migraties. Blokkeert de start nooit; een mislukking staat duidelijk in de log."""
+    """Geef de migratie van een bestaande database pas vrij na een volledig leesbare dump."""
     pending = run_once("openstaande migraties", [sys.executable, "-m", "lifecycle", "pending"], capture=True)
-    if pending.returncode == 0:
-        return
+    if pending.returncode not in (0, 10):
+        raise RuntimeError("migratiestatus opvragen mislukt")
     try:
         info = json.loads(pending.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        info = {"current": None}
-    if not info.get("current"):
-        return  # lege database: niets te bewaren
-    db_size = run_once(
-        "databasegrootte",
-        ["psql", "-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "lifecycle", "-tAc",
-         "SELECT pg_database_size('lifecycle')"],
-        capture=True,
-    )
-    try:
-        needed = int(db_size.stdout.strip() or "0") * 2
-    except ValueError:
-        needed = 0
-    if shutil.disk_usage(BACKUPS).free < needed + 50 * 1024 * 1024:
-        log("te weinig vrije ruimte voor de back-up vóór de upgrade; overgeslagen (maak een ZFS-snapshot)")
+        current, head = info["current"], info["head"]
+    except (ValueError, IndexError, KeyError, TypeError) as exc:
+        raise RuntimeError("migratiestatus onleesbaar") from exc
+    if (not isinstance(head, str) or not head or (current is not None and
+            (not isinstance(current, str) or not re.fullmatch(r"[a-zA-Z0-9_-]+", current)))
+            or (current == head) != (pending.returncode == 0)):
+        raise RuntimeError("ongeldige migratiestatus")
+    if current == head:
         return
+
+    verbinding = ["-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "lifecycle"]
+    if current is None:
+        # Een ontbrekende Alembic-revisie bewijst op zichzelf niet dat de database leeg is.
+        tabellen = run_once("bestaande databaseobjecten", ["psql", *verbinding, "-XAtc",
+            "SELECT EXISTS (SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+            "WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema')"], capture=True)
+        if tabellen.returncode or tabellen.stdout.strip() not in {"t", "f"}:
+            raise RuntimeError("inhoud van de database kon niet worden vastgesteld")
+        if tabellen.stdout.strip() == "f":
+            return
+
+    db_size = run_once("databasegrootte", ["psql", *verbinding, "-XAtc", "SELECT pg_database_size('lifecycle')"],
+                       capture=True)
+    if db_size.returncode or not db_size.stdout.strip().isdecimal():
+        raise RuntimeError("databasegrootte opvragen mislukt")
+    if shutil.disk_usage(BACKUPS).free < int(db_size.stdout.strip()) * 2 + 50 * 1024 * 1024:
+        raise RuntimeError("te weinig vrije ruimte voor de back-up vóór de upgrade")
+
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    target = BACKUPS / f"voor-upgrade-{info.get('current')}-{stamp}.dump"
-    result = run_once(
-        "back-up vóór upgrade",
-        ["pg_dump", "-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "lifecycle", "-Fc", "-f", str(target)],
-    )
-    if result.returncode != 0:
-        log("back-up vóór upgrade mislukt; de migratie gaat door (transactioneel, zie log)")
-        target.unlink(missing_ok=True)
-        return
+    target = BACKUPS / f"voor-upgrade-{current or 'basis'}-{stamp}-{uuid.uuid4().hex}.dump"
+    tijdelijk = target.with_suffix(".part")
+    try:
+        if run_once("back-up vóór upgrade", ["pg_dump", *verbinding, "-Fc", "-f", str(tijdelijk)]).returncode:
+            raise RuntimeError("pg_dump mislukt")
+        # Lees ook de gecomprimeerde tabeldata. Een leesbare inhoudsopgave alleen is onvoldoende.
+        controle = ["pg_restore", "--format=custom", "--file", os.devnull, str(tijdelijk)]
+        if run_once("controle herstelarchief", controle).returncode:
+            raise RuntimeError("herstelarchief is onleesbaar")
+        tijdelijk.rename(target)
+    finally:
+        tijdelijk.unlink(missing_ok=True)
     dumps = sorted(BACKUPS.glob("voor-upgrade-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for old in dumps[KEEP_BACKUPS:]:
+    for old in [p for p in dumps if p != target][KEEP_BACKUPS - 1:]:
         old.unlink(missing_ok=True)
     log(f"back-up vóór upgrade: {target.name}")
 
@@ -362,7 +378,11 @@ def main() -> None:
         pg.stop(60)
         log("gestopt tijdens het opstarten")
         return
-    backup_before_migrations()
+    try:
+        backup_before_migrations()
+    except (OSError, RuntimeError) as exc:
+        pg.stop(60)
+        fail(f"upgrade gestopt vóór migratie: {exc}. Controleer de back-upmap en start de app opnieuw.")
     if run_once("migraties", [sys.executable, "-m", "lifecycle", "migrate"]).returncode != 0:
         pg.stop(60)
         fail("databasemigratie mislukt; de database staat ongewijzigd op de vorige versie. Zet de vorige image-tag "

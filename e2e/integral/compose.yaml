@@ -150,6 +150,11 @@ services:
     profiles: [media-inhoud]
     command: [python, /proef/kijkserver.py, --host, intern]
     volumes: [./mediafixtures/kijkserver.py:/proef/kijkserver.py:ro]
+  emby-opslag:
+    <<: *derden
+    profiles: [opslagmedia]
+    command: [python, /proef/kijkserver.py, --host, intern, --emby]
+    volumes: [./mediafixtures/kijkserver.py:/proef/kijkserver.py:ro]
   mg-kwaliteitsmeting:
     profiles: [media-kwaliteit]
     image: jlp-integraal/mg-kwaliteitsmeting:${INTEGRAAL_TAG:-lokaal}

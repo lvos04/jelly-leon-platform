@@ -101,8 +101,9 @@ def test_schema_images_delen_alleen_het_eigen_volume_en_starten_na_elkaar(tmp_pa
     p.start.side_effect = Proeffout("Einde startmeting")
     code, _ = run.draai(p, scenario, tmp_path / "EX15", "c" * 40, False)
     assert code == 1
-    p.images.assert_called_once_with((*KERN, "schema-release", "schema-nieuw"))
-    p.start.assert_called_once_with(("hub", "executor", "truenas"))
+    media = ("emby-opslag", "mg-inhoud", "arr-inhoud")
+    p.images.assert_called_once_with((*KERN, "schema-release", "schema-nieuw", *media))
+    p.start.assert_called_once_with(("hub", "executor", "truenas", *media))
     diensten = yaml.safe_load((MAP / "compose.yaml").read_text())["services"]
     assert diensten["schema-release"]["volumes"] == diensten["schema-nieuw"]["volumes"] == ["schemaproef:/appdata"]
     assert diensten["lifecycle"]["volumes"] == ["lifecycle:/appdata"]

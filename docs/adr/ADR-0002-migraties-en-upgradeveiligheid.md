@@ -13,9 +13,9 @@ laat oude app met data intact".
 - `env.py` draait alle migraties van één upgrade in **één transactie** (PostgreSQL ondersteunt transactionele DDL):
   mislukt er één, dan blijft het schema exact op de vorige revisie, met data. Bewezen in
   `tests/integration/test_migrations.py::test_failed_migration_leaves_old_schema_and_data`.
-- De procesbewaker maakt bij openstaande migraties eerst een `pg_dump -Fc` in `/appdata/backups`
-  (`voor-upgrade-<rev>-<tijd>.dump`, nieuwste 3 blijven; overgeslagen bij te weinig ruimte, met logregel) en start
-  de API niet als de migratie faalt.
+- De procesbewaker maakt vóór een migratie van een bestaande database een `pg_dump -Fc` in `/appdata/backups`.
+  Na volledig teruglezen met `pg_restore` publiceert hij het archief als `voor-upgrade-<rev>-<tijd>-<uniek>.dump`.
+  De nieuwste drie herstelarchieven blijven bewaard. Een back-upfout stopt de upgrade vóór de eerste schemawijziging.
 - CI: upgrade → downgrade base → upgrade, plus drift-controle modellen ↔ migraties.
 
 ## Gevolgen
