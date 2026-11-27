@@ -7,7 +7,7 @@
 | Wat | Waarde |
 |---|---|
 | Image | `ghcr.io/lvos04/jelly-leon-platform` (publiek pakket, geen registry-login nodig; zie "Image ophalen") |
-| Tag | `<versie>@sha256:<digest>` uit `release/digests.json` (bijv. `0.1.0@sha256:…`) — **nooit `latest`** (het formulier vult `latest` voor; overschrijven!) |
+| Tag | `0.1.1@sha256:df07b0ff8204b0f38c50fab430f43424f8cc5755b5e06c38827305c90bb3cb89` |
 | Poort | container `30440` → host `30440` (voorstel; wijzigbaar als die hostpoort bezet is) |
 | Opslag | één map → `/appdata` |
 | Geheimen / wachtwoorden | **geen**: de app maakt ze zelf bij de eerste start in `/appdata/secrets` |
@@ -22,10 +22,9 @@
 
 ## 0. Image ophalen (publiek; registry-login alleen als terugvaloptie)
 
-- **Standaard (route A):** het GHCR-pakket is publiek (besluit 3, na een scan van de volledige historie). TrueNAS
-  haalt de image dan zonder registry-login op. **Let op:** zolang de pakketten nog niet publiek zijn gemaakt, lukt
-  dit niet (`denied`); dat is op de peildatum nog zo — installeren op een echte NAS is daarom **Geblokkeerd /
-  NIET GEVALIDEERD**.
+- **Publiek pakket (route A).** Ga direct door naar stap 1. Op 27 november 2026 gaf GHCR zonder aanmelding voor
+  tag `0.1.1` dezelfde manifestdigest als de [releasebijlage](../../release/digests.json).
+  Installatie op TrueNAS is **NIET GEVALIDEERD (echte NAS)**.
 - **Terugvaloptie (route B):** *Apps → Configuration → Sign-in to a Docker registry* → *Other Registry*, URI
   `https://ghcr.io`, een GitHub-token met **alleen** `read:packages`. Dat token is een geheim van jou in TrueNAS —
   nooit in een app-formulier, manifest, repo of log. Gedrag met GHCR-tokens: **NIET GEVALIDEERD (echte NAS)**.
@@ -47,7 +46,7 @@ Kies één van beide (de Hub-wizard stelt dit voor via de datasetkiezer; nooit e
 |---|---|---|
 | — | Application Name | `jelly-leon-platform` |
 | Image Configuration | Repository | `ghcr.io/lvos04/jelly-leon-platform` |
-| | Tag | `<versie>@sha256:<digest>`, bijv. `0.1.0@sha256:` + 64 hex uit `release/digests.json` (trekt op digest). Weigert het formulier het `@`-teken, vul dan alleen de exacte versie in; de Hub leest de digest na installatie terug (`app.image.query`) en stopt bij een afwijking. **Of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert: NIET GEVALIDEERD (echte NAS).** |
+| | Tag | Overschrijf `latest` met de volledige tag uit de tabel bovenaan. Weigert het formulier het `@`-teken, vul dan `0.1.1` in. De Hub leest de digest na installatie terug (`app.image.query`) en stopt bij een afwijking. **Of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert: NIET GEVALIDEERD (echte NAS).** |
 | | Pull Policy | *Pull the image if it is not already present on the host* (`missing`) |
 | Container Configuration | Hostname, Entrypoint, Command | leeg laten |
 | | Timezone | jouw tijdzone (de app rekent intern in UTC) |
@@ -130,7 +129,7 @@ met een code en een trace-ID (selecteer en kopieer); dezelfde trace-ID staat in 
 | `FOUT: geen schrijfrechten op /appdata/...` | *Custom User* staat aan met een andere gebruiker: zet uit, of geef 568 schrijfrechten. |
 | `oude postmaster.pid ... verwijderd` | Geen fout: vorige stop was onverwacht (stroom/kill). |
 | `databasemigratie mislukt` | Vorige Tag terugzetten; de database is ongewijzigd. Log bewaren voor de Hub/incident. |
-| Image niet op te halen (`denied`/`unauthorized`) | GHCR-pakket nog privé: zie stap 0 (route B als terugvaloptie) en `install/truenas/INSTALLATIE.md` stap 1. |
+| Image niet op te halen (`denied`/`unauthorized`) | Controleer de repository en tag uit de tabel bovenaan. Zie stap 0 voor de terugvaloptie als GHCR om aanmelding vraagt. |
 | Statuspagina: code `hub_vingerafdruk_onjuist` ("vingerafdruk klopt niet") | Ander Hub-adres of andere Hub dan bedoeld; er is niets opgeslagen. Controleer adres en vingerafdruk in de Hub-UI. |
 | Statuspagina: "Ingetrokken" (code `ingetrokken_door_hub`) | De Hub heeft de koppeling ingetrokken. Opnieuw koppelen via de Hub (nieuw token). |
 | Statuspagina: "De koppelstatus is onleesbaar" (code `koppelstatus_onleesbaar`) | `/appdata/secrets/hub-link.json` is beschadigd; de app vertrouwt geen Hub-aanmelding en toont geen formulier. Opnieuw koppelen via de Hub (nieuw token in dit formulier); het origineel blijft als `hub-link.json.onleesbaar-<UTC-tijd>` bewaard. Vanaf 0.1.1 telt op een dataset met preset Apps (NFSv4-ACL) een bestand met groepsrechten uit de ACL niet meer als onleesbaar; wereld-schrijfbaar, een andere eigenaar of een symlink wel. |

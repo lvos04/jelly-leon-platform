@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 — nog niet uitgebracht
+## 0.1.1 — 26 november 2026
 
 - **Koppelen op een dataset met preset Apps** (TrueNAS NFSv4-ACL): ZFS negeerde de 0600 van een nieuw
   `hub-link.json` (overgeërfde ACE's); de dienst las het daarna als onleesbaar en een nieuw koppeltoken gaf een lus.

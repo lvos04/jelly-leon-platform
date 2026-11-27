@@ -15,7 +15,7 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 >   komen uit de broncode van de TrueNAS-web-UI (`truenas/webui` tag TS-25.10.8) en de Custom App-definitie
 >   (`truenas/apps` `ix-app` 1.4.8); in 25.04 en latere versies kunnen namen iets afwijken.
 > - De images van de Hub en de executor worden gebouwd in `ai-server-manager`. Tag, setupcode, wizard en koppelpagina
->   zijn van die repo. Release `v0.1.0` bevat de digests voor beide images in de bijlage `digests.json`.
+>   zijn van die repo. Gebruik voor de Hub versie `0.1.0` en voor de executor versie `0.1.1`.
 > - Vul nergens voorbeeldwaarden in. NAS-adres (D03), pool en datasets (D02) en de TrueNAS-versie (D01) zijn van
 >   jouw NAS; `<…>` betekent: jouw eigen waarde.
 
@@ -23,7 +23,7 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 |---|---|---|
 | Application Name | `ai-server-manager` | `ai-server-manager-executor` |
 | Image (Repository) | `ghcr.io/lvos04/ai-server-manager` | `ghcr.io/lvos04/ai-server-manager-executor` |
-| Tag | `<versie>@sha256:<digest>` uit de release (nooit `latest`; zie stap 3) | dezelfde releaseversie als de Hub, met de eigen digest |
+| Tag | `0.1.0` met de Hub-digest uit stap 1 | `0.1.1` met de executordigest uit stap 1 |
 | Poort (container → host) | `30400` → `30400` | `30410` → `30410` |
 | Opslag | eigen map → `/appdata` | **eigen, aparte** map → `/appdata` |
 | Geheimen in het formulier | geen | geen (de schrijfkey voer je alleen op de executorpagina in) |
@@ -40,9 +40,21 @@ terminal, geen SSH en geen *Install via YAML* nodig.
 
 ## Stap 1 — Images ophalen (GHCR)
 
-- **A. Publieke pakketten.** Ga voor release `v0.1.0` direct door naar stap 2. Op 26 november 2026 waren de
-  manifesten van de Hub en de executor bij GHCR zonder aanmelding opvraagbaar. Beide digests kwamen overeen met
-  `digests.json` bij de [Hub-release v0.1.0](https://github.com/lvos04/ai-server-manager/releases/tag/v0.1.0).
+Op 27 november 2026 zijn de onderstaande manifestdigests anoniem gecontroleerd bij GHCR. Gebruik de eerste twee
+rijen voor het Hub- en executorformulier. De overige vier horen bij de installatieplannen in stap 6.
+
+| Repository | Tag voor het formulier |
+|---|---|
+| `ghcr.io/lvos04/ai-server-manager` | `0.1.0@sha256:4accffc49b8d4180a302c974f4acf6e2c0d36b2a4fe458e80741b8ffc94546fa` |
+| `ghcr.io/lvos04/ai-server-manager-executor` | `0.1.1@sha256:eb98c8fab8121f819582325dbd9582256e3dd9c77912b2c8a67c7d5619aee27e` |
+| `ghcr.io/lvos04/jelly-leon-platform` | `0.1.1@sha256:df07b0ff8204b0f38c50fab430f43424f8cc5755b5e06c38827305c90bb3cb89` |
+| `ghcr.io/lvos04/home-control-hub` | `0.1.1@sha256:52dc80ad3b038a8a34b12096bd18791a4f299339629c955ae81c3d8776c40929` |
+| `ghcr.io/lvos04/appstore-en-fork` | `0.1.1@sha256:79e642d2b2a0736282f7c8022ee1b6f178783a19f6fcaa5baa5a23be9e6789b3` |
+| `ghcr.io/lvos04/zoeken-en-persoonlijke-ai` | `0.1.1@sha256:3c385eed778a0d09bdfab1f42ff4b9bca0bd0a4edf885f98f9789ea33f347892` |
+
+- **A. Publieke pakketten.** Ga door naar stap 2. De eerste twee waarden staan ook in de releasebijlagen van de
+  [Hub 0.1.0](https://github.com/lvos04/ai-server-manager/releases/tag/v0.1.0) en de
+  [executor 0.1.1](https://github.com/lvos04/ai-server-manager/releases/tag/v0.1.1).
 - **B. Alleen als terugvaloptie: registry-login in TrueNAS.** *Apps → Configuration → Sign-in to a Docker registry*
   → *Other Registry* → URI `https://ghcr.io`, gebruikersnaam = je GitHub-gebruikersnaam, wachtwoord = een
   GitHub-token met alleen `read:packages`. Dit geheim staat dan in TrueNAS, nooit in een app-formulier, manifest,
@@ -67,7 +79,7 @@ Per app één eigen map. Twee mogelijkheden:
 |---|---|---|
 | — | Application Name | `ai-server-manager` |
 | Image Configuration | Repository | `ghcr.io/lvos04/ai-server-manager` |
-| | Tag | `<versie>@sha256:<digest>` uit de release-notes (het formulier vult `latest` voor — **overschrijven**). Weigert het formulier het `@`-teken, vul dan alleen de exacte versie in; de Hub controleert de digest na installatie (`app.image.query`). **NIET GEVALIDEERD (echte NAS):** of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert. |
+| | Tag | Overschrijf `latest` met de volledige tag voor `ai-server-manager` uit stap 1. Weigert het formulier het `@`-teken, vul dan `0.1.0` in. De Hub controleert de digest na installatie (`app.image.query`). **NIET GEVALIDEERD (echte NAS):** of het formulier `@` accepteert en of TrueNAS daarmee updates detecteert. |
 | | Pull Policy | *Pull the image if it is not already present on the host* |
 | Container Configuration | Timezone | jouw tijdzone |
 | | Environment Variables | leeg laten |
@@ -108,7 +120,7 @@ Host Port en onthoud die.
    |---|---|
    | Application Name | `ai-server-manager-executor` |
    | Repository | `ghcr.io/lvos04/ai-server-manager-executor` |
-   | Tag | dezelfde releaseversie als de Hub, met de digest van de executor-image (`<versie>@sha256:<digest>`) |
+   | Tag | De volledige tag voor `ai-server-manager-executor` uit stap 1. Weigert het formulier het `@`-teken, vul dan `0.1.1` in. |
    | Ports → Add | Host Port `30410` · Container Port `30410` · TCP |
    | Storage | Host Path = dataset `ai-server-manager-executor` → Mount Path `/appdata` |
 
@@ -183,7 +195,7 @@ eigen dienst koppelen met `HUB_URL` + `HUB_ENROLLMENT_TOKEN` + `HUB_KEY_FINGERPR
 | Probleem | Oplossing |
 |---|---|
 | Knop *Custom App* grijs | Stap 0.2: eerst *Apps → Configuration → Choose Pool*. |
-| `denied` / `unauthorized` bij ophalen image | Stap 1 niet gedaan (pakket privé, of registry-login ontbreekt). |
+| `denied` / `unauthorized` bij ophalen image | Vergelijk de repository en tag met de rij van de app in stap 1. Vraagt GHCR om aanmelding, gebruik dan de terugvaloptie in die stap. |
 | Poort bezet bij opslaan | Andere Host Port kiezen; Container Port niet wijzigen. |
 | Geen setupcode in de logs | App herstarten en opnieuw *View Logs*; de code staat alleen in de logs van de eerste start(s). |
 | Executor: "key ingetrokken" | De key is over een onversleutelde verbinding gebruikt; maak een nieuwe key en gebruik `wss://`. |

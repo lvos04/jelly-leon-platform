@@ -1,4 +1,4 @@
-# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@e11c41f4b2597066fa9b1dfa2147a827007612a7:deploy/manifest/ai-server-manager-executor.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 36224f2a0272333703d794c341f72dc7da4d71eaed2558f1a74d4ee4bf6722c6
+# HERKOMST — I23-manifest · bron: lvos04/ai-server-manager@f5c8f2c4f44951bf2e9910a1e046b23377a2dd22:deploy/manifest/ai-server-manager-executor.manifest.yaml · sha256 van het bronbestand (zonder deze kop): a4872d4297f652c21f8b6925e35b2661aeca12e76315b247eccd9d42a20f9720
 # Versie-gepinde kopie (I23, installatie via install/truenas/INSTALLATIE.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
 # Manifest (manifeststandaard v1, platformcontract 1.3 §9) van de executor: ai-server-manager-executor.
 # Eigen image en eigen standaard TrueNAS Custom App; de enige component met een TrueNAS-key met schrijfrechten (alleen
@@ -13,13 +13,13 @@ description_nl: >-
   via de TrueNAS-API, en controleert elk verzoek zelf opnieuw. Koppelen met de Hub gaat met een koppelcode en de
   Hub-vingerafdruk op de statuspagina; zolang hij niet gekoppeld is of geen TrueNAS-sleutel met schrijfrechten heeft,
   voert hij niets uit.
-version: "0.1.0"
+version: "0.1.1"
 install:
   method: custom_app
 image:
   repository: ghcr.io/lvos04/ai-server-manager-executor
-  tag: "0.1.0"
-  digest: "sha256:f1809cb1316c18b77478a93c930ee800e0154b34d9647dc46e661c4aa58523aa"
+  tag: "0.1.1"
+  digest: "sha256:eb98c8fab8121f819582325dbd9582256e3dd9c77912b2c8a67c7d5619aee27e"
 custom_app:
   storage:
     - name: appdata
