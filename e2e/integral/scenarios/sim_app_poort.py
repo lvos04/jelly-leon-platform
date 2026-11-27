@@ -19,16 +19,30 @@ class AppPoort(BaseHTTPRequestHandler):
         if self.path != "/api/v1/execute":
             self.send_error(404)
             return
-        omvang = int(self.headers["Content-Length"])
+        try:
+            omvang = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            self.send_error(400)
+            return
         if not 0 < omvang <= 65536:
             self.send_error(413)
             return
         body = self.rfile.read(omvang)
-        verzoek = json.loads(body)
-        voorstel = verzoek["proposal"]
-        actie, doel, params = voorstel["action_id"], voorstel["target"], voorstel["parameters"]
+        try:
+            verzoek = json.loads(body)
+        except (ValueError, RecursionError):
+            self.send_error(400)
+            return
+        voorstel = verzoek.get("proposal") if isinstance(verzoek, dict) else None
+        if not isinstance(voorstel, dict):
+            self.send_error(400)
+            return
+        actie, doel, params = voorstel.get("action_id"), voorstel.get("target"), voorstel.get("parameters")
+        if not isinstance(actie, str) or not isinstance(doel, dict) or not isinstance(params, dict):
+            self.send_error(400)
+            return
         app = doel.get("app_id")
-        toegestaan = actie == "app.restart" and app in {"proef-app-a", "proef-app-b"} and not params
+        toegestaan = actie == "app.restart" and app in ("proef-app-a", "proef-app-b") and not params
         if sys.argv[1] == "opslag":
             bron = "simpool/apps/proef-config"
             toegestaan = (
@@ -43,6 +57,9 @@ class AppPoort(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         headers = {k: self.headers[k] for k in ("Content-Type", "Authorization", "Idempotency-Key")}
+        if not all(headers.values()):
+            self.send_error(400)
+            return
         # Een exacte transportherhaling van de eerste goedgekeurde proefherstart. Alleen aantallen en
         # HTTP-codes verlaten het geheugen. De executor controleert elke aflevering met zijn gewone beleid.
         aantal = 2 if sys.argv[1] == "dubbel" and app == "proef-app-a" else 1
