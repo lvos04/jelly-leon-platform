@@ -1,12 +1,11 @@
 """Volg één zoekopdracht en toets de herkomst van een begrensde herhaling via Newznab."""
 
 import signal
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from types import FrameType
 
 import httpx
-import pytest
 
 from e2e.integral.bewijs import schrijf
 from e2e.integral.scenarios.conftest import Kern
@@ -39,8 +38,15 @@ def aantallen(sim: httpx.Client) -> dict[str, int]:
     return stand
 
 
-def geen_nieuwe_zoekopdracht(voor: int, na: int) -> None:
-    assert na == voor, "De herhaalde zoekvraag is opnieuw aan Prowlarr aangeboden"
+def meet_zoekvraag(sim: httpx.Client, aanvraag: Callable[[], httpx.Response],
+                   verwacht: int) -> tuple[httpx.Response, dict[str, int]]:
+    voor = aantallen(sim)
+    antwoord = aanvraag()
+    na = aantallen(sim)
+    delta = {naam: na[naam] - voor[naam] for naam in ("zoekopdrachten", "terugoproepen")}
+    assert delta == {"zoekopdrachten": verwacht, "terugoproepen": verwacht}, "Onverwachte telling uit één zoekvraag"
+    assert na["mislukte_terugoproepen"] == voor["mislukte_terugoproepen"] and na["max_diepte"] <= 1
+    return antwoord, delta
 
 
 def test_cyclus_en_herkomstkop(kern: Kern) -> None:
@@ -65,30 +71,21 @@ def test_cyclus_en_herkomstkop(kern: Kern) -> None:
     assert registratie.status_code == 201 and registratie.json()["name"] == "Proef-MSO"
     with tijdslimiet(25):
         assert aantallen(sim)["zoekopdrachten"] == 0
-        resultaat = api.get("search", params={"q": "Expanse", "category": "tv"}).raise_for_status().json()
-        assert any(s["source_id"] == "prowlarr" and s["status"] == "ok" for s in resultaat["sources"])
-        stand = aantallen(sim)
-        assert stand == {"zoekopdrachten": 1, "terugoproepen": 1, "max_diepte": 1, "mislukte_terugoproepen": 0}
+        resultaat, normaal = meet_zoekvraag(sim, lambda: api.get("search", params={"q": "Expanse", "category": "tv"}), 1)
+        bronnen = resultaat.raise_for_status().json()["sources"]
+        assert any(s["source_id"] == "prowlarr" and s["status"] == "ok" for s in bronnen)
 
-        # Een vaste, nageleverde kopie van een al bezochte vraag. Alleen de herkomstkop varieert.
         params = {"t": "search", "q": "Expanse", "cat": "5000", "apikey": sleutel_feed}
         herkomst = {"X-MSO-Trace": "proef;hop=2;visited=mso,prowlarr"}
-        antwoord = feed.get("/newznab/api", params=params, headers=herkomst)
+        antwoord, met_kop = meet_zoekvraag(sim, lambda: feed.get("/newznab/api", params=params, headers=herkomst), 0)
         assert antwoord.status_code == 508 and antwoord.headers["X-MSO-Refusal"] == "cycle_detected"
         assert b"cycle_detected" in antwoord.content
-        met_kop = aantallen(sim)["zoekopdrachten"]
-        geen_nieuwe_zoekopdracht(stand["zoekopdrachten"], met_kop)
 
-        tellingen = [met_kop]
-        for _ in range(2):
-            rss = feed.get("/newznab/api", params=params).raise_for_status()
-            assert b"<rss" in rss.content and b"<channel>" in rss.content
-            nieuw = aantallen(sim)
-            assert nieuw["max_diepte"] == 1 and nieuw["mislukte_terugoproepen"] == 0
-            assert nieuw["zoekopdrachten"] == nieuw["terugoproepen"] == tellingen[-1] + 1
-            with pytest.raises(AssertionError, match="opnieuw aan Prowlarr"):
-                geen_nieuwe_zoekopdracht(tellingen[-1], nieuw["zoekopdrachten"])
-            tellingen.append(nieuw["zoekopdrachten"])
-    schrijf(kern.net.dossier / "mso.json", {"normale_zoekvraag": stand, "weigering_met_kop": antwoord.status_code,
-            "zoekopdrachten_met_kop": met_kop, "zoekopdrachten_bij_twee_herhalingen_zonder_kop": tellingen,
-            "max_diepte": nieuw["max_diepte"], "tijdslimiet_seconden": 25})
+        rss, zonder_kop = meet_zoekvraag(sim, lambda: feed.get("/newznab/api", params=params), 1)
+        rss.raise_for_status()
+        assert b"<rss" in rss.content and b"<channel>" in rss.content
+    # De gepinde Prowlarr-mock geeft zijn eigen User-Agent mee zonder X-MSO-Trace.
+    # MSO neemt Prowlarr op in de bezochte bronnen en slaat deze bij de terugoproep over.
+    schrijf(kern.net.dossier / "mso.json", {"normale_zoekvraag": normaal, "weigering_met_kop": antwoord.status_code,
+            "met_herkomstkop": met_kop, "zonder_herkomstkop": zonder_kop, "max_diepte": aantallen(sim)["max_diepte"],
+            "tijdslimiet_seconden": 25})

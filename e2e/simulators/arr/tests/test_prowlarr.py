@@ -42,6 +42,7 @@ def test_zoeken_via_mso_doet_een_waarneembare_terugoproep(prowlarr, monkeypatch)
     assert [r["title"] for r in result.json()] == ["Teruggevonden"]
     assert len(ontvangen) == 1 and ontvangen[0][0] == "http://mso.invalid/api"
     assert ontvangen[0][2]["q"] == "Proef" and "x-mso-trace" not in {h.lower() for h in ontvangen[0][1]}
+    assert ontvangen[0][1]["User-Agent"].startswith("Prowlarr/")
     assert prowlarr.get("/_sim/zoekstatistiek").json() == {
         "zoekopdrachten": 1, "terugoproepen": 1, "max_diepte": 1, "mislukte_terugoproepen": 0}
     assert sum(v["pad"] == "/api/v1/search" for v in prowlarr.get("/_sim/verzoeken").json()) == 1

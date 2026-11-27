@@ -1797,6 +1797,6 @@
   "status": "Bezig",
   "validatie": "Sim-geslaagd",
   "blokkade": "",
-  "opmerking": "Eén zoekvraag gaf één terugoproep. MSO weigerde de nagestuurde kopie met herkomstkop. Bij twee vaste herhalingen zonder die kop nam de teller telkens met één toe."
+  "opmerking": "Eén zoekvraag gaf één terugoproep. MSO weigerde de nagestuurde kopie met herkomstkop. De oude run stuurde zelf twee extra vragen zonder kop. EX42 toetst nu per variant één vraag en de daaruit voortgekomen terugoproepen."
  }
 ]
