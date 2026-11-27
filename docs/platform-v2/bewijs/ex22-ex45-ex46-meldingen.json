@@ -1,0 +1,48 @@
+{
+  "run": "20261127t052139z-bed0e198cd",
+  "gelijke_scenariobron_op_forgejo": "babbfe345d1e6969a43db6e62dda58dc312c6fbb",
+  "scenarios": {
+    "EX45": {
+      "bestand": "e2e/integral/scenarios/EX45_flowprivilege.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "beleidsweigeringen": 1,
+        "auditregels_zelfde_flow_en_spoor": 1,
+        "uitvoering_http": 409,
+        "schrijfacties": 0
+      }
+    },
+    "EX46": {
+      "bestand": "e2e/integral/scenarios/EX46_dubbel_flowevent.py",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "herlevering": {
+          "leveringen": 5,
+          "unieke_events": 1,
+          "duplicaten": 4,
+          "voorstellen": 1,
+          "uitgevoerde_acties": 1,
+          "ontvangen_meldingen": 1
+        },
+        "afzonderlijk": {
+          "leveringen": 5,
+          "unieke_events": 5,
+          "duplicaten": 0,
+          "voorstellen": 5,
+          "uitgevoerde_acties": 5,
+          "ontvangen_meldingen": 5
+        },
+        "schrijfacties": 0
+      }
+    },
+    "EX22": {
+      "bestand": "e2e/integral/scenarios/EX22_hub_offline.py",
+      "uitkomst": "Sim-mislukt",
+      "pytest_exitcode": 1,
+      "meetpunt": "De proef brak af bij het inrichten van de Kuma-kanalen. De dienstuitval is in deze run niet gemeten."
+    }
+  },
+  "broncommit_proef": "468f40eeee2a265034886d0943c25c7641f8d85d"
+}

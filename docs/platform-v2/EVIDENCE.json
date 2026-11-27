@@ -363,11 +363,11 @@
   "id": "I08-08-04",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "P1: commit 739bc9f install/manifests/uptime-kuma.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_push_monitor_as_dead_mans_switch); P1: commit 5c8042f e2e/simulators/gotify/tests (test_message_with_an_application_token); QA-review P1: commit bfae532 e2e/simulators/uptime_kuma (push-token nooit in het verzoeklog; ping-validatie zoals 2.5.9), in Docker bevestigd met de echte image (upstream-rooktest stap U1)",
-  "blokkade": "Echte telefoon en een gestopte Hub op de NAS nodig (EX22).",
+  "bewijs": "P1: commit 739bc9f install/manifests/uptime-kuma.manifest.yaml (jl-manifest validate --strict van appstore-en-fork 59217fd via tools/manifesten.py; tests/repo/test_installeerbare_manifesten.py); P1: commit 5c8042f e2e/simulators/uptime_kuma/tests (test_push_monitor_as_dead_mans_switch); P1: commit 5c8042f e2e/simulators/gotify/tests (test_message_with_an_application_token); QA-review P1: commit bfae532 e2e/simulators/uptime_kuma (push-token nooit in het verzoeklog; ping-validatie zoals 2.5.9), in Docker bevestigd met de echte image (upstream-rooktest stap U1). EX22, docs/platform-v2/bewijs/ex22-ex45-ex46-meldingen.json.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). NIET GEVALIDEERD (account). Ontvangst op een echte telefoon bij gestopte Hub toetsen in N-P6-04.",
   "opmerking": "Hub-hartslag als push-monitor; meldingen via Gotify buiten de Hub om.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-25"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "I08-08-05",
@@ -1438,6 +1438,36 @@
   "opmerking": "De uitgeschakelde AI deed 0 netwerkpogingen en startte 0 hulpprocessen in het meetvenster. De teller registreerde één lokale controleverbinding. De Hub blokkeerde opslagwijzigingen na de vers gemeten poolstoring. Uitputting van tegoed en de kostenmonitor horen bij versie 2. De praktijkpoort voor beleid en executor blijft open tot N-P6-03.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX22",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); Sim-mislukt",
+  "bewijs": "e2e/integral/scenarios/EX22_hub_offline.py, docs/platform-v2/bewijs/ex22-ex45-ex46-meldingen.json (EX22)",
+  "blokkade": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "opmerking": "De eerste proef brak af tijdens het inrichten van Kuma. De meldroute moet opnieuw worden gemeten met het aanmeldsignaal van Kuma. N-P6-04 toetst op de NAS of een echte telefoon de melding ontvangt terwijl de Hub stilstaat.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "EX45",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "e2e/integral/scenarios/EX45_flowprivilege.py, docs/platform-v2/bewijs/ex22-ex45-ex46-meldingen.json (EX45)",
+  "blokkade": "",
+  "opmerking": "De Hub weigerde de R3-actie van de proefflow. De audit identificeerde dezelfde aanvraag, flow en trace. De uitvoeringspoging gaf HTTP 409.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "EX46",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "e2e/integral/scenarios/EX46_dubbel_flowevent.py, docs/platform-v2/bewijs/ex22-ex45-ex46-meldingen.json (EX46)",
+  "blokkade": "",
+  "opmerking": "Vijf leveringen van hetzelfde flow-event gaven één uitgevoerde actie en één Gotify-bericht. Vijf afzonderlijke triggers gaven vijf acties en vijf berichten.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX03",
