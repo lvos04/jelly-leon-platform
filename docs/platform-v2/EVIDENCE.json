@@ -33,41 +33,41 @@
   "id": "EX01",
   "status": "Bezig",
   "validatie": "Sim-mislukt",
-  "bewijs": "docs/platform-v2/bewijs/ex01-mediaguard-offline.json",
+  "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "Tijdens de uitval gaf de MSO-statusroute HTTP 500. De Hub-catalogus toonde down en de incidenteninbox bevatte geen nieuw actief MediaGuard-incident.",
+  "opmerking": "MSO tijdens de uitval: standalone. Hub-gezondheid: down. Nieuwe actieve incidenten: 0.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-26"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX02",
-  "status": "Niet gestart",
-  "validatie": "Niet getest",
-  "bewijs": "",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "De proef wacht op de aparte herstelketen voor de productfout bij EX01.",
+  "opmerking": "Dezelfde nieuwe download-ID voor de gezochte aflevering in arr en SAB tijdens MSO-uitval.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-26"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX06",
-  "status": "Niet gestart",
-  "validatie": "Niet getest",
-  "bewijs": "",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "De proef wacht op de aparte herstelketen voor de productfout bij EX01.",
+  "opmerking": "Tijdens de noodstop 0 nieuwe zoek-, import-, opruim- en AV1-uitvoeringen. De al lopende job bleef leesbaar. De opruimjob startte na opheffing.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-26"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX07",
   "status": "Geblokkeerd",
-  "validatie": "NIET GEVALIDEERD (hardware)",
-  "bewijs": "",
+  "validatie": "NIET GEVALIDEERD (hardware); Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "NIET GEVALIDEERD (hardware)",
-  "opmerking": "De stilstandsimulatie wacht op het vervolg van S-P6-14. De echte A310-lane valt onder N-P6-09.",
+  "opmerking": "Stilstaande proefworker, één melding en alleen-lezen-diagnose. Echte A310-lane nog te meten in N-P6-09.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-26"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "I01-01-01",

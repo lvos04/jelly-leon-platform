@@ -1,0 +1,650 @@
+{
+  "scenario's": {
+    "EX01": {
+      "met_storing": {
+        "run": "20261127t094939z-41a1bce6c8",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-mislukt",
+        "exitcode": 1,
+        "pytest_exitcode": 1,
+        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX01",
+        "metingen": {
+          "mso_voor": "connected",
+          "mso_http_tijdens": {
+            "200": 25
+          },
+          "mediaguard_gestopt": true,
+          "mso_eigen_wijziging_teruggelezen": true,
+          "mso_modus": "standalone",
+          "hub_gezondheid": "down",
+          "nieuwe_incidenten": 0,
+          "meetduur_sec": 61.5,
+          "mso_na": "connected",
+          "jobs_na_herhaling": 1,
+          "job_met_historie_leesbaar": true
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 2,
+            "tijdens": 2,
+            "verdwenen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      },
+      "scenariobestand": "e2e/integral/scenarios/EX01_mediaguard_offline.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "mediaguard",
+        "mso"
+      ],
+      "zonder_storing": {
+        "run": "20261127t095317z-7e1f3de230",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-mislukt",
+        "exitcode": 1,
+        "pytest_exitcode": 1,
+        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX01",
+        "metingen": {
+          "mso_voor": "connected",
+          "mso_http_tijdens": {
+            "200": 19
+          },
+          "mediaguard_gestopt": false,
+          "mso_eigen_wijziging_teruggelezen": true,
+          "mso_modus": "connected",
+          "hub_gezondheid": "unknown",
+          "nieuwe_incidenten": 0,
+          "meetduur_sec": 62.6,
+          "mso_na": "connected",
+          "jobs_na_herhaling": 1,
+          "job_met_historie_leesbaar": true
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 13,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 2,
+            "tijdens": 2,
+            "verdwenen_tijdens": 0,
+            "na": 45,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      }
+    },
+    "EX02": {
+      "met_storing": {
+        "run": "20261127t094939z-41a1bce6c8",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-geslaagd",
+        "exitcode": 0,
+        "pytest_exitcode": 0,
+        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX02",
+        "metingen": {
+          "mso_verbonden_voor_en_na": true,
+          "gestopt_voor_zoek": true,
+          "gestopt_na_download": true,
+          "zoekopdrachten": 1,
+          "nieuwe_gedeelde_download_ids": 1,
+          "nieuwe_sab_taken": 1
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 3,
+            "tijdens": 5,
+            "verdwenen_tijdens": 0,
+            "na": 5,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      },
+      "scenariobestand": "e2e/integral/scenarios/EX02_mso_offline.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "mediaguard",
+        "mso",
+        "arr-sim",
+        "sabnzbd-sim"
+      ],
+      "zonder_storing": {
+        "run": "20261127t095317z-7e1f3de230",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-mislukt",
+        "exitcode": 1,
+        "pytest_exitcode": 1,
+        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX02",
+        "metingen": {
+          "mso_verbonden_voor_en_na": true,
+          "gestopt_voor_zoek": false,
+          "gestopt_na_download": false,
+          "zoekopdrachten": 1,
+          "nieuwe_gedeelde_download_ids": 1,
+          "nieuwe_sab_taken": 1
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 3,
+            "tijdens": 5,
+            "verdwenen_tijdens": 0,
+            "na": 5,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      }
+    },
+    "EX06": {
+      "met_storing": {
+        "run": "20261127t094939z-41a1bce6c8",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-geslaagd",
+        "exitcode": 0,
+        "pytest_exitcode": 0,
+        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX06",
+        "metingen": {
+          "job_voor": "running",
+          "job_tijdens": "succeeded",
+          "historie_leesbaar": true,
+          "noodstop": true,
+          "hub_http": {
+            "wanted.search": 501,
+            "download.import": 501,
+            "download.cleanup": 501,
+            "av1.encode": 501
+          },
+          "mso_http_voor_verversen": 409,
+          "mso_route_onbevestigd_voor_verversen": true,
+          "mso_ziet_noodstop": true,
+          "mso_http": 409,
+          "mso_weigert_noodstop": true,
+          "zoeken_http": 429,
+          "zoekopdrachten_gemeld": null,
+          "zoeken_weigert_noodstop": true,
+          "import_http": 409,
+          "import_weigert_noodstop": true,
+          "av1_http": 409,
+          "av1_weigert_noodstop": true,
+          "opruimjob": "queued",
+          "opruimjob_gestart": false,
+          "nieuwe_uitvoeringen": {
+            "zoeken": 0,
+            "import": 0,
+            "opruimen": 0,
+            "av1": 0
+          },
+          "nieuwe_sab_taken": 0,
+          "opruimjob_na": "succeeded"
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 13,
+            "verdwenen_tijdens": 0,
+            "na": 13,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 4,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 5,
+            "tijdens": 41,
+            "verdwenen_tijdens": 0,
+            "na": 51,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      },
+      "scenariobestand": "e2e/integral/scenarios/EX06_noodstop.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "mediaguard",
+        "mso",
+        "arr-sim",
+        "sabnzbd-sim"
+      ],
+      "zonder_storing": {
+        "run": "20261127t095317z-7e1f3de230",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-mislukt",
+        "exitcode": 1,
+        "pytest_exitcode": 1,
+        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX06",
+        "metingen": {
+          "job_voor": "running",
+          "job_tijdens": "succeeded",
+          "historie_leesbaar": true,
+          "noodstop": false,
+          "hub_http": {
+            "wanted.search": 501,
+            "download.import": 501,
+            "download.cleanup": 501,
+            "av1.encode": 501
+          },
+          "mso_http_voor_verversen": 409,
+          "mso_route_onbevestigd_voor_verversen": true,
+          "mso_ziet_noodstop": false,
+          "mso_http": 409,
+          "mso_weigert_noodstop": false,
+          "zoeken_http": 200,
+          "zoekopdrachten_gemeld": 1,
+          "zoeken_weigert_noodstop": false,
+          "import_http": 200,
+          "import_weigert_noodstop": false,
+          "av1_http": 200,
+          "av1_weigert_noodstop": false,
+          "opruimjob": "succeeded",
+          "opruimjob_gestart": true,
+          "nieuwe_uitvoeringen": {
+            "zoeken": 1,
+            "import": 1,
+            "opruimen": 1,
+            "av1": 1
+          },
+          "nieuwe_sab_taken": 1,
+          "opruimjob_na": "succeeded"
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 13,
+            "verdwenen_tijdens": 0,
+            "na": 13,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 5,
+            "verdwenen_tijdens": 0,
+            "na": 5,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 5,
+            "tijdens": 55,
+            "verdwenen_tijdens": 0,
+            "na": 55,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      }
+    },
+    "EX07": {
+      "met_storing": {
+        "run": "20261127t094939z-41a1bce6c8",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-geslaagd",
+        "exitcode": 0,
+        "pytest_exitcode": 0,
+        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX07",
+        "metingen": {
+          "ronden": [
+            {
+              "minuut": 0,
+              "laatste_voortgang_min": 0,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            },
+            {
+              "minuut": 20,
+              "laatste_voortgang_min": 0,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            },
+            {
+              "minuut": 31,
+              "laatste_voortgang_min": 0,
+              "nieuwe_melding": true,
+              "totaal_meldingen": 1
+            },
+            {
+              "minuut": 45,
+              "laatste_voortgang_min": 0,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 1
+            }
+          ],
+          "worker_gezondheidslezingen": 9,
+          "worker_schrijfverzoeken": 0,
+          "meldingen": 1,
+          "diagnose_leesbaar": true,
+          "diagnose_ongewijzigd": true,
+          "nas_schrijfverzoeken": 0
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 2,
+            "tijdens": 2,
+            "verdwenen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      },
+      "scenariobestand": "e2e/integral/scenarios/EX07_encoder_stil.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "mediaguard"
+      ],
+      "zonder_storing": {
+        "run": "20261127t095317z-7e1f3de230",
+        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "uitkomst": "Sim-mislukt",
+        "exitcode": 1,
+        "pytest_exitcode": 1,
+        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX07",
+        "metingen": {
+          "ronden": [
+            {
+              "minuut": 0,
+              "laatste_voortgang_min": 0,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            },
+            {
+              "minuut": 20,
+              "laatste_voortgang_min": 20,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            },
+            {
+              "minuut": 31,
+              "laatste_voortgang_min": 31,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            },
+            {
+              "minuut": 45,
+              "laatste_voortgang_min": 45,
+              "nieuwe_melding": false,
+              "totaal_meldingen": 0
+            }
+          ],
+          "worker_gezondheidslezingen": 9,
+          "worker_schrijfverzoeken": 0,
+          "meldingen": 0,
+          "diagnose_leesbaar": false,
+          "diagnose_ongewijzigd": true,
+          "nas_schrijfverzoeken": 0
+        },
+        "voortgang": {
+          "jobs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "job_logs": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0
+          },
+          "audit_events": {
+            "voor": 2,
+            "tijdens": 2,
+            "verdwenen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0
+          },
+          "mediaserver_watch": {
+            "voor": 1,
+            "tijdens": 1,
+            "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "na": 1,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0
+          }
+        }
+      }
+    }
+  },
+  "images": {
+    "hub": {
+      "image": "jlp-integraal/hub:sp6-14-herstel2",
+      "image_id": "sha256:35d0a69f46ec1c037e9f593a680a841686161421ecbe3458c3fef6b74cb49eea",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "digest": "jlp-integraal/hub@sha256:35d0a69f46ec1c037e9f593a680a841686161421ecbe3458c3fef6b74cb49eea",
+      "bronstatus": "schoon"
+    },
+    "executor": {
+      "image": "jlp-integraal/executor:sp6-14-herstel2",
+      "image_id": "sha256:a170d9e3d587ace72f5b8f381e8295d753d1f217c883825eb733749164c8773b",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "digest": "jlp-integraal/executor@sha256:a170d9e3d587ace72f5b8f381e8295d753d1f217c883825eb733749164c8773b",
+      "bronstatus": "schoon"
+    },
+    "truenas": {
+      "image": "jlp-integraal/truenas:sp6-14-herstel2",
+      "image_id": "sha256:2d5eb570805c48367e7c044ced2d69d46633cea435b2d88746ac42410a97b1e2",
+      "broncommit": "9eb20d2f2758ff07e8d076e8cc87dea5eaf9140e",
+      "digest": "jlp-integraal/truenas@sha256:2d5eb570805c48367e7c044ced2d69d46633cea435b2d88746ac42410a97b1e2",
+      "bronstatus": "schoon"
+    },
+    "lifecycle": {
+      "image": "jlp-integraal/lifecycle:sp6-14-herstel2",
+      "image_id": "sha256:f9a4223b04eefc7ef4da5a915725022f9ac38dda5d4299f068cb29a0925cb39a",
+      "broncommit": "9eb20d2f2758ff07e8d076e8cc87dea5eaf9140e",
+      "digest": "jlp-integraal/lifecycle@sha256:f9a4223b04eefc7ef4da5a915725022f9ac38dda5d4299f068cb29a0925cb39a",
+      "bronstatus": "schoon"
+    },
+    "mediaguard": {
+      "image": "jlp-integraal/mediaguard:sp6-14-herstel2",
+      "image_id": "sha256:cf9e0a75d928b4b4d1aa6cc1d102f31afc65d0e699b0fa03c3a5e1ab48a05ffb",
+      "broncommit": "fa63721cb0c865e7b20aacf4db11c59f622dff56",
+      "digest": "jlp-integraal/mediaguard@sha256:cf9e0a75d928b4b4d1aa6cc1d102f31afc65d0e699b0fa03c3a5e1ab48a05ffb",
+      "bronstatus": "schoon",
+      "encode_image_id": "sha256:66ab385dbed6d87a8678071bbc78be3150a231b621c8139d8519d9a0fe389381",
+      "web_image_id": "sha256:e6be79509e79e0e16d884c399a0713b433f9dbdb17a38631ab8da7e642a0e79c",
+      "sonarr_image_id": "sha256:68671c2126769bd4c3e3ad4162e42145eb9102e5e87f9ed103590ae0c5cd242e",
+      "radarr_image_id": "sha256:ce172b761e4e109e1e4436a59199b43be3a3278a151e11ab6c8d19389b232faf"
+    },
+    "mso": {
+      "image": "jlp-integraal/mso:sp6-14-herstel2",
+      "image_id": "sha256:65209b54b3bb0c6c147e45c0302ea1ddd6b40abcc6f79165d90cb6d36276a944",
+      "broncommit": "da94e0a7662743314bd1ce103742a8f58e97693c",
+      "digest": "jlp-integraal/mso@sha256:65209b54b3bb0c6c147e45c0302ea1ddd6b40abcc6f79165d90cb6d36276a944",
+      "bronstatus": "schoon"
+    },
+    "arr-sim": {
+      "image": "jlp-integraal/mso-simulators:sp6-14-herstel2",
+      "image_id": "sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "digest": "jlp-integraal/mso-simulators@sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "bronstatus": "schoon"
+    },
+    "sabnzbd-sim": {
+      "image": "jlp-integraal/mso-simulators:sp6-14-herstel2",
+      "image_id": "sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "digest": "jlp-integraal/mso-simulators@sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "bronstatus": "schoon"
+    }
+  },
+  "tegenproeven_rijverlies": [
+    {
+      "tabel": "jobs",
+      "voor": 1,
+      "na": 1,
+      "verdwenen_na": 1
+    },
+    {
+      "tabel": "job_logs",
+      "voor": 1,
+      "na": 1,
+      "verdwenen_na": 1
+    },
+    {
+      "tabel": "audit_events",
+      "voor": 1,
+      "na": 1,
+      "verdwenen_na": 1
+    },
+    {
+      "tabel": "mediaserver_watch",
+      "voor": 1,
+      "na": 1,
+      "verdwenen_na": 1,
+      "gewijzigd_na": 0
+    },
+    {
+      "tabel": "mediaserver_watch",
+      "voor": 1,
+      "na": 1,
+      "verdwenen_na": 0,
+      "gewijzigd_na": 1
+    }
+  ],
+  "test_rijverlies": "tests/repo/test_integral_voortgang.py"
+}
