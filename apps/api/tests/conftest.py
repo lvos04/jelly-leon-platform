@@ -179,15 +179,24 @@ def acl_dataset(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Bootst een ZFS-dataset met NFSv4-ACL na (TrueNAS-preset Apps; ZFS met NFSv4-ACL is lokaal niet beschikbaar):
     elk nieuw bestand krijgt 0770 uit de overgeërfde ACE's (``aclinherit=passthrough`` negeert de 0600 van open()).
     ``chmod``: ``werkt`` (aclmode=passthrough), ``geweigerd`` (aclmode=restricted) of ``genegeerd``. ``herkend``: of
-    de NFSv4-ACL zichtbaar is als xattr (``system.nfs4_acl_xdr``). Zelfde nabootsing als de executortests."""
+    de NFSv4-ACL zichtbaar is als xattr. De ACE verleent de eigenaar of de groep lees- en schrijfrecht."""
     import errno
     import stat
-
-    from lifecycle import geheimbestand
+    import struct
 
     echte_open, echte_fchmod, echte_chmod = os.open, os.fchmod, os.chmod
+    echte_getxattr = os.getxattr
 
-    def zet(chmod: str, herkend: bool) -> None:
+    def zet(chmod: str, herkend: bool, *, toegang: str = "eigenaar", alleen_bestanden: bool = False) -> None:
+        def getxattr(doel: Any, naam: str, **kwargs: Any) -> bytes:
+            if naam == "system.nfs4_acl_xdr" and herkend:
+                st = os.fstat(doel) if isinstance(doel, int) else os.lstat(doel)
+                if not alleen_bestanden or stat.S_ISREG(st.st_mode):
+                    # XDR-kop (vlaggen, aantal), één overgeërfde ALLOW voor OWNER@ (1) of GROUP@ (2).
+                    who = 1 if toegang == "eigenaar" else 2
+                    return struct.pack(">7I", 0, 1, 0, 0x80, 1, 0x1F01FF, who)
+            return echte_getxattr(doel, naam, **kwargs)
+
         def open_acl(path: Any, flags: int, mode: int = 0o777, *args: Any, **kwargs: Any) -> int:
             fd = echte_open(path, flags, mode, *args, **kwargs)
             if flags & os.O_CREAT and stat.S_ISREG(os.fstat(fd).st_mode):
@@ -206,6 +215,6 @@ def acl_dataset(monkeypatch: pytest.MonkeyPatch) -> Any:
         monkeypatch.setattr(os, "open", open_acl)
         monkeypatch.setattr(os, "fchmod", wijzig(echte_fchmod))
         monkeypatch.setattr(os, "chmod", wijzig(echte_chmod))
-        monkeypatch.setattr(geheimbestand, "nfs4_acl", lambda path: herkend)
+        monkeypatch.setattr(os, "getxattr", getxattr)
 
     return zet

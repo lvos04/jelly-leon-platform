@@ -262,3 +262,57 @@ def test_read_rules_on_an_acl_dataset(tmp_path: Path, monkeypatch: pytest.Monkey
     store.path.symlink_to(echt)
     assert store.read().corrupt
     assert not echte_acl(echt)  # gewoon bestandssysteem: geen NFSv4-ACL
+
+
+@pytest.mark.parametrize("chmod", ["geweigerd", "genegeerd"])
+def test_onbevestigde_acl_geeft_geen_koppelstatus(tmp_path: Path, acl_dataset: Any, chmod: str) -> None:
+    store = HubLinkStore(tmp_path)
+    assert store.update(linked_doc).linked
+    inhoud = store.path.read_bytes()
+    store.path.chmod(0o644)
+    acl_dataset(chmod, True, toegang="groep")
+
+    link = store.read()
+    assert link.onleesbaar and not link.linked and link.service_token is None
+    with pytest.raises(HubLinkCorrupt):
+        store.update(lambda doc: clear_link(doc, "ontkoppeld"))
+    assert store.path.read_bytes() == inhoud
+
+
+def test_acl_wijziging_trekt_ook_een_gecachete_koppeling_in(tmp_path: Path, acl_dataset: Any) -> None:
+    store = HubLinkStore(tmp_path)
+    acl_dataset("geweigerd", True)
+    assert store.update(linked_doc).linked and store.read().linked
+    acl_dataset("geweigerd", True, toegang="groep")
+    assert store.read().onleesbaar
+
+
+def test_bij_onbevestigde_acl_wordt_geen_koppelinhoud_geschreven(
+    tmp_path: Path, acl_dataset: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = HubLinkStore(tmp_path)
+    acl_dataset("geweigerd", True, toegang="groep")
+    with monkeypatch.context() as m:
+        m.setattr(os, "write", lambda *args: pytest.fail("koppelinhoud geschreven vóór de rechtencontrole"))
+        with pytest.raises(HubLinkNotSaved):
+            store.update(linked_doc)
+    assert not store.path.exists() and not list(tmp_path.glob("*.tmp"))
+
+
+def test_vervanging_bewaart_te_ruim_origineel_in_privekopie(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = HubLinkStore(tmp_path)
+    store.update(linked_doc)
+    voor = store.path.read_bytes()
+    store.path.chmod(0o644)
+
+    def weiger(*args: object) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(os, "chmod", weiger)
+    assert store.read().onleesbaar
+    store.update(lambda doc: None, replace_corrupt=True)
+    (kopie,) = tmp_path.glob("hub-link.json.onleesbaar-*")
+    assert stat.S_IMODE(kopie.stat().st_mode) == 0o600
+    assert kopie.read_bytes() == voor

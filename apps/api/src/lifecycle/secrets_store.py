@@ -4,27 +4,29 @@
 - ``vault.key``         32 willekeurige bytes, AES-256-GCM-sleutel voor opgeslagen credentials;
 - ``identity.ed25519``  eigen Ed25519-identiteit (PKCS#8 PEM), publieke sleutel gaat mee bij de enrollment.
 
-Bestaande bestanden worden **nooit** overschreven; alleen te ruime rechten worden teruggezet naar 0600. Weigert een
-NFSv4-ACL (TrueNAS-preset *Apps*, ``aclmode=restricted``) dat, dan start de dienst toch (zie ``geheimbestand``).
+Bestaande sleutels worden nooit overschreven. Initialisatie en gebruik vereisen bevestigde privérechten
+op de geopende map en de beide sleutelbestanden.
 De database heeft geen wachtwoord nodig: de ingebouwde PostgreSQL luistert alleen op een unix-socket in de container.
 """
 
 from __future__ import annotations
 
 import base64
-import logging
+import fcntl
 import os
 import secrets
+import uuid
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from lifecycle.geheimbestand import alleen_eigenaar
-
-log = logging.getLogger(__name__)
+from lifecycle.geheimbestand import LEESVLAGGEN, prive_rechten
 
 VAULT_KEY = "vault.key"
 IDENTITY_KEY = "identity.ed25519"
@@ -34,27 +36,35 @@ class SecretsError(RuntimeError):
     pass
 
 
-def _write_new(path: Path, data: bytes) -> bool:
-    """Schrijft alleen als het bestand nog niet bestaat (O_EXCL). True = nieuw aangemaakt."""
+def _controleer(fd: int, modus: int, naam: str, *, aanscherpen: bool) -> None:
+    if not prive_rechten(fd, modus, aanscherpen=aanscherpen):
+        raise SecretsError(f"privérechten van {naam} niet bevestigd")
+
+
+@contextmanager
+def _geopende_sleutels(
+    secrets_dir: Path, *, initialisatie: bool = False,
+) -> Iterator[tuple[int, dict[str, BinaryIO]]]:
+    """Houd map en bestanden open vanaf de controle tot en met gebruik of publicatie."""
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError:
-        return False
-    alleen_eigenaar(fd)
-    with os.fdopen(fd, "wb") as fh:
-        fh.write(data)
-        fh.flush()
-        os.fsync(fh.fileno())
-    return True
-
-
-def _tighten(path: Path, mode: int) -> None:
-    current = path.stat().st_mode & 0o777
-    if current & ~mode:
-        try:
-            os.chmod(path, mode)
-        except OSError:  # ACL weigert chmod: de rechten komen dan uit de dataset-ACL, niet uit deze dienst
-            log.warning("rechten van %s niet aan te scherpen tot %o (ACL van de dataset)", path.name, mode)
+        with ExitStack() as stack:
+            map_fd = os.open(secrets_dir, LEESVLAGGEN | os.O_DIRECTORY)
+            stack.callback(os.close, map_fd)
+            fcntl.flock(map_fd, fcntl.LOCK_EX if initialisatie else fcntl.LOCK_SH)
+            _controleer(map_fd, 0o700, "sleutelmap", aanscherpen=initialisatie)
+            bestanden: dict[str, BinaryIO] = {}
+            for naam in (VAULT_KEY, IDENTITY_KEY):
+                try:
+                    fd = os.open(naam, LEESVLAGGEN, dir_fd=map_fd)
+                except FileNotFoundError:
+                    if initialisatie:
+                        continue
+                    raise SecretsError(f"{naam} ontbreekt") from None
+                bestanden[naam] = stack.enter_context(os.fdopen(fd, "rb"))
+                _controleer(fd, 0o600, naam, aanscherpen=initialisatie)
+            yield map_fd, bestanden
+    except OSError as exc:
+        raise SecretsError("de sleutelmap of een sleutelbestand is niet veilig toegankelijk") from exc
 
 
 def ensure_secrets(secrets_dir: Path) -> list[str]:
@@ -62,23 +72,46 @@ def ensure_secrets(secrets_dir: Path) -> list[str]:
     try:
         secrets_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     except PermissionError as exc:
-        raise SecretsError(f"kan {secrets_dir} niet aanmaken: geen schrijfrechten") from exc
-    _tighten(secrets_dir, 0o700)
-    created: list[str] = []
-    if _write_new(secrets_dir / VAULT_KEY, secrets.token_bytes(32)):
-        created.append(VAULT_KEY)
-    pem = Ed25519PrivateKey.generate().private_bytes(
-        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
-    )
-    if _write_new(secrets_dir / IDENTITY_KEY, pem):
-        created.append(IDENTITY_KEY)
-    for name in (VAULT_KEY, IDENTITY_KEY):
-        _tighten(secrets_dir / name, 0o600)
-    return created
+        raise SecretsError("kan de sleutelmap niet aanmaken: geen schrijfrechten") from exc
+    except OSError as exc:
+        raise SecretsError("de sleutelmap kan niet worden aangemaakt") from exc
+    with _geopende_sleutels(secrets_dir, initialisatie=True) as (map_fd, bestaande), ExitStack() as stack:
+        nieuw: dict[str, tuple[str, BinaryIO]] = {}
+        for naam in (VAULT_KEY, IDENTITY_KEY):
+            if naam in bestaande:
+                continue
+            tijdelijk = f".{naam}.{uuid.uuid4().hex}.tmp"
+            fd = os.open(tijdelijk, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600, dir_fd=map_fd)
+            stack.callback(os.unlink, tijdelijk, dir_fd=map_fd)
+            bestand: BinaryIO = stack.enter_context(os.fdopen(fd, "wb"))
+            _controleer(fd, 0o600, naam, aanscherpen=True)
+            nieuw[naam] = tijdelijk, bestand
+
+        # Ook de overgeërfde rechten van het laatste nieuwe bestand zijn nu gecontroleerd.
+        for naam, (_, bestand) in nieuw.items():
+            if naam == VAULT_KEY:
+                inhoud = secrets.token_bytes(32)
+            else:
+                inhoud = Ed25519PrivateKey.generate().private_bytes(
+                    serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+                )
+            bestand.write(inhoud)
+            bestand.flush()
+            os.fsync(bestand.fileno())
+        for naam, (tijdelijk, _) in nieuw.items():
+            # Een volledig geschreven sleutel publiceren zonder een bestaande naam te vervangen.
+            os.link(tijdelijk, naam, src_dir_fd=map_fd, dst_dir_fd=map_fd, follow_symlinks=False)
+        if nieuw:
+            os.fsync(map_fd)
+        return list(nieuw)
 
 
 def secrets_present(secrets_dir: Path) -> bool:
-    return all((secrets_dir / name).is_file() for name in (VAULT_KEY, IDENTITY_KEY))
+    try:
+        with _geopende_sleutels(secrets_dir):
+            return True
+    except SecretsError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -87,10 +120,8 @@ class Vault:
 
     @classmethod
     def load(cls, secrets_dir: Path) -> Vault:
-        try:
-            key = (secrets_dir / VAULT_KEY).read_bytes()
-        except FileNotFoundError as exc:
-            raise SecretsError("vault.key ontbreekt; start de app opnieuw zodat hij wordt aangemaakt") from exc
+        with _geopende_sleutels(secrets_dir) as (_, bestanden):
+            key = bestanden[VAULT_KEY].read()
         if len(key) != 32:
             raise SecretsError("vault.key heeft een ongeldige lengte (verwacht 32 bytes)")
         return cls(key)
@@ -107,10 +138,8 @@ class Vault:
 
 
 def load_identity(secrets_dir: Path) -> Ed25519PrivateKey:
-    try:
-        key = serialization.load_pem_private_key((secrets_dir / IDENTITY_KEY).read_bytes(), password=None)
-    except FileNotFoundError as exc:
-        raise SecretsError("identity.ed25519 ontbreekt") from exc
+    with _geopende_sleutels(secrets_dir) as (_, bestanden):
+        key = serialization.load_pem_private_key(bestanden[IDENTITY_KEY].read(), password=None)
     if not isinstance(key, Ed25519PrivateKey):
         raise SecretsError("identity.ed25519 is geen Ed25519-sleutel")
     return key

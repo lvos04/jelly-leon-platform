@@ -625,9 +625,9 @@
   "validatie": "Unit-getest; Sim-getest",
   "bewijs": "commit a5c1f3e; apps/api/src/lifecycle/hublink.py; apps/api/tests/unit/test_hublink_store.py::test_corrupt_file_fails_closed_and_is_only_replaced_on_request, ::test_wrong_owner_or_mode_is_unreadable, ::test_reader_accepts_any_1x_and_keeps_unknown_fields, ::test_two_replacements_in_the_same_second_keep_both_originals; apps/api/tests/integration/test_enrollment_worker.py::test_unreadable_file_is_replaced_at_the_first_write_before_the_hub_request, ::test_refused_token_after_replacement_is_never_retried_after_restart, ::test_invalid_address_or_fingerprint_never_calls_the_hub_and_keeps_the_token; apps/api/tests/integration/test_contract_13_api.py::test_readyz_shows_whitelist_of_unreadable_link_and_stays_200, ::test_wrong_mode_fails_closed_for_jwts; test_statuspage_peil.py::test_koppelstatus_onleesbaar_fails_closed; GitHub Actions-run 42783537307 (commit 5c5f67c) groen: test, statuspagina, image en rooktest",
   "blokkade": "",
-  "opmerking": "",
+  "opmerking": "De rechten van het geopende koppelbestand worden ook bij een cachetreffer getoetst. De unitproeven in test_geheimbestand.py, test_hublink_store.py en test_secrets_and_redact.py toetsen onbevestigde ACL-rechten, geweigerde sleutelinitialisatie en behoud van bestaande sleutels.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-10"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "C1.3-JLP-04",
@@ -1585,7 +1585,7 @@
   "validatie": "Sim-geslaagd",
   "bewijs": "docs/platform-v2/bewijs/ex27-boilerherstel.json (nulmeting en hermeting) en e2e/integral/scenarios/EX27_boiler.py",
   "blokkade": "",
-  "opmerking": "De geteste HomeWizard Energy Socket kreeg zonder rol een ondertekend conceptvoorstel (HTTP 200). Na het binden van de boilerrol toonde de browser nul schakelbedieningen. De Hub gaf 403, de ondertekende assistentactor en de directe huis-API gaven 409. Het vermogen bleef leesbaar. De wachtrij groeide met nul opdrachten en de simulator telde nul schakelverzoeken.",
+  "opmerking": "EX27 gebruikte een lokale my_house-beheersessie met een proefondertekenaar voor socket.relay.propose. Zonder rol gaf de connector HTTP 200 voor een concept, met de boilerrol HTTP 409. De aparte Hub-actie boiler.set gaf 403 en de directe huis-API gaf 409. De browser toonde nul schakelbedieningen, het vermogen bleef leesbaar en zowel de wachtrijgroei als het aantal schakelverzoeken was nul. De connectormeting geldt uitsluitend voor de beheersessie.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27"
  },

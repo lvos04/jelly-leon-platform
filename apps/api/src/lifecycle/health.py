@@ -57,7 +57,7 @@ def check_migrations(app: FastAPI) -> dict[str, str]:
 def check_secrets(app: FastAPI) -> dict[str, str]:
     if secrets_present(app.state.settings.secrets_dir):
         return _check("secrets", "healthy", "geheimen aanwezig in /appdata/secrets")
-    return _check("secrets", "down", "geheimen ontbreken; eerste-start-initialisatie niet uitgevoerd")
+    return _check("secrets", "down", "geheimen ontbreken of hun privérechten zijn niet bevestigd")
 
 
 def worker_max_age_s(app: FastAPI) -> int:

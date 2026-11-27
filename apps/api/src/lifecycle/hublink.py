@@ -31,6 +31,8 @@ import json
 import os
 import re
 import secrets
+import shutil
+import stat
 import threading
 import uuid
 from collections.abc import Callable, Iterator
@@ -40,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from lifecycle import APP_ID
-from lifecycle.geheimbestand import alleen_eigenaar, eigen_geheim
+from lifecycle.geheimbestand import LEESVLAGGEN, eigen_geheim, prive_rechten
 from lifecycle.keys import KeyFormatError, Pin, pin_from_entry
 from lifecycle.timeutil import iso_z, utcnow
 
@@ -319,28 +321,25 @@ class HubLinkStore:
         self._cache: tuple[tuple[int, ...], Link] | None = None
 
     def read(self) -> Link:
-        try:
-            st = os.lstat(self.path)
-        except FileNotFoundError:
-            return Link()
-        except OSError:
-            return Link(corrupt=True)
-        key = (st.st_ino, st.st_mtime_ns, st.st_size, st.st_mode, st.st_uid)
-        with self._mutex:
-            if self._cache is not None and self._cache[0] == key:
-                return self._cache[1]
-        if not eigen_geheim(self.path, st):  # §3.5: verkeerde eigenaar of rechten = onleesbaar (fail-closed)
-            return Link(corrupt=True)
-        link = self._load()
-        with self._mutex:
-            self._cache = (key, link)
-        return link
+        return self._load(cache=True)
 
-    def _load(self) -> Link:
+    def _load(self, *, cache: bool = False) -> Link:
         try:
-            if not eigen_geheim(self.path, os.lstat(self.path)):
-                return Link(corrupt=True)
-            return Link(validate_doc(json.loads(self.path.read_bytes())))
+            with os.fdopen(os.open(self.path, LEESVLAGGEN), "rb") as bestand:
+                fd = bestand.fileno()
+                if not prive_rechten(fd, 0o600, aanscherpen=False):
+                    return Link(corrupt=True)
+                st = os.fstat(fd)
+                key = (st.st_dev, st.st_ino, st.st_ctime_ns, st.st_mtime_ns, st.st_size)
+                if cache:
+                    with self._mutex:
+                        if self._cache is not None and self._cache[0] == key:
+                            return self._cache[1]
+                link = Link(validate_doc(json.load(bestand)))
+                if cache:
+                    with self._mutex:
+                        self._cache = (key, link)
+                return link
         except FileNotFoundError:
             return Link()
         except (OSError, ValueError, HubLinkCorrupt):
@@ -348,7 +347,7 @@ class HubLinkStore:
 
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
-        fd = os.open(self.lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        fd = os.open(self.lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
             yield
@@ -388,15 +387,27 @@ class HubLinkStore:
         stamp = now.strftime("%Y%m%dT%H%M%SZ")
         target = self.dir / f"{FILE_NAME}{UNREADABLE_SUFFIX}{stamp}"
         n = 1
-        while target.exists():
-            target = self.dir / f"{FILE_NAME}{UNREADABLE_SUFFIX}{stamp}-{n}"
-            n += 1
-        try:
-            os.rename(self.path, target)
-        except FileNotFoundError:
-            return
-        with contextlib.suppress(OSError):  # eigen bestand: 0600; van een andere eigenaar kan dat niet (blijft staan)
-            os.chmod(target, 0o600)
+        with os.fdopen(os.open(self.path, LEESVLAGGEN), "rb") as origineel:
+            st = os.fstat(origineel.fileno())
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
+                raise HubLinkNotSaved("het origineel kan niet veilig worden bewaard")
+            while True:
+                try:
+                    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                    break
+                except FileExistsError:
+                    target = self.dir / f"{FILE_NAME}{UNREADABLE_SUFFIX}{stamp}-{n}"
+                    n += 1
+            try:
+                with os.fdopen(fd, "wb") as kopie:
+                    if not prive_rechten(fd, 0o600, aanscherpen=True):
+                        raise HubLinkNotSaved("de rechten van de reservekopie zijn niet veilig")
+                    shutil.copyfileobj(origineel, kopie)
+                    kopie.flush()
+                    os.fsync(fd)
+            except BaseException:
+                target.unlink()
+                raise
 
     def _write(self, doc: dict[str, Any], before_replace: Callable[[], None] | None = None) -> None:
         """Het tijdelijke bestand moet de leescontrole halen vóór het ``hub-link.json`` vervangt (ACL-dataset)."""
@@ -405,18 +416,22 @@ class HubLinkStore:
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             try:
-                alleen_eigenaar(fd)
+                if not prive_rechten(fd, 0o600, aanscherpen=True):
+                    raise HubLinkNotSaved("nieuw koppelbestand zou onleesbaar zijn (rechten); niets vervangen")
                 view = memoryview(data)
                 while view:
                     written = os.write(fd, view)
                     view = view[written:]
                 os.fsync(fd)
+                if not eigen_geheim(tmp, os.fstat(fd)):
+                    raise HubLinkNotSaved("rechten of bestand gewijzigd vóór het opslaan van de koppelstatus")
             finally:
                 os.close(fd)
-            if not eigen_geheim(tmp, os.lstat(tmp)):
-                raise HubLinkNotSaved("nieuw koppelbestand zou onleesbaar zijn (rechten); niets vervangen")
             if before_replace is not None:
-                before_replace()
+                try:
+                    before_replace()
+                except OSError as exc:
+                    raise HubLinkNotSaved("het onleesbare origineel kan niet veilig worden bewaard") from exc
             os.replace(tmp, self.path)
         except BaseException:
             with contextlib.suppress(FileNotFoundError):
