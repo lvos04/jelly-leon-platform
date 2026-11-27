@@ -39,6 +39,7 @@ def test_mislukte_upload_en_herstel(kern: Kern) -> None:
     weigering = voer_uit(kern, rij)
     assert weigering.status_code == 409 and weigering.json()["code"] == "actie_geblokkeerd"
     assert "backup_gate_rood" in {b["code"] for b in weigering.json()["details"]["blokkades"]}
+    schijf.delete("/_sim/fouten", params={"naam": "doel_vol"}).raise_for_status()
     goed = schijf.post("/_sim/backup", json={"bestanden": nieuw}).raise_for_status().json()
     assert goed["job"]["state"] == "SUCCESS"
     kopieer_taak(kern, schijf)
