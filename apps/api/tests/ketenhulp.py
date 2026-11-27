@@ -58,9 +58,9 @@ class Rpc:
 
 
 @contextmanager
-def nas_simulator(versie: str = "25.10.8") -> Iterator[tuple[Rpc, TestClient]]:
+def nas_simulator(versie: str = "25.10.8", *, base_url: str = "http://testserver") -> Iterator[tuple[Rpc, TestClient]]:
     """Een verse TrueNAS-simulator; de RPC-sessie is ingelogd met de schrijfsleutel van de uitvoerder."""
-    with TestClient(create_app(SimServer(versie))) as http:
+    with TestClient(create_app(SimServer(versie)), base_url=base_url) as http:
         keys = http.get("/_sim/keys").json()
         with http.websocket_connect("/api/current") as ws:
             rpc = Rpc(ws)

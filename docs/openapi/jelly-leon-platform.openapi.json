@@ -82,6 +82,67 @@
         "title": "CatalogIn",
         "type": "object"
       },
+      "Datasetmeting": {
+        "additionalProperties": false,
+        "properties": {
+          "bron": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Bron",
+            "type": "string"
+          },
+          "dataset": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Dataset",
+            "type": "string"
+          },
+          "grootte_bytes": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 0.0,
+            "title": "Grootte Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bron",
+          "dataset",
+          "grootte_bytes"
+        ],
+        "title": "Datasetmeting",
+        "type": "object"
+      },
+      "Datasetrol": {
+        "properties": {
+          "grootte_bytes": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 0.0,
+            "title": "Grootte Bytes",
+            "type": "integer"
+          },
+          "rol": {
+            "title": "Rol",
+            "type": "string"
+          },
+          "soort": {
+            "enum": [
+              "configuratie",
+              "data",
+              "cache",
+              "media"
+            ],
+            "title": "Soort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rol",
+          "soort",
+          "grootte_bytes"
+        ],
+        "title": "Datasetrol",
+        "type": "object"
+      },
       "Discover": {
         "properties": {
           "app_id": {
@@ -201,6 +262,24 @@
         "title": "EventPage",
         "type": "object"
       },
+      "Geheimveld": {
+        "properties": {
+          "invoeren_in": {
+            "default": "Kluis van de Hub op de doelhost",
+            "title": "Invoeren In",
+            "type": "string"
+          },
+          "naam": {
+            "title": "Naam",
+            "type": "string"
+          }
+        },
+        "required": [
+          "naam"
+        ],
+        "title": "Geheimveld",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -318,6 +397,58 @@
           "waarden_sha256"
         ],
         "title": "Herstelarchief",
+        "type": "object"
+      },
+      "Herstelkaart": {
+        "properties": {
+          "bron": {
+            "default": "De oorspronkelijke app en datasets blijven in gebruik.",
+            "title": "Bron",
+            "type": "string"
+          },
+          "bron_app": {
+            "title": "Bron App",
+            "type": "string"
+          },
+          "checkpoint_id": {
+            "format": "uuid",
+            "title": "Checkpoint Id",
+            "type": "string"
+          },
+          "doel": {
+            "default": "Afzonderlijke datasets op de doelhost, bij herstel gekozen per rol.",
+            "title": "Doel",
+            "type": "string"
+          },
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "geldig_tot": {
+            "format": "date-time",
+            "title": "Geldig Tot",
+            "type": "string"
+          },
+          "terugweg": {
+            "default": "Blijf bij een ontbrekende bevestiging of afwijking de bron-app gebruiken.",
+            "title": "Terugweg",
+            "type": "string"
+          },
+          "waarden_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Waarden Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bron_app",
+          "checkpoint_id",
+          "export_id",
+          "waarden_sha256",
+          "geldig_tot"
+        ],
+        "title": "Herstelkaart",
         "type": "object"
       },
       "Herstelpunt": {
@@ -690,6 +821,77 @@
           "at"
         ],
         "title": "LinkError",
+        "type": "object"
+      },
+      "Manifestpin": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "image_digests": {
+            "items": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Image Digests",
+            "type": "array"
+          },
+          "manifest_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "versie": {
+            "title": "Versie",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "versie",
+          "manifest_sha256",
+          "image_digests"
+        ],
+        "title": "Manifestpin",
+        "type": "object"
+      },
+      "MovePlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "maxLength": 40,
+            "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+            "title": "App Name",
+            "type": "string"
+          },
+          "export": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Verhuisexport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alleen de Hub levert het manifest, openbare parameters en datasetmetingen uit de geverifieerde export."
+          },
+          "herstelpunt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Herstelpunt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Alleen de aangemelde Hub mag een geverifieerd B12-herstelpunt, RPO uit het beleid en herstelarchief aanleveren."
+          }
+        },
+        "required": [
+          "app_name"
+        ],
+        "title": "MovePlanIn",
         "type": "object"
       },
       "PinnedKids": {
@@ -1386,6 +1588,173 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "Verhuisexport": {
+        "additionalProperties": false,
+        "description": "Gegevens uit het geverifieerde archief. De Hub levert alleen openbare parameterwaarden en gemeten groottes.",
+        "properties": {
+          "datasetmetingen": {
+            "items": {
+              "$ref": "#/components/schemas/Datasetmeting"
+            },
+            "maxItems": 1024,
+            "title": "Datasetmetingen",
+            "type": "array"
+          },
+          "manifest_yaml": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Manifest Yaml",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "maxProperties": 256,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "manifest_yaml",
+          "datasetmetingen"
+        ],
+        "title": "Verhuisexport",
+        "type": "object"
+      },
+      "Verhuisplan": {
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/Datasetrol"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "geheimen": {
+            "items": {
+              "$ref": "#/components/schemas/Geheimveld"
+            },
+            "title": "Geheimen",
+            "type": "array"
+          },
+          "herstelkaart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Herstelkaart"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Manifestpin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "melding_nl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Melding Nl"
+          },
+          "opnieuw_kiezen": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Opnieuw Kiezen",
+            "type": "array"
+          },
+          "reden": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reden"
+          },
+          "soort": {
+            "const": "move",
+            "default": "move",
+            "title": "Soort",
+            "type": "string"
+          },
+          "stappen": {
+            "description": "Handelingen van de gebruiker, in deze volgorde.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Stappen",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "beschikbaar",
+              "geblokkeerd",
+              "laten_staan"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "waarden": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Waarden",
+            "type": "object"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Verhuisplan",
+        "type": "object"
       }
     }
   },
@@ -1840,7 +2209,7 @@
     },
     "/lifecycle/v1/plans/move/preview": {
       "post": {
-        "operationId": "placeholder_lifecycle_v1_plans_move_preview_post",
+        "operationId": "preview_move_lifecycle_v1_plans_move_preview_post",
         "parameters": [
           {
             "in": "header",
@@ -1859,7 +2228,30 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MovePlanIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verhuisplan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Onvoldoende rechten voor de preview of het aanleveren van exportbewijs."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1870,18 +2262,13 @@
             },
             "description": "Validation Error"
           },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "capability_unavailable — er is niets uitgevoerd"
+          "503": {
+            "description": "Het beschermbeleid is onleesbaar."
           }
         },
-        "summary": "Nog niet gebouwd: verhuizen naar andere host via export (B08-006)",
+        "summary": "Handmatig verhuisplan via export, met datasetrollen, herstelkaart en behoud van de bron-app",
         "tags": [
-          "lifecycle"
+          "plannen"
         ]
       }
     },

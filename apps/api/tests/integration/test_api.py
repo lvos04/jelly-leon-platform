@@ -164,10 +164,10 @@ def test_transitions_needing_engine_are_capability_unavailable(client: Any, auth
     assert client.get(f"/lifecycle/v1/runs/{run['id']}", headers=auth("viewer")).json()["state"] == "discovered"
 
 
-def test_verhuisplan_meldt_501(client: Any, auth: Any) -> None:
+def test_verhuisplan_vraagt_de_bronapp(client: Any, auth: Any) -> None:
     r = client.post("/lifecycle/v1/plans/move/preview", json={}, headers=auth("admin", idem=True))
-    assert r.status_code == 501 and r.json()["code"] == "capability_unavailable"
-    assert r.json()["details"]["planned_phase"] == "P2"
+    assert r.status_code == 422 and r.json()["code"] == "validation_error"
+    assert any("app_name" in fout["veld"] for fout in r.json()["details"]["fouten"])
 
 
 def test_pagination_cursor(client: Any, auth: Any) -> None:

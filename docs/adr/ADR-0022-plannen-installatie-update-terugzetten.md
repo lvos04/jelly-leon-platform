@@ -212,3 +212,31 @@ goedkeuring één verwijderactie uit. Hij haalt vervolgens het manifest en de wa
 installeert de proefapp opnieuw. De proef vergelijkt foto's, volume-inhoud, kijkstanden per gebruiker en
 MediaGuard-voortgang vóór verwijderen, na verwijderen en na herinstallatie. De Hub-aanlevering is gesimuleerd.
 De aansluiting van het Hub-scherm valt onder S-P5-61. De NAS-proef valt onder N-P6-03.
+
+### Verhuizen via export (B08-006, S-P5-81)
+
+`POST /lifecycle/v1/plans/move/preview` levert per bron-app een handmatige herstelkaart voor de Hub. Het antwoord
+heeft HTTP 200 en een van de statussen `beschikbaar`, `geblokkeerd` of `laten_staan`. De bestaande schrijfrechten
+en verplichte `Idempotency-Key` gelden ook voor deze preview. Een herhaling geeft hetzelfde antwoord. De dienst
+registreert de preview in het auditspoor. De Hub toont de handelingen in de volgorde van `stappen`. Er ontstaat
+geen uitvoerbaar plan of executorverzoek.
+
+De aanvrager geeft `app_name` op. Alleen de gekoppelde Hub kan ook `herstelpunt` en `export` aanleveren. Het
+B12-herstelpunt gebruikt dezelfde binding aan app, inventarisrevisie, gedekte opslag, tijdvenster en archief als
+bij verwijderen. De Hub leest uit dat archief het oorspronkelijke manifest en de openbare parameterwaarden. Voor
+de gemeten opslag levert zij bron, dataset en grootte in bytes. De oorspronkelijke formulierwaarden en geheime
+waarden blijven bij de eigenaar van het archief. De lifecycle-dienst controleert de manifestchecksum en vergelijkt
+de release en opslag met de verse broninventaris. Bij ontbrekend bewijs of een onduidelijke toewijzing van mounts
+aan datasetrollen krijgt de Hub een reden en een lege stappenlijst.
+
+De herstelkaart verwijst naar de oorspronkelijke app, het herstelpunt en de export-ID. Bij `manifest` staan de
+logische app-ID, versie, SHA-256 van het manifest en de gemeten image-digests. Bij `datasets` staan per rol de
+opslagsoort en de grootte. `waarden` bevat openbare, getypeerde instellingen uit de export. Voor paden, adressen,
+vrije tekst en ontbrekende waarden geeft `opnieuw_kiezen` de parameternamen. `geheimen` noemt per manifestgeheim
+het veld en de kluis op de doelhost.
+
+De gebruiker kiest in de TrueNAS-UI lege doeldatasets, herstelt de export in een geïsoleerde installatie en vult
+de aangegeven velden opnieuw in. De oude app blijft beschikbaar tijdens de vergelijking. Is de bron sinds de
+export gewijzigd, dan herstelt de gebruiker eerst een actuele export. Na controle en bevestiging van het herstel
+kan de gebruiker via S-P5-80 een afzonderlijke verwijderpreview voor de bron aanvragen. Bij Emby en de overige
+beschermde apps luidt het advies om de bron-app te laten staan.

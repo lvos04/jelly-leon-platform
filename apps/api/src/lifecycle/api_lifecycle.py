@@ -24,7 +24,6 @@ from sqlalchemy.orm import Session
 from lifecycle.audit import audit
 from lifecycle.auth import Principal, require_read, require_write
 from lifecycle.errors import ApiError, capability_unavailable, invalid_input, trace_id_of
-from lifecycle.idempotency import parse_key
 from lifecycle.models import LifecycleRun, LifecycleTransition
 from lifecycle.outbox import emit
 from lifecycle.pagination import clamp_limit, decode_cursor, encode_cursor
@@ -395,33 +394,3 @@ def transition_run(
         trace_id=trace,
     )
     return result
-
-
-_P2 = {
-    "/plans/move/preview": ("verhuizen naar andere host via export (B08-006)", "P2"),
-}
-
-
-def _make_placeholder(feature: str, phase: str) -> Any:
-    """Plaatshouder voor P2. Contract 1.3 §5: een POST vraagt een ``Idempotency-Key`` (geen uitzondering nodig: de
-    sleutel wordt na de authenticatie gecontroleerd, daarna eerlijk 501 — er wordt niets uitgevoerd)."""
-
-    def placeholder(
-        _: Annotated[Principal, Depends(require_write)],
-        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-    ) -> None:
-        parse_key(idempotency_key)
-        raise capability_unavailable(feature, phase)
-
-    return placeholder
-
-
-for _path, (_feature, _phase) in _P2.items():
-    router.add_api_route(
-        _path,
-        _make_placeholder(_feature, _phase),
-        methods=["POST"],
-        status_code=501,
-        summary=f"Nog niet gebouwd: {_feature}",
-        responses={501: {"description": "capability_unavailable — er is niets uitgevoerd"}},
-    )

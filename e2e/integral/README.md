@@ -146,9 +146,9 @@ De Hub-werker controleert ook de back-updekking van appgegevens. De drie proeven
 
 EX15 start release 0.1.0 op de gepubliceerde digest en de lokale testimage om beurten op één projectvolume. De release heeft schema 0003. De lokale testimage bevat ook schema 0004 voor verwijderplannen en de extra proefmigratie 0005. Het herstel selecteert de enige dump die deze upgrade toevoegde en slaat na het laden de SHA-256 op bij de voorbereide database. De activatiefase vergelijkt die waarde met de SHA-256 van het aangeboden archief vóór de wissel van databasenamen. EX47 gebruikt de manifestfixtures van de appstore. EX48 voert de merge-, bundel- en overdrachtsstap uit de Forgejo-workflow van de fork uit tegen de lokale Git-simulator. De forkbron is alleen-lezen aangekoppeld.
 
-EX14, EX15 en de voorcontrole van EX50 lezen per proefkijker de rechten, kijkgeschiedenis, favorieten, beoordelingen en spoorkeuzes via de lokale media-API. De MediaGuard-werker wacht tijdens het herstel met één bestaande bibliotheektaak op 37,5%. Na vrijgave synchroniseert dezelfde taak de twee proefafleveringen. De meetmomenten staan in `opslagmedia.json`.
+EX14, EX15 en EX50 lezen per proefkijker de rechten, kijkgeschiedenis, favorieten, beoordelingen en spoorkeuzes via de lokale media-API. De MediaGuard-werker wacht tijdens het herstel met één bestaande bibliotheektaak op 37,5%. Na vrijgave synchroniseert dezelfde taak de twee proefafleveringen. De meetmomenten staan in `opslagmedia.json`.
 
-EX50 registreert de HTTP-antwoorden van de verhuis- en verwijderpreview. Bij de verwachte 501 blijft de verhuizing geblokkeerd op B08-006. De meetwaarden staan per scenario in `metingen.json`.
+EX50 meet met twee simulatoren of de verhuispreview voor Emby alleen “laten staan” toont. De verwijderpreview moet Emby weigeren. Het scenario controleert de gegevens en het aantal schrijfacties op beide hosts. De meetwaarden staan in `metingen.json`. De aanvullende API-integratieproef `test_ex50_hetzelfde_plan_op_een_ander_adres` herstelt een proefapp met dezelfde app-ID en datasetrol op een tweede simulator met een ander adres en doelpad.
 
 ## Bewijs en opruimen
 
