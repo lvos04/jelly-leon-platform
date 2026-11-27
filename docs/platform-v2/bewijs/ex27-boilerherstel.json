@@ -1,0 +1,128 @@
+{
+  "scenario": "EX27",
+  "bestand": "e2e/integral/scenarios/EX27_boiler.py",
+  "nulmeting": {
+    "run": "20261127t045659z-e0b7a2dceb",
+    "datum": "2026-11-27",
+    "runnercommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+    "git_blob": "d00e27ae75d3046f3d400774230aa28eb5e8fa91",
+    "images": {
+      "hub": {
+        "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0ee669df0696178790be3397a506fe047217cf1182d316f1aa55cdebfaa9f444"
+      },
+      "executor": {
+        "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+        "bronstatus": "schoon",
+        "image_id": "sha256:83397432b30ca3658238cc3974895f8e49ac5d00afb7348b4c331599dc252408"
+      },
+      "truenas": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0a3574e2ac6d86ecbb5184c7ba7b900bb30a802483a703f90b403fda942bae5f"
+      },
+      "lifecycle": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:18ecce730a35ec8b3488f8a0e91986e155a7411ef90a538e299a15178b64d852"
+      },
+      "my-house": {
+        "broncommit": "529166c0a33e1a677ae05203846411ffee43e10a",
+        "bronstatus": "schoon",
+        "image_id": "sha256:48059719024e0ceeb11427482ad245ad59f239af6e4cdd1449c2ba86d35ea40f"
+      },
+      "huis-browser": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0fe36c4e9d273d38ab730e8f5d531f4f59f83823f1298003c0571d8d6d074b08"
+      }
+    },
+    "uitkomst": "Sim-mislukt",
+    "exitcode": 1,
+    "metingen": {
+      "intern_projectnetwerk": true,
+      "gewoon_stopcontact": {
+        "http": 409,
+        "voorstel": false,
+        "alleen_meten": true
+      },
+      "browser": {
+        "beleidsslot_zichtbaar": true,
+        "schakelbedieningen": 0
+      },
+      "hub": 403,
+      "ondertekende_assistentactor": 409,
+      "rechtstreeks_http": 409,
+      "meter": {
+        "vermogen_gelezen": true,
+        "relais_ongewijzigd": true,
+        "schakelverzoeken": 0
+      }
+    }
+  },
+  "hermeting": {
+    "run": "20261127t051127z-047f21c38c",
+    "datum": "2026-11-27",
+    "runnercommit": "f9b8c4bdc5f2a93f7f627c5551525d747c691ff9",
+    "git_blob": "2ed6f5e6d95c58eebff85dc17fbd9d4e21fb44dd",
+    "images": {
+      "hub": {
+        "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0ee669df0696178790be3397a506fe047217cf1182d316f1aa55cdebfaa9f444"
+      },
+      "executor": {
+        "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+        "bronstatus": "schoon",
+        "image_id": "sha256:83397432b30ca3658238cc3974895f8e49ac5d00afb7348b4c331599dc252408"
+      },
+      "truenas": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0a3574e2ac6d86ecbb5184c7ba7b900bb30a802483a703f90b403fda942bae5f"
+      },
+      "lifecycle": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:18ecce730a35ec8b3488f8a0e91986e155a7411ef90a538e299a15178b64d852"
+      },
+      "my-house": {
+        "broncommit": "eb18cb3c9afbc8b95a051bd0a283ae300439580b",
+        "bronstatus": "schoon",
+        "image_id": "sha256:11f88df9f6d1795bbb77d2b80600ede1649f6ebe3517844eeb4fc0b0f17a88b9"
+      },
+      "huis-browser": {
+        "broncommit": "bef9eb0cab3228267ac0b726a8feee0f08b5fc6d",
+        "bronstatus": "schoon",
+        "image_id": "sha256:0fe36c4e9d273d38ab730e8f5d531f4f59f83823f1298003c0571d8d6d074b08"
+      }
+    },
+    "uitkomst": "Sim-geslaagd",
+    "exitcode": 0,
+    "metingen": {
+      "intern_projectnetwerk": true,
+      "gewoon_stopcontact": {
+        "http": 200,
+        "voorstel": true,
+        "alleen_concept": true,
+        "juiste_doel_en_stand": true,
+        "nieuwe_opdrachten": 0
+      },
+      "browser": {
+        "beleidsslot_zichtbaar": true,
+        "schakelbedieningen": 0
+      },
+      "hub": 403,
+      "ondertekende_assistentactor": 409,
+      "ondertekende_lichtgroepactie_op_boiler": 409,
+      "rechtstreeks_http": 409,
+      "meter": {
+        "vermogen_w": 1987.2,
+        "relais_ongewijzigd": true,
+        "schakelverzoeken": 0,
+        "nieuwe_opdrachten": 0
+      }
+    }
+  }
+}

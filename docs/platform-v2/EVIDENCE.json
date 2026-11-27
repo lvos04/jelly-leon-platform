@@ -1482,12 +1482,12 @@
  {
   "id": "EX27",
   "status": "Bezig",
-  "validatie": "Sim-mislukt",
-  "bewijs": "docs/platform-v2/bewijs/ex24-ex30-huis.json (EX27) en e2e/integral/scenarios/EX27_boiler.py",
+  "validatie": "Sim-geslaagd",
+  "bewijs": "docs/platform-v2/bewijs/ex27-boilerherstel.json (nulmeting en hermeting) en e2e/integral/scenarios/EX27_boiler.py",
   "blokkade": "",
-  "opmerking": "Boilerkaart alleen leesbaar. Hub HTTP 403, ondertekende assistentactor en directe huis-API HTTP 409. Vermogen leesbaar en nul schakelverzoeken. Ook het geteste HomeWizard-stopcontact zonder boilerrol kreeg HTTP 409 wegens het meetbeleid. Het vereiste positieve voorstel ontbreekt.",
+  "opmerking": "De geteste HomeWizard Energy Socket kreeg zonder rol een ondertekend conceptvoorstel (HTTP 200). Na het binden van de boilerrol toonde de browser nul schakelbedieningen. De Hub gaf 403, de ondertekende assistentactor en de directe huis-API gaven 409. Het vermogen bleef leesbaar. De wachtrij groeide met nul opdrachten en de simulator telde nul schakelverzoeken.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-26"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX28",
