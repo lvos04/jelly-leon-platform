@@ -1340,6 +1340,46 @@
   "bijgewerkt": "2026-11-21"
  },
  {
+  "id": "EX15",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX15_schema_terugzetten.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX15)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Release 0.1.0 weigerde het schema van de lokale image met extra proefmigratie 0004. Na herstel van de automatische PostgreSQL-dump startte 0.1.0 op schema 0003 met dezelfde proefrij. De gemigreerde database bleef apart bewaard."
+ },
+ {
+  "id": "EX47",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX47_manifest_geweigerd.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX47)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De gekoppelde appstore blokkeerde zowel privileged als het hostpad, gaf geen installatieopdracht vrij en accepteerde het geldige manifest. Het simulatorlog bevatte geen app.create."
+ },
+ {
+  "id": "EX48",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX48_upstream_onverenigbaar.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX48)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De Forgejo-mergestap gaf exitcode 2 voor de onverenigbare tag. De branch en refs bleven intact. De bundel- en overdrachtsstap vonden niets om over te dragen. De compatibele tag leverde wel een reviewbundel op. Geen uitrol naar de simulator."
+ },
+ {
+  "id": "EX50",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX50_verhuisroute.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX50)",
+  "status": "Geblokkeerd",
+  "validatie": "NIET GEVALIDEERD (echte NAS)",
+  "blokkade": "NIET GEVALIDEERD: verhuisroute B08-006 nog niet gebouwd (501)",
+  "opmerking": "Beide planpreviews gaven met een geldig beheerdersbewijs HTTP 501 capability_unavailable (P2). De twee simulatoren behielden hun gegevens. Bouw het verhuisplan voor Hub, my_house en aanmelding en toets daarna de koppelingen op de tweede simulator en op een echte tweede host (N-P6-14)."
+ },
+ {
   "id": "EX16",
   "status": "Bezig",
   "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",

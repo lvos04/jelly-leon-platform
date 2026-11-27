@@ -410,6 +410,7 @@ def test_evidence_json_follows_section_11() -> None:
     ("EX20", "echte NAS"),
     ("EX21", "account"),
     ("EX21", "echte NAS"),
+    ("EX50", "echte NAS"),
     ("C1.3-JLP-01", "account"),
     ("C1.3-JLP-09", "account"),
     ("C1.3-JLP-10", "account"),

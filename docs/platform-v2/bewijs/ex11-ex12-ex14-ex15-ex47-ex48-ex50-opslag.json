@@ -1,0 +1,147 @@
+{
+  "run": "20261127t065010z-e17020d32d",
+  "eigenaar": "jelly-leon-platform",
+  "datum": "2026-11-27",
+  "broncommit_proef": "4b6717ab6b65f5c069d5c962f800c9da3cbb6899",
+  "images": {
+    "hub": {
+      "image_id": "sha256:bca6bed9b69fb1241bf18d0afa2190de2a026965147883c9f249470de32961d0",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/hub@sha256:bca6bed9b69fb1241bf18d0afa2190de2a026965147883c9f249470de32961d0"
+    },
+    "executor": {
+      "image_id": "sha256:65b81e5e1f1c04ff47cf205ebbda8f37e5387a1be70282298e270c08172ca8cd",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/executor@sha256:65b81e5e1f1c04ff47cf205ebbda8f37e5387a1be70282298e270c08172ca8cd"
+    },
+    "truenas": {
+      "image_id": "sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531",
+      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/truenas@sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531"
+    },
+    "lifecycle": {
+      "image_id": "sha256:3e83d3fded71534a1f911cdeaecd10d65f8676bbf2284b345ba4548f3fff8cf9",
+      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/lifecycle@sha256:3e83d3fded71534a1f911cdeaecd10d65f8676bbf2284b345ba4548f3fff8cf9"
+    },
+    "schema-release": {
+      "image_id": "sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca",
+      "broncommit": "ac213b8c0fd359986660dc35fcd96cb598c0c56f",
+      "digest": "ghcr.io/lvos04/jelly-leon-platform@sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca"
+    },
+    "schema-nieuw": {
+      "image_id": "sha256:577b4a908e5e3337fff8a15abf27614d672019c4ea8852e6d7cd41c088d8512f",
+      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/schema-nieuw@sha256:577b4a908e5e3337fff8a15abf27614d672019c4ea8852e6d7cd41c088d8512f"
+    },
+    "appstore": {
+      "image_id": "sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353",
+      "broncommit": "ac08829d2671cd99975dfe154351ce677e77ed64",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/appstore@sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353"
+    },
+    "upstream-git": {
+      "image_id": "sha256:98adc04e7786232a6a114adc41631d381577bd297bf72d59ea5ede2b53197a2b",
+      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/upstream-git@sha256:98adc04e7786232a6a114adc41631d381577bd297bf72d59ea5ede2b53197a2b"
+    },
+    "truenas-twee": {
+      "image_id": "sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531",
+      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/truenas@sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531"
+    }
+  },
+  "scenario's": [
+    {
+      "id": "EX15",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "schema-release",
+        "schema-nieuw"
+      ],
+      "metingen": {
+        "verschillende_images": 2,
+        "revisie_voor": 3,
+        "proefrevisie_na": 4,
+        "tag_alleen_geweigerd": true,
+        "revisie_na_herstel": 3,
+        "proefrij_behouden": true,
+        "gemigreerde_database_bewaard": true,
+        "mediacontroles": 4
+      }
+    },
+    {
+      "id": "EX47",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "appstore"
+      ],
+      "metingen": {
+        "verboden_privileges": true,
+        "verboden_hostpad": true,
+        "geldige_preview": true,
+        "app_create": 0
+      }
+    },
+    {
+      "id": "EX48",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "upstream-git"
+      ],
+      "metingen": {
+        "fork_broncommit": "c19ae20c4fb47ffb35cb69f8899968d4b9c86c2c",
+        "conflict_exit": 2,
+        "refs_behouden": true,
+        "bundels_na_conflict": 0,
+        "schrijfacties": 0,
+        "refs_in_compatibele_bundel": 2
+      }
+    },
+    {
+      "id": "EX50",
+      "uitkomst": "overgeslagen",
+      "pytest_exitcode": 0,
+      "overslagreden": "NIET GEVALIDEERD: verhuisroute B08-006 nog niet gebouwd (501)",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "truenas-twee"
+      ],
+      "metingen": {
+        "simulatoren": 2,
+        "anoniem_http": 401,
+        "verhuispreview_http": 501,
+        "verwijderpreview_http": 501,
+        "schrijfacties": 0
+      }
+    }
+  ]
+}
