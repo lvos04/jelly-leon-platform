@@ -1,8 +1,8 @@
 # Integrale E2E-omgeving
 
-Deze map bevat de testomgeving waarin **alle** platform-apps samen draaien tegen simulators, om de scenario's
-EX01–EX50 uit `docs/platform-v2/05_TESTS/INTEGRALE_E2E_TESTMATRIX.md` te draaien zonder echte NAS. `docker compose`
-is hier toegestaan (contract §1: alleen ontwikkeling, CI en deze E2E-omgeving) — het is **geen installatiemethode**.
+De runner start per scenario een eigen kern met de Hub, executor, TrueNAS-simulator en lifecycle-dienst.
+Daar komen de diensten uit de geselecteerde profielen bij die het scenario nodig heeft. De testmatrix EX01–EX50
+staat in `docs/platform-v2/05_TESTS/INTEGRALE_E2E_TESTMATRIX.md`. Compose dient hier voor ontwikkeling en CI.
 
 > **Eerlijkheid:** een geslaagde run hier is **Sim-geslaagd** (validatie in EVIDENCE.json), nooit "Geslaagd". Status
 > blijft `Bezig` of `Geblokkeerd` tot een echte run op de NAS (contract §11). Scenario's met echte hardware,
@@ -46,8 +46,8 @@ e2e/
   simulators/<naam>/           # één simulator per externe afhankelijkheid
 ```
 
-**Images uit de naburige repo-mappen** (werkmap met de 11 repos naast elkaar; in CI: checkout van elke repo op
-dezelfde branch). Elke repo levert één alles-in-één image (`deploy/allinone/Dockerfile`):
+**Images en bouwbronnen.** De bouw gebruikt de lokale repo-mappen onder `INTEGRAAL_BRONMAP`. Voor Jelly Leon
+gebruikt de runner de lokale image uit S-P6-30. Ontbreekt die, dan slaat hij de afhankelijke scenario's over.
 
 | Dienst in de E2E | Bron (build-context) | Poort | Rol in de test |
 |---|---|---|---|
@@ -57,7 +57,7 @@ dezelfde branch). Elke repo levert één alles-in-één image (`deploy/allinone/
 | `appstore-en-fork` | `../../appstore-en-fork` | 30430 | manifesten, import, forks |
 | `jelly-leon-platform` | `../..` (deze repo) | 30440 | lifecycle (install/update/rollback/uninstall vanaf P2) |
 | `zoeken-en-persoonlijke-ai` | `../../zoeken-en-persoonlijke-ai` | 30450 | zoeken + spraak |
-| `jelly-leon` | `../../jelly-leon` (+ web) | 8096→30460 | mediaserver-fork |
+| `jelly-leon` | `jelly-leon:p6` (lokale image uit S-P6-30) | 8096→30460 | mediaserver-fork |
 | `mediaguard` | `../../media-guard-ultimate` | eigen | bestaande app (echte image, testdata) |
 | `media-source-optimizer` | `../../media-source-optimizer` (`deploy/allinone`) | 38081 | bestaande app |
 | `my_house` | `../../my_house` | eigen | bestaande app (alleen met apparaat-simulators) |

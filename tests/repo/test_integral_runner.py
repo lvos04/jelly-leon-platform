@@ -347,3 +347,12 @@ def test_vereiste_image_stopt_de_selectie(tmp_path: Path, monkeypatch: pytest.Mo
     p.start.assert_not_called()
     assert json.loads(next(tmp_path.rglob("EVIDENCE-voorstellen.json")).read_text()) == []
     assert "--bouw --profiel kern" in json.loads(next(tmp_path.rglob("proef.json")).read_text())["melding"]
+
+
+def test_overzicht_noemt_de_kernselectie_en_mediaserverimage() -> None:
+    tekst = (MAP.parent / "README.md").read_text()
+    inleiding = tekst.split("##", 1)[0].lower()
+    assert "kern" in inleiding and "profiel" in inleiding
+    rij, = [regel for regel in tekst.splitlines() if regel.startswith("| `jelly-leon` |")]
+    dienst = yaml.safe_load((MAP / "compose.yaml").read_text())["services"]["jelly-leon"]
+    assert "build" not in dienst and f"`{dienst['image']}`" in rij
