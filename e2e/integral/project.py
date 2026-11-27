@@ -66,7 +66,8 @@ class Project:
         self.env.setdefault("INTEGRAAL_TAG", hashlib.sha256(str(ROOT).encode()).hexdigest()[:12])
         # Een nieuwe proef begint altijd met een ongekoppelde lifecycle-dienst.
         for k in ("INTEGRAAL_ENROLLMENT", "INTEGRAAL_VINGERAFDRUK",
-                  "INTEGRAAL_APPSTORE_ENROLLMENT", "INTEGRAAL_APPSTORE_AFDRUK"):
+                  "INTEGRAAL_APPSTORE_ENROLLMENT", "INTEGRAAL_APPSTORE_AFDRUK",
+                  "INTEGRAAL_HCH_HUB_URL", "INTEGRAAL_HCH_ENROLLMENT", "INTEGRAAL_HCH_AFDRUK"):
             self.env.pop(k, None)
         self.cmd = ["docker", "compose", "-f", str(MAP / "compose.yaml"), "-p", naam]
         self.diensten = json.loads(self.compose("--profile", "*", "config", "--format", "json"))["services"]

@@ -229,6 +229,10 @@ services:
       context: ${INTEGRAAL_BRONMAP:-../../..}/home-control-hub
       dockerfile: deploy/allinone/Dockerfile
     ports: ["127.0.0.1:${INTEGRAAL_HOME_CONTROL_HUB_POORT:-30420}:30420"]
+    environment:
+      HUB_URL: ${INTEGRAAL_HCH_HUB_URL:-}
+      HUB_ENROLLMENT_TOKEN: ${INTEGRAAL_HCH_ENROLLMENT:-}
+      HUB_KEY_FINGERPRINT: ${INTEGRAAL_HCH_AFDRUK:-}
     volumes: [integraties:/appdata]
   appstore:
     profiles: [appstore]
