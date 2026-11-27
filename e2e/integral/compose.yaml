@@ -295,6 +295,10 @@ services:
   kuma-sim:
     <<: *derden
     command: [uptime-kuma-sim, --host, kuma-sim]
+  credits-sim:
+    <<: *derden
+    profiles: [credits]
+    command: [credits-sim, --host, intern]
   gotify-sim:
     <<: *derden
     command: [gotify-sim, --host, gotify-sim]

@@ -22,6 +22,7 @@ protocol, de foutinjectie en wat hij **niet** nabootst.
 | HomeWizard | `homewizard/` | `homewizard_sim --apparaat p1\|socket` · poort **30221** | lokale API v1 van P1-meter en Energy Socket, alleen lezen; meterreset, zomertijdwissel, schakelverzoek vastgelegd en geweigerd | my_house, EX27, EX28 |
 | Zigbee | `zigbee/` | `zigbee_sim` · bediening **30222** | Zigbee2MQTT op een MQTT-broker: brug, apparaat, meetberichten; stoppen met meetberichten | my_house, EX29 |
 | OneDrive | `onedrive/` | `onedrive_sim` · poort **30223** | offsite-doel van een geplande cloud-sync-taak: schrijven, falen (`doel_vol`, `token_verlopen`), verouderen en herstel; levert de taak in de vorm van `cloudsync.query` voor de TrueNAS-simulator | Hub (B12), EX12 |
+| Credits | `credits/` | `credits-sim` · poort **30224** | inbegrepen proeftegoed, diagnose en HTTP 402 bij uitputting | Hub, EX21 |
 | upstream-git | `upstream-git/` | `upstream_git_sim.py` (los bestand) · geen poort, `--doel <map>` | lokale git-bron die de Jellyfin-upstream nabootst (tags `v1.0.0`, `v1.0.1`, onverenigbaar `v1.1`) met een fork ernaast | sync-hulp van jelly-leon (B08-005), EX48 |
 
 ## Installeren en testen

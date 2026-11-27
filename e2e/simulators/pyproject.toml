@@ -23,6 +23,7 @@ dependencies = [
 test = ["pytest==9.2.0", "defusedxml==0.7.1", "python-multipart==0.0.33"]
 
 [project.scripts]
+credits-sim = "credits.__main__:main"
 beszel-sim = "beszel_sim.__main__:main"
 uptime-kuma-sim = "uptime_kuma_sim.__main__:main"
 gotify-sim = "gotify_sim.__main__:main"
@@ -36,7 +37,7 @@ zigbee-sim = "zigbee_sim.__main__:main"
 onedrive-sim = "onedrive_sim.__main__:main"
 
 [tool.setuptools]
-packages = ["simkit", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim",
+packages = ["simkit", "credits", "beszel_sim", "uptime_kuma_sim", "gotify_sim", "authentik_sim",
             "arr_sim", "sabnzbd_sim", "qbittorrent_sim", "gree_sim", "homewizard_sim", "zigbee_sim",
             "onedrive_sim"]
 
@@ -55,7 +56,7 @@ zigbee_sim = "zigbee"
 onedrive_sim = "onedrive"
 
 [tool.pytest.ini_options]
-testpaths = ["beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
+testpaths = ["credits/tests", "beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
              "arr/tests", "sabnzbd/tests", "qbittorrent/tests", "gree/tests", "homewizard/tests", "zigbee/tests",
              "onedrive/tests", "upstream-git/tests"]
 # upstream-git is een los bestand (geen pakket; de mapnaam heeft een streepje).
