@@ -55,10 +55,12 @@ def praktijkblokkade(tekst: str) -> bool:
 
 def controleer(rij: dict[str, str], soort: str) -> None:
     validatie = rij["validatie"].split("; ")
-    if (soort == "Sim" and rij["status"] == "Bezig" and len(validatie) == 1
-            and validatie[0] in SIM and not rij["blokkade"]):
-        return
     praktijk = rij["blokkade"].split("; ")
+    if soort == "Sim" and rij["status"] == "Bezig" and validatie[0] in SIM:
+        if not rij["blokkade"] and len(validatie) == 1:
+            return
+        if praktijkblokkade(rij["blokkade"]) and validatie[1:] == praktijk and rij["opmerking"].strip():
+            return
     if soort == "Sim+" and validatie[-1] in SIM:
         validatie = validatie[:-1]
     if (soort in {"Sim+", "Echt"} and rij["status"] == "Geblokkeerd" and praktijkblokkade(rij["blokkade"])
@@ -72,6 +74,8 @@ def voorstel(scenario: Any, uitkomst: str | None, datum: str, bestand: str) -> d
     validatie = scenario.blokkade.split("; ") if praktijk else []
     if uitkomst is not None:
         validatie.append(uitkomst)
+    if not praktijk and scenario.blokkade:
+        validatie.extend(scenario.blokkade.split("; "))
     rij = {"id": scenario.id, "repo": "jelly-leon-platform", "bijgewerkt": datum, "bewijs": bestand,
            "status": "Geblokkeerd" if praktijk else "Bezig", "validatie": "; ".join(validatie),
            "blokkade": scenario.blokkade, "opmerking": scenario.toelichting}

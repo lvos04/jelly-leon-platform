@@ -16,6 +16,8 @@ from e2e.integral.scenarios.hubveiligheid import (
 )
 
 SCENARIO = {
+    "blokkade": "NIET GEVALIDEERD (echte NAS)",
+    "toelichting": "De praktijkproef voor beleid en executor volgt in N-P6-03.",
     "groepen": ("hub-veiligheid",),
     "eigenaar": "jelly-leon-platform",
     "verwachting": "Twee identieke afleveringen geven één herstart. Twee afzonderlijke akkoorden geven twee herstarts.",

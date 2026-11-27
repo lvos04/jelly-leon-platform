@@ -132,6 +132,19 @@ def test_status_sim_plus_echt_en_niet_uitgevoerde_simulatie() -> None:
     assert bewijs.voorstel(replace(scenario, soort="Echt"), None, "2026-01-01", "proef.json")["validatie"] == HARDWARE
 
 
+@pytest.mark.parametrize("rid", [f"EX{nummer}" for nummer in range(16, 22)])
+@pytest.mark.parametrize("sim", ["Sim-geslaagd", "Sim-mislukt"])
+def test_voorstel_hubveiligheid_behoudt_praktijkvoorbehoud(rid: str, sim: str) -> None:
+    scenario, = run.selectie(run.catalogus(MAP / "scenarios"), rid, None)
+    rij = bewijs.voorstel(scenario, sim, "2026-01-01", "proef.json")
+    bestaand = next(r for r in json.loads((ROOT / "docs/platform-v2/EVIDENCE.json").read_text()) if r["id"] == rid)
+    praktijk = bestaand["blokkade"]
+    assert praktijk and rij["blokkade"] == praktijk and rij["validatie"] == f"{sim}; {praktijk}"
+    assert rij["status"] == "Bezig" and "N-P6-03" in rij["opmerking"]
+    if rid in {"EX17", "EX21"}:
+        assert "versie 2" in rij["opmerking"] and "account" in praktijk
+
+
 def test_ex22_voorstel_bewaart_zowel_nas_als_telefoon() -> None:
     scenario, = run.selectie(run.catalogus(MAP / "scenarios"), "EX22", None)
     rij = bewijs.voorstel(scenario, "Sim-geslaagd", "2026-01-01", "proef.json")

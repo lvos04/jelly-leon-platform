@@ -6,6 +6,8 @@ from e2e.integral.scenarios.conftest import Kern
 from e2e.integral.scenarios.hubveiligheid import meet, oproepen, schrijfacties, vernieuw
 
 SCENARIO = {
+    "blokkade": "NIET GEVALIDEERD (echte NAS)",
+    "toelichting": "De praktijkproef voor beleid en executor volgt in N-P6-03.",
     "groepen": ("hub-veiligheid",),
     "eigenaar": "jelly-leon-platform",
     "verwachting": "Na intrekking weigeren beide aanmeldroutes en de bestaande sessie. De Hub markeert oude data.",

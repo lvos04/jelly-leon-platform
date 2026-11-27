@@ -8,6 +8,8 @@ from e2e.integral.scenarios.conftest import Kern
 from e2e.integral.scenarios.hubveiligheid import meet, schrijfacties
 
 SCENARIO = {
+    "blokkade": "NIET GEVALIDEERD (echte NAS)",
+    "toelichting": "De praktijkproef voor beleid en executor volgt in N-P6-03.",
     "groepen": ("hub-veiligheid",),
     "eigenaar": "jelly-leon-platform",
     "verwachting": "Een destructief voorstel met R0 krijgt serverklasse R3, een harde weigering en nul mutaties.",

@@ -12,6 +12,9 @@ from e2e.integral.scenarios.hubveiligheid import meet, schrijfacties
 from lifecycle.keys import public_jwk
 
 SCENARIO = {
+    "blokkade": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+    "toelichting": ("De proef toetst de rechten van de logschrijver. Een aangesloten assistent volgt in versie 2. "
+                    "De praktijkproef voor beleid en executor volgt in N-P6-03."),
     "groepen": ("hub-veiligheid",),
     "eigenaar": "jelly-leon-platform",
     "verwachting": "De Hub toont de logtekst bij hetzelfde incident. Onderzoek en herstelvoorstel voeren niets uit.",

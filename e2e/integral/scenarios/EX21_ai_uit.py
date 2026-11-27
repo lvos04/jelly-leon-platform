@@ -10,6 +10,9 @@ from e2e.integral.scenarios.conftest import Kern
 from e2e.integral.scenarios.hubveiligheid import meet, oproepen, vernieuw
 
 SCENARIO = {
+    "blokkade": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+    "toelichting": ("De proef draait met AI uit. Tegoeduitputting en de kostenmonitor volgen in versie 2. "
+                    "De praktijkproef voor beleid en executor volgt in N-P6-03."),
     "groepen": ("hub-veiligheid",),
     "eigenaar": "jelly-leon-platform",
     "verwachting": "AI uit: nul netwerkpogingen van de runner terwijl de Hub op een gewijzigde pool reageert.",
