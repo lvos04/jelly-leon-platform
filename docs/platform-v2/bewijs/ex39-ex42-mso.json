@@ -1,0 +1,218 @@
+{
+  "run": "20261127t065228z-52b2d8c8d0",
+  "images": {
+    "hub": {
+      "image_id": "sha256:f18f4d24b3011f39f4d6803cff1a672351cf4ae6a06bbf7b2bab208dde2a81cf",
+      "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+      "bronstatus": "schoon"
+    },
+    "executor": {
+      "image_id": "sha256:91211abf73fc688188171b6b1bcd00ec058198c6a9c80399b97d782d641f2a48",
+      "broncommit": "08fc31dd92cbd91f58e53fdf701bb15ebe434b75",
+      "bronstatus": "schoon"
+    },
+    "truenas": {
+      "image_id": "sha256:8307552fae1eff1e4c203d6f1ed1ab2c58c5a699ed5f386fadd17e40c49a667e",
+      "broncommit": "0fbcb230aabee9d9d2cdb6330c41f024377e5b58",
+      "bronstatus": "gewijzigd"
+    },
+    "lifecycle": {
+      "image_id": "sha256:1e8e480321bc36104760c7e9a120950a32c5989ae08c4f7330903ef41f8b78c5",
+      "broncommit": "0fbcb230aabee9d9d2cdb6330c41f024377e5b58",
+      "bronstatus": "gewijzigd"
+    },
+    "mso": {
+      "image_id": "sha256:5ddc57aeebdcf55f2753d0734df8a7d8bb1473a6673df26f47d6252f3feeec88",
+      "broncommit": "5d1a80deba2f604c4b1f957466491340947b51c4",
+      "bronstatus": "schoon"
+    },
+    "sabnzbd-sim": {
+      "image_id": "sha256:0b556d0971989287fbb48d2761bf0f330ab8b4bd4709d7f4816ec817dec852df",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "bronstatus": "schoon"
+    },
+    "mg-categorie-sim": {
+      "image_id": "sha256:0b556d0971989287fbb48d2761bf0f330ab8b4bd4709d7f4816ec817dec852df",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "bronstatus": "schoon"
+    },
+    "qbittorrent-sim": {
+      "image_id": "sha256:0b556d0971989287fbb48d2761bf0f330ab8b4bd4709d7f4816ec817dec852df",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "bronstatus": "schoon"
+    },
+    "qbittorrent-publiek": {
+      "image_id": "sha256:0b556d0971989287fbb48d2761bf0f330ab8b4bd4709d7f4816ec817dec852df",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "bronstatus": "schoon"
+    },
+    "prowlarr-sim": {
+      "image_id": "sha256:0b556d0971989287fbb48d2761bf0f330ab8b4bd4709d7f4816ec817dec852df",
+      "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
+      "bronstatus": "schoon"
+    }
+  },
+  "scenarios": {
+    "EX39": {
+      "bestand": "e2e/integral/scenarios/EX39_sab_categorie.py",
+      "git_blob": "f5a43570a2f2eda0ef350dcbdf76984966266390",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "executor",
+        "hub",
+        "lifecycle",
+        "mg-categorie-sim",
+        "mso",
+        "sabnzbd-sim",
+        "truenas"
+      ],
+      "metingen": {
+        "oorzaak": "tv-anime",
+        "instantie": "Anime",
+        "zonder_akkoord_http": 409,
+        "sab_wijzigingen": [
+          {
+            "mode": "set_config",
+            "section": "categories"
+          }
+        ],
+        "mediaguard_leesverzoeken": 50,
+        "mediaguard_schrijfacties": 0,
+        "eerste_taak": "*",
+        "volgende_taak": "tv-anime"
+      }
+    },
+    "EX40": {
+      "bestand": "e2e/integral/scenarios/EX40_provideruitval.py",
+      "git_blob": "aaadf58f5abbe244c278c8113ebc31664c4575cd",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "executor",
+        "hub",
+        "lifecycle",
+        "mso",
+        "sabnzbd-sim",
+        "truenas"
+      ],
+      "metingen": {
+        "servers_vooraf": 3,
+        "stappen": [
+          {
+            "storing": 1,
+            "ingeschakeld": 2,
+            "uitgeschakeld_in_ronde": 1,
+            "laatste_beschermd": false
+          },
+          {
+            "storing": 2,
+            "ingeschakeld": 1,
+            "uitgeschakeld_in_ronde": 1,
+            "laatste_beschermd": false
+          },
+          {
+            "storing": 3,
+            "ingeschakeld": 1,
+            "uitgeschakeld_in_ronde": 0,
+            "laatste_beschermd": true
+          }
+        ]
+      }
+    },
+    "EX41": {
+      "bestand": "e2e/integral/scenarios/EX41_private_torrent.py",
+      "git_blob": "0063c58cf4387498e4030719078c36954ce568e4",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "executor",
+        "hub",
+        "lifecycle",
+        "mso",
+        "qbittorrent-publiek",
+        "qbittorrent-sim",
+        "truenas"
+      ],
+      "metingen": {
+        "publiek_voor": {
+          "dht": false,
+          "pex": false
+        },
+        "publiek_na": {
+          "dht": true,
+          "pex": true
+        },
+        "prive_voor": {
+          "vlaggen": {
+            "dht": false,
+            "pex": false
+          },
+          "trackerstatus": {
+            "** [DHT] **": 0,
+            "** [PeX] **": 0
+          },
+          "seedlimieten": {
+            "ratio_limit": -2,
+            "seeding_time_limit": -2,
+            "inactive_seeding_time_limit": -2
+          }
+        },
+        "prive_na": {
+          "vlaggen": {
+            "dht": false,
+            "pex": false
+          },
+          "trackerstatus": {
+            "** [DHT] **": 0,
+            "** [PeX] **": 0
+          },
+          "seedlimieten": {
+            "ratio_limit": -2,
+            "seeding_time_limit": -2,
+            "inactive_seeding_time_limit": -2
+          }
+        },
+        "weigeringen_http": [
+          422,
+          422,
+          422
+        ],
+        "prive_schrijfacties": []
+      }
+    },
+    "EX42": {
+      "bestand": "e2e/integral/scenarios/EX42_prowlarr_lus.py",
+      "git_blob": "cf662da247ace513e816cae303986da7e81db06e",
+      "uitkomst": "Sim-geslaagd",
+      "exitcode": 0,
+      "diensten": [
+        "executor",
+        "hub",
+        "lifecycle",
+        "mso",
+        "prowlarr-sim",
+        "truenas"
+      ],
+      "metingen": {
+        "normale_zoekvraag": {
+          "zoekopdrachten": 1,
+          "max_diepte": 1,
+          "terugoproepen": 1,
+          "mislukte_terugoproepen": 0
+        },
+        "weigering_met_kop": 508,
+        "zoekopdrachten_met_kop": 1,
+        "zoekopdrachten_bij_twee_herhalingen_zonder_kop": [
+          1,
+          2,
+          3
+        ],
+        "max_diepte": 1,
+        "tijdslimiet_seconden": 25
+      }
+    }
+  },
+  "broncommit": "0dd62bf7e24ffd53626bf055f9e48007e671f567",
+  "zelfde_scenariobestanden_na_rebase": "0652455b807a6b320fa5e2183df96adf962e9a09"
+}

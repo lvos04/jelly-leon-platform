@@ -1518,5 +1518,45 @@
   "opmerking": "De koppeling mislukte met beide protocolversies. De integratie werd uitgeschakeld, bediening geweigerd en er volgde geen UDP-commando. Echte afwijkende firmware nog toetsen in N-P6-06.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX39",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX39_sab_categorie.py, docs/platform-v2/bewijs/ex39-ex42-mso.json (EX39, run 20261127t065228z-52b2d8c8d0)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "MSO herkende de ontbrekende SAB-categorie. Het simulatorlog toont één goedgekeurde wijziging en uitsluitend leesverzoeken aan MediaGuard."
+ },
+ {
+  "id": "EX40",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX40_provideruitval.py, docs/platform-v2/bewijs/ex39-ex42-mso.json (EX40, run 20261127t065228z-52b2d8c8d0)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Twee bevestigde storingen schakelden elk één server uit. De laatst bruikbare bleef actief en bleef ook bij een eigen storing ingeschakeld."
+ },
+ {
+  "id": "EX41",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX41_private_torrent.py, docs/platform-v2/bewijs/ex39-ex42-mso.json (EX41, run 20261127t065228z-52b2d8c8d0)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De private torrent behield de vlaggen en seedlimieten. Dezelfde DHT- en PeX-voorkeuren waren instelbaar in de afzonderlijke publieke fixture."
+ },
+ {
+  "id": "EX42",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX42_prowlarr_lus.py, docs/platform-v2/bewijs/ex39-ex42-mso.json (EX42, run 20261127t065228z-52b2d8c8d0)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "Eén zoekvraag gaf één terugoproep. MSO weigerde de nagestuurde kopie met herkomstkop. Bij twee vaste herhalingen zonder die kop nam de teller telkens met één toe."
  }
 ]
