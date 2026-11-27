@@ -48,7 +48,7 @@ def koppel_proefondertekenaar(huis: Huis) -> Ed25519PrivateKey:
     return sleutel
 
 
-def assistentvoorstel(huis: Huis, sleutel: Ed25519PrivateKey, actie: str, doel: dict[str, str]) -> httpx.Response:
+def assistentvoorstel(client: httpx.Client, sleutel: Ed25519PrivateKey, actie: str, doel: dict[str, str]) -> httpx.Response:
     nu = datetime.now(UTC).replace(microsecond=0)
     body: dict[str, Any] = {
         "proposal": {"idempotency_key": str(uuid.uuid4()), "action_id": actie,
@@ -60,7 +60,35 @@ def assistentvoorstel(huis: Huis, sleutel: Ed25519PrivateKey, actie: str, doel: 
         "expires_at": (nu + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     body["signature"] = b64(sleutel.sign(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()))
-    return huis.api.post("/connector/v1/propose", json=body, headers={"Idempotency-Key": str(uuid.uuid4())})
+    return client.post("/connector/v1/propose", json=body, headers={"Idempotency-Key": str(uuid.uuid4())})
+
+
+def koppel_hubviewer(huis: Huis) -> httpx.Client:
+    # Dit adres komt uitsluitend in de synthetische koppelcode. Verkeer loopt via het eigen projectnet.
+    huis.schrijf("PUT", "/system/settings", {"lan_url": "http://huisproef.local"})
+    code = huis.schrijf("POST", "/pairing/codes", {"role": "viewer", "purpose": "hub", "label": "Proef-Hub"})
+    viewer = huis.kern.client("my-house", 8080)
+    assert viewer.get("/connector/v1/discover").status_code == 401
+    antwoord = viewer.post("/api/v1/pairing/redeem", json={"code": code["code"], "device_name": "Proef-Hub"})
+    assert antwoord.status_code == 200
+    koppeling = antwoord.json()
+    if (koppeling["client"]["role"], koppeling["client"]["purpose"]) != ("viewer", "hub"):
+        raise AssertionError("De koppeling gaf niet de reguliere Hub-leesrol")
+    viewer.headers["Authorization"] = "Bearer " + koppeling["token"]
+    return viewer
+
+
+def meet_hubviewer(huis: Huis, viewer: httpx.Client, sleutel: Ed25519PrivateKey,
+                   doel: dict[str, str], moment: str) -> None:
+    voor = huis.wachtrij()
+    lees = viewer.get("/connector/v1/discover")
+    assert lees.status_code == 200 and lees.json()["actions"]
+    antwoord = assistentvoorstel(viewer, sleutel, "socket.relay.propose", doel)
+    assert antwoord.status_code == 403 and antwoord.json().get("code") == "forbidden"
+    verschil = huis.wachtrij() - voor
+    assert verschil == 0
+    huis.meet(moment, {"ontdekking_http": lees.status_code, "voorstel_http": antwoord.status_code,
+                       "nieuwe_opdrachten": verschil})
 
 
 def test_boiler_vier_ingangen(kern: Kern) -> None:
@@ -75,7 +103,9 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
     assert (stekker["provider"], stekker["kind"], stekker["compatibility"]) == ("homewizard", "energy_socket", "tested")
     assert stekker["protected"] is False and not stekker["roles"]
     actie, doel = "socket.relay.propose", {"device_id": apparaat}
-    gewoon = assistentvoorstel(huis, sleutel, actie, doel)
+    viewer = koppel_hubviewer(huis)
+    meet_hubviewer(huis, viewer, sleutel, doel, "hubviewer_voor_binding")
+    gewoon = assistentvoorstel(huis.api, sleutel, actie, doel)
     gewoon_antwoord = gewoon.json()
     huis.meet("gewoon_stopcontact", {
         "http": gewoon.status_code, "voorstel": gewoon_antwoord.get("status") == "proposed",
@@ -87,6 +117,8 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
     huis.schrijf("POST", f"/devices/{apparaat}/bind", {"role": "boiler"})
     boiler = huis.get(f"/devices/{apparaat}")
     assert boiler["protected"] is True and "boiler" in boiler["roles"]
+
+    meet_hubviewer(huis, viewer, sleutel, doel, "hubviewer_na_binding")
 
     browser = (MAP.parent / "fixtures/huis/boiler-ui.cjs").read_text()
     ui = json.loads(huis.project.compose("exec", "-T", "huis-browser", "node", "-e", browser,
@@ -100,10 +132,10 @@ def test_boiler_vier_ingangen(kern: Kern) -> None:
     })
     assert hub.status_code == 403 and "boiler_verboden" in [b["code"] for b in hub.json()["details"]["blokkades"]]
     huis.meet("hub", hub.status_code)
-    ai = assistentvoorstel(huis, sleutel, actie, doel)
+    ai = assistentvoorstel(huis.api, sleutel, actie, doel)
     assert ai.status_code == 409 and ai.json()["code"] == "policy_denied"
     huis.meet("ondertekende_assistentactor", ai.status_code)
-    licht = assistentvoorstel(huis, sleutel, "light.group.set", {"group_id": apparaat})
+    licht = assistentvoorstel(huis.api, sleutel, "light.group.set", {"group_id": apparaat})
     assert licht.status_code == 409 and licht.json()["code"] == "policy_denied"
     huis.meet("ondertekende_lichtgroepactie_op_boiler", licht.status_code)
     direct = huis.api.post(f"/api/v1/lights/groups/{apparaat}", json={"on": False})
