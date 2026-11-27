@@ -78,6 +78,17 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 
 Elke proef schrijft `inhoud.json` met de SHA-256 per proefbestand en de voortgang per bestaande MediaGuard-taak. EX05 leest ook de controlesommen op het moment dat Sonarr het verwijderverzoek ontvangt. De herstelwerker behandelt het terugzetverzoek. EX09 gebruikt de native vervangmodus van de CPU-encoder op twee kopieën van dezelfde clip. De storingsvrije controle levert een AV1-bestand op.
 
+Vergelijk een bewaarde run vanuit de repomap met de vijf ingecheckte bewijsrijen en hun metingen.
+
+```bash
+.venv/bin/python -m e2e.integral.controle_mediabewijs "$RUNMAP"
+```
+
+De integrale kijkvergelijking gebruikt `Played`, `PlaybackPositionTicks` en `IsFavorite`. De afzonderlijke
+MediaGuard-componentproef `test_jellyfin_av1_vervanging_met_kijkgegevens[zelfde-pad]` vergelijkt voor twee
+kijkers ook `Rating`, `AudioStreamIndex` en `SubtitleStreamIndex`. De werkerproef met twee importmeldingen
+controleert twee importtaken en twee bestandsidentiteiten. De fysieke bestandscontrole staat in de hashes van EX05.
+
 ### Node-RED en meldingen
 
 De drie proeven gebruiken de bouwprofielen `kern`, `derden` en `meldingen`. Start ze samen op de eigen teststack.
