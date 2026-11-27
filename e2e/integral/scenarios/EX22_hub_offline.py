@@ -73,7 +73,7 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
             kern.hub.get("/readyz")
         assert kern.lifecycle.get("/healthz").status_code == 200 and monitorstatus() == 1
         tijdens = kanalen()
-        assert tijdens == {"direct": True, "via_hub": False, "hub_onbereikbaar": True}
+        assert tijdens["direct"] and not tijdens["via_hub"] and tijdens["hub_onbereikbaar"]
 
         with uitval(kern, "lifecycle"):
             assert not draait(kern, "lifecycle")
@@ -95,5 +95,6 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
     schrijf(kern.net.dossier / "metingen.json", {
         "uitvalmeldingen_vooraf_rechtstreeks": len(direct_voor), "uitvalmeldingen_vooraf_via_hub": len(omweg_voor),
         **storing, "monitor_voor_tijdens_na": [1, 0, 1],
-        "kanaaltest_via_hub_mislukt": tijdens["hub_onbereikbaar"], "schrijfacties": len(mutaties),
+        "kanaaltest_via_hub_mislukt": tijdens["hub_onbereikbaar"],
+        "kanaaltest_via_hub_zonder_antwoord": tijdens["omweg_zonder_antwoord"], "schrijfacties": len(mutaties),
     })

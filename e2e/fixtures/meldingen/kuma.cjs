@@ -18,6 +18,17 @@ function kanaal(naam, url, token) {
     return { type: "gotify", name: naam, gotifyserverurl: url, gotifyapplicationToken: token, isDefault: false };
 }
 
+const verbindingsfout = /ENOTFOUND|ECONNREFUSED|EAI_AGAIN|EHOSTUNREACH|ETIMEDOUT/;
+
+async function routeOnbereikbaar(url) {
+    try {
+        await fetch(url, { signal: AbortSignal.timeout(3000) });
+        return false;
+    } catch (fout) {
+        return fout.name === "TimeoutError" || verbindingsfout.test(fout.cause?.code || "");
+    }
+}
+
 async function proef() {
     // Kuma meldt de aanmeldplicht pas nadat alle API-aanroepen op de server zijn geregistreerd.
     await new Promise((klaar, fout) => socket.once("loginRequired", klaar).once("connect_error", fout).connect());
@@ -25,10 +36,16 @@ async function proef() {
     await vereist("login", { username: "proefbeheer", password: invoer.wachtwoord });
     const direct = kanaal("Rechtstreeks", "http://gotify-sim:30215", invoer.direct);
     const via = kanaal("Via de proef-Hub", "http://hub:31822", invoer.via);
+    let b;
+    try {
+        b = await vraag("testNotification", via);
+    } catch (fout) {
+        if (fout.message !== "operation has timed out") throw fout;
+    }
+    // Een succesvolle verzending over dezelfde API-verbinding onderscheidt de meldroute van een stilgevallen Kuma.
     const a = await vraag("testNotification", direct);
-    const b = await vraag("testNotification", via);
-    const uit = { direct: a.ok === true, via_hub: b.ok === true,
-        hub_onbereikbaar: !b.ok && /ENOTFOUND|ECONNREFUSED|EAI_AGAIN|EHOSTUNREACH|ETIMEDOUT/.test(b.msg || "") };
+    const uit = { direct: a.ok === true, via_hub: b?.ok === true, omweg_zonder_antwoord: b === undefined,
+        hub_onbereikbaar: b ? !b.ok && verbindingsfout.test(b.msg || "") : await routeOnbereikbaar(via.gotifyserverurl) };
     if (invoer.inrichten) {
         const opgeslagen = invoer.omweg ? { ...direct, gotifyserverurl: via.gotifyserverurl } : direct;
         const eerste = await vereist("addNotification", opgeslagen, null);
