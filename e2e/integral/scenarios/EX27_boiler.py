@@ -48,7 +48,8 @@ def koppel_proefondertekenaar(huis: Huis) -> Ed25519PrivateKey:
     return sleutel
 
 
-def assistentvoorstel(client: httpx.Client, sleutel: Ed25519PrivateKey, actie: str, doel: dict[str, str]) -> httpx.Response:
+def assistentvoorstel(client: httpx.Client, sleutel: Ed25519PrivateKey, actie: str,
+                    doel: dict[str, str]) -> httpx.Response:
     nu = datetime.now(UTC).replace(microsecond=0)
     body: dict[str, Any] = {
         "proposal": {"idempotency_key": str(uuid.uuid4()), "action_id": actie,

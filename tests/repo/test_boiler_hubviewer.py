@@ -30,7 +30,8 @@ def test_gewone_hub_gebruikt_eigen_sessie_en_blijft_lezen(status, reden, verschi
         args = (huis, viewer, Ed25519PrivateKey.generate(), {"device_id": "proef"}, "voor_binding")
         if geldig:
             proef.meet_hubviewer(*args)
-            huis.meet.assert_called_once_with("voor_binding", {"ontdekking_http": 200, "voorstel_http": 403, "nieuwe_opdrachten": 0})
+            huis.meet.assert_called_once_with("voor_binding",
+                                              {"ontdekking_http": 200, "voorstel_http": 403, "nieuwe_opdrachten": 0})
         else:
             with pytest.raises(AssertionError):
                 proef.meet_hubviewer(*args)

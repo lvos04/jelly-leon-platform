@@ -71,7 +71,8 @@ def test_cyclus_en_herkomstkop(kern: Kern) -> None:
     assert registratie.status_code == 201 and registratie.json()["name"] == "Proef-MSO"
     with tijdslimiet(25):
         assert aantallen(sim)["zoekopdrachten"] == 0
-        resultaat, normaal = meet_zoekvraag(sim, lambda: api.get("search", params={"q": "Expanse", "category": "tv"}), 1)
+        resultaat, normaal = meet_zoekvraag(
+            sim, lambda: api.get("search", params={"q": "Expanse", "category": "tv"}), 1)
         bronnen = resultaat.raise_for_status().json()["sources"]
         assert any(s["source_id"] == "prowlarr" and s["status"] == "ok" for s in bronnen)
 
