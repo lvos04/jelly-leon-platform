@@ -142,7 +142,7 @@ services:
     cpus: 2
     volumes: [inhoud-media:/media]
   mso:
-    profiles: [media, mso]
+    profiles: [mso, media]
     image: jlp-integraal/mso:${INTEGRAAL_TAG:-lokaal}
     build:
       <<: *bouw

@@ -9,7 +9,7 @@ from simkit.msomock import met_testbediening
 
 def leessleutel() -> dict[str, str]:
     sleutel = "mgk_" + secrets.token_urlsafe(32)
-    import_module("msomocks.mediaguard").API_KEYS = {sleutel: ("categorieproef", "viewer")}
+    vars(import_module("msomocks.mediaguard"))["API_KEYS"] = {sleutel: ("categorieproef", "viewer")}
     return {"apikey": sleutel}
 
 
