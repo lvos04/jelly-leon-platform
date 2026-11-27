@@ -1,5 +1,6 @@
 {
-  "run": "20261126t091732z-6fe6279202",
+  "run": "20261127t105711z-15e2ceed05",
+  "broncommit": "bfb0af3ee1736eb79289e5a7cc27818f75189fa4",
   "selectie": [
     "EX03",
     "EX04",
@@ -7,39 +8,42 @@
     "EX09",
     "EX37"
   ],
-  "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
   "images": {
     "hub": {
       "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
-      "image_id": "sha256:3f353b4c6c051c5a4798e23580b6fe7153cfd9160d803817fb39fed6392298a3"
+      "image_id": "sha256:d09d0477ca88e7b01455a4ca196d537ce1c181dc6a64837ba3e8e00bb03594d3"
     },
     "executor": {
       "broncommit": "f094c87a4a852fc0f9686be75b4f0d5905b9f521",
-      "image_id": "sha256:0676ce6e5506e5c1f9b9d24c7235ffe1529ebb6ce7eb1690d566ad1685e771c3"
+      "image_id": "sha256:edd8a8fd0bb68bfe78210a1e6166a2b82e917e32994f0871a60d641d34976688"
     },
     "truenas": {
-      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
-      "image_id": "sha256:91704d1d2545cc3245375067fcb6185efbe8f420021ad5de037ba771fcc9afbf"
+      "broncommit": "bfb0af3ee1736eb79289e5a7cc27818f75189fa4",
+      "image_id": "sha256:50a83c392248e7a2127cb7ac174edb606eb843fd1f138b5277106164b8badf40"
     },
     "lifecycle": {
-      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
-      "image_id": "sha256:ca83cc126e61df05a2776cbbbb2fd130ad18616905007f3887888374c0350d48"
+      "broncommit": "bfb0af3ee1736eb79289e5a7cc27818f75189fa4",
+      "image_id": "sha256:788e718414c4d4d85f2457d831693b09823e14eaf728dadacfad31e551448c05"
     },
     "mg-inhoud": {
       "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
-      "image_id": "sha256:a285eaab864445213bb2c4be3e5ad49c965efe84bf547bd566c02aeb68229307"
+      "image_id": "sha256:8c1d080a9942b556b619a5c9b920f8c334669d4f10d8b477c6ddde016872cd53"
+    },
+    "kijkserver-inhoud": {
+      "broncommit": "bfb0af3ee1736eb79289e5a7cc27818f75189fa4",
+      "image_id": "sha256:05421eaf14d92f3ac46df31c838135125e6d8ad215ef614c2f6353f95b63f31b"
     },
     "arr-inhoud": {
-      "broncommit": "f3aacf0af5c348c2b3765d7677d62e53e342be84",
-      "image_id": "sha256:fae8071d4f6ae9ab45bdd6b8c5d6429264273f41dc808bd7049698a4db834dde"
+      "broncommit": "bfb0af3ee1736eb79289e5a7cc27818f75189fa4",
+      "image_id": "sha256:05421eaf14d92f3ac46df31c838135125e6d8ad215ef614c2f6353f95b63f31b"
     },
     "mg-inhoud-herstel": {
       "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
-      "image_id": "sha256:a285eaab864445213bb2c4be3e5ad49c965efe84bf547bd566c02aeb68229307"
+      "image_id": "sha256:8c1d080a9942b556b619a5c9b920f8c334669d4f10d8b477c6ddde016872cd53"
     },
     "mg-kwaliteitsmeting": {
       "broncommit": "184dbded9020d762f4e4d15be05b4c875342760a",
-      "image_id": "sha256:2938d3d2862bfdf3372a625e141c50ccbf8605252f5651f659841273f25cac43"
+      "image_id": "sha256:bfb89b262f3cc885908f69692e94991cc9d0e98bd2339e86b22eb75557f3453b"
     }
   },
   "scenarios": {
@@ -51,6 +55,7 @@
         "arr-inhoud",
         "executor",
         "hub",
+        "kijkserver-inhoud",
         "lifecycle",
         "mg-inhoud",
         "truenas"
@@ -58,19 +63,68 @@
       "metingen": {
         "voor": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "579b5f9d3bd8481bb29921a03e5c3d62bbc8be9fc3cfc1142efaf5a99e38f250",
-            "/media/referentie/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
-            "/media/referentie/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67"
+            "/media/bestaand/bewaard.mkv": "f7b6df5d0eab256732f7133414ef8ae0eacd79eea967a48125a82c23a0718bf8",
+            "/media/referentie/S01E01.mkv": "7940311b13382b6e3c0f2b0a443671a05197b3129d9974bbae84a482f3c27f72",
+            "/media/referentie/S01E02.mkv": "0f25bea745ed785367d3a196ccf8deaf5a33698972507bf504d65edd660f26c6",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "7940311b13382b6e3c0f2b0a443671a05197b3129d9974bbae84a482f3c27f72",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "0f25bea745ed785367d3a196ccf8deaf5a33698972507bf504d65edd660f26c6"
           },
           "historie": {
-            "kijkregistratie": "345bd7f925d69697c069a21a33135a35392a63d2e1355368b707ea5e69360dd9",
-            "taaklog": "e1b1a839d24497f3fcc68b0b6ebf79e18610a6f4cdfff5c77a3a6868a0ddeb25"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:57:31+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:57:31+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "23d489e242ca5b42b351c15eb7461ba3e29ce5a0af4ad50dc08e241d856d8f65",
+              "2": "8321905cdf3abad3378a6a5d4396486db7188d6ae808ecea351188ffd94e460b"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
+        },
+        "dienstcontrole": {
+          "taak": 1,
+          "voortgang": 0.625,
+          "logregels": 2,
+          "sessies": 2,
+          "kijkstanden": 4
         },
         "routering": {
           "doel": "sonarr-series",
@@ -88,15 +142,57 @@
         },
         "na": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "579b5f9d3bd8481bb29921a03e5c3d62bbc8be9fc3cfc1142efaf5a99e38f250",
-            "/media/referentie/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
-            "/media/referentie/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "72ad8da8e59a92c9e2b0a74e85f22e6e304f4d973100ce7975ea62b18db4fe80",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "df393f38dba165c4c9a27cd8a6450ecb9c7da7224146d380720bd631de33bb67"
+            "/media/bestaand/bewaard.mkv": "f7b6df5d0eab256732f7133414ef8ae0eacd79eea967a48125a82c23a0718bf8",
+            "/media/referentie/S01E01.mkv": "7940311b13382b6e3c0f2b0a443671a05197b3129d9974bbae84a482f3c27f72",
+            "/media/referentie/S01E02.mkv": "0f25bea745ed785367d3a196ccf8deaf5a33698972507bf504d65edd660f26c6",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "7940311b13382b6e3c0f2b0a443671a05197b3129d9974bbae84a482f3c27f72",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "0f25bea745ed785367d3a196ccf8deaf5a33698972507bf504d65edd660f26c6"
           },
           "historie": {
-            "kijkregistratie": "345bd7f925d69697c069a21a33135a35392a63d2e1355368b707ea5e69360dd9",
-            "taaklog": "e1b1a839d24497f3fcc68b0b6ebf79e18610a6f4cdfff5c77a3a6868a0ddeb25"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:57:31+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:57:31+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "23d489e242ca5b42b351c15eb7461ba3e29ce5a0af4ad50dc08e241d856d8f65",
+              "2": "8321905cdf3abad3378a6a5d4396486db7188d6ae808ecea351188ffd94e460b"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -112,6 +208,7 @@
         "arr-inhoud",
         "executor",
         "hub",
+        "kijkserver-inhoud",
         "lifecycle",
         "mg-inhoud",
         "truenas"
@@ -119,19 +216,68 @@
       "metingen": {
         "voor": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "7d4ad6173d6e00be9c40c98c21ab133e9148af86961e12c6dc1c8de8fe63f896",
-            "/media/sonarr-anime/De maanreis/S01E01.mkv": "0736750aeedc572a832fde950fda6d8fb7479e8fd352d7945c6dada3f19ec8a4",
+            "/media/bestaand/bewaard.mkv": "012ba5e403aca2eeb1f03fbeaa3abdad97356c0d43e5714b5351adf5ee411ba6",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "cad52392cf2352334c289b37646723001268538093ddfd7763a41fb55e87d9f1",
             "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
-            "/media/sonarr-anime/De maanreis/S01E02.mkv": "8b6add5335e7a88b6900656221076ee201acbc21fb03fdfee68ed46996830b8c",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "2ff7aa5bad7bfdf6e682659f2a4403925a0e32216874b1a23b04d3214e57efe0",
             "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
           },
           "historie": {
-            "kijkregistratie": "7d59486bef4e4caeab2c3b3096f99a1c0cdf0dd1745a29c1543fbcca2877f127",
-            "taaklog": "1a600dcf84412a985422cf3f80969051d6f1d326d4386444bf4e116a10141ac9"
+            "kijkgegevens": {
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:57:55+00:00"
+              },
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "path": "/media/sonarr-anime/De maanreis/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:57:55+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "330828d0e06efa253809b5f96f6d87b22732be0ba07ffc43ab8e695e9441155d",
+              "2": "f331f40eec3360fd4b264a7971c11f87891b7ca16635dea487f6935252a400c6"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
+        },
+        "dienstcontrole": {
+          "taak": 1,
+          "voortgang": 0.625,
+          "logregels": 2,
+          "sessies": 2,
+          "kijkstanden": 4
         },
         "routering": {
           "doel": "sonarr-anime",
@@ -165,15 +311,57 @@
         },
         "na": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "7d4ad6173d6e00be9c40c98c21ab133e9148af86961e12c6dc1c8de8fe63f896",
-            "/media/sonarr-anime/De maanreis/S01E01.mkv": "0736750aeedc572a832fde950fda6d8fb7479e8fd352d7945c6dada3f19ec8a4",
+            "/media/bestaand/bewaard.mkv": "012ba5e403aca2eeb1f03fbeaa3abdad97356c0d43e5714b5351adf5ee411ba6",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "cad52392cf2352334c289b37646723001268538093ddfd7763a41fb55e87d9f1",
             "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
-            "/media/sonarr-anime/De maanreis/S01E02.mkv": "8b6add5335e7a88b6900656221076ee201acbc21fb03fdfee68ed46996830b8c",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "2ff7aa5bad7bfdf6e682659f2a4403925a0e32216874b1a23b04d3214e57efe0",
             "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
           },
           "historie": {
-            "kijkregistratie": "7d59486bef4e4caeab2c3b3096f99a1c0cdf0dd1745a29c1543fbcca2877f127",
-            "taaklog": "1a600dcf84412a985422cf3f80969051d6f1d326d4386444bf4e116a10141ac9"
+            "kijkgegevens": {
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:57:55+00:00"
+              },
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "path": "/media/sonarr-anime/De maanreis/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:57:55+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "330828d0e06efa253809b5f96f6d87b22732be0ba07ffc43ab8e695e9441155d",
+              "2": "f331f40eec3360fd4b264a7971c11f87891b7ca16635dea487f6935252a400c6"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -189,6 +377,7 @@
         "arr-inhoud",
         "executor",
         "hub",
+        "kijkserver-inhoud",
         "lifecycle",
         "mg-inhoud",
         "mg-inhoud-herstel",
@@ -197,19 +386,68 @@
       "metingen": {
         "voor": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
-            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+            "/media/bestaand/bewaard.mkv": "4c350d689d3f6e7e8f86100c6354b7e49dfd78a797ceeb4d05763f43b346bc5c",
+            "/media/referentie/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/referentie/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
           },
           "historie": {
-            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
-            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "2841395f1ccc398a1c58c6eda65efde8dd80fd3ed885ac9e89ba66263c6b4b62",
+              "2": "7ed70059c70326bd4a29e453c004def4c731ce72a31f172521e2c4ccbc3c31f9"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
+        },
+        "dienstcontrole": {
+          "taak": 1,
+          "voortgang": 0.625,
+          "logregels": 2,
+          "sessies": 2,
+          "kijkstanden": 4
         },
         "routering": {
           "doel": "sonarr-series",
@@ -227,15 +465,57 @@
         },
         "juist_bestand": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
-            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+            "/media/bestaand/bewaard.mkv": "4c350d689d3f6e7e8f86100c6354b7e49dfd78a797ceeb4d05763f43b346bc5c",
+            "/media/referentie/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/referentie/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
           },
           "historie": {
-            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
-            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "2841395f1ccc398a1c58c6eda65efde8dd80fd3ed885ac9e89ba66263c6b4b62",
+              "2": "7ed70059c70326bd4a29e453c004def4c731ce72a31f172521e2c4ccbc3c31f9"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -243,15 +523,57 @@
         },
         "na_injectie": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
-            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+            "/media/bestaand/bewaard.mkv": "4c350d689d3f6e7e8f86100c6354b7e49dfd78a797ceeb4d05763f43b346bc5c",
+            "/media/referentie/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/referentie/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
           },
           "historie": {
-            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
-            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "2841395f1ccc398a1c58c6eda65efde8dd80fd3ed885ac9e89ba66263c6b4b62",
+              "2": "7ed70059c70326bd4a29e453c004def4c731ce72a31f172521e2c4ccbc3c31f9"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -259,23 +581,65 @@
         },
         "quarantaine": {
           "sha256": {
-            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
-            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/bestaand/bewaard.mkv": "4c350d689d3f6e7e8f86100c6354b7e49dfd78a797ceeb4d05763f43b346bc5c",
+            "/media/referentie/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/referentie/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
           },
           "historie": {
-            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
-            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "2841395f1ccc398a1c58c6eda65efde8dd80fd3ed885ac9e89ba66263c6b4b62",
+              "2": "7ed70059c70326bd4a29e453c004def4c731ce72a31f172521e2c4ccbc3c31f9"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
         },
         "voor_verwijderen": {
-          "bron_sha256": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-          "quarantaine_sha256": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+          "bron_sha256": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+          "quarantaine_sha256": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
         },
         "herstel": {
           "bestands_id": 10101,
@@ -286,16 +650,59 @@
         },
         "na": {
           "sha256": {
-            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/bestaand/bewaard.mkv": "ed6da0d9918985812c2cc336f63ec95461c68694f2f488b9834824fbddf92b63",
-            "/media/referentie/S01E01.mkv": "0ced0fdc2c99f8ab1d94e2f0756a7f03fdf77cf7af539a54e40d2e415274e637",
-            "/media/referentie/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c",
-            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "23dcbb5e03eee9d0cc924ce6c3b4f6cfcec010c26ef90a17d384e178f1f7d13c"
+            "/media/.mediaguard-quarantine/txn-1/S01E01.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/bestaand/bewaard.mkv": "4c350d689d3f6e7e8f86100c6354b7e49dfd78a797ceeb4d05763f43b346bc5c",
+            "/media/referentie/S01E01.mkv": "78407db96bedd644766be345d8d19ef5cbae294356b052583b391c8fab58650e",
+            "/media/referentie/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55",
+            "/media/sonarr-series/De vuurtoren/staging/S01E02.mkv": "c0cfcab10f2732f472962ad96074763fe1129caed1d8d903c662d1f4d412ee55"
           },
           "historie": {
-            "kijkregistratie": "604f9c85d03a7670c2c950d61000de1ba70b554e6b82c139ffe515bff7e329a8",
-            "taaklog": "fc81f4c108ee918932591827bd445cfc1d0d2a098ee9dc24cbd462b728613343"
+            "kijkgegevens": {
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              },
+              "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv": {
+                "path": "/media/sonarr-series/De vuurtoren/staging/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:21+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "2841395f1ccc398a1c58c6eda65efde8dd80fd3ed885ac9e89ba66263c6b4b62",
+              "2": "7ed70059c70326bd4a29e453c004def4c731ce72a31f172521e2c4ccbc3c31f9",
+              "3": "02a8e80908ab0f6747534bec9aae0b84ffe9259e0de097bf6e15f106a480b7c1"
+            }
           },
           "taakvoortgang": {
             "3": 0.0,
@@ -312,6 +719,7 @@
       "diensten": [
         "executor",
         "hub",
+        "kijkserver-inhoud",
         "lifecycle",
         "mg-inhoud",
         "mg-kwaliteitsmeting",
@@ -320,17 +728,66 @@
       "metingen": {
         "voor": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
-            "/media/kwaliteitsproef/controle.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669",
-            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+            "/media/bestaand/bewaard.mkv": "f84f95efda700f55d71a44f2f10bf07e82773012a688d94e061f340fa76cf0cb",
+            "/media/kwaliteitsproef/controle.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521",
+            "/media/kwaliteitsproef/fout.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521"
           },
           "historie": {
-            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
-            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+            "kijkgegevens": {
+              "/media/kwaliteitsproef/controle.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              },
+              "/media/kwaliteitsproef/controle.mkv": {
+                "path": "/media/kwaliteitsproef/controle.mkv",
+                "title": "controle.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "15a35a07f0d1c5e751b5f1464575af9b9acec795fa21c439ee6cbb4ec9e53c15",
+              "2": "d10ebb5de347e06b2135c5d14b632defe5534b7b2739d9976195ddbb79531e59"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
+        },
+        "dienstcontrole": {
+          "taak": 1,
+          "voortgang": 0.625,
+          "logregels": 2,
+          "sessies": 2,
+          "kijkstanden": 4
         },
         "job_fout": {
           "id": 1,
@@ -349,13 +806,55 @@
         },
         "na_meetfout": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
-            "/media/kwaliteitsproef/controle.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669",
-            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+            "/media/bestaand/bewaard.mkv": "f84f95efda700f55d71a44f2f10bf07e82773012a688d94e061f340fa76cf0cb",
+            "/media/kwaliteitsproef/controle.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521",
+            "/media/kwaliteitsproef/fout.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521"
           },
           "historie": {
-            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
-            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+            "kijkgegevens": {
+              "/media/kwaliteitsproef/controle.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              },
+              "/media/kwaliteitsproef/controle.mkv": {
+                "path": "/media/kwaliteitsproef/controle.mkv",
+                "title": "controle.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "15a35a07f0d1c5e751b5f1464575af9b9acec795fa21c439ee6cbb4ec9e53c15",
+              "2": "d10ebb5de347e06b2135c5d14b632defe5534b7b2739d9976195ddbb79531e59"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -378,13 +877,55 @@
         },
         "na_controle": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
-            "/media/kwaliteitsproef/controle.mkv": "11ec7afac650cc6e9e793138d0e09ac3e196545c52b6ec5f64e1c25a4404c4a1",
-            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+            "/media/bestaand/bewaard.mkv": "f84f95efda700f55d71a44f2f10bf07e82773012a688d94e061f340fa76cf0cb",
+            "/media/kwaliteitsproef/controle.mkv": "b3bf7ba6288fa099f5e9124961a179d1606e72bb515588814c97dd5ca8822b1f",
+            "/media/kwaliteitsproef/fout.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521"
           },
           "historie": {
-            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
-            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+            "kijkgegevens": {
+              "/media/kwaliteitsproef/controle.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              },
+              "/media/kwaliteitsproef/controle.mkv": {
+                "path": "/media/kwaliteitsproef/controle.mkv",
+                "title": "controle.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "15a35a07f0d1c5e751b5f1464575af9b9acec795fa21c439ee6cbb4ec9e53c15",
+              "2": "d10ebb5de347e06b2135c5d14b632defe5534b7b2739d9976195ddbb79531e59"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -392,13 +933,55 @@
         },
         "na": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "687d99f64099f76a514af4987883f6890019ab842de87e4479a7b08693edf161",
-            "/media/kwaliteitsproef/controle.mkv": "11ec7afac650cc6e9e793138d0e09ac3e196545c52b6ec5f64e1c25a4404c4a1",
-            "/media/kwaliteitsproef/fout.mkv": "aaccf131a71a807e175bd381d1ed512f50cf027b3515dd858a35022252070669"
+            "/media/bestaand/bewaard.mkv": "f84f95efda700f55d71a44f2f10bf07e82773012a688d94e061f340fa76cf0cb",
+            "/media/kwaliteitsproef/controle.mkv": "b3bf7ba6288fa099f5e9124961a179d1606e72bb515588814c97dd5ca8822b1f",
+            "/media/kwaliteitsproef/fout.mkv": "f7944466c906c15599300637a7b074715849668f769da5bd11c9664ed9f35521"
           },
           "historie": {
-            "kijkregistratie": "37a7cebdee177800411dcd6cf14f1340f8ea767495e40d87c00c3d5d7d6ec43c",
-            "taaklog": "b34e999d71500af92d4ca8575f9e37a7f988766b6af51c56c2a7fca40b832029"
+            "kijkgegevens": {
+              "/media/kwaliteitsproef/controle.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              },
+              "/media/kwaliteitsproef/controle.mkv": {
+                "path": "/media/kwaliteitsproef/controle.mkv",
+                "title": "controle.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:58:56+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "15a35a07f0d1c5e751b5f1464575af9b9acec795fa21c439ee6cbb4ec9e53c15",
+              "2": "d10ebb5de347e06b2135c5d14b632defe5534b7b2739d9976195ddbb79531e59"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
@@ -414,6 +997,7 @@
         "arr-inhoud",
         "executor",
         "hub",
+        "kijkserver-inhoud",
         "lifecycle",
         "mg-inhoud",
         "truenas"
@@ -421,19 +1005,68 @@
       "metingen": {
         "voor": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "74864fe98a80f3e6217df216104119b7a8672666090ee8ce9bf71a76b0fdf727",
-            "/media/sonarr-anime/De maanreis/S01E01.mkv": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+            "/media/bestaand/bewaard.mkv": "e701154de2971f8e78eb17b187119e07fb3e56f51c4358eb44887b844f66f50f",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "7135d620954e3b0a199fbb09f3840ec48caa5d5c423eeae2c4f058dc29c842ef",
             "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
-            "/media/sonarr-anime/De maanreis/S01E02.mkv": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "f667c0f6e68ee2f31c2d62d93cd7c907ff31237ee553a36e192219d437c772e3",
             "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
           },
           "historie": {
-            "kijkregistratie": "ac1dc3d282fd91d5dd9babe554917c2fb61cdb1c375f2149fbebefb2be7c5a9a",
-            "taaklog": "86dc07078721b4d1c756a11d29d99722643111d1271b50d2c585c04bf1c8150c"
+            "kijkgegevens": {
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:59:27+00:00"
+              },
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "path": "/media/sonarr-anime/De maanreis/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:59:27+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "6086b7eeb9a6ec855cbeab0102f721e42269952795b253e5fdfde7277aa689a7",
+              "2": "682acff7d775fc89aa8df8b8226117c388acb85f879da541f68f23877f7f5044"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
           }
+        },
+        "dienstcontrole": {
+          "taak": 1,
+          "voortgang": 0.625,
+          "logregels": 2,
+          "sessies": 2,
+          "kijkstanden": 4
         },
         "routering": {
           "doel": "sonarr-anime",
@@ -456,7 +1089,7 @@
               "bestand": 10101,
               "tvdb": 13,
               "scene": 14,
-              "video": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+              "video": "7135d620954e3b0a199fbb09f3840ec48caa5d5c423eeae2c4f058dc29c842ef",
               "ondertitel": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80"
             },
             "2": {
@@ -464,7 +1097,7 @@
               "bestand": 10102,
               "tvdb": 14,
               "scene": 13,
-              "video": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+              "video": "f667c0f6e68ee2f31c2d62d93cd7c907ff31237ee553a36e192219d437c772e3",
               "ondertitel": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
             }
           },
@@ -474,7 +1107,7 @@
               "bestand": 10102,
               "tvdb": 14,
               "scene": 13,
-              "video": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+              "video": "f667c0f6e68ee2f31c2d62d93cd7c907ff31237ee553a36e192219d437c772e3",
               "ondertitel": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
             },
             "1": {
@@ -482,22 +1115,64 @@
               "bestand": 10101,
               "tvdb": 13,
               "scene": 14,
-              "video": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+              "video": "7135d620954e3b0a199fbb09f3840ec48caa5d5c423eeae2c4f058dc29c842ef",
               "ondertitel": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80"
             }
           }
         },
         "na": {
           "sha256": {
-            "/media/bestaand/bewaard.mkv": "74864fe98a80f3e6217df216104119b7a8672666090ee8ce9bf71a76b0fdf727",
-            "/media/sonarr-anime/De maanreis/S01E01.mkv": "b36bb5bb97ae8eb938367d87661d81ef33cc41f47a7de2071cfc9881e005295a",
+            "/media/bestaand/bewaard.mkv": "e701154de2971f8e78eb17b187119e07fb3e56f51c4358eb44887b844f66f50f",
+            "/media/sonarr-anime/De maanreis/S01E01.mkv": "7135d620954e3b0a199fbb09f3840ec48caa5d5c423eeae2c4f058dc29c842ef",
             "/media/sonarr-anime/De maanreis/S01E01.nl.srt": "85ab8ec050dfcfd0191efd25880e0aa3b2c8dcad52dc7759ede2814fb5d35c80",
-            "/media/sonarr-anime/De maanreis/S01E02.mkv": "29b0fa29536124e7469b9ee15df863f4066673cb141903202508c2bc43738932",
+            "/media/sonarr-anime/De maanreis/S01E02.mkv": "f667c0f6e68ee2f31c2d62d93cd7c907ff31237ee553a36e192219d437c772e3",
             "/media/sonarr-anime/De maanreis/S01E02.nl.srt": "556d3163846eed405bc87edb7eef2b498bcc76ad9c09469d13664f1c7d83ba78"
           },
           "historie": {
-            "kijkregistratie": "ac1dc3d282fd91d5dd9babe554917c2fb61cdb1c375f2149fbebefb2be7c5a9a",
-            "taaklog": "86dc07078721b4d1c756a11d29d99722643111d1271b50d2c585c04bf1c8150c"
+            "kijkgegevens": {
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "proefkijker-a": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 1200000,
+                  "IsFavorite": true
+                }
+              },
+              "/media/bestaand/bewaard.mkv": {
+                "proefkijker-a": {
+                  "Played": false,
+                  "PlaybackPositionTicks": 2400000,
+                  "IsFavorite": false
+                },
+                "proefkijker-b": {
+                  "Played": true,
+                  "PlaybackPositionTicks": 0,
+                  "IsFavorite": true
+                }
+              }
+            },
+            "kijkregistraties": {
+              "/media/bestaand/bewaard.mkv": {
+                "path": "/media/bestaand/bewaard.mkv",
+                "title": "bewaard.mkv",
+                "user_name": "proefkijker-b",
+                "last_seen": "2026-11-27T10:59:27+00:00"
+              },
+              "/media/sonarr-anime/De maanreis/S01E01.mkv": {
+                "path": "/media/sonarr-anime/De maanreis/S01E01.mkv",
+                "title": "S01E01.mkv",
+                "user_name": "proefkijker-a",
+                "last_seen": "2026-11-27T10:59:27+00:00"
+              }
+            },
+            "taaklog": {
+              "1": "6086b7eeb9a6ec855cbeab0102f721e42269952795b253e5fdfde7277aa689a7",
+              "2": "682acff7d775fc89aa8df8b8226117c388acb85f879da541f68f23877f7f5044"
+            }
           },
           "taakvoortgang": {
             "1": 0.625
