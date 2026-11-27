@@ -138,6 +138,51 @@ def test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs() -> None:
     assert "voortgang in MediaGuard" in herstel["uitvoeren_nl"]
 
 
+def test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval() -> None:
+    data = _load("I24_UNIVERSELE_MEDIASERVER.checklist.yaml")
+    stappen = data["stappen"]
+    assert [s["id"] for s in stappen] == [f"I24-24-{n:02d}" for n in range(1, 7)]
+    assert data["install"] == {"method": "none"} and data["mutaties_door_platform"] is False
+    for stap in stappen:
+        assert stap["blokkeert_volgende"]
+        assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+    for stap in (stappen[1], stappen[4]):
+        assert "NIET GEVALIDEERD (hardware)" in stap["validatie_nu"]
+    staging = stappen[3]
+    assert "verwijzing" in staging["wijze"]
+    assert "jelly-leon: deploy/truenas/CUSTOM_APP.md" in staging["verwijzing"]
+    assert {"D04", "D05", "D07"} <= set(staging["besluiten"])
+    for tekst in ("nieuwe app naast Emby", "vrije poort", "eigen datasets", "media alleen-lezen"):
+        assert tekst in staging["uitvoeren_nl"]
+    terugval = stappen[-1]["uitvoeren_nl"]
+    for tekst in ("vorige image en de bijpassende snapshot samen", "vóór en na per gebruiker",
+                  "MediaGuard-voortgang", "uitdrukkelijk akkoord op elk verschil"):
+        assert tekst in terugval
+
+
+@pytest.mark.parametrize("naam", ["I06_JELLYFIN.checklist.yaml", "I24_UNIVERSELE_MEDIASERVER.checklist.yaml"])
+@pytest.mark.parametrize(("veld", "waarde", "melding"), [
+    ("uitvoeren_nl", "Open een terminal.", "terminalopdracht in uitvoeren_nl"),
+    ("bij_fout_nl", "Lees de status met midclt call app.query.", "terminalopdracht in bij_fout_nl"),
+    ("validatie_nu", None, "'validatie_nu' is a required property"),
+    ("validatie_nu", ["Gereed"], "validatie_nu/0"),
+], ids=["terminal", "shellcommando", "zonder-validatie", "ongeldige-validatie"])
+def test_mediachecklist_weigert_ongeldige_stap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], naam: str, veld: str, waarde: str | list[str] | None,
+    melding: str,
+) -> None:
+    def wijzig(data: dict[str, Any]) -> None:
+        stap = data["stappen"][0]
+        if waarde is None:
+            del stap[veld]
+        else:
+            stap[veld] = waarde
+
+    _kopie(tmp_path, naam, wijzig=wijzig)
+    assert cl.main(tmp_path) == 1
+    assert melding in capsys.readouterr().out
+
+
 def _i03_veiligheid(data: dict[str, Any]) -> None:
     """Bewaar de inhoudelijke gates van I03; de algemene validator bewaakt vorm en Excel-teksten."""
     backup, update = data["stappen"][2:4]

@@ -44,6 +44,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I18 | `../checklists/I18_QBITTORRENT.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I18_QBITTORRENT.md`; 6 handmatige controles; private guard, VPN-binding en seedpayload behouden; hersteloverdracht en functionele proeven open; Bezig, NIET GEVALIDEERD (echte NAS) |
 | I19 | `../checklists/I19_SEERR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I19_SEERR.md`; 6 handmatige controles; aanvragen via MediaGuard, Hub alleen viewer; hersteloverdracht en functionele proeven open; Bezig, NIET GEVALIDEERD (echte NAS/Hub) |
 | I20 | `../checklists/I20_BAZARR.checklist.yaml` | controlelijst | — | `03_INSTALLATIE/I20_BAZARR.md`; 5 handmatige controles; behoud tot bewezen pariteit en gebruikersbesluit; echte spelerproef en hersteloverdracht open; Bezig, NIET GEVALIDEERD (echte NAS/hardware) |
+| I24 | [Controlelijst Jelly Leon-release](../checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml) | controlelijst | — | `03_INSTALLATIE/I24_UNIVERSELE_MEDIASERVER.md` · 6 stappen. Volg voor de nieuwe app naast Emby `deploy/truenas/CUSTOM_APP.md` in de repo `jelly-leon`. Controleer de terugval en het rapport per gebruiker vóór een overstap. |
 | I07 | `beszel-hub.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel@sha256:8514a69d…d695b770` | 568:568; meetdekking: `BESZEL_MEETDEKKING.md` |
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
@@ -127,7 +128,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I21 | Tailscale / Cloudflared | behouden, scope verstrengen | bestaand (import) | community `tailscale` 1.4.26 · v1.104.4; `cloudflared` 2.0.36 · 2026.10.7 | P5 (import) |
 | I22 | Navidrome (optioneel) | niet automatisch | catalogusapp alleen na besluit D18 | community · 1.3.23 · 0.64.2 | P4 (optioneel) |
 | I23 | Home Control Hub (`ai-server-manager` + executor) | bouwen, daarna installeren | eerste installatie handmatig: `install/truenas/INSTALLATIE.md` | — | **P1: kopie + rooktest** |
-| I24 | Jelly Leon (fork) | bouwen, stage installeren | eigen image als Custom App | — | P4 |
+| I24 | Jelly Leon (fork) | release apart beproeven | eigen image als Custom App naast Emby | — | **P4-controlelijst**. Praktijkproeven volgen in P6. |
 | I25 | Zoeken en persoonlijke AI | bouwen, opt-in | eigen alles-in-één image als Custom App | — | P5 |
 | I26 | Overige (Snapotter, Teeltboek, Uren, Plex, Emby, JellyPlex Watched, FlareSolverr, Readarr) | inventariseren, niet verwijderen | bestaand (import); nooit automatisch verwijderen | o.a. stable `plex`, stable `emby`, community `readarr`, `flaresolverr`, `snapotter` | P5 (import) |
 

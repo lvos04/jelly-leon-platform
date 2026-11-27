@@ -61,7 +61,9 @@ SCHRIJVEND = re.compile(
 #: lidwoord, voorzetsel of voegwoord na de commandonaam is geen argument: de letterlijke Excel-acceptatie
 #: "Geen recursieve chmod/chown op bibliotheek" (I03-03-02) is tekst, "chown -R 568:568 /data" blijft een opdracht.
 GEWOON_WOORD = r"(?i:op|of|en|in|met|van|voor|naar|bij|aan|niet|nooit|geen|is|zijn|wordt|de|het|een|zonder)(?=\s|$)"
+# Ook het openen van een terminal is een terminalstap. I05 verbiedt deze weg met "geen opdracht in een terminal".
 TERMINAL = re.compile(
+    r"(?i:(?<!geen opdracht in een )\bterminal\b)|"
     rf"(`[^`]+`|\b(ls|stat|sudo|ssh|zfs|zpool|docker|chown|chmod|midclt|rm)\s+(?!{GEWOON_WOORD})-?[\w/])"
 )
 #: Nooit YAML, compose of een installatiescript als weg (contract §1/§2, regel R5): alleen TrueNAS-webinterface of het

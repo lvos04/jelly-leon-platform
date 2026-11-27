@@ -1,0 +1,130 @@
+checklist_version: "1"
+kind: checklist
+install:
+  method: none
+id: I24
+titel_nl: Jelly Leon naast Emby beproeven
+document: 03_INSTALLATIE/I24_UNIVERSELE_MEDIASERVER.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: inrichten_en_testen
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D02, D04, D05, D07, D08]
+toelichting_nl: >-
+  Emby blijft beschikbaar als mediaserver en terugval. Ook een door D07 gevonden Jellyfin blijft draaien.
+  De Hub leest de genoemde TrueNAS-methoden. De overige controles doe je zelf met de releasegegevens,
+  de dashboards en je spelers. Bewaar het rapport met kijkgegevens per gebruiker privé.
+  Deel alleen de gemaskeerde uitkomst. Alleen de gebruiker besluit over een overstap.
+
+stappen:
+  - id: I24-24-01
+    titel_nl: Baseline en compat
+    uitvoeren_nl: >-
+      Open de gegevens van de gekozen Jelly Leon-release. Noteer de upstream-versie en vergelijk de image-digest
+      en het compatibiliteitsrapport met die release. Vergelijk de lijst met spelers met je eigen inventaris bij D07.
+      Leg privé de uitgangssituatie per gebruiker vast voor bibliotheekrechten, gezien-status, hervatpunten,
+      favorieten, beoordelingen en spoorkeuzes. Noteer de voortgang die het MediaGuard-dashboard toont.
+    acceptatie_nl: Niets verloren in testbibliotheek.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/checklists/I06_JELLYFIN.checklist.yaml]
+    besluiten: [D07]
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop als de digest, de spelersvergelijking of de uitgangssituatie ontbreekt. Houd Emby in gebruik.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De beheerder beoordeelt de gepubliceerde release en de bijbehorende proeven.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I24-24-02
+    titel_nl: GPU capability
+    uitvoeren_nl: >-
+      Vergelijk de GPU's die de Hub uit TrueNAS leest met de toewijzing bij D08. Bekijk in het afspeelrapport
+      van de kandidaat welke combinaties direct afspelen en welke op transcodering terugvallen bij AV1, HDR en
+      Dolby Vision. Noteer welke combinaties nog op de eigen kaart en speler moeten worden beproefd.
+      Reserveer die proeven voor een moment waarop MediaGuard de kaart vrijlaat.
+    acceptatie_nl: Speler direct play en fallback onder workload.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: app.gpu_choices, versies: ["25.04", "25.10"], doel_nl: GPU-inventaris voor de toewijzing bij D08}
+    besluiten: [D08]
+    bewijs: [datum, hub_meting, bewijsrecord_besluit, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een onbekende kaart of ontbrekend afspeelbewijs. Behoud de toewijzing van MediaGuard.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I24-24-03
+    titel_nl: Sidecar/extension eerst
+    uitvoeren_nl: >-
+      Bekijk bij de release het bewijs van de pluginproef op de kandidaat. Controleer welke metadata en
+      MediaGuard-status de uitbreiding levert en of dezelfde standaardspeler blijft werken.
+      Voor MediaGuard telt een status via de alleen-lezen Hub-koppeling. Noteer een onbekende status
+      als open en controleer de bestaande voortgang in het MediaGuard-dashboard.
+    acceptatie_nl: Upstream client blijft compatible.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop als de plugin een standaardspeler breekt, de bestaande voortgang afwijkt of de vergelijking ontbreekt.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De release bevat de uitbreiding. De beheerder beoordeelt het gedrag van die versie.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I24-24-04
+    titel_nl: Staging deployment
+    uitvoeren_nl: >-
+      Controleer het geslaagde proefherstel bij D04 en D05 en de snapshot van de mediadataset. Open de
+      Custom App-handleiding van de gekozen Jelly Leon-release en volg het formulier voor een nieuwe app naast Emby.
+      Kies een eigen appnaam, een vrije poort en eigen datasets voor configuratie en cache.
+      Koppel de gedeelde media alleen-lezen. Houd de opslag van Emby, MediaGuard en een eventuele Jellyfin buiten
+      de nieuwe app. Controleer na het starten in Apps of beide servers draaien, speel een testaflevering
+      af met een proefprofiel in Jelly Leon en controleer de bestaande voortgang in MediaGuard.
+    acceptatie_nl: Testaccounts/episodes spelen.
+    risico: Middel
+    wijze: [verwijzing, meting_truenas_api, handmatig_in_truenas_ui, handmatig_bewijs]
+    verwijzing: ["jelly-leon: deploy/truenas/CUSTOM_APP.md", "jelly-leon: deploy/manifest/jelly-leon.manifest.yaml"]
+    handmatig_ui_pad_nl: Apps → Discover Apps → Custom App
+    truenas_methoden:
+      - {naam: app.query, versies: ["25.04", "25.10"], doel_nl: Bestaande en nieuwe app onderscheiden en de status lezen}
+      - {naam: app.used_ports, versies: ["25.04", "25.10"], doel_nl: Poortkeuze vergelijken met de bezette poorten}
+    besluiten: [D02, D04, D05, D07]
+    bewijs: [datum, nas_versie, image_digest, hub_meting, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een opslag- of poortconflict, schrijfbare media of ontbrekend herstelbewijs. Laat Emby en MediaGuard draaien.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I24-24-05
+    titel_nl: TV & mobiel test
+    uitvoeren_nl: >-
+      Open met een proefprofiel dezelfde testaflevering op de webspeler, de tv en de gebruikte mobiele spelers.
+      Speel af, pauzeer en hervat op een andere speler. Controleer geluid, ondertiteling en de afspeelwijze
+      uit de GPU-proef bij D08. Test een offline download op spelers die dat ondersteunen.
+      Vergelijk de resultaten per speler met het compatibiliteitsrapport van de release.
+    acceptatie_nl: Geen playback regressies.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D08]
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop de pilot bij een afspeelfout of een verkeerd hervatpunt. Noteer de getroffen speler en gebruik Emby.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I24-24-06
+    titel_nl: Pilot en rollback
+    uitvoeren_nl: >-
+      Houd Emby en de bestaande MediaGuard-koppeling beschikbaar. Beproef met proefprofielen de terugkeer
+      naar de oorspronkelijke speler. Herstel op een afzonderlijke kopie de vorige image en de bijpassende
+      snapshot samen. Vergelijk vóór en na per gebruiker de gezien-status, hervatpunten, favorieten,
+      beoordelingen, spoorkeuzes en rechten met I24-24-01. Vergelijk ook de MediaGuard-voortgang.
+      Bewaar nieuwere kijkgegevens voordat je een snapshot op de proefkopie terugzet. Volg tijdens de
+      beperkte pilot gedurende 24 tot 48 uur de afspeelfouten en controleer opnieuw vlak vóór een eventuele overstap.
+      Toon het rapport aan de gebruiker. Overstappen vereist een bewezen terugval en uitdrukkelijk akkoord op elk verschil.
+    acceptatie_nl: Terug naar oude player met oorspronkelijke watch state.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: ["jelly-leon: deploy/truenas/CUSTOM_APP.md", "jelly-leon: docs/platform-v2/OVERNAME_EMBY.md"]
+    besluiten: [D05, D07]
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij elk verschil of bij ontbrekend akkoord. Gebruik Emby op de oorspronkelijke poort en bewaar beide gegevenssets.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]

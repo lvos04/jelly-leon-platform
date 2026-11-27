@@ -350,6 +350,66 @@
   "bijgewerkt": "2026-11-27"
  },
  {
+  "id": "I24-24-01",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-01). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. De vastgelegde release en de spelers vergelijken met de privé bewaarde uitgangssituatie.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I24-24-02",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-02). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval, tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. De GPU-toewijzing en het afspeelbewijs per combinatie op eigen hardware beoordelen.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst. Sim-getest geldt voor de alleen-lezen methoden op de twee TrueNAS-simulatorprofielen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I24-24-03",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-03). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. De plugin, standaardspeler en alleen-lezen MediaGuard-status voor de kandidaat controleren.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I24-24-04",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-04). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval, tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. De afzonderlijke Custom App naast Emby installeren en de alleen-lezen media en afspeelproef controleren.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst. Sim-getest geldt voor de alleen-lezen methoden op de twee TrueNAS-simulatorprofielen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I24-24-05",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-05). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. De gebruikte mobiele, web- en tv-spelers op de proefinstallatie testen.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I24-24-06",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml (I24-24-06). tests/repo/test_checklists.py::test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Het rapport per gebruiker en de MediaGuard-voortgang vergelijken, terugval beproeven en het akkoord vastleggen.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
   "id": "I07-07-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
