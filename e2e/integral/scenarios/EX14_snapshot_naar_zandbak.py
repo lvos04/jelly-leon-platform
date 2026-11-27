@@ -18,7 +18,7 @@ from e2e.integral.scenarios.opslag import (
 )
 
 SCENARIO = {
-    "groepen": ("opslag",), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
+    "groepen": ("opslag", "backupvoorwaarden"), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
     "verwachting": "De kloon krijgt de oude configuratie. De bron, kijkgeschiedenis en voortgang blijven.",
 }
 

@@ -106,6 +106,8 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 
 EX11, EX12 en EX14 gebruiken de gekoppelde Hub en executor met een geverifieerde proefexport. De OneDrive-simulator levert de taakstand die de Hub via de TrueNAS-inventaris inleest. EX14 herstelt de configuratie naar een eigen zandbakdataset en leest de actuele gegevens van de bron opnieuw uit.
 
+De Hub-werker controleert ook de back-updekking van appgegevens. De drie proeven leveren daarvoor het synthetische MediaGuard-herstelrapport via een gekoppelde HTTPS-leesadapter en een bevestigd synthetisch Emby-archief met afzonderlijke kopie op het projectvolume. De fixtures komen uit de gebruikte Hub-bron. De Hub berekent zelf of de gate open kan.
+
 EX15 start release 0.1.0 op de gepubliceerde digest en de lokale testimage om beurten op één projectvolume. Beide bronversies hebben schema 0003. Alleen de testimage bevat de extra migratie 0004. Het herstel gebruikt de dump die de procesbewaker vóór de migratie maakt. EX47 gebruikt de manifestfixtures van de appstore. EX48 voert de merge-, bundel- en overdrachtsstap uit de Forgejo-workflow van de fork uit tegen de lokale Git-simulator. De forkbron is alleen-lezen aangekoppeld.
 
 EX50 registreert de HTTP-antwoorden van de verhuis- en verwijderpreview. Bij de verwachte 501 blijft de verhuizing geblokkeerd op B08-006. De meetwaarden staan per scenario in `metingen.json`.

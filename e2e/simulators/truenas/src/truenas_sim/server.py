@@ -505,6 +505,7 @@ def create_app(server: SimServer | None = None) -> FastAPI:
                                preinstalled.get("catalog_app", "ix-app"), preinstalled["version"],
                                preinstalled.get("values", {}), state=preinstalled.get("state", "RUNNING"))
             entry["_history"] = list(preinstalled.get("history", [preinstalled["version"]]))
+            entry["portals"] = dict(preinstalled.get("portals", {}))
             s.apps[preinstalled["app_name"]] = entry
         for name in body.get("datasets", []):
             s.add_dataset(str(name))

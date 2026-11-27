@@ -7,7 +7,7 @@ from e2e.integral.scenarios.hubveiligheid import akkoord, meet, schrijfacties
 from e2e.integral.scenarios.opslag import BESTANDEN, EXPORT, bereid_opslag_voor, gate, kopieer_taak, snapshot, voer_uit
 
 SCENARIO = {
-    "groepen": ("opslag",), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
+    "groepen": ("opslag", "backupvoorwaarden"), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
     "verwachting": "Mislukte upload: de export blijft leesbaar, een kritiek incident opent en R2/R3 sluit.",
 }
 

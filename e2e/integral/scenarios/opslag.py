@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import secrets
 import sqlite3
 import uuid
 from contextlib import closing
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from e2e.integral.scenarios.conftest import Kern, wacht
-from e2e.integral.scenarios.hubveiligheid import appfixture, richt_schrijfpad_in, vernieuw
+from e2e.integral.scenarios.hubveiligheid import PROEVEN, appfixture, richt_schrijfpad_in, vernieuw
 
 BRON = "simpool/apps/proef-config"
 KLOON = "simpool/asm-sandbox/proef-config"
@@ -60,6 +63,43 @@ def gate(kern: Kern, naam: str) -> dict[str, Any]:
     return rij
 
 
+def lever_appbackups(kern: Kern) -> None:
+    project = kern.net.project
+    mg = appfixture("mediaguard")
+    mg["values"]["ports"] = [{"port_number": 30080, "container_port": 30080}]
+    mg["portals"] = {"Koppeling": "https://truenas:30080/"}
+    kern.sim.post("/_sim/fixtures", json={"apps": [mg]}).raise_for_status()
+    vernieuw(kern)
+    kern.wijzig("POST", "/api/v1/apps/discover")
+    items = kern.hub.get("/api/v1/apps", params={"q": "mediaguard"}).raise_for_status().json()["items"]
+    [app] = [a for a in items if a["runtime_id"] == "mediaguard"]
+    sleutel = "mgk_" + secrets.token_urlsafe(32)
+    kern.wijzig("POST", "/api/v1/adapterkoppelingen", headers={"X-Adapter-Credential": sleutel}, json={
+        "app_id": "mediaguard", "catalog_app_id": app["id"], "basis_url": mg["portals"]["Koppeling"].rstrip("/"),
+        "doel_bevestigd": True})
+    # Gebruik de archief- en connectorfixtures van dezelfde Hub als de productiewerker.
+    fixture = Path(project.env["INTEGRAAL_BRONMAP"]) / "ai-server-manager/tests/backupfixtures.py"
+    inventaris = (PROEVEN / "archiefinventaris.json").read_bytes()
+    opbouw = f"""
+from datetime import UTC
+from pathlib import Path
+import json
+from hub.config import get_settings
+root = get_settings().data_dir
+(root / 'proef-ca.pem').write_text({kern.net.ca["truenas"]!r})
+opname = archiefopname(datetime.now(UTC))
+exportbewijs(root, opname, schrijf_archiefpaar(root, opname), gelezen_sporen={{'proef': ['film']}})
+(root / 'overnamebron' / 'inventaris.json').write_bytes({inventaris!r})
+print(json.dumps(herstelpagina(datetime.now(UTC))))
+"""
+    pagina = project.compose("exec", "-T", "--user", "568:568", "hub", "python", "-",
+                             invoer=fixture.read_text() + opbouw)
+    project.compose("exec", "-T", "truenas", "python", "-c",
+                    "import sys; from pathlib import Path; Path('/certificaat/proefrapport.json').write_bytes("
+                    "sys.stdin.buffer.read())", invoer=json.dumps([sleutel, json.loads(pagina)]))
+    project.compose("exec", "-T", "-d", "truenas", "python", "-c", (PROEVEN / "sim_backuprapport.py").read_text())
+
+
 def bereid_opslag_voor(kern: Kern) -> httpx.Client:
     richt_schrijfpad_in(kern, opslag=True)
     kern.sim.post("/_sim/fixtures", json={"datasets": [BRON, KLOON.rsplit("/", 1)[0]]}).raise_for_status()
@@ -88,8 +128,10 @@ def bereid_opslag_voor(kern: Kern) -> httpx.Client:
     kern.wijzig("POST", "/api/v1/decisions/D05/bewijs", json={"soort": "hersteltest", "resultaat": "geslaagd",
                 "omschrijving": "Pixel en databasepositie teruggelezen", "uitgevoerd_op": dag})
     kern.wijzig("POST", "/api/v1/decisions/D06/meting")
-    besluit(kern, "D16", {"per_app": [{"app_id": "proef-config", "rpo_uren": 24, "rto_uren": 2}]})
+    besluit(kern, "D16", {"per_app": [{"app_id": app, "rpo_uren": 24, "rto_uren": 2}
+                                      for app in ("proef-config", "emby", "mediaguard")]})
     kern.wijzig("POST", "/api/v1/backups/self")
+    lever_appbackups(kern)
     wacht("open gate voor opslag", lambda: gate(kern, "r2_r3_acties")["toegestaan"] is True)
     return schijf
 

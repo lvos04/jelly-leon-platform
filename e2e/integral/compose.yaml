@@ -63,6 +63,9 @@ services:
       dockerfile: deploy/allinone/Dockerfile
     environment:
       HUB_AI_ENABLED: "false"
+      HUB_EMBY_INVENTARIS_SHA256: ${INTEGRAAL_ARCHIEFREFERENTIE:-}
+      HUB_INVENTORY_INTERVAL_SECONDS: ${INTEGRAAL_INVENTARIS_INTERVAL:-300}
+      SSL_CERT_FILE: ${INTEGRAAL_CA_BESTAND:-/etc/ssl/certs/ca-certificates.crt}
     ports: ["127.0.0.1:${INTEGRAAL_HUB_POORT:-30400}:30400"]
     volumes: [hub:/appdata]
   executor:

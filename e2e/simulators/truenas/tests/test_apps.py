@@ -162,10 +162,12 @@ def test_start_stop_redeploy(rw: Rpc) -> None:
 def test_preinstalled_existing_apps_fixture(client: TestClient, ro: Rpc) -> None:
     client.post("/_sim/fixtures", json={"apps": [
         {"app_name": "jellyfin", "catalog_app": "ix-app", "version": "1.4.8",
+         "portals": {"Beheer": "https://truenas:8096/"},
          "values": ix_values(repo="jellyfin/jellyfin", tag="10.11.11", host_port=8096, host_path=None)},
     ]})
     apps = ro.call("app.query")
     assert [a["name"] for a in apps] == ["jellyfin"] and apps[0]["config"] is None
+    assert apps[0]["portals"] == {"Beheer": "https://truenas:8096/"}
 
 
 def test_job_events_via_subscription(rw: Rpc) -> None:

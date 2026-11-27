@@ -5,7 +5,7 @@ from e2e.integral.scenarios.hubveiligheid import akkoord, bezorgingen, meet, opr
 from e2e.integral.scenarios.opslag import aanvraag, bereid_opslag_voor, gate, snapshot, voer_uit
 
 SCENARIO = {
-    "groepen": ("opslag",), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
+    "groepen": ("opslag", "backupvoorwaarden"), "eigenaar": "jelly-leon-platform", "diensten": ("onedrive",),
     "verwachting": "Hub en executor blokkeren de snapshot bij een poolstoring. De Hub weigert mediapurge.",
 }
 

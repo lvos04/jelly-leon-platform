@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import secrets
 import signal
@@ -99,6 +100,10 @@ def draai(project: Project, scenario: Scenario, map_: Path, commit: str,
             else:
                 gestart = True  # Ook een gedeeltelijk mislukte up kan een netwerk of volumes achterlaten.
                 project.env["INTEGRAAL_IMAGE_IDS"] = json.dumps({d: i["image_id"] for d, i in images.items()})
+                if "backupvoorwaarden" in scenario.groepen:
+                    inventaris = (MAP / "scenarios" / "archiefinventaris.json").read_bytes()
+                    project.env.update(INTEGRAAL_ARCHIEFREFERENTIE=hashlib.sha256(inventaris).hexdigest(),
+                                       INTEGRAAL_INVENTARIS_INTERVAL="30", INTEGRAAL_CA_BESTAND="/appdata/proef-ca.pem")
                 project.start(tuple(d for d in diensten if d not in ("lifecycle", *scenario.later_starten)))
                 env = {**project.env, "INTEGRAAL_PROJECT": project.naam, "INTEGRAAL_DOSSIER": str(map_),
                        "INTEGRAAL_OVERSLAGREDENEN": json.dumps(scenario.overslagredenen)}

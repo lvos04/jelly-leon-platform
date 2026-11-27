@@ -80,10 +80,11 @@ def richt_schrijfpad_in(kern: Kern, *, herlever: bool = False, opslag: bool = Fa
     dienst = appfixture(EXECUTOR)
     dienst["values"]["image"]["repository"] = f"ghcr.io/lvos04/{EXECUTOR}"
     dienst["values"]["ports"] = [{"port_number": 30410, "container_port": 30410}]
-    kern.sim.post("/_sim/fixtures", json={"apps": [dienst, appfixture(APP_A), appfixture(APP_B)]}).raise_for_status()
+    proefapps = [dienst] if opslag else [dienst, appfixture(APP_A), appfixture(APP_B)]
+    kern.sim.post("/_sim/fixtures", json={"apps": proefapps}).raise_for_status()
     vernieuw(kern)
     apps = kern.hub.get("/api/v1/inventory/apps").raise_for_status().json()
-    assert apps["status"] == "ok" and {a["naam"] for a in apps["items"]} >= {EXECUTOR, APP_A, APP_B}
+    assert apps["status"] == "ok" and {a["naam"] for a in apps["items"]} >= {a["app_name"] for a in proefapps}
     sleutel = kern.sim.get("/_sim/keys").raise_for_status().json()["write"]
     pem = kern.net.ca["truenas"]
     afdruk = hashlib.sha256(ssl.PEM_cert_to_DER_cert(pem)).hexdigest()
