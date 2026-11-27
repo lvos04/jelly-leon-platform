@@ -59,7 +59,7 @@ onedrive_sim = "onedrive"
 testpaths = ["credits/tests", "beszel/tests", "uptime_kuma/tests", "gotify/tests", "authentik/tests",
              "arr/tests", "sabnzbd/tests", "qbittorrent/tests", "gree/tests", "homewizard/tests", "zigbee/tests",
              "onedrive/tests", "upstream-git/tests"]
-# upstream-git is een los bestand (geen pakket; de mapnaam heeft een streepje).
-pythonpath = ["upstream-git"]
+# De scenarioproeven importeren e2e.integral vanuit de repo. upstream-git bevat een losse testmodule.
+pythonpath = ["../..", "upstream-git"]
 addopts = "-ra"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
