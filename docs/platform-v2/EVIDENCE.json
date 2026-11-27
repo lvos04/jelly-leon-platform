@@ -35,7 +35,7 @@
   "validatie": "Sim-mislukt",
   "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "MSO tijdens de uitval: standalone. Hub-gezondheid: down. Nieuwe actieve incidenten: 0.",
+  "opmerking": "Tijdens MediaGuard-uitval werkte MSO zelfstandig en na herstel was het opnieuw verbonden. De Hub meldde down en nul nieuwe actieve incidenten. De proefjob bleef op 0,625 en de oorspronkelijke jobhistorie en kijkregel bleven intact.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27"
  },
@@ -45,7 +45,7 @@
   "validatie": "Sim-geslaagd",
   "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "Dezelfde nieuwe download-ID voor de gezochte aflevering in arr en SAB tijdens MSO-uitval.",
+  "opmerking": "Tijdens MSO-uitval verscheen dezelfde nieuwe download-ID voor de proefaflevering in arr en SAB. De proefjob bleef op 0,625 en de oorspronkelijke jobhistorie en kijkregel bleven intact.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27"
  },
@@ -55,7 +55,7 @@
   "validatie": "Sim-geslaagd",
   "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "",
-  "opmerking": "Tijdens de noodstop 0 nieuwe zoek-, import-, opruim- en AV1-uitvoeringen. De al lopende job bleef leesbaar. De opruimjob startte na opheffing.",
+  "opmerking": "De vier gereserveerde Hub-acties gaven in beide rondes HTTP 501 met capability_unavailable. MSO gaf na verversen HTTP 409 wegens de noodstop en zonder noodstop wegens een onbevestigde schrijfroute. MediaGuard weigerde zoeken met 429 en import en AV1 met 409. Opruimen wachtte tot opheffing. Tijdens de noodstop telde elke actie nul uitvoeringen, zonder noodstop elk één. Hetzelfde MediaGuard-zoekverzoek gaf na opheffing 200 en één nieuwe download in arr en SAB. De lopende job rondde af en de proefjob op 0,625, de historie en de kijkregel bleven behouden.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27"
  },
@@ -65,7 +65,7 @@
   "validatie": "NIET GEVALIDEERD (hardware); Sim-geslaagd",
   "bewijs": "docs/platform-v2/bewijs/uitval-en-noodstop.json",
   "blokkade": "NIET GEVALIDEERD (hardware)",
-  "opmerking": "Stilstaande proefworker, één melding en alleen-lezen-diagnose. Echte A310-lane nog te meten in N-P6-09.",
+  "opmerking": "De stilstaande proefworker gaf één melding en een alleen-lezen-diagnose. De proefjob bleef op 0,625 en de oorspronkelijke jobhistorie en kijkregel bleven intact. De fysieke A310-lane valt onder N-P6-09.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-27"
  },

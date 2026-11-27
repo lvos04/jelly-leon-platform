@@ -2,41 +2,74 @@
   "scenario's": {
     "EX01": {
       "met_storing": {
-        "run": "20261127t094939z-41a1bce6c8",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153536z-b9172ef49e",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-mislukt",
         "exitcode": 1,
         "pytest_exitcode": 1,
-        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX01",
+        "meetmap": "e2e/integral/evidence/20261127t153536z-b9172ef49e/EX01",
         "metingen": {
           "mso_voor": "connected",
           "mso_http_tijdens": {
-            "200": 25
+            "200": 24
           },
           "mediaguard_gestopt": true,
           "mso_eigen_wijziging_teruggelezen": true,
           "mso_modus": "standalone",
           "hub_gezondheid": "down",
           "nieuwe_incidenten": 0,
-          "meetduur_sec": 61.5,
+          "meetduur_sec": 60.2,
           "mso_na": "connected",
           "jobs_na_herhaling": 1,
           "job_met_historie_leesbaar": true
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "1609cb85f764dfb90df9e24c445f326bfec79a6e32c161e69b220d699dd99baf",
+              "2": "4f6d7dab48951be87fe91f7049d0006c095e36fe47ea56e76126407c4ac4f8b3"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "1609cb85f764dfb90df9e24c445f326bfec79a6e32c161e69b220d699dd99baf",
+              "2": "4f6d7dab48951be87fe91f7049d0006c095e36fe47ea56e76126407c4ac4f8b3"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "1609cb85f764dfb90df9e24c445f326bfec79a6e32c161e69b220d699dd99baf",
+              "2": "4f6d7dab48951be87fe91f7049d0006c095e36fe47ea56e76126407c4ac4f8b3"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 2,
@@ -66,12 +99,12 @@
         "mso"
       ],
       "zonder_storing": {
-        "run": "20261127t095317z-7e1f3de230",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153905z-a6b29b48e7",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-mislukt",
         "exitcode": 1,
         "pytest_exitcode": 1,
-        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX01",
+        "meetmap": "e2e/integral/evidence/20261127t153905z-a6b29b48e7/EX01",
         "metingen": {
           "mso_voor": "connected",
           "mso_http_tijdens": {
@@ -89,18 +122,51 @@
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 13,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 14,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "f9317335fd84121e9258691e6ef055ed1376af012ecb40c19a88f53c90993737",
+              "2": "84bddf6c43100ea9bbbe3c3c2797952a5248d1e789df831423db6c419d64d4bf"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "f9317335fd84121e9258691e6ef055ed1376af012ecb40c19a88f53c90993737",
+              "2": "84bddf6c43100ea9bbbe3c3c2797952a5248d1e789df831423db6c419d64d4bf"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "f9317335fd84121e9258691e6ef055ed1376af012ecb40c19a88f53c90993737",
+              "2": "84bddf6c43100ea9bbbe3c3c2797952a5248d1e789df831423db6c419d64d4bf"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 2,
@@ -123,12 +189,12 @@
     },
     "EX02": {
       "met_storing": {
-        "run": "20261127t094939z-41a1bce6c8",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153536z-b9172ef49e",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-geslaagd",
         "exitcode": 0,
         "pytest_exitcode": 0,
-        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX02",
+        "meetmap": "e2e/integral/evidence/20261127t153536z-b9172ef49e/EX02",
         "metingen": {
           "mso_verbonden_voor_en_na": true,
           "gestopt_voor_zoek": true,
@@ -139,18 +205,51 @@
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "74ee97ca3933067894cc5f80758c9b8f38b97517b66e72bc7c19f57086c29bb5",
+              "2": "97c478e978842bbcacb8087653ebe5f862e423b633ee40df4494b7489ae96219"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "74ee97ca3933067894cc5f80758c9b8f38b97517b66e72bc7c19f57086c29bb5",
+              "2": "97c478e978842bbcacb8087653ebe5f862e423b633ee40df4494b7489ae96219"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "74ee97ca3933067894cc5f80758c9b8f38b97517b66e72bc7c19f57086c29bb5",
+              "2": "97c478e978842bbcacb8087653ebe5f862e423b633ee40df4494b7489ae96219"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 3,
@@ -182,12 +281,12 @@
         "sabnzbd-sim"
       ],
       "zonder_storing": {
-        "run": "20261127t095317z-7e1f3de230",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153905z-a6b29b48e7",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-mislukt",
         "exitcode": 1,
         "pytest_exitcode": 1,
-        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX02",
+        "meetmap": "e2e/integral/evidence/20261127t153905z-a6b29b48e7/EX02",
         "metingen": {
           "mso_verbonden_voor_en_na": true,
           "gestopt_voor_zoek": false,
@@ -198,18 +297,51 @@
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "e8c51502ec9f0f72dc690a45eb3f48d3cea6db7c72fc8f44975c9b358c6299a2",
+              "2": "6f48f6247c816d6b230a67bf6ed17d903faea6dde19785844e8deffb5bee55b2"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "e8c51502ec9f0f72dc690a45eb3f48d3cea6db7c72fc8f44975c9b358c6299a2",
+              "2": "6f48f6247c816d6b230a67bf6ed17d903faea6dde19785844e8deffb5bee55b2"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "e8c51502ec9f0f72dc690a45eb3f48d3cea6db7c72fc8f44975c9b358c6299a2",
+              "2": "6f48f6247c816d6b230a67bf6ed17d903faea6dde19785844e8deffb5bee55b2"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 3,
@@ -232,12 +364,12 @@
     },
     "EX06": {
       "met_storing": {
-        "run": "20261127t094939z-41a1bce6c8",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153536z-b9172ef49e",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-geslaagd",
         "exitcode": 0,
         "pytest_exitcode": 0,
-        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX06",
+        "meetmap": "e2e/integral/evidence/20261127t153536z-b9172ef49e/EX06",
         "metingen": {
           "job_voor": "running",
           "job_tijdens": "succeeded",
@@ -249,10 +381,17 @@
             "download.cleanup": 501,
             "av1.encode": 501
           },
+          "hub_foutcodes": {
+            "wanted.search": "capability_unavailable",
+            "download.import": "capability_unavailable",
+            "download.cleanup": "capability_unavailable",
+            "av1.encode": "capability_unavailable"
+          },
           "mso_http_voor_verversen": 409,
           "mso_route_onbevestigd_voor_verversen": true,
           "mso_ziet_noodstop": true,
           "mso_http": 409,
+          "mso_route_onbevestigd": false,
           "mso_weigert_noodstop": true,
           "zoeken_http": 429,
           "zoekopdrachten_gemeld": null,
@@ -270,28 +409,64 @@
             "av1": 0
           },
           "nieuwe_sab_taken": 0,
-          "opruimjob_na": "succeeded"
+          "opruimjob_na": "succeeded",
+          "zoeken_zonder_noodstop_http": 200,
+          "zoekopdrachten_zonder_noodstop": 1,
+          "gedeelde_nieuwe_downloads_zonder_noodstop": 1
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 13,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 14,
             "verdwenen_tijdens": 0,
-            "na": 13,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 1.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 14,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 1.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "6691552215f9c27ec70b70c563876289b82c6219b5971a047aa7376b5b08e3a1",
+              "2": "b0d3c886748b9339542a4be2a446d6a8919c96f368b0607726c52aaac967093d"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 4,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "6691552215f9c27ec70b70c563876289b82c6219b5971a047aa7376b5b08e3a1",
+              "2": "b0d3c886748b9339542a4be2a446d6a8919c96f368b0607726c52aaac967093d"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 5,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "6691552215f9c27ec70b70c563876289b82c6219b5971a047aa7376b5b08e3a1",
+              "2": "b0d3c886748b9339542a4be2a446d6a8919c96f368b0607726c52aaac967093d"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 5,
-            "tijdens": 41,
+            "tijdens": 42,
             "verdwenen_tijdens": 0,
-            "na": 51,
+            "na": 53,
             "verdwenen_na": 0
           },
           "mediaserver_watch": {
@@ -317,12 +492,12 @@
         "sabnzbd-sim"
       ],
       "zonder_storing": {
-        "run": "20261127t095317z-7e1f3de230",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153905z-a6b29b48e7",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-mislukt",
         "exitcode": 1,
         "pytest_exitcode": 1,
-        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX06",
+        "meetmap": "e2e/integral/evidence/20261127t153905z-a6b29b48e7/EX06",
         "metingen": {
           "job_voor": "running",
           "job_tijdens": "succeeded",
@@ -334,10 +509,17 @@
             "download.cleanup": 501,
             "av1.encode": 501
           },
+          "hub_foutcodes": {
+            "wanted.search": "capability_unavailable",
+            "download.import": "capability_unavailable",
+            "download.cleanup": "capability_unavailable",
+            "av1.encode": "capability_unavailable"
+          },
           "mso_http_voor_verversen": 409,
           "mso_route_onbevestigd_voor_verversen": true,
           "mso_ziet_noodstop": false,
           "mso_http": 409,
+          "mso_route_onbevestigd": true,
           "mso_weigert_noodstop": false,
           "zoeken_http": 200,
           "zoekopdrachten_gemeld": 1,
@@ -355,28 +537,64 @@
             "av1": 1
           },
           "nieuwe_sab_taken": 1,
-          "opruimjob_na": "succeeded"
+          "opruimjob_na": "succeeded",
+          "zoeken_zonder_noodstop_http": 200,
+          "zoekopdrachten_zonder_noodstop": 1,
+          "gedeelde_nieuwe_downloads_zonder_noodstop": 1
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 13,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 14,
             "verdwenen_tijdens": 0,
-            "na": 13,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 1.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 14,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 1.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "828d57789cf66c360a39f544a06cd82cf416eea158bcdc9a1abb43e6161f8608",
+              "2": "4c07a5ee70e4c01c88223bed3a07a2fbf0131ff33bbe4de3ee4c4d0c80bc95a3"
+            },
             "tijdens": 5,
             "verdwenen_tijdens": 0,
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "828d57789cf66c360a39f544a06cd82cf416eea158bcdc9a1abb43e6161f8608",
+              "2": "4c07a5ee70e4c01c88223bed3a07a2fbf0131ff33bbe4de3ee4c4d0c80bc95a3"
+            },
+            "proefregel_intact_tijdens": true,
             "na": 5,
-            "verdwenen_na": 0
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "828d57789cf66c360a39f544a06cd82cf416eea158bcdc9a1abb43e6161f8608",
+              "2": "4c07a5ee70e4c01c88223bed3a07a2fbf0131ff33bbe4de3ee4c4d0c80bc95a3"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 5,
-            "tijdens": 55,
+            "tijdens": 25,
             "verdwenen_tijdens": 0,
-            "na": 55,
+            "na": 38,
             "verdwenen_na": 0
           },
           "mediaserver_watch": {
@@ -393,12 +611,12 @@
     },
     "EX07": {
       "met_storing": {
-        "run": "20261127t094939z-41a1bce6c8",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153536z-b9172ef49e",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-geslaagd",
         "exitcode": 0,
         "pytest_exitcode": 0,
-        "meetmap": "e2e/integral/evidence/20261127t094939z-41a1bce6c8/EX07",
+        "meetmap": "e2e/integral/evidence/20261127t153536z-b9172ef49e/EX07",
         "metingen": {
           "ronden": [
             {
@@ -435,18 +653,51 @@
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "f5aa0469492a17d680f0a537ee63df35214daabcc72a6b5cfd114ac359fb4243",
+              "2": "5f7681c1c6e57c0a7344e43a86f4492735e6997387ed3f3232ceb040f265df22"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "f5aa0469492a17d680f0a537ee63df35214daabcc72a6b5cfd114ac359fb4243",
+              "2": "5f7681c1c6e57c0a7344e43a86f4492735e6997387ed3f3232ceb040f265df22"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "f5aa0469492a17d680f0a537ee63df35214daabcc72a6b5cfd114ac359fb4243",
+              "2": "5f7681c1c6e57c0a7344e43a86f4492735e6997387ed3f3232ceb040f265df22"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 2,
@@ -475,12 +726,12 @@
         "mediaguard"
       ],
       "zonder_storing": {
-        "run": "20261127t095317z-7e1f3de230",
-        "broncommit": "a2fa4a0026b305e2e92f8821aca3a61a3f37c89c",
+        "run": "20261127t153905z-a6b29b48e7",
+        "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
         "uitkomst": "Sim-mislukt",
         "exitcode": 1,
         "pytest_exitcode": 1,
-        "meetmap": "e2e/integral/evidence/20261127t095317z-7e1f3de230/EX07",
+        "meetmap": "e2e/integral/evidence/20261127t153905z-a6b29b48e7/EX07",
         "metingen": {
           "ronden": [
             {
@@ -517,18 +768,51 @@
         },
         "voortgang": {
           "jobs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefjob": 2,
+            "voortgang_voor": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "voortgang_tijdens": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_tijdens": 0,
+            "na": 2,
+            "verdwenen_na": 0,
+            "voortgang_na": {
+              "1": 0.0,
+              "2": 0.625
+            },
+            "teruggevallen_na": 0
           },
           "job_logs": {
-            "voor": 1,
-            "tijdens": 1,
+            "voor": 2,
+            "proefregel": 2,
+            "proefregel_intact_voor": true,
+            "afdrukken_voor": {
+              "1": "eda73237d83e0435ea2a7359b8ee9e4c92e315a5e053dd9a13594135755e4a02",
+              "2": "6172738c0f9a37d37309e8fca2e8a757bdbfc062cad682a33e616f44fe957df4"
+            },
+            "tijdens": 2,
             "verdwenen_tijdens": 0,
-            "na": 1,
-            "verdwenen_na": 0
+            "gewijzigd_tijdens": 0,
+            "afdrukken_tijdens": {
+              "1": "eda73237d83e0435ea2a7359b8ee9e4c92e315a5e053dd9a13594135755e4a02",
+              "2": "6172738c0f9a37d37309e8fca2e8a757bdbfc062cad682a33e616f44fe957df4"
+            },
+            "proefregel_intact_tijdens": true,
+            "na": 2,
+            "verdwenen_na": 0,
+            "gewijzigd_na": 0,
+            "afdrukken_na": {
+              "1": "eda73237d83e0435ea2a7359b8ee9e4c92e315a5e053dd9a13594135755e4a02",
+              "2": "6172738c0f9a37d37309e8fca2e8a757bdbfc062cad682a33e616f44fe957df4"
+            },
+            "proefregel_intact_na": true
           },
           "audit_events": {
             "voor": 2,
@@ -552,78 +836,79 @@
   },
   "images": {
     "hub": {
-      "image": "jlp-integraal/hub:sp6-14-herstel2",
-      "image_id": "sha256:35d0a69f46ec1c037e9f593a680a841686161421ecbe3458c3fef6b74cb49eea",
+      "image": "jlp-integraal/hub:sp6-14-her3",
+      "image_id": "sha256:2c823f29efa259793b1860e0df6b6d6ebcc71537c4ba669e1d983c890ece4030",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
-      "digest": "jlp-integraal/hub@sha256:35d0a69f46ec1c037e9f593a680a841686161421ecbe3458c3fef6b74cb49eea",
+      "digest": "jlp-integraal/hub@sha256:2c823f29efa259793b1860e0df6b6d6ebcc71537c4ba669e1d983c890ece4030",
       "bronstatus": "schoon"
     },
     "executor": {
-      "image": "jlp-integraal/executor:sp6-14-herstel2",
-      "image_id": "sha256:a170d9e3d587ace72f5b8f381e8295d753d1f217c883825eb733749164c8773b",
+      "image": "jlp-integraal/executor:sp6-14-her3",
+      "image_id": "sha256:7fdd88cdb7ebc487dd58ec3b1f68448503fa79cd27f9277268bbe6aa8bb62e77",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
-      "digest": "jlp-integraal/executor@sha256:a170d9e3d587ace72f5b8f381e8295d753d1f217c883825eb733749164c8773b",
+      "digest": "jlp-integraal/executor@sha256:7fdd88cdb7ebc487dd58ec3b1f68448503fa79cd27f9277268bbe6aa8bb62e77",
       "bronstatus": "schoon"
     },
     "truenas": {
-      "image": "jlp-integraal/truenas:sp6-14-herstel2",
-      "image_id": "sha256:2d5eb570805c48367e7c044ced2d69d46633cea435b2d88746ac42410a97b1e2",
-      "broncommit": "9eb20d2f2758ff07e8d076e8cc87dea5eaf9140e",
-      "digest": "jlp-integraal/truenas@sha256:2d5eb570805c48367e7c044ced2d69d46633cea435b2d88746ac42410a97b1e2",
+      "image": "jlp-integraal/truenas:sp6-14-her3",
+      "image_id": "sha256:7cfd68a404ce1db89ace4900a1a64daccfe3449ffb67b5cd205af4572283a7f0",
+      "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
+      "digest": "jlp-integraal/truenas@sha256:7cfd68a404ce1db89ace4900a1a64daccfe3449ffb67b5cd205af4572283a7f0",
       "bronstatus": "schoon"
     },
     "lifecycle": {
-      "image": "jlp-integraal/lifecycle:sp6-14-herstel2",
-      "image_id": "sha256:f9a4223b04eefc7ef4da5a915725022f9ac38dda5d4299f068cb29a0925cb39a",
-      "broncommit": "9eb20d2f2758ff07e8d076e8cc87dea5eaf9140e",
-      "digest": "jlp-integraal/lifecycle@sha256:f9a4223b04eefc7ef4da5a915725022f9ac38dda5d4299f068cb29a0925cb39a",
+      "image": "jlp-integraal/lifecycle:sp6-14-her3",
+      "image_id": "sha256:aa27b8b311a9e380cc0ed31e48a952c14f1dd98b403fe193f8b75dffac7f6371",
+      "broncommit": "e5a826e7d84d79e7b3d74a538ee92d19ee86be31",
+      "digest": "jlp-integraal/lifecycle@sha256:aa27b8b311a9e380cc0ed31e48a952c14f1dd98b403fe193f8b75dffac7f6371",
       "bronstatus": "schoon"
     },
     "mediaguard": {
-      "image": "jlp-integraal/mediaguard:sp6-14-herstel2",
-      "image_id": "sha256:cf9e0a75d928b4b4d1aa6cc1d102f31afc65d0e699b0fa03c3a5e1ab48a05ffb",
-      "broncommit": "fa63721cb0c865e7b20aacf4db11c59f622dff56",
-      "digest": "jlp-integraal/mediaguard@sha256:cf9e0a75d928b4b4d1aa6cc1d102f31afc65d0e699b0fa03c3a5e1ab48a05ffb",
+      "image": "jlp-integraal/mediaguard:sp6-14-her3",
+      "image_id": "sha256:dd54f87d7bf1a1c1eb57992ae7d1ef7159a6a5b534e2057b902eb2df0f697eb4",
+      "broncommit": "ea104d8e2715b31f461a263b65316cd888075c3c",
+      "digest": "jlp-integraal/mediaguard@sha256:dd54f87d7bf1a1c1eb57992ae7d1ef7159a6a5b534e2057b902eb2df0f697eb4",
       "bronstatus": "schoon",
-      "encode_image_id": "sha256:66ab385dbed6d87a8678071bbc78be3150a231b621c8139d8519d9a0fe389381",
-      "web_image_id": "sha256:e6be79509e79e0e16d884c399a0713b433f9dbdb17a38631ab8da7e642a0e79c",
-      "sonarr_image_id": "sha256:68671c2126769bd4c3e3ad4162e42145eb9102e5e87f9ed103590ae0c5cd242e",
-      "radarr_image_id": "sha256:ce172b761e4e109e1e4436a59199b43be3a3278a151e11ab6c8d19389b232faf"
+      "encode_image_id": "sha256:03c528cf740da38c4280c62ccdb5d885d25f91be925b5ffa3b6a5317bb437c58",
+      "web_image_id": "sha256:4823ecc5cbbfdb450506373f9bfff6c383b46004d27f083d8d300880aee7b7b9",
+      "sonarr_image_id": "sha256:9e16586add536829bfa6c13cf561a55fab14c6c5d4ed19a62f652a4625c8ce6f",
+      "radarr_image_id": "sha256:0a14e86ccff335adf4ad30fe94bec0023afb436cbcc70a7cca9ba7cd3a5774b3"
     },
     "mso": {
-      "image": "jlp-integraal/mso:sp6-14-herstel2",
-      "image_id": "sha256:65209b54b3bb0c6c147e45c0302ea1ddd6b40abcc6f79165d90cb6d36276a944",
-      "broncommit": "da94e0a7662743314bd1ce103742a8f58e97693c",
-      "digest": "jlp-integraal/mso@sha256:65209b54b3bb0c6c147e45c0302ea1ddd6b40abcc6f79165d90cb6d36276a944",
+      "image": "jlp-integraal/mso:sp6-14-her3",
+      "image_id": "sha256:cde636b8319982ca58b9e387749f7e7140b15d995edfc658d052d0b85b3357f9",
+      "broncommit": "ff89f0f3174ae80468eb1fad22e2055c00341c73",
+      "digest": "jlp-integraal/mso@sha256:cde636b8319982ca58b9e387749f7e7140b15d995edfc658d052d0b85b3357f9",
       "bronstatus": "schoon"
     },
     "arr-sim": {
-      "image": "jlp-integraal/mso-simulators:sp6-14-herstel2",
-      "image_id": "sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "image": "jlp-integraal/mso-simulators:sp6-14-her3",
+      "image_id": "sha256:87b95517792950b6e97aa25c11760eae5e5a1484d8f7ac34d1df54618e704ce4",
       "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
-      "digest": "jlp-integraal/mso-simulators@sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "digest": "jlp-integraal/mso-simulators@sha256:87b95517792950b6e97aa25c11760eae5e5a1484d8f7ac34d1df54618e704ce4",
       "bronstatus": "schoon"
     },
     "sabnzbd-sim": {
-      "image": "jlp-integraal/mso-simulators:sp6-14-herstel2",
-      "image_id": "sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "image": "jlp-integraal/mso-simulators:sp6-14-her3",
+      "image_id": "sha256:87b95517792950b6e97aa25c11760eae5e5a1484d8f7ac34d1df54618e704ce4",
       "broncommit": "a10b920874724dfbbb11b4ab85720d50d17649b1",
-      "digest": "jlp-integraal/mso-simulators@sha256:ba26322fc3c7869881c59a54aec84bfc5b2fed6f2659d5cce706c85b596ad873",
+      "digest": "jlp-integraal/mso-simulators@sha256:87b95517792950b6e97aa25c11760eae5e5a1484d8f7ac34d1df54618e704ce4",
       "bronstatus": "schoon"
     }
   },
   "tegenproeven_rijverlies": [
     {
       "tabel": "jobs",
-      "voor": 1,
-      "na": 1,
+      "voor": 2,
+      "na": 2,
       "verdwenen_na": 1
     },
     {
       "tabel": "job_logs",
-      "voor": 1,
-      "na": 1,
-      "verdwenen_na": 1
+      "voor": 2,
+      "na": 2,
+      "verdwenen_na": 1,
+      "gewijzigd_na": 0
     },
     {
       "tabel": "audit_events",
@@ -646,5 +931,77 @@
       "gewijzigd_na": 1
     }
   ],
-  "test_rijverlies": "tests/repo/test_integral_voortgang.py"
+  "test_rijverlies": "tests/repo/test_integral_voortgang.py",
+  "tegenproeven_inhoudsverlies": [
+    {
+      "tabel": "jobs",
+      "sleutel": 1,
+      "moment_van_verlies": "tijdens",
+      "rijen_voor": 2,
+      "rijen_bij_verlies": 2,
+      "verdwenen": 0,
+      "teruggevallen": 1,
+      "voortgang": {
+        "voor": 0.625,
+        "tijdens": 0.0,
+        "na": 0.625
+      }
+    },
+    {
+      "tabel": "jobs",
+      "sleutel": 1,
+      "moment_van_verlies": "na",
+      "rijen_voor": 2,
+      "rijen_bij_verlies": 2,
+      "verdwenen": 0,
+      "teruggevallen": 1,
+      "voortgang": {
+        "voor": 0.625,
+        "tijdens": 0.625,
+        "na": 0.0
+      }
+    },
+    {
+      "tabel": "job_logs",
+      "sleutel": 1,
+      "moment_van_verlies": "tijdens",
+      "rijen_voor": 2,
+      "rijen_bij_verlies": 2,
+      "verdwenen": 0,
+      "gewijzigd": 1,
+      "afdrukken": {
+        "voor": "787e032d718d9141e0fe7c34196ff26b0d3dfdda31ce19a4a9f72ff8979b700e",
+        "tijdens": "9fb191dc44af9a73b1c9a30726b2707da7ce6f4a3a355f60e9d30f4cf23e4890",
+        "na": "787e032d718d9141e0fe7c34196ff26b0d3dfdda31ce19a4a9f72ff8979b700e"
+      }
+    },
+    {
+      "tabel": "job_logs",
+      "sleutel": 1,
+      "moment_van_verlies": "na",
+      "rijen_voor": 2,
+      "rijen_bij_verlies": 2,
+      "verdwenen": 0,
+      "gewijzigd": 1,
+      "afdrukken": {
+        "voor": "787e032d718d9141e0fe7c34196ff26b0d3dfdda31ce19a4a9f72ff8979b700e",
+        "tijdens": "787e032d718d9141e0fe7c34196ff26b0d3dfdda31ce19a4a9f72ff8979b700e",
+        "na": "9fb191dc44af9a73b1c9a30726b2707da7ce6f4a3a355f60e9d30f4cf23e4890"
+      }
+    },
+    {
+      "tabel": "jobs",
+      "sleutel": 1,
+      "moment_van_verlies": "na",
+      "rijen_voor": 2,
+      "rijen_bij_verlies": 2,
+      "verdwenen": 0,
+      "teruggevallen": 1,
+      "voortgang": {
+        "voor": 0.625,
+        "tijdens": 0.875,
+        "na": 0.75
+      }
+    }
+  ]
 }
