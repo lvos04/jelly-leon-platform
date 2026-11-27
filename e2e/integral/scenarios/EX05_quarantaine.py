@@ -32,14 +32,16 @@ def test_juiste_en_verwisselde_aflevering_en_herstel(kern: Kern) -> None:
     with inhoud(kern, "quarantaine") as proef:
         vrij = proef.mg.post("/api/v1/recovery/library-write", json={"enabled": True, "confirm": True})
         assert vrij.raise_for_status().json()["library_write_enabled"] is True
-        rij = proef.aanvraag(anime=False)
-        eps = proef.sonarr("sonarr-series", "episode", seriesId=rij["provider_id"])
+        eps = proef.sonarr("sonarr-series", "episode", seriesId=proef.metingen["koppeling"]["arr_id"])
         bestanden = {e["episodeNumber"]: e["episodeFileId"] for e in eps if e["hasFile"]}
         assert set(bestanden) == {1, 2} and len(set(bestanden.values())) == 2
         for nummer, bestands_id in bestanden.items():
             naam = f"S01E{nummer:02}.mkv"
             sha = proef.verwacht[STAGING + naam]
             assert sha == proef.verwacht["/media/referentie/" + naam]
+            route = f"/api/v1/identity/sonarr-series/episode_file/{bestands_id}/evidence"
+            importregel = proef.mg.get(route).raise_for_status().json()["current"]
+            assert importregel["source"] == "post_import" and importregel["file_path"] == STAGING + naam
             assert beoordeel(proef, bestands_id, nummer, sha)["status"] == "verified"
         fid = bestanden[1]
         pad = STAGING + "S01E01.mkv"

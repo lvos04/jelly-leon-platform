@@ -68,8 +68,12 @@ class Inhoud:
                      for i, pad in enumerate((DOEL[soort], BEWAARD))}
         start = self.kijkserver.post("/_sim/bibliotheek", json=kijkstand).raise_for_status().json()
         self.kijkserver.headers["Authorization"] = f'MediaBrowser Token="{start["api_key"]}"'
+        if soort != "kwaliteit":
+            self.sleutels = self.arr.get("/_sim/sleutels").raise_for_status().json()
+        bestaand = self.vraag_bij_arr(anime=False) if soort == "quarantaine" else None
+        imports = self.importmeldingen(bestaand["media"]["externalServiceId"]) if bestaand else []
         job_id = int(project.compose("exec", "-T", "inhoud-fixture", "python", "/proef/momentopname.py", soort,
-                                     invoer=start["api_key"]))
+                                     invoer=json.dumps({"kijksleutel": start["api_key"], "imports": imports})))
         project.compose("run", "--rm", "--no-deps", "-T", "mg-inhoud", "python", "-", "laad",
                         invoer=(FIXTURES / "momentopname.py").read_text())
         project.start(("mg-inhoud", "mg-inhoud-herstel") if soort == "quarantaine" else ("mg-inhoud",))
@@ -83,13 +87,14 @@ class Inhoud:
         self.verwacht = self.meet("voor").copy()
         self.controleer_begin(job_id, kijkstand)
         if soort != "kwaliteit":
-            self.sleutels = self.arr.get("/_sim/sleutels").raise_for_status().json()
             basis = str(self.arr.base_url).rstrip("/")
             for naam in INSTANTIES:
                 self.mg.patch(f"/api/v1/instances/{naam}", json={"url": f"{basis}/{naam}",
                               "api_key": self.sleutels[naam]}).raise_for_status()
             instellingen = {"url": basis, "api_key": self.sleutels["seerr"]}
             self.mg.put("/api/v1/seerr/settings", json=instellingen).raise_for_status()
+        if bestaand:
+            self.koppel("sonarr-series", bestaand)
 
     def noteer(self, naam: str, meting: Any) -> None:
         self.metingen[naam] = meting
@@ -150,7 +155,17 @@ class Inhoud:
         return self.arr.get(f"/{instantie}/api/v3/{route}", headers={"X-Api-Key": self.sleutels[instantie]},
                             params=params).raise_for_status().json()
 
-    def aanvraag(self, *, anime: bool) -> dict[str, Any]:
+    def importmeldingen(self, serie_id: int) -> list[dict[str, Any]]:
+        instantie = "sonarr-series"
+        serie = self.sonarr(instantie, f"series/{serie_id}")
+        bestanden = {f["id"]: f for f in self.sonarr(instantie, "episodefile", seriesId=serie_id)}
+        eps = self.sonarr(instantie, "episode", seriesId=serie_id)
+        assert len(eps) == len(bestanden) == 2
+        assert {e["episodeNumber"] for e in eps} == {1, 2}
+        return [{"eventType": "Download", "series": serie, "episodes": [ep],
+                 "episodeFile": bestanden[ep["episodeFileId"]]} for ep in eps]
+
+    def vraag_bij_arr(self, *, anime: bool) -> dict[str, Any]:
         doel = "sonarr-anime" if anime else "sonarr-series"
         body = {"mediaType": "tv", "mediaId": 102 if anime else 101, "seasons": [1]}
         if anime:
@@ -158,7 +173,7 @@ class Inhoud:
             body["serverId"] = next(s["id"] for s in servers if s["name"] == doel and not s["isDefault"])
         res = self.arr.post("/api/v1/request", json=body, headers={"X-Api-Key": self.sleutels["seerr"]})
         assert res.status_code == 201
-        request = res.json()
+        request: dict[str, Any] = res.json()
         paden = [v["pad"] for v in self.kern.verzoeklog(self.arr)
                  if v["methode"] == "POST" and v["pad"].endswith("/api/v3/series")]
         self.noteer("routering", {"doel": doel, "serieposts": paden, "seizoen": request["seasons"][0]["seasonNumber"]})
@@ -168,13 +183,20 @@ class Inhoud:
         assert serie[0]["seriesType"] == ("anime" if anime else "standard")
         ander = "sonarr-series" if anime else "sonarr-anime"
         assert self.sonarr(ander, "series", tvdbId=request["media"]["tvdbId"]) == []
+        return request
+
+    def aanvraag(self, *, anime: bool) -> dict[str, Any]:
+        return self.koppel("sonarr-anime" if anime else "sonarr-series", self.vraag_bij_arr(anime=anime))
+
+    def koppel(self, doel: str, request: dict[str, Any]) -> dict[str, Any]:
         self.synchroniseer(doel)
         self.mg.post("/api/v1/seerr/requests/sync").raise_for_status()
         gekoppeld = self.mg.get("/api/v1/seerr/requests").raise_for_status().json()["items"]
         assert len(gekoppeld) == 1
         rij: dict[str, Any] = gekoppeld[0]
         assert rij["seerr_request_id"] == request["id"] and rij["link_status"] == "linked"
-        assert rij["instance_id"] == doel and rij["provider_id"] == serie[0]["id"] and rij["lib_item_id"]
+        assert rij["instance_id"] == doel and rij["provider_id"] == request["media"]["externalServiceId"]
+        assert rij["lib_item_id"]
         self.noteer("koppeling", {"aanvraag": rij["seerr_request_id"], "instantie": doel,
                                  "arr_id": rij["provider_id"], "bibliotheek_id": rij["lib_item_id"],
                                  "koppelstatus": rij["link_status"]})
