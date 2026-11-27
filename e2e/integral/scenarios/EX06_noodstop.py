@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -52,6 +53,12 @@ def test_noodstop(kern: Kern) -> None:
     mg, mso = inloggen(kern, "mediaguard"), inloggen(kern, "mso")
     keten = Downloadketen(kern, mg)
     download = keten.importkandidaat()
+    project = kern.net.project
+    project.compose("exec", "-T", "--user", "0", "mediaguard", "install", "-d", "-o", "568", "-g", "568",
+                    "/data/uitvalproef")
+    fixture = Path(__file__).resolve().parents[1] / "mediafixtures" / "bibliotheek.py"
+    project.compose("exec", "-T", "--user", "568:568", "mediaguard", "/opt/venv/bin/python", "-", "noodstopclip",
+                    invoer=fixture.read_text())
     verbind_mso(mso, mg)
     status = "/api/v1/mediaguard/status"
     wacht("actieve MSO-koppeling", lambda: mso.get(status, params={"refresh": True}).json()["mode"] == "connected")
@@ -77,11 +84,14 @@ def test_noodstop(kern: Kern) -> None:
                                            "parameters": {}, "reason": "Noodstopproef"})
                 hub_codes[actie] = resp.status_code
                 assert resp.json().get("code") == "capability_unavailable"
+            eerder = mso.post(mso_item + "/search")
+            vers = mso.get(status, params={"refresh": True}).raise_for_status().json()
             herzoek = mso.post(mso_item + "/search")
             zoeken = mg.post(f"/api/v1/wanted/{keten.wanted}/search")
             invoer = mg.post(f"/api/v1/activity/downloads/{INSTANTIE}/import",
                              json={"download_id": download, "confirm": True})
-            av1 = mg.post("/api/v1/encoding/jobs", json={"path": "/data/proefreeks.mkv", "trial_only": True})
+            av1 = mg.post("/api/v1/encoding/jobs", json={"path": "/data/uitvalproef/proefreeks.mkv",
+                                                            "trial_only": True, "force_cpu": True})
             opruimjob = mg.post("/api/v1/downloads/cleanup/run").raise_for_status().json()["job_id"]
             # Dezelfde werker krijgt gelegenheid te draaien. Een wachtende opruimjob is nog geen opruimronde.
             wacht("afgeronde bibliotheekjob", lambda: lees_job(mg, job)["status"] == "succeeded")
@@ -93,7 +103,10 @@ def test_noodstop(kern: Kern) -> None:
             meet("tijdens", False)
             feiten = {"job_voor": lopend, "job_tijdens": historie["status"],
                       "historie_leesbaar": historie["id"] == job and bool(historie["logs"]), "noodstop": actief,
-                      "hub_http": hub_codes, "mso_http": herzoek.status_code,
+                      "hub_http": hub_codes, "mso_http_voor_verversen": eerder.status_code,
+                      "mso_route_onbevestigd_voor_verversen": eerder.status_code == 409
+                      and "niet bevestigen" in str(eerder.json()).lower(), "mso_ziet_noodstop": vers["emergency_stop"],
+                      "mso_http": herzoek.status_code,
                       "mso_weigert_noodstop": herzoek.status_code == 409 and "noodstop" in str(herzoek.json()).lower(),
                       "zoeken_http": zoeken.status_code, "zoekopdrachten_gemeld": zoeken.json().get("issued"),
                       "zoeken_weigert_noodstop": zoeken.status_code == 429
@@ -113,7 +126,8 @@ def test_noodstop(kern: Kern) -> None:
         schrijf(kern.net.dossier / "noodstop.json", feiten)
         assert set(hub_codes.values()) == {501}
         assert not any(nieuwe.values()) and feiten["nieuwe_sab_taken"] == 0, "Nieuwe uitvoering tijdens noodstop"
-        assert actief and feiten["historie_leesbaar"] and feiten["mso_weigert_noodstop"]
+        assert eerder.status_code == 409
+        assert actief and feiten["historie_leesbaar"] and feiten["mso_ziet_noodstop"] and feiten["mso_weigert_noodstop"]
         assert feiten["zoeken_weigert_noodstop"]
         assert feiten["import_weigert_noodstop"] and feiten["av1_weigert_noodstop"]
         assert opruimen["status"] == "queued" and opruimen["started_at"] is None

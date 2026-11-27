@@ -157,6 +157,17 @@ def test_zoeken_en_ophalen_gaat_naar_sab(mso_bron):
             sab_queue = sab_client.get("/api", params={"mode": "queue", "apikey": sab_key}).json()
             assert queue["records"][0]["downloadId"] in {s["nzo_id"] for s in sab_queue["queue"]["slots"]}
             assert client.post(f"{path}/release", headers=headers, json={**body, "guid": "onbekend"}).is_error
+            download = queue["records"][0]["downloadId"]
+            kandidaat, = client.get(f"{path}/manualimport", params={"downloadId": download}, headers=headers).json()
+            bestand = {"downloadId": download, "path": kandidaat["path"], "seriesId": sid,
+                       "episodeIds": [kandidaat["episodes"][0]["id"]]}
+            opdracht = {"name": "ManualImport", "files": [bestand]}
+            ongeldig = {**opdracht, "files": [{**bestand, "episodeIds": []}]}
+            assert client.post(f"{path}/command", headers=headers, json=ongeldig).status_code == 400
+            assert client.get(f"{path}/history", headers=headers).json()["totalRecords"] == 0
+            assert client.post(f"{path}/command", headers=headers, json=opdracht).json()["status"] == "completed"
+            assert client.get(f"{path}/history", headers=headers).json()["records"][0]["downloadId"] == download
+            assert client.get(f"{path}/queue", headers=headers).json()["totalRecords"] == 0
 
 
 @pytest.mark.parametrize("fault", ["http_503", "traag", "ongeldige_json"])

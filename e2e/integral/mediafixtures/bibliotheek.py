@@ -103,6 +103,12 @@ if __name__ == "__main__":
     actie, *args = sys.argv[1:]
     if actie == "maak":
         maak(args[0])
+    elif actie == "noodstopclip":
+        pad = Path("/data/uitvalproef/proefreeks.mkv")
+        clip(pad, 1)
+        # Een reeds afgeronde testdownload is ouder dan de stabiliteitsgrens van de encoder.
+        ouder = pad.stat().st_mtime - 120
+        os.utime(pad, (ouder, ouder))
     elif actie == "voortgang":
         vul_voortgang(int(args[0]))
     elif actie == "referenties":

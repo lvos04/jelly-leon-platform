@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ class Instantie:
     releases: dict[str, Json] = field(default_factory=dict)
     wachtrij: list[Json] = field(default_factory=list)
     opdrachten: dict[int, Json] = field(default_factory=dict)
+    imports: dict[str, Json] = field(default_factory=dict)
     omgekeerd: set[int] = field(default_factory=set)
 
     staging: Path | None = None
@@ -55,7 +57,7 @@ class Instantie:
         rows = []
         for n in (1, 2):
             eid = sid * 100 + n
-            aanwezig = anime
+            aanwezig = anime or any(rij["episodeId"] == eid for rij in self.imports.values())
             if self.staging is not None and serie["tmdbId"] == 101:
                 aanwezig = (self.staging / f"S01E{n:02}.mkv").is_file()
             rows.append({"id": eid, "seriesId": sid, "seasonNumber": 1, "episodeNumber": n,
@@ -160,7 +162,27 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
         inst.titels[nr_instantie] = item
         return item
 
+    def importkandidaat(download_id: str) -> Json | None:
+        inst = instanties[naam]
+        taak = next((rij for rij in inst.wachtrij if rij["downloadId"] == download_id), None)
+        if taak is None:
+            return None
+        sid, eid = taak["seriesId"], taak["episodeId"]
+        ep = next(e for e in inst.afleveringen(sid) if e["id"] == eid)
+        return {"path": f"/downloads/proef/{sid}/S01E{ep['episodeNumber']:02d}.mkv", "series": {"id": sid},
+                "episodes": [{"id": eid}], "rejections": []}
+
     if serie:
+        @r.get("/manualimport")
+        async def manual_import(downloadId: str) -> list[Json]:
+            kandidaat = importkandidaat(downloadId)
+            return [kandidaat] if kandidaat else []
+
+        @r.get("/history")
+        async def historie(downloadId: str | None = None, page: int = 1, pageSize: int = 10) -> Json:
+            rijen = [r for did, r in instanties[naam].imports.items() if downloadId is None or did == downloadId]
+            return {"totalRecords": len(rijen), "records": rijen[(page - 1) * pageSize:page * pageSize]}
+
         @r.get("/episode")
         async def episodes(seriesId: int, seasonNumber: int | None = None) -> list[Json]:
             return [e for e in instanties[naam].afleveringen(seriesId)
@@ -285,6 +307,20 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
                 if not opties:
                     raise HTTPException(400, "Onbekende aflevering of film")
                 gevonden.extend(opties)
+        elif serie and actie == "ManualImport":
+            bestanden = body.get("files")
+            if not isinstance(bestanden, list) or len(bestanden) != 1 or not isinstance(bestanden[0], dict):
+                raise HTTPException(400, "Geef één aflevering uit de testwachtrij op")
+            bestand = bestanden[0]
+            did = str(bestand.get("downloadId", ""))
+            kandidaat = importkandidaat(did)
+            if (kandidaat is None or bestand.get("path") != kandidaat["path"]
+                    or bestand.get("seriesId") != kandidaat["series"]["id"]
+                    or bestand.get("episodeIds") != [kandidaat["episodes"][0]["id"]]):
+                raise HTTPException(400, "Bestand komt niet overeen met de download")
+            inst.imports[did] = {"downloadId": did, "episodeId": bestand["episodeIds"][0],
+                                 "eventType": "downloadFolderImported", "date": datetime.now(UTC).isoformat()}
+            inst.wachtrij = [rij for rij in inst.wachtrij if rij["downloadId"] != did]
         else:
             raise HTTPException(400, "Opdracht valt buiten het testprotocol")
         cid = len(inst.opdrachten) + 1
