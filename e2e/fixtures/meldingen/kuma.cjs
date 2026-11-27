@@ -35,7 +35,7 @@ async function proef() {
         const tweede = await vereist("addNotification", via, null);
         const monitor = await vereist("add", {
             type: "http", name: "Proefdienst", url: "http://lifecycle:30440/healthz", method: "GET",
-            interval: 20, retryInterval: 20, timeout: 5, maxretries: 0, accepted_statuscodes: ["200"],
+            interval: 20, retryInterval: 20, timeout: 5, maxretries: 0, accepted_statuscodes: ["200"], conditions: [],
             notificationIDList: { [eerste.id]: true, [tweede.id]: true }
         });
         uit.monitor = monitor.monitorID;
