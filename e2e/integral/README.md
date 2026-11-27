@@ -35,6 +35,7 @@ Geef de selectie aan Make mee als `INTEGRAAL_ARGS='--groep rook'`. Elke proef kr
 |---|---|
 | kern | hub, executor, truenas, lifecycle |
 | media | mediaguard, mso. De invoerimages voor MediaGuard komen uit de lokale encoder-, web- en forkbronnen. |
+| mso | MSO met eigen PostgreSQL in het projectvolume, plus de downloadsimulators uit de vastgezette MSO-mockbron. |
 | media-inhoud | MediaGuard-kern en herstelwerker uit `apps/core`, plus Seerr en Sonarr uit de arr-simulator. De diensten delen een projectgebonden testbibliotheek. |
 | media-kwaliteit | CPU-encoder uit `services/encoder` met FFmpeg en libvmaf. |
 | huis | my-house en home-control-hub voor EX24–EX30 |
@@ -105,3 +106,13 @@ flock "$WERKMAP/.lokaal/stack.lock" docker compose -f e2e/integral/compose.yaml 
 ```
 
 De gewone Forgejo-CI draait ook conformiteit tegen de Hub-branchekop en een eigen PostgreSQL. De workflow `integrale-kern.yml` start handmatig en bewaart het rookbewijs. Gebruik op een CI-runner met een gedeelde Docker-daemon de Forgejo-variabele `INTEGRAAL_LOCKMAP` voor de gedeelde lockmap. De volledige ronde hoort bij S-P6-22.
+
+### Media Source Optimizer
+
+Bouw de profielen `kern` en `mso`. Het MSO-profiel gebruikt de alles-in-één-image met een eigen PostgreSQL op het projectvolume. De runner pakt de testdiensten uit de commit in `e2e/simulators/mso-mocks.commit`.
+
+```bash
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX39,EX40,EX41,EX42
+```
+
+Elke proef bewaart de metingen in `mso.json`. EX39 vergelijkt het SAB-verzoeklog vóór en na de goedkeuring. EX40 leest na elke storing de providerstatus terug. EX41 gebruikt een aparte qBittorrent-simulator voor de publieke torrent. EX42 telt zoekvragen en terugoproepen en begrenst het meetvenster op 25 seconden.
