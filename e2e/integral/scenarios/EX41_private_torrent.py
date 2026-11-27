@@ -17,13 +17,12 @@ SCENARIO = {
 }
 
 
-def verbind(kern: Kern, api: httpx.Client, dienst: str) -> httpx.Client:
+def bereid_qb_voor(kern: Kern, dienst: str) -> tuple[httpx.Client, dict[str, str]]:
     qb = kern.client(dienst, 30218)
     login = qb.get("/_sim/sleutels").raise_for_status().json()
     assert qb.post("/api/v2/auth/login", data=login).raise_for_status().text == "Ok."
     qb.post("/api/v2/app/setPreferences", data={"json": json.dumps({"dht": False, "pex": False})}).raise_for_status()
-    koppel(api, "qbittorrent", qb, login)
-    return qb
+    return qb, login
 
 
 def vlaggen(qb: httpx.Client) -> dict[str, bool]:
@@ -64,7 +63,8 @@ def wijzigingen(kern: Kern, qb: httpx.Client, begin: int) -> list[str]:
 
 def test_private_en_publieke_torrent(kern: Kern) -> None:
     api = eerste_start(kern, "manage")
-    publiek = verbind(kern, api, "qbittorrent-publiek")
+    publiek, login = bereid_qb_voor(kern, "qbittorrent-publiek")
+    koppel(api, "qbittorrent", publiek, login)
     toegevoegd = publiek.post("/api/v2/torrents/add",
                               data={"urls": "http://qbittorrent-publiek/proef", "stopped": "true"})
     assert toegevoegd.raise_for_status().text == "Ok."
@@ -81,17 +81,18 @@ def test_private_en_publieke_torrent(kern: Kern) -> None:
     assert vlaggen(publiek) == aan
     assert set(wijzigingen(kern, publiek, begin)) == {"/api/v2/app/setPreferences"}
 
-    qb = verbind(kern, api, "qbittorrent-sim")
+    qb, login = bereid_qb_voor(kern, "qbittorrent-sim")
     prive, = [r for r in qb.get("/api/v2/torrents/info").raise_for_status().json()
               if qb.get("/api/v2/torrents/properties", params={"hash": r["hash"]}).json()["is_private"]]
     h = prive["hash"]
+    voor = prive_toestand(qb, h)
+    assert voor["vlaggen"] == uit and voor["trackerstatus"] == {"** [DHT] **": 0, "** [PeX] **": 0}
+    begin = len(kern.verzoeklog(qb))
+    koppel(api, "qbittorrent", qb, login)
     herken(api, h, True)
     regel = {"tracker_host": "tracker.privehd.example", "label": "Proeftracker", "private": True,
              "min_ratio": 1.5, "min_seed_time_h": 72, "mode": "either"}
     assert api.post("torrent/tracker-rules", json=regel).raise_for_status().json()["id"]
-    voor = prive_toestand(qb, h)
-    assert voor["vlaggen"] == uit and voor["trackerstatus"] == {"** [DHT] **": 0, "** [PeX] **": 0}
-    begin = len(kern.verzoeklog(qb))
     weigeringen = []
     for instelling, waarde, reden in (("dht", True, "private"), ("pex", True, "private"),
                                       ("max_ratio", 0.5, "seedverplichting")):
@@ -99,7 +100,7 @@ def test_private_en_publieke_torrent(kern: Kern) -> None:
         assert antwoord.status_code == 422 and reden in antwoord.json()["detail"].lower()
         weigeringen.append(antwoord.status_code)
     na = prive_toestand(qb, h)
-    assert na == voor and wijzigingen(kern, qb, begin) == []
+    assert na == voor and wijzigingen(kern, qb, begin) == [], "De private torrent is gewijzigd na de nulmeting"
     schrijf(kern.net.dossier / "mso.json", {"publiek_voor": uit, "publiek_na": vlaggen(publiek),
             "prive_voor": voor, "prive_na": na, "weigeringen_http": weigeringen,
             "prive_schrijfacties": wijzigingen(kern, qb, begin)})
