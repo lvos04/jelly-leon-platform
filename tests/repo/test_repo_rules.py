@@ -285,12 +285,41 @@ def test_compose_only_for_development() -> None:
     assert ":latest" not in text
 
 
+def _composebestanden(map_: Path) -> list[Path]:
+    naam = re.compile(r"(?:docker-)?compose.*\.ya?ml", re.IGNORECASE)
+    gevonden = []
+    for pad in map_.rglob("*"):
+        if pad.suffix.lower() not in {".yml", ".yaml"} or not (pad.is_file() or pad.is_symlink()):
+            continue
+        if naam.fullmatch(pad.name):
+            gevonden.append(pad)
+            continue
+        with pad.open(encoding="utf-8") as bron:
+            for doc in yaml.compose_all(bron, Loader=yaml.SafeLoader):
+                if isinstance(doc, yaml.MappingNode) and any(
+                    sleutel.value == "services" and isinstance(waarde, yaml.MappingNode)
+                    for sleutel, waarde in doc.value
+                ):
+                    gevonden.append(pad)
+                    break
+    return gevonden
+
+
 @pytest.mark.parametrize("mapnaam", ["install", "deploy"])
 def test_geen_compose_in_installatiemappen(mapnaam: str) -> None:
-    naam = re.compile(r"(?:docker-)?compose.*\.ya?ml", re.IGNORECASE)
-    gevonden = [pad.relative_to(ROOT) for pad in (ROOT / mapnaam).rglob("*")
-                if naam.fullmatch(pad.name) and (pad.is_file() or pad.is_symlink())]
+    gevonden = _composebestanden(ROOT / mapnaam)
     assert not gevonden, gevonden
+
+
+@pytest.mark.parametrize("mapnaam", ["install", "deploy"])
+def test_compose_met_andere_naam_wordt_herkend(tmp_path: Path, mapnaam: str) -> None:
+    map_ = tmp_path / mapnaam / "voorbeeld"
+    map_.mkdir(parents=True)
+    pad = map_ / "platform.YML"
+    pad.write_text("informatie:\n  services: [proef]\n")
+    assert _composebestanden(tmp_path / mapnaam) == []
+    pad.write_text("name: proef\n---\nservices:\n  proef:\n    image: proef:1\n")
+    assert _composebestanden(tmp_path / mapnaam) == [pad]
 
 
 IP = re.compile(r"\b(?!127\.0\.0\.1\b)(?!0\.0\.0\.0\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
