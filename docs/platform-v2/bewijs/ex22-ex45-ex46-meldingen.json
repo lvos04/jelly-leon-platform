@@ -3,6 +3,13 @@
   "omgeving": "Eigen intern Compose-project per scenario met TrueNAS- en Gotify-simulators.",
   "onderbreking_EX22": "De Hub-container stond stil. De gepauzeerde lifecycle-processen beantwoordden geen HTTP-verzoeken. Na hervatten werd dezelfde dienst weer gezond.",
   "flowbron": "Officiële Node-RED-image op digest met een lokale proefflow. De ontvangst en outbox van home-control-hub zijn nagebootst.",
+  "poort_herhaling": {
+    "simulatortests": {
+      "ff156c6c450d047abddc8f3c00d19f5afd532013": 172,
+      "efead1a294d0fb9984f9477879feefe7e60082e3": 188
+    },
+    "ci_slotregel": "60\tsuccess\tLeg de drie meldproeven en de negatieve omwegmeting vast\thttps://git.medialeon.nl/leon/jelly-leon-platform/actions/runs/60"
+  },
   "images": {
     "hub": {
       "image_id": "sha256:cfcac10796897ac3483c7eaa44162e5f81f0881ff57270f139fac756a2cacb85",
