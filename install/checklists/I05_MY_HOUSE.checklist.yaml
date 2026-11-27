@@ -58,7 +58,8 @@ stappen:
       Eén opslag: de eigen dataset van I05-05-01, schrijfbaar. Privileged blijft uit, geen extra capabilities.
       Controleer vóór het opslaan dat precies die ene opslag en die ene poort in het formulier staan. Het
       formulier vraagt geen NAS-adres; vul nergens een voorbeeldadres in.
-    acceptatie_nl: YAML valide, alleen beoogde volumes/port 8088.
+    acceptatie_nl: >-
+      Het formulier bevat één opslagkoppeling naar de eigen appdataset en één vrije hostpoort. Zigbee en tunnel staan uit.
     risico: Hoog
     wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
     handmatig_ui_pad_nl: Apps → Discover Apps → Custom App
@@ -81,7 +82,8 @@ stappen:
       geslaagde ingebouwde healthcheck. Maak daarna op het vertrouwde netwerk de eerste beheerder en woning aan,
       controleer opnieuw aanmelden en stel onder Systeem › Back-ups en bewaren de volledige versleutelde back-up
       in. Leg RPO en RTO vast (D16).
-    acceptatie_nl: Alle core services healthy op TrueNAS.
+    acceptatie_nl: >-
+      TrueNAS toont de app als gezond na de ingebouwde healthcheck en de portal opent.
     risico: Middel
     wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
     handmatig_ui_pad_nl: Apps → de eigen app smart-home → Edit

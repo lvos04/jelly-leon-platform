@@ -23,14 +23,14 @@ TrueNAS versie; Hue bridge, Gree modellen, HomeWizard lokale API, Zigbee dongle 
 **Als dit mislukt:** stop hier; maak oorzaak en rollbackpad inzichtelijk. Geen volgende stap starten zolang deze test of de back-upgate rood is.
 
 ### Stap 2. Formulier standaard Custom App zonder Zigbee/tunnel
-**Uitvoeren:** Gebruik `infra/scripts/render_truenas.py` volgens docs/installatie-truenas.md met NAS LAN-IP; niet blind voorbeeld-IP gebruiken.
-**Verifiëren:** YAML valide, alleen beoogde volumes/port 8088.
+**Uitvoeren:** Vul het formulier voor de standaard Custom App in volgens deploy/truenas/CUSTOM_APP.md van my_house. Neem de vrijgegeven image en digest over.
+**Verifiëren:** Het formulier bevat één opslagkoppeling naar de eigen appdataset en één vrije hostpoort. Zigbee en tunnel staan uit.
 **Bewijs:** noteer NAS-versie, appimage digest, datum, gemaskeerde output, eventuele screenshot en status in Excel (ID `I05-05-02`).
 **Als dit mislukt:** stop hier; maak oorzaak en rollbackpad inzichtelijk. Geen volgende stap starten zolang deze test of de back-upgate rood is.
 
 ### Stap 3. TrueNAS Install via formulier standaard Custom App
-**Uitvoeren:** Custom App YAML, pinned api/web images, rest van stack volgens repo, geen zelfbedachte image.
-**Verifiëren:** Alle core services healthy op TrueNAS.
+**Uitvoeren:** Sla het formulier voor de standaard Custom App op. Vergelijk de opgehaalde digest van de alles-in-één-image met het releasebewijs.
+**Verifiëren:** TrueNAS toont de app als gezond na de ingebouwde healthcheck en de portal opent.
 **Bewijs:** noteer NAS-versie, appimage digest, datum, gemaskeerde output, eventuele screenshot en status in Excel (ID `I05-05-03`).
 **Als dit mislukt:** stop hier; maak oorzaak en rollbackpad inzichtelijk. Geen volgende stap starten zolang deze test of de back-upgate rood is.
 
