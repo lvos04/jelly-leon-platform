@@ -108,6 +108,9 @@ class Inhoud:
         assert [{k: r[k] for k in ("ts", "level", "message")} for r in kernlog] == detail["logs"], "Beginstand taaklog"
         meldingen = [r["message"] for r in detail["logs"] if r["level"] == "info"]
         assert {"Bestaande proefreeks ingepland", "Bestaande voortgang vastgelegd"} <= set(meldingen)
+        self.noteer("dienstcontrole", {"taak": job, "voortgang": detail["progress"], "logregels": len(detail["logs"]),
+                                       "sessies": len(sessies), "kijkstanden": sum(
+                                           len(kijkers) for kijkers in self.historie["kijkgegevens"].values())})
 
     def meet(self, naam: str) -> dict[str, str]:
         inventaris = json.loads(self.fixture("inventaris"))

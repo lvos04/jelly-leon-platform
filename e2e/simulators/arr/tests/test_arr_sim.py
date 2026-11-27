@@ -241,8 +241,9 @@ def test_staging_herkent_alleen_het_eigen_episodebestand(tmp_path):
 @pytest.mark.parametrize("deel", ["bibliotheek", "instantie", "serie", "staging", "bestand",
                                   "quarantaine", "transactie", "kopie"])
 @pytest.mark.parametrize("met_doel", [False, True], ids=["ontbrekend", "bestaand"])
-def test_weigert_koppeling_en_behoudt_buur(tmp_path, deel, met_doel):
+def test_weigert_koppeling_en_behoudt_buur(tmp_path, monkeypatch, deel, met_doel):
     import hashlib
+    from pathlib import Path
 
     bibliotheek = tmp_path / "media"
     staging = bibliotheek / "sonarr-series/De vuurtoren/staging"
@@ -253,27 +254,42 @@ def test_weigert_koppeling_en_behoudt_buur(tmp_path, deel, met_doel):
     transactie.mkdir(parents=True)
     kopie = transactie / bron.name
     kopie.write_bytes(bron.read_bytes())
-    buurmap = tmp_path / "naastgelegen"
-    buurmap.mkdir()
-    buur = buurmap / "bewaren.mkv"
-    buur.write_bytes(b"ongewijzigde proefvideo")
-    vooraf = hashlib.sha256(buur.read_bytes()).digest()
     onderdelen = {"bibliotheek": bibliotheek, "instantie": staging.parents[1], "serie": staging.parent,
                   "staging": staging, "bestand": bron, "quarantaine": transactie.parent,
                   "transactie": transactie, "kopie": kopie}
+    onderdeel = onderdelen[deel]
+    mapdeel = onderdeel.is_dir()
+    proefbestand = kopie if deel in {"quarantaine", "transactie", "kopie"} else bron
+    buurmap = tmp_path / "naastgelegen"
+    buur = buurmap / (proefbestand.relative_to(onderdeel) if mapdeel else proefbestand.name)
+    buur.parent.mkdir(parents=True)
+    buur.write_bytes(b"ongewijzigde proefvideo")
+    vooraf = hashlib.sha256(buur.read_bytes()).digest()
+
+    def bewaak_padbewerking(bewerking):
+        def bewaakt(pad, *args, **kwargs):
+            if pad == onderdeel or onderdeel in pad.parents:
+                pytest.fail("De simulator probeert een koppeling via een losse padnaam te gebruiken")
+            return bewerking(pad, *args, **kwargs)
+        return bewaakt
+
     with TestClient(create_app(testbibliotheek=bibliotheek)) as sim:
         r = sim.post("/api/v1/request", headers=key(sim), json={"mediaType": "tv", "mediaId": 101, "seasons": [1]})
         sid = r.raise_for_status().json()["media"]["externalServiceId"]
         headers = key(sim, "sonarr-series")
         route = "/sonarr-series/api/v3/episodefile"
         item, = sim.get(route, params={"seriesId": sid}, headers=headers).raise_for_status().json()
-        onderdeel = onderdelen[deel]
-        mapdeel = onderdeel.is_dir()
         onderdeel.rename(onderdeel.with_name(onderdeel.name + ".origineel"))
         doel = buurmap if mapdeel else buur
         onderdeel.symlink_to(doel if met_doel else "ontbrekende-proefnaam", target_is_directory=mapdeel)
-        antwoord = sim.delete(f"{route}/{item['id']}", headers=headers)
-        assert hashlib.sha256(buur.read_bytes()).digest() == vooraf
+        # Bij een regressie stopt de test vóór een oude, onverankerde lees- of wisaanroep op de buur.
+        try:
+            with monkeypatch.context() as grens:
+                grens.setattr(Path, "read_bytes", bewaak_padbewerking(Path.read_bytes))
+                grens.setattr(Path, "unlink", bewaak_padbewerking(Path.unlink))
+                antwoord = sim.delete(f"{route}/{item['id']}", headers=headers)
+        finally:
+            assert hashlib.sha256(buur.read_bytes()).digest() == vooraf
         assert antwoord.status_code == 409
         assert sim.get("/_sim/verzoeken").json()[-1]["details"] == {}
         if deel in {"quarantaine", "transactie", "kopie"}:

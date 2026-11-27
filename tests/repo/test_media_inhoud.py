@@ -94,7 +94,10 @@ def test_begin_verwerpt_afwijkend_dienstantwoord(diensten, afwijking):
 
 
 def test_begin_bevestigt_de_waarden_via_beide_diensten(diensten):
-    diensten[0].begin("kwaliteit")
+    proef = diensten[0]
+    proef.begin("kwaliteit")
+    assert proef.metingen["dienstcontrole"] == {"taak": 1, "voortgang": 0.625, "logregels": 2,
+                                                "sessies": 2, "kijkstanden": 4}
 
 
 @pytest.mark.parametrize("pad", PADEN)
