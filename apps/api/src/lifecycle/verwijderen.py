@@ -73,8 +73,8 @@ class GemetenOpslag(BaseModel):
                 and all(k.dataset in datasets for k in self.opslag if k.dataset))
 
 
-def toets_beleid(naam: str, record: Mapping[str, Any]) -> None:
-    """Weiger ook bij een alias, een beschermde nevenimage of onvolledig gemeten image-identiteit."""
+def beschermregel(naam: str, record: Mapping[str, Any]) -> beschermd.Regel | None:
+    """Toets ook de gemeten alias, catalogusnaam en nevenimages aan de gepinde beschermlijst."""
     try:
         beleid = beschermd.beleid()
     except beschermd.BeleidFout:
@@ -93,8 +93,14 @@ def toets_beleid(naam: str, record: Mapping[str, Any]) -> None:
         if isinstance(identiteit, str):
             regels = beschermd.regels(beleid, "app.uninstall", identiteit, beelden)
             if regels:
-                regel = regels[0]
-                raise ApiError(403, "forbidden", regel.reden_nl, {"reason": regel.code, "regel": regel.id})
+                return regels[0]
+    return None
+
+
+def toets_beleid(naam: str, record: Mapping[str, Any]) -> None:
+    regel = beschermregel(naam, record)
+    if regel:
+        raise ApiError(403, "forbidden", regel.reden_nl, {"reason": regel.code, "regel": regel.id})
 
 
 def toets_herstelpunt(punt: Herstelpunt, naam: str, record: Mapping[str, Any], opslag: GemetenOpslag | None,
