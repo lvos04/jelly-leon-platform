@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -86,7 +87,7 @@ def uitval(kern: Kern, dienst: str) -> Iterator[None]:
 
 def bestaande_rijen(kern: Kern, *, gestopt: bool = False) -> dict[str, dict[Any, tuple[Any, ...]]]:
     # Primaire sleutels onderscheiden verlies van groei, ook bij gelijkblijvende aantallen.
-    tabellen = {"jobs": "id", "job_logs": "id", "audit_events": "id",
+    tabellen = {"jobs": "id,progress,status", "job_logs": "id,job_id,ts,level,message", "audit_events": "id",
                 "mediaserver_watch": "path,title,user_name,last_seen"}
     stappen: list[Stap] = [(f"SELECT {kolom} FROM {tabel}", ()) for tabel, kolom in tabellen.items()]  # noqa: S608
     data = sql(kern, *stappen, gestopt=gestopt)
@@ -110,29 +111,69 @@ def plan_werk(kern: Kern) -> int:
                                         "-c", PLAN_WERK).strip())
 
 
+PROEFVOORTGANG = 0.625
+PROEFMELDING = "Vijf van de acht proefafleveringen verwerkt"
+
+
+def voeg_proefgegevens_toe(kern: Kern, job: int) -> tuple[int, int]:
+    # Een afzonderlijke gepauzeerde job laat de werker en de bestaande scenariojob ongemoeid.
+    _, _, proefjobs, proefregels = sql(
+        kern,
+        ("INSERT INTO job_logs(job_id,ts,level,message) VALUES (?,CURRENT_TIMESTAMP,'info','Proefreeks gepland')",
+         (job,)),
+        ("INSERT INTO mediaserver_watch(path,title,user_name,last_seen) "
+         "VALUES ('/data/proefreeks.mkv','Proefreeks','Proefkijker',CURRENT_TIMESTAMP)", ()),
+        ("INSERT INTO jobs(job_type,status,progress,created_at) "
+         "VALUES ('library.sync','paused',?,CURRENT_TIMESTAMP) RETURNING id", (PROEFVOORTGANG,)),
+        ("INSERT INTO job_logs(job_id,ts,level,message) "
+         "VALUES (last_insert_rowid(),CURRENT_TIMESTAMP,'info',?) RETURNING id", (PROEFMELDING,)), schrijven=True)
+    return int(proefjobs[0][0]), int(proefregels[0][0])
+
+
+def logafdrukken(rijen: dict[Any, tuple[Any, ...]], ids: Iterable[int]) -> dict[int, str]:
+    return {k: hashlib.sha256(json.dumps(rijen[k]).encode()).hexdigest() for k in ids if k in rijen}
+
+
 @contextmanager
 def behoud(kern: Kern, mg: httpx.Client, job: int) -> Iterator[Callable[[str, bool], None]]:
-    sql(kern, ("INSERT INTO job_logs(job_id,ts,level,message) VALUES (?,CURRENT_TIMESTAMP,'info','Proefreeks gepland')",
-               (job,)), ("INSERT INTO mediaserver_watch(path,title,user_name,last_seen) "
-                         "VALUES ('/data/proefreeks.mkv','Proefreeks','Proefkijker',CURRENT_TIMESTAMP)", ()),
-        schrijven=True)
+    proefjob, proefregel = voeg_proefgegevens_toe(kern, job)
     vooraf = bestaande_rijen(kern)
     pad = kern.net.dossier / "voortgang.json"
-    meting = {naam: {"voor": len(ids)} for naam, ids in vooraf.items()}
+    meting: dict[str, dict[str, Any]] = {naam: {"voor": len(ids)} for naam, ids in vooraf.items()}
+    vorige_stand = {k: rij[0] for k, rij in vooraf["jobs"].items()}
+    logjob, tijd, niveau, tekst = vooraf["job_logs"][proefregel]
+    proefregel_intact = logjob == proefjob and bool(tijd) and niveau == "info" and tekst == PROEFMELDING
+    meting["jobs"].update(proefjob=proefjob, voortgang_voor=vorige_stand)
+    historie = vooraf["job_logs"]
+    meting["job_logs"].update(proefregel=proefregel, proefregel_intact_voor=proefregel_intact,
+                              afdrukken_voor=logafdrukken(historie, historie))
     schrijf(pad, meting)
     assert all(vooraf.values())
+    assert vooraf["jobs"][proefjob] == (PROEFVOORTGANG, "paused") and proefregel_intact, "Beginstand proefgegevens"
 
     def meet(moment: str, gestopt: bool = False) -> None:
+        nonlocal vorige_stand
         nu = bestaande_rijen(kern, gestopt=gestopt)
         for naam, oud in vooraf.items():
             meting[naam][moment] = len(nu[naam])
             meting[naam]["verdwenen_" + moment] = len(oud.keys() - nu[naam].keys())
-        kijk = "mediaserver_watch"
-        gewijzigd = sum(vooraf[kijk][k] != nu[kijk][k] for k in vooraf[kijk].keys() & nu[kijk].keys())
-        meting[kijk]["gewijzigd_" + moment] = gewijzigd
+        for naam in ("job_logs", "mediaserver_watch"):
+            meting[naam]["gewijzigd_" + moment] = sum(
+                vooraf[naam][k] != nu[naam][k] for k in vooraf[naam].keys() & nu[naam].keys())
+        stand = {k: nu["jobs"][k][0] for k in vorige_stand if k in nu["jobs"]}
+        teruggevallen = sum(waarde < vorige_stand[k] for k, waarde in stand.items())
+        meting["jobs"]["voortgang_" + moment] = stand
+        meting["jobs"]["teruggevallen_" + moment] = teruggevallen
+        meting["job_logs"]["afdrukken_" + moment] = logafdrukken(nu["job_logs"], historie)
+        meting["job_logs"]["proefregel_intact_" + moment] = nu["job_logs"].get(proefregel) == historie[proefregel]
         schrijf(pad, meting)
         assert all(oud.keys() <= nu[naam].keys() for naam, oud in vooraf.items()), "MediaGuard-voortgang verdwenen"
-        assert gewijzigd == 0, "Bestaande kijkgegevens gewijzigd"
+        assert teruggevallen == 0, "Bestaande jobvoortgang teruggevallen"
+        assert all(0 <= waarde <= 1 for waarde in stand.values()), "Jobvoortgang buiten bereik"
+        assert nu["jobs"][proefjob] == vooraf["jobs"][proefjob], "Gepauzeerde proefjob gewijzigd"
+        assert meting["job_logs"]["gewijzigd_" + moment] == 0, "Bestaande jobhistorie gewijzigd"
+        assert meting["mediaserver_watch"]["gewijzigd_" + moment] == 0, "Bestaande kijkgegevens gewijzigd"
+        vorige_stand = stand
 
     try:
         yield meet

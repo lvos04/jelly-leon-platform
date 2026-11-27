@@ -67,6 +67,7 @@ def test_noodstop(kern: Kern) -> None:
     wacht("wanted-item in MSO", lambda: mso.get(mso_item).status_code == 200)
     job = lopende_sync(mg, keten)
     noodstop = "/api/v1/system/emergency-stop"
+    zoekpad = f"/api/v1/wanted/{keten.wanted}/search"
     with behoud(kern, mg, job) as meet:
         voor = uitvoeringen(kern, keten.wanted)
         vooraf_sab = keten.sab_ids()
@@ -78,16 +79,18 @@ def test_noodstop(kern: Kern) -> None:
         try:
             actief = mg.get("/api/v1/status").raise_for_status().json()["emergency_stop"]["active"]
             hub_codes = {}
+            hub_fouten = {}
             for actie in ("wanted.search", "download.import", "download.cleanup", "av1.encode"):
                 resp = kern.hub.post("/api/v1/actions", headers={"Idempotency-Key": str(uuid.uuid4())},
                                      json={"action_id": "mediaguard." + actie, "target": {"app_id": "mediaguard"},
                                            "parameters": {}, "reason": "Noodstopproef"})
                 hub_codes[actie] = resp.status_code
-                assert resp.json().get("code") == "capability_unavailable"
+                hub_fouten[actie] = resp.json().get("code")
+                assert hub_fouten[actie] == "capability_unavailable"
             eerder = mso.post(mso_item + "/search")
             vers = mso.get(status, params={"refresh": True}).raise_for_status().json()
             herzoek = mso.post(mso_item + "/search")
-            zoeken = mg.post(f"/api/v1/wanted/{keten.wanted}/search")
+            zoeken = mg.post(zoekpad)
             invoer = mg.post(f"/api/v1/activity/downloads/{INSTANTIE}/import",
                              json={"download_id": download, "confirm": True})
             av1 = mg.post("/api/v1/encoding/jobs", json={"path": "/data/uitvalproef/proefreeks.mkv",
@@ -103,10 +106,12 @@ def test_noodstop(kern: Kern) -> None:
             meet("tijdens", False)
             feiten = {"job_voor": lopend, "job_tijdens": historie["status"],
                       "historie_leesbaar": historie["id"] == job and bool(historie["logs"]), "noodstop": actief,
-                      "hub_http": hub_codes, "mso_http_voor_verversen": eerder.status_code,
+                      "hub_http": hub_codes, "hub_foutcodes": hub_fouten, "mso_http_voor_verversen": eerder.status_code,
                       "mso_route_onbevestigd_voor_verversen": eerder.status_code == 409
                       and "niet bevestigen" in str(eerder.json()).lower(), "mso_ziet_noodstop": vers["emergency_stop"],
                       "mso_http": herzoek.status_code,
+                      "mso_route_onbevestigd": herzoek.status_code == 409
+                      and "niet bevestigen" in str(herzoek.json()).lower(),
                       "mso_weigert_noodstop": herzoek.status_code == 409 and "noodstop" in str(herzoek.json()).lower(),
                       "zoeken_http": zoeken.status_code, "zoekopdrachten_gemeld": zoeken.json().get("issued"),
                       "zoeken_weigert_noodstop": zoeken.status_code == 429
@@ -123,7 +128,19 @@ def test_noodstop(kern: Kern) -> None:
                 mg.post(noodstop, json={"active": False, "reason": "Einde proef"}).raise_for_status()
         wacht("opruimjob na opheffen", lambda: lees_job(mg, opruimjob)["status"] == "succeeded")
         feiten["opruimjob_na"] = lees_job(mg, opruimjob)["status"]
+        # Dezelfde aflevering moet zonder noodstop daadwerkelijk in arr en SAB verschijnen.
+        voor_zoekproef = keten.sab_ids() if stoppen else vooraf_sab
+        vrij = mg.post(zoekpad) if stoppen else zoeken
+        feiten["zoeken_zonder_noodstop_http"] = vrij.status_code
+        feiten["zoekopdrachten_zonder_noodstop"] = vrij.json().get("issued")
         schrijf(kern.net.dossier / "noodstop.json", feiten)
+        assert vrij.is_success and feiten["zoekopdrachten_zonder_noodstop"] == 1
+        wacht("download van de proefaflevering zonder noodstop",
+              lambda: bool((keten.aflevering_ids() & keten.sab_ids()) - voor_zoekproef))
+        gedeeld = (keten.aflevering_ids() & keten.sab_ids()) - voor_zoekproef
+        feiten["gedeelde_nieuwe_downloads_zonder_noodstop"] = len(gedeeld)
+        schrijf(kern.net.dossier / "noodstop.json", feiten)
+        assert len(gedeeld) == 1
         assert set(hub_codes.values()) == {501}
         assert not any(nieuwe.values()) and feiten["nieuwe_sab_taken"] == 0, "Nieuwe uitvoering tijdens noodstop"
         assert eerder.status_code == 409

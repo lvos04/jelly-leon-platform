@@ -61,7 +61,11 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 
 Herhaal met `INTEGRAAL_ZONDER_STORING=1` voor de tegenproeven. Dezelfde verwachtingen moeten dan falen. In elk dossier
 geeft `voortgang.json` de aantallen jobs, jobhistorie, audit- en kijkregels en het aantal verdwenen oorspronkelijke
-sleutels. De proef controleert ook de titel, kijker en het kijktijdstip. Bij EX07 levert een proefworker de
+sleutels. Vóór, tijdens en na de proef staan er voor elke oorspronkelijke job de voortgang en voor elke
+oorspronkelijke logregel de SHA-256 van job-ID, tijdstip, niveau en tekst. De gepauzeerde proefjob begint op
+0,625. Andere jobs mogen tussen twee metingen verdergaan. De proef vergelijkt ook de titel, kijker en het kijktijdstip.
+EX06 herhaalt het geweigerde zoekverzoek na opheffing en controleert de nieuwe download in arr en SAB.
+Bij EX07 levert een proefworker de
 encoderwaarnemingen voor de MediaGuard-bewaking. De echte GPU valt onder N-P6-09.
 
 ### MediaGuard-inhoud
