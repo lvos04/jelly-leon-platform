@@ -1,0 +1,161 @@
+checklist_version: "1"
+kind: checklist
+install:
+  method: none
+id: I06
+titel_nl: Bestaande mediaservers inventariseren en Jellyfin controleren
+document: 03_INSTALLATIE/I06_JELLYFIN.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D02, D04, D05, D07, D08]
+toelichting_nl: >-
+  Emby blijft de mediaserver. Doorloop de inventaris en controleer het herstelbewijs.
+  Voer de Jellyfin-proeven uitsluitend uit als D07 een bestaande Jellyfin meet.
+  Een ontbrekende meting laat deze stappen open. Toont de inventaris alleen Emby, leg dan vast dat
+  het Jellyfin-deel niet van toepassing is. De Hub leest de genoemde TrueNAS-methoden.
+  De overige controles doe je zelf. Bewaar het vergelijkingsrapport per gebruiker privé.
+  Deel alleen de uitkomst, zonder namen, kijkgedrag, adressen of sleutels.
+
+stappen:
+  - id: I06-06-01
+    titel_nl: Huidige Jellyfin inventaris
+    uitvoeren_nl: >-
+      Open Apps in TrueNAS. Vergelijk de getoonde mediaservers, hun status en poorten met de
+      alleen-lezen inventaris van de Hub voor D07. Noteer welke apps draaien en welke spelers ze gebruiken.
+      Alleen als D07 ook Jellyfin toont, lees je in het Jellyfin-dashboard de versie, plugins, apparaten,
+      gebruikersrechten en bibliotheken af. Leg de image en de bijbehorende datasets privé vast als uitgangspunt.
+    acceptatie_nl: Geen verlies van watch-state/gebruikers.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → Installed Applications → de bestaande mediaserver
+    truenas_methoden:
+      - {naam: app.query, versies: ["25.04", "25.10"], doel_nl: Geïnstalleerde apps en hun status}
+      - {naam: app.used_ports, versies: ["25.04", "25.10"], doel_nl: Bezette apppoorten}
+    besluiten: [D02, D07]
+    bewijs: [datum, nas_versie, image_digest, hub_meting, bewijsrecord_besluit, status]
+    bij_fout_nl: Stop bij een onvolledige inventaris. Laat D07 open en laat Emby en de MediaGuard-koppeling doordraaien.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: D07 bepaalt of er naast Emby een bestaande Jellyfin is.
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I06-06-02
+    titel_nl: Backups en compat
+    uitvoeren_nl: >-
+      Controleer het herstelbewijs uit I02 bij D04 en D05 en de bijbehorende snapshot in TrueNAS.
+      Ontbreekt het bewijs, stop dan vóór elke wijziging. Als D07 Jellyfin toont, herstel dan een eigen back-up
+      van configuratie, database en metadata op een geïsoleerde proefinstallatie met eigen opslag en alleen-lezen media.
+      Open daar een standaardspeler en verifieer aanmelding, bibliotheekrechten en pluginlicenties.
+      Vergelijk de kijkgegevens met de uitgangssituatie. Emby en MediaGuard blijven tijdens de proef beschikbaar.
+    acceptatie_nl: Stock clients kunnen inloggen in teststack.
+    risico: Hoog
+    wijze: [meting_truenas_api, handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Data Protection → Snapshots
+    truenas_methoden:
+      - {naam: zfs.snapshot.query, versies: ["25.04"], doel_nl: Aanwezigheid van de bijbehorende snapshot}
+      - {naam: pool.snapshot.query, versies: ["25.10"], doel_nl: Aanwezigheid van de bijbehorende snapshot}
+    verwijzing: [install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml]
+    besluiten: [D04, D05, D07]
+    bewijs: [datum, hub_meting, bewijsrecord_besluit, gemaskeerde_output, status]
+    bij_fout_nl: Stop als het proefherstel of de aanmelding mislukt. Houd de back-upgate dicht en gebruik de bestaande mediaserver.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I06-06-03
+    titel_nl: Direct Play GPU test
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, vergelijk dan de GPU-inventaris van de Hub bij D08 met het aan de proefinstallatie
+      toegewezen apparaat. Speel testmedia met HDR en Dolby Vision af op de gekozen speler. Controleer in het
+      dashboard per speler wanneer directe weergave en transcodering optreden en of beeld en geluid kloppen.
+      Doe de proef alleen wanneer MediaGuard de kaart niet gebruikt.
+    acceptatie_nl: Direct play/ transcoding correct per device met logging.
+    risico: Middel
+    wijze: [meting_truenas_api, handmatig_bewijs]
+    truenas_methoden:
+      - {naam: app.gpu_choices, versies: ["25.04", "25.10"], doel_nl: Beschikbare GPU's voor vergelijking met D08}
+    besluiten: [D07, D08]
+    bewijs: [datum, hub_meting, bewijsrecord_besluit, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een onbekende toewijzing, een bezette kaart of een afspeelfout. Houd MediaGuard beschikbaar.
+    blokkeert_volgende: true
+    validatie_nu: [Sim-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I06-06-04
+    titel_nl: Basis opschonen
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, open dan op de proefinstallatie dezelfde testtitels in de webspeler en op de tv.
+      Controleer na het vernieuwen van de proefbibliotheek of ze bereikbaar zijn. Noteer dubbelen en
+      afhankelijkheden. Laat de bestaande servers en de koppeling van MediaGuard met Emby in gebruik.
+    acceptatie_nl: Geen niet-beschikbare titels na refresh.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D07]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een verdwenen titel of een onbekende afhankelijkheid. Bewaar de oorspronkelijke bibliotheek.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De controle levert een inventaris op. Verwijderen of uitschakelen van een mediaserver valt buiten deze stap.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I06-06-05
+    titel_nl: Metadata/test series
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, open dan in de proefbibliotheek een film, een serie met absolute afleveringsnummers
+      en een muziekalbum. Vergelijk titels, volgorde en ondertiteling met de testset. Neem live-tv alleen mee
+      als er een tuner is en leg vast welke onderdelen je kon controleren.
+    acceptatie_nl: Library identificatie consistent.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D07]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een verkeerde identificatie. Noteer de afwijking bij de testset.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I06-06-06
+    titel_nl: Plugin/adapter eerst
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, volg dan een testimport in de proefbibliotheek. Open de MediaGuard-status via
+      de alleen-lezen koppeling en vergelijk die met het MediaGuard-dashboard. Controleer of de testtitel
+      na de import verschijnt en of de verwijzing naar aanvraag of kwaliteit opent.
+      Laat de bestaande Emby-koppeling doorwerken. Houd de uitkomst open als de status onbekend is.
+    acceptatie_nl: Import werkt zonder direct DB access.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D07]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij een ontbrekende koppeling of een afwijkende voortgang. Gebruik geen directe databasetoegang.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I06-06-07
+    titel_nl: Fork alleen voor gaten
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, vergelijk dan het compatibiliteitsrapport van de kandidaat met de standaardspelers
+      uit je inventaris. Controleer aanmelding, afspelen en hervatten met een testprofiel op de proefinstallatie.
+      Noteer bij een ontbrekende functie welke speler en plugin zijn getest.
+    acceptatie_nl: Jellyfin client matrix groen.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D07]
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop voor deze release als een gebruikte speler ontbreekt of hervatten mislukt.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De beheerder controleert het releaserapport en de eigen spelers. Broncode en CI horen bij de releasebouw.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I06-06-08
+    titel_nl: Release en herstel
+    uitvoeren_nl: >-
+      Als D07 Jellyfin toont, beproef de update en de plugins op de geïsoleerde kopie. Zet daar de vorige image
+      en de bijpassende snapshot samen terug. Vergelijk vóór en na per gebruiker de gezien-status, hervatpunten,
+      favorieten, beoordelingen, spoorkeuzes en rechten. Controleer de voortgang in MediaGuard.
+      Bewaar nieuwere kijkgegevens apart voordat je een oudere momentopname op de proefkopie terugzet.
+    acceptatie_nl: Watch-state/herstelde DB correct na revert.
+    risico: Middel
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → de proefinstallatie → Edit en Data Protection → Snapshots
+    besluiten: [D05, D07]
+    bewijs: [datum, image_digest, gemaskeerde_output, status]
+    bij_fout_nl: Stop bij elk verschil. Leg het voor aan de gebruiker. Houd Emby beschikbaar als terugval en stap alleen over na uitdrukkelijk akkoord.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]

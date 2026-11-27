@@ -117,6 +117,27 @@ def test_i03_is_delivered_with_the_literal_excel_tasks() -> None:
     assert cl.controleer_lijst(data, cl.excel_taken()) == []
 
 
+def test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs() -> None:
+    data = _load("I06_JELLYFIN.checklist.yaml")
+    stappen = data["stappen"]
+    assert [s["id"] for s in stappen] == [f"I06-06-{n:02d}" for n in range(1, 9)]
+    assert data["aanpak"] == "behouden_en_valideren"
+    assert "Emby blijft de mediaserver" in data["toelichting_nl"]
+    for stap in stappen:
+        assert stap["blokkeert_volgende"]
+        assert "D07" in stap["besluiten"] and "D07" in stap["uitvoeren_nl"]
+        assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+    inventaris, backup = stappen[:2]
+    assert "app.query" in {m["naam"] for m in inventaris["truenas_methoden"]}
+    assert {"D04", "D05"} <= set(backup["besluiten"])
+    assert "install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml" in backup["verwijzing"]
+    assert "geïsoleerde proefinstallatie" in backup["uitvoeren_nl"]
+    herstel = stappen[-1]
+    assert "vorige image en de bijpassende snapshot samen" in herstel["uitvoeren_nl"]
+    assert "vóór en na per gebruiker" in herstel["uitvoeren_nl"]
+    assert "voortgang in MediaGuard" in herstel["uitvoeren_nl"]
+
+
 def _i03_veiligheid(data: dict[str, Any]) -> None:
     """Bewaar de inhoudelijke gates van I03; de algemene validator bewaakt vorm en Excel-teksten."""
     backup, update = data["stappen"][2:4]

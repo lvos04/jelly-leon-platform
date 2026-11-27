@@ -270,6 +270,86 @@
   "bijgewerkt": "2026-11-09"
  },
  {
+  "id": "I06-06-01",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-01). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs, tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Vaststellen welke mediaservers en spelers in gebruik zijn.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst. Sim-getest geldt voor de alleen-lezen methoden op de twee TrueNAS-simulatorprofielen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-02",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-02). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs, tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Herstelbewijs voor de back-upgate en aanmelding op de geïsoleerde proefinstallatie controleren.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst. Sim-getest geldt voor de alleen-lezen methoden op de twee TrueNAS-simulatorprofielen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-03",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-03). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs, tests/repo/test_checklists.py::test_every_listed_method_is_callable_read_only_on_its_versions",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. GPU-toewijzing en afspeelgedrag per speler op een vrije kaart meten.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst. Sim-getest geldt voor de alleen-lezen methoden op de twee TrueNAS-simulatorprofielen.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-04",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-04). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Bereikbaarheid van testtitels in de webspeler en op de tv controleren.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-05",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-05). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Identificatie van de testmedia en, met een tuner, live-tv controleren.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-06",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-06). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Een testimport volgen en de gemelde status vergelijken met het MediaGuard-dashboard.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-07",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-07). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Het compatibiliteitsrapport naast het gedrag van de gebruikte spelers leggen.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
+  "id": "I06-06-08",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I06_JELLYFIN.checklist.yaml (I06-06-08). tests/repo/test_checklists.py::test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Uitvoering door de gebruiker op de NAS (STAPPEN_P6.md, S-P6-50 en N-P6-09). D07 open. Vorige image en passende snapshot op de proefkopie terugzetten en per gebruiker vergelijken.",
+  "opmerking": "Controlelijst en koppeling met de Excel-taak lokaal getoetst.",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27"
+ },
+ {
   "id": "I07-07-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
