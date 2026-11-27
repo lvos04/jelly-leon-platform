@@ -88,6 +88,15 @@ def test_status_sim_plus_echt_en_niet_uitgevoerde_simulatie() -> None:
     assert bewijs.voorstel(replace(scenario, soort="Echt"), None, "2026-01-01", "proef.json")["validatie"] == HARDWARE
 
 
+def test_ex22_voorstel_bewaart_zowel_nas_als_telefoon() -> None:
+    scenario, = run.selectie(run.catalogus(MAP / "scenarios"), "EX22", None)
+    rij = bewijs.voorstel(scenario, "Sim-geslaagd", "2026-01-01", "proef.json")
+    assert rij["status"] == "Geblokkeerd" and "N-P6-04" in rij["opmerking"]
+    assert set(rij["validatie"].split("; ")) == {"NIET GEVALIDEERD (echte NAS)", HARDWARE, "Sim-geslaagd"}
+    with pytest.raises(ValueError):
+        bewijs.controleer({**rij, "validatie": HARDWARE + "; Sim-geslaagd"}, "Sim+")
+
+
 def test_onbekend_kort_geheim_ontbreekt_in_het_hele_dossier(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     marker = secrets.token_hex(7)  # ook te kort voor de vrije-tekstheuristiek
     body = {"items": [{"status": "active", "app_id": marker, marker: marker}], "verbonden": True,

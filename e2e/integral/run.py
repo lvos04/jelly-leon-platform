@@ -16,7 +16,7 @@ from typing import Any
 if __package__ in {None, ""}:  # Ook rechtstreeks aanroepbaar vanuit de Makefile.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from e2e.integral.bewijs import PRAKTIJK, schrijf, voorstel
+from e2e.integral.bewijs import praktijkblokkade, schrijf, voorstel
 from e2e.integral.project import KERN, MAP, ROOT, BouwNodig, Proeffout, Project, broncommit, opdracht
 
 
@@ -50,7 +50,7 @@ def catalogus(map_: Path) -> list[Scenario]:
             raise ValueError(f"Dubbel scenario {rid}")
         if scenario.soort not in {"Sim", "Sim+", "Echt"}:
             raise ValueError(f"Ongeldige uitvoerbaarheid voor {rid}")
-        if scenario.soort != "Sim" and (scenario.blokkade not in PRAKTIJK or not scenario.toelichting.strip()):
+        if scenario.soort != "Sim" and (not praktijkblokkade(scenario.blokkade) or not scenario.toelichting.strip()):
             raise ValueError(f"Praktijkonderdeel ontbreekt voor {rid}")
         kandidaten.append(scenario)
     return kandidaten

@@ -1,4 +1,4 @@
-"""HTTP vanuit de eigen Hub-container; ook de simulatorbesturing blijft op het interne netwerk."""
+"""HTTP vanuit de eigen kern, ook wanneer de Hub voor een uitvalproef stilstaat."""
 
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ class Testnet(httpx.BaseTransport):
     def __init__(self, project: Project, dossier: Path):
         self.project = project
         self.dossier = dossier
+        self.waarnemer = "hub"
         self.ca: dict[str, str] = {}
         self.verkeer: list[dict[str, Any]] = []
 
@@ -51,8 +52,8 @@ class Testnet(httpx.BaseTransport):
         invoer = {"method": request.method, "host": url.host, "port": url.port, "path": url.raw_path.decode("ascii"),
                   "body": body.hex(), "headers": dict(request.headers), "ca": ca}
         try:
-            raw = self.project.compose("exec", "-T", "hub", "python", "-c", HTTP_CLIENT, invoer=json.dumps(invoer),
-                                       tijd=18)
+            raw = self.project.compose("exec", "-T", self.waarnemer, "python", "-c", HTTP_CLIENT,
+                                       invoer=json.dumps(invoer), tijd=18)
         except Proeffout:
             raise httpx.ConnectError("Testdienst gaf geen HTTP-antwoord", request=request) from None
         status, headers, hexbody = json.loads(raw)

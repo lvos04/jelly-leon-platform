@@ -58,6 +58,23 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 
 Elke proef schrijft `inhoud.json` met de SHA-256 per proefbestand en de voortgang per bestaande MediaGuard-taak. EX05 leest ook de controlesommen op het moment dat Sonarr het verwijderverzoek ontvangt. De herstelwerker behandelt het terugzetverzoek. EX09 gebruikt de native vervangmodus van de CPU-encoder op twee kopieën van dezelfde clip. De storingsvrije controle levert een AV1-bestand op.
 
+### Node-RED en meldingen
+
+De drie proeven gebruiken de bouwprofielen `kern`, `derden` en `meldingen`. Start ze samen op de eigen teststack.
+
+```bash
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX22,EX45,EX46
+```
+
+EX22 bewaakt de HTTP-gezondheid van lifecycle met de gepinde Uptime Kuma. De proef schakelt eerst de Hub uit en daarna
+lifecycle. De executor leest de monitor en de berichten van de Gotify-simulator tijdens de storing. Een tweede
+meldkanaal loopt door een tijdelijke doorstuurder in de Hub-container. N-P6-04 toetst de ontvangst op een echte telefoon.
+
+In EX45 en EX46 verstuurt de officiële Node-RED-image een actieaanvraag via HTTP. Een testontvanger op loopback en een
+nagebootste outbox van home-control-hub bezorgen die aanvraag aan de Hub. Alleen de outbox krijgt een eigen
+diensttoken. EX45 controleert de weigering in het auditspoor. EX46 telt uitgevoerde acties en afzonderlijk ontvangen
+Gotify-berichten voor vijf herleveringen en vijf verschillende events. De runner bewaart de tellingen in `metingen.json`.
+
 ### Huis en energie
 
 Bouw de profielen `kern`, `huis` en `huis-browser` onder de bouwlock. Start daarna de zeven proeven onder de stacklock.

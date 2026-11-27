@@ -1,0 +1,28 @@
+[
+  {"id": "proefflow", "type": "tab", "label": "Lokale proef van het Hub-actiebeleid"},
+  {
+    "id": "verboden", "type": "inject", "z": "proefflow", "name": "Verboden actie zonder gegevensdoel",
+    "props": [{"p": "payload"}], "once": false, "payloadType": "json",
+    "payload": "{\"action_id\":\"pool.dataset.delete\",\"target\":{\"host_id\":\"nas-primary\"},\"parameters\":{}}",
+    "wires": [["aanleiding"]]
+  },
+  {
+    "id": "melding", "type": "inject", "z": "proefflow", "name": "Melding aanvragen",
+    "props": [{"p": "payload"}], "once": false, "payloadType": "json",
+    "payload": "{\"action_id\":\"notification.send\",\"target\":{\"host_id\":\"nas-primary\"},\"parameters\":{\"titel\":\"Flowproef\",\"tekst\":\"Bericht van de proefflow\"}}",
+    "wires": [["aanleiding"]]
+  },
+  {
+    "id": "aanleiding", "type": "change", "z": "proefflow", "name": "Bericht-ID van Node-RED meegeven",
+    "rules": [
+      {"t": "set", "p": "payload.aanleiding", "pt": "msg", "to": "_msgid", "tot": "msg"},
+      {"t": "set", "p": "followRedirects", "pt": "msg", "to": "false", "tot": "bool"}
+    ],
+    "wires": [["verzoek"]]
+  },
+  {
+    "id": "verzoek", "type": "http request", "z": "proefflow", "name": "Naar de nagebootste integratiedienst",
+    "method": "POST", "ret": "txt", "persist": true,
+    "url": "http://localhost:31819/aanvragen", "wires": [[]]
+  }
+]

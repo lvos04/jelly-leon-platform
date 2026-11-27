@@ -48,21 +48,28 @@ def schrijf(pad: Path, gegevens: Any) -> None:
     tmp.replace(pad)
 
 
+def praktijkblokkade(tekst: str) -> bool:
+    delen = tekst.split("; ")
+    return set(delen) <= PRAKTIJK and len(delen) == len(set(delen))
+
+
 def controleer(rij: dict[str, str], soort: str) -> None:
     validatie = rij["validatie"].split("; ")
     if (soort == "Sim" and rij["status"] == "Bezig" and len(validatie) == 1
             and validatie[0] in SIM and not rij["blokkade"]):
         return
-    if (soort in {"Sim+", "Echt"} and rij["status"] == "Geblokkeerd"
-            and validatie[0] in PRAKTIJK and rij["blokkade"] == validatie[0] and rij["opmerking"].strip()
-            and (len(validatie) == 1 or (soort == "Sim+" and len(validatie) == 2 and validatie[1] in SIM))):
+    praktijk = rij["blokkade"].split("; ")
+    if soort == "Sim+" and validatie[-1] in SIM:
+        validatie = validatie[:-1]
+    if (soort in {"Sim+", "Echt"} and rij["status"] == "Geblokkeerd" and praktijkblokkade(rij["blokkade"])
+            and rij["opmerking"].strip() and validatie == praktijk):
         return
     raise ValueError("Ongeldige combinatie van status, validatie en blokkade in EVIDENCE-voorstel")
 
 
 def voorstel(scenario: Any, uitkomst: str | None, datum: str, bestand: str) -> dict[str, str]:
     praktijk = scenario.soort != "Sim"
-    validatie = [scenario.blokkade] if praktijk else []
+    validatie = scenario.blokkade.split("; ") if praktijk else []
     if uitkomst is not None:
         validatie.append(uitkomst)
     rij = {"id": scenario.id, "repo": "jelly-leon-platform", "bijgewerkt": datum, "bewijs": bestand,
