@@ -37,7 +37,9 @@ class AppPoort(BaseHTTPRequestHandler):
                 or (actie == "zfs.snapshot.clone_to_sandbox" and doel.get("snapshot") == bron + "@voor-proef"
                     and params == {"doel_dataset": "simpool/asm-sandbox/proef-config"})
             )
-        if not toegestaan or not verzoek.get("approval"):
+        # R1-snapshots vereisen volgens het productiebeleid een ondertekend voorstel.
+        # Bij een app-herstart vraagt datzelfde beleid ook een afzonderlijke goedkeuring.
+        if not toegestaan or (sys.argv[1] != "opslag" and not verzoek.get("approval")):
             self.send_error(403)
             return
         headers = {k: self.headers[k] for k in ("Content-Type", "Authorization", "Idempotency-Key")}

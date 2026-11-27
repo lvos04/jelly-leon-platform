@@ -1,7 +1,7 @@
-"""Kloon uitsluitend de oude configuratie via de goedgekeurde snapshotacties."""
+"""Kloon uitsluitend de oude configuratie via de door de Hub ondertekende snapshotacties."""
 
 from e2e.integral.scenarios.conftest import Kern
-from e2e.integral.scenarios.hubveiligheid import akkoord, meet, schrijfacties, vernieuw
+from e2e.integral.scenarios.hubveiligheid import meet, schrijfacties, vernieuw
 from e2e.integral.scenarios.opslag import (
     BRON,
     KLOON,
@@ -28,7 +28,7 @@ def test_alleen_configuratie_terugzetten(kern: Kern) -> None:
     plaats_proefmedia(kern)
     schrijf_inhoud(kern, BRON, instelling="oud")
     rij = snapshot(kern)
-    akkoord(kern, rij)
+    assert rij["status"] == "klaar" and rij["blokkades"] == []
     snap = voer_uit(kern, rij).raise_for_status().json()
     assert snap["status"] == "uitgevoerd" and snap["resultaat"]["methode"] == "pool.snapshot.create"
     lees_proefmedia(kern, 41, 7)
@@ -42,7 +42,7 @@ def test_alleen_configuratie_terugzetten(kern: Kern) -> None:
     assert fout.status_code in {403, 422}
     assert schrijfacties(kern) == ["pool.snapshot.create"]
     kloon = aanvraag(kern, "zfs.snapshot.clone_to_sandbox", doel, {"doel_dataset": KLOON}).raise_for_status().json()
-    akkoord(kern, kloon)
+    assert kloon["status"] == "klaar" and kloon["blokkades"] == []
     uit = voer_uit(kern, kloon).raise_for_status().json()
     assert uit["status"] == "uitgevoerd" and uit["resultaat"]["methode"] == "pool.snapshot.clone"
     na = inhoud(kern)

@@ -1,7 +1,7 @@
-"""Een poolstoring tussen akkoord en uitvoering wordt ook door de executor gemeten."""
+"""Een poolstoring tussen voorstel en uitvoering wordt ook door de executor gemeten."""
 
 from e2e.integral.scenarios.conftest import Kern
-from e2e.integral.scenarios.hubveiligheid import akkoord, bezorgingen, meet, oproepen, schrijfacties, vernieuw
+from e2e.integral.scenarios.hubveiligheid import bezorgingen, meet, oproepen, schrijfacties, vernieuw
 from e2e.integral.scenarios.opslag import aanvraag, bereid_opslag_voor, gate, snapshot, voer_uit
 
 SCENARIO = {
@@ -10,11 +10,10 @@ SCENARIO = {
 }
 
 
-def test_poolstoring_na_akkoord(kern: Kern) -> None:
+def test_poolstoring_na_voorstel(kern: Kern) -> None:
     bereid_opslag_voor(kern)
     rij = snapshot(kern)
-    assert rij["blokkades"] == []
-    akkoord(kern, rij)
+    assert rij["status"] == "klaar" and rij["risk_class"] == "R1" and rij["blokkades"] == []
     begin = len(oproepen(kern))
     kern.sim.post("/_sim/faults/pool_degraded", json={}).raise_for_status()
     # De Hub heeft nog zijn gezonde inventaris. De executor leest de pool vlak vóór de mutatie opnieuw.

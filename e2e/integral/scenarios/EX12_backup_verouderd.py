@@ -3,7 +3,7 @@
 from typing import Any
 
 from e2e.integral.scenarios.conftest import Kern, wacht
-from e2e.integral.scenarios.hubveiligheid import akkoord, meet, schrijfacties
+from e2e.integral.scenarios.hubveiligheid import meet, schrijfacties
 from e2e.integral.scenarios.opslag import BESTANDEN, EXPORT, bereid_opslag_voor, gate, kopieer_taak, snapshot, voer_uit
 
 SCENARIO = {
@@ -15,7 +15,7 @@ SCENARIO = {
 def test_mislukte_upload_en_herstel(kern: Kern) -> None:
     schijf = bereid_opslag_voor(kern)
     rij = snapshot(kern)
-    akkoord(kern, rij)
+    assert rij["status"] == "klaar" and rij["risk_class"] == "R1" and rij["blokkades"] == []
 
     def incidenten() -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = kern.hub.get("/api/v1/incidents", params={
