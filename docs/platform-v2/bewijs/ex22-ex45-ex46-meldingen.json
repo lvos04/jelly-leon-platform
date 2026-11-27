@@ -1,9 +1,82 @@
 {
-  "run": "20261127t052139z-bed0e198cd",
-  "gelijke_scenariobron_op_forgejo": "babbfe345d1e6969a43db6e62dda58dc312c6fbb",
+  "run": "20261127t120249z-fec430385e",
+  "omgeving": "Eigen intern Compose-project per scenario met TrueNAS- en Gotify-simulators.",
+  "onderbreking_EX22": "De Hub-container stond stil. De gepauzeerde lifecycle-processen beantwoordden geen HTTP-verzoeken. Na hervatten werd dezelfde dienst weer gezond.",
+  "flowbron": "Officiële Node-RED-image op digest met een lokale proefflow. De ontvangst en outbox van home-control-hub zijn nagebootst.",
+  "images": {
+    "hub": {
+      "image_id": "sha256:cfcac10796897ac3483c7eaa44162e5f81f0881ff57270f139fac756a2cacb85",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "bronstatus": "schoon"
+    },
+    "executor": {
+      "image_id": "sha256:8ab8832074c44838b7d45d19f7984f2e70ab6e4ebd21cfeb87c63c1bbfe97d85",
+      "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
+      "bronstatus": "schoon"
+    },
+    "truenas": {
+      "image_id": "sha256:2c660694e0f0a1905c89b9e66524957d18833af9538166e569c49f0c9d522f07",
+      "broncommit": "d7a45caba21b617787f2850875e010ab9fbc1925",
+      "bronstatus": "schoon"
+    },
+    "lifecycle": {
+      "image_id": "sha256:2d51a64e013f84405c9240e4606d8071769440c946eaf7e9114f84f80345b7d7",
+      "broncommit": "d7a45caba21b617787f2850875e010ab9fbc1925",
+      "bronstatus": "schoon"
+    },
+    "uptime-kuma": {
+      "image_id": "sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd",
+      "referentie": "ghcr.io/louislam/uptime-kuma:2.5.9@sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd"
+    },
+    "gotify-sim": {
+      "image_id": "sha256:44951b656cf716e4cba230e825496d13becd64d396b8b6b828a76b2012aea47e",
+      "broncommit": "d7a45caba21b617787f2850875e010ab9fbc1925",
+      "bronstatus": "schoon"
+    },
+    "node-red": {
+      "image_id": "sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f",
+      "referentie": "nodered/node-red:5.0.9-24@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f"
+    }
+  },
   "scenarios": {
+    "EX22": {
+      "bestand": "e2e/integral/scenarios/EX22_hub_offline.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "uptime-kuma",
+        "gotify-sim"
+      ],
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "metingen": {
+        "uitvalmeldingen_vooraf_rechtstreeks": 1,
+        "uitvalmeldingen_vooraf_via_hub": 1,
+        "hub_gestopt_tijdens_uitval": true,
+        "monitor_tijdens_uitval": 0,
+        "uitvalmeldingen_rechtstreeks": 1,
+        "uitvalmeldingen_via_hub": 0,
+        "monitor_voor_tijdens_na": [
+          1,
+          0,
+          1
+        ],
+        "kanaaltest_via_hub_mislukt": true,
+        "kanaaltest_via_hub_zonder_antwoord": true,
+        "schrijfacties": 0
+      }
+    },
     "EX45": {
       "bestand": "e2e/integral/scenarios/EX45_flowprivilege.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "node-red"
+      ],
       "uitkomst": "Sim-geslaagd",
       "pytest_exitcode": 0,
       "metingen": {
@@ -15,6 +88,14 @@
     },
     "EX46": {
       "bestand": "e2e/integral/scenarios/EX46_dubbel_flowevent.py",
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "node-red",
+        "gotify-sim"
+      ],
       "uitkomst": "Sim-geslaagd",
       "pytest_exitcode": 0,
       "metingen": {
@@ -36,13 +117,21 @@
         },
         "schrijfacties": 0
       }
-    },
-    "EX22": {
-      "bestand": "e2e/integral/scenarios/EX22_hub_offline.py",
-      "uitkomst": "Sim-mislukt",
-      "pytest_exitcode": 1,
-      "meetpunt": "De proef brak af bij het inrichten van de Kuma-kanalen. De dienstuitval is in deze run niet gemeten."
     }
   },
-  "broncommit_proef": "468f40eeee2a265034886d0943c25c7641f8d85d"
+  "broncommit_proef": "d7a45caba21b617787f2850875e010ab9fbc1925",
+  "datum": "2026-11-27",
+  "tegenproef_EX22": {
+    "run": "20261127t120534z-ad48325e97",
+    "broncommit_proef": "d7a45caba21b617787f2850875e010ab9fbc1925",
+    "instelling": "INTEGRAAL_KUMA_VIA_HUB=1",
+    "verwachte_exitcode": 1,
+    "pytest_exitcode": 1,
+    "metingen": {
+      "hub_gestopt_tijdens_uitval": true,
+      "monitor_tijdens_uitval": 0,
+      "uitvalmeldingen_rechtstreeks": 0,
+      "uitvalmeldingen_via_hub": 0
+    }
+  }
 }
