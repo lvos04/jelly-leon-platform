@@ -173,7 +173,8 @@ class Project:
         pin = (MAP.parent / "simulators/mso-mocks.commit").read_text().strip()
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR", MAP)) as tmp:
             archief = Path(tmp) / "bron.tar"
-            res = opdracht(["git", "-C", str(context), "archive", "-o", str(archief), f"{pin}:apps/mocks"])
+            # git archive beperkt de boom al tot de huidige submap en haalt haar prefix weg.
+            res = opdracht(["git", "-C", str(context), "archive", "-o", str(archief), pin])
             gecontroleerd(res, "Gepinde testbron van MSO ontbreekt")
             bron = Path(tmp) / "mocks"
             with tarfile.open(archief) as tar:

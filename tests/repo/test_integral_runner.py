@@ -65,6 +65,35 @@ def test_profielen_en_isolatie() -> None:
         assert diensten[n]["image"] == f"{pin['repository']}:{pin['tag']}@{pin['digest']}"
 
 
+def test_mso_bouw_gebruikt_alleen_de_gepinde_mocksubmap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = tmp_path / "bron"
+    mocks = repo / "apps/mocks"
+    mocks.mkdir(parents=True)
+    dockerfile = mocks / "Dockerfile"
+    dockerfile.write_text("gepinde testbron")
+    (repo / "andere-app").write_text("valt buiten de bouwcontext")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "apps/mocks/Dockerfile", "andere-app"], check=True)
+    boom = subprocess.check_output(["git", "-C", str(repo), "write-tree"], text=True).strip()
+    dockerfile.write_text("lokale wijziging")
+    pinmap = tmp_path / "simulators"
+    pinmap.mkdir()
+    (pinmap / "mso-mocks.commit").write_text(boom)
+    monkeypatch.setattr(project, "MAP", tmp_path / "integral")
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    proef = Mock(spec=Project)
+
+    def lees_bouwcontext(*args: str, env: dict[str, str], tijd: int) -> None:
+        bron = Path(env["INTEGRAAL_MSO_MOCKS_BRON"])
+        assert list(bron.iterdir()) == [bron / "Dockerfile"]
+        assert (bron / "Dockerfile").read_text() == "gepinde testbron"
+        assert env["INTEGRAAL_BRONCOMMIT"] == boom
+
+    proef.compose.side_effect = lees_bouwcontext
+    Project.bouw_mso_simulator(proef, "sabnzbd-sim", mocks)
+    proef.compose.assert_called_once()
+
+
 @pytest.mark.parametrize("status", ["Geslaagd", "Gereed", "Niet gestart", "Mislukt", "Geblokkeerd"])
 def test_weigert_eindstatus(status: str) -> None:
     rij = bewijs.voorstel(replace(ROOK, id="EX01"), "Sim-geslaagd", "2026-01-01", "proef.json")
