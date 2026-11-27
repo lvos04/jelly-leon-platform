@@ -6,7 +6,7 @@ import httpx
 
 from e2e.integral.bewijs import schrijf
 from e2e.integral.scenarios.conftest import Kern
-from e2e.integral.scenarios.mso import eerste_start, sab_api, sab_client
+from e2e.integral.scenarios.mso import eerste_start, koppel, sab_api, sab_client
 
 SCENARIO = {
     "groepen": ("media", "mso"), "diensten": ("mso", "sabnzbd-sim"), "eigenaar": "media-source-optimizer",
@@ -25,7 +25,8 @@ def uitval(sab: httpx.Client, naam: str) -> None:
 
 def test_laatste_server(kern: Kern) -> None:
     api = eerste_start(kern, "autopilot")
-    sab = sab_client(kern, api)
+    sab = sab_client(kern)
+    koppel(api, "sabnzbd", sab, {"api_key": sab.params["apikey"]})
     servers = sorted(ingeschakeld(sab))
     labels = {s["name"]: s["displayname"] for s in sab_api(sab, "get_config", section="servers")["config"]["servers"]}
     assert len(servers) == 3

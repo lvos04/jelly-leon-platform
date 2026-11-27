@@ -28,10 +28,9 @@ def koppel(api: httpx.Client, naam: str, sim: httpx.Client, geheim: dict[str, st
     assert antwoord.raise_for_status().json()["enabled"] is True
 
 
-def sab_client(kern: Kern, api: httpx.Client) -> httpx.Client:
+def sab_client(kern: Kern) -> httpx.Client:
     sab = kern.client("sabnzbd-sim", 30217)
     sleutel = sab.get("/_sim/sleutels").raise_for_status().json()["apikey"]
-    koppel(api, "sabnzbd", sab, {"api_key": sleutel})
     sab.params = {"apikey": sleutel, "output": "json"}
     return sab
 

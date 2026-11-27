@@ -164,7 +164,7 @@ services:
     command: [arr, --prowlarr, --host, intern]
   mg-categorie-sim:
     <<: *mso-sim
-    command: [msomocks, mediaguard, --port, "8080"]
+    command: [simkit.mg_categorie, --host, intern]
   my-house:
     profiles: [huis]
     image: jlp-integraal/my-house:${INTEGRAAL_TAG:-lokaal}

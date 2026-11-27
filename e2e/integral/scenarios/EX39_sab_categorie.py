@@ -41,20 +41,17 @@ def wachtrij(sab: httpx.Client) -> dict[str, str]:
 
 def test_wijziging_na_akkoord(kern: Kern) -> None:
     api = eerste_start(kern, "manage")
-    sab = sab_client(kern, api)
+    sab = sab_client(kern)
     mg = kern.client("mg-categorie-sim", 8080)
-    # Gebruik de bestaande alleen-lezen-fixture uit dezelfde gepinde mockimage.
-    sleutel = kern.net.project.compose("exec", "-T", "mg-categorie-sim", "python", "-c",
-                                       "from msomocks.mediaguard import API_KEYS; "
-                                       "print(next(k for k,v in API_KEYS.items() if v[1]=='viewer'))").strip()
-    koppel(api, "mediaguard", mg, {"api_key": sleutel}, auth_method="apikey")
-
     assert sab_api(sab, "del_config", section="categories", keyword=CATEGORIE)["status"] is True
     categorieen = sab_api(sab, "get_config", section="categories")["config"]["categories"]
     assert CATEGORIE not in {c["name"] for c in categorieen}
     eerste = voeg_taak_toe(sab)
     assert wachtrij(sab)[eerste] == "*"
     begin = len(kern.verzoeklog(sab))
+    koppel(api, "sabnzbd", sab, {"api_key": sab.params["apikey"]})
+    leessleutel = mg.get("/_sim/sleutels").raise_for_status().json()["apikey"]
+    koppel(api, "mediaguard", mg, {"api_key": leessleutel}, auth_method="apikey")
 
     diagnose = api.get("usenet/categories/diagnosis", params={"refresh": "true"}).raise_for_status().json()
     assert diagnose["verdict"] == "a" and diagnose["sab"]["queue_star"] >= 1
@@ -76,6 +73,9 @@ def test_wijziging_na_akkoord(kern: Kern) -> None:
     tweede = voeg_taak_toe(sab)
     rij = wachtrij(sab)
     assert eerste != tweede and (rij[eerste], rij[tweede]) == ("*", CATEGORIE)
+    mg_log = kern.verzoeklog(mg)
+    assert mg_log and all(r["methode"] == "GET" for r in mg_log)
     schrijf(kern.net.dossier / "mso.json", {"oorzaak": diagnose["missing"][0]["category"], "instantie": "Anime",
             "zonder_akkoord_http": weigering.status_code, "sab_wijzigingen": acties,
+            "mediaguard_leesverzoeken": len(mg_log), "mediaguard_schrijfacties": 0,
             "eerste_taak": rij[eerste], "volgende_taak": rij[tweede]})
