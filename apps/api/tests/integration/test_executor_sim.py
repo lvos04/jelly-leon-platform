@@ -271,6 +271,9 @@ def test_verwijderen_laat_de_data_staan_en_een_nas_fout_is_geen_succes(op: Opste
     r = op.executor.execute(op.verzoek("app.uninstall", {"app_id": "gotify"}))
     assert (r["status"], r["readback"]["staat"], r["readback"]["etag"]) == ("voltooid", "ABSENT", "absent")
     assert k.DATASET in op.nas.get("/_sim/state").json()["datasets"] and op.nas.get("/_sim/violations").json() == []
+    jobs = op.rpc.call("core.get_jobs", [["method", "=", "app.delete"]])
+    assert [j["arguments"] for j in jobs] == [
+        ["gotify", {"remove_images": False, "remove_ix_volumes": False, "force_remove_ix_volumes": False}]]
     # twee keer dezelfde snapshotnaam: de NAS weigert; dat wordt eerlijk 'mislukt', nooit 'voltooid'
     op.snapshot("dubbel")
     r = op.executor.execute(op.verzoek("zfs.snapshot.create", {"dataset": k.DATASET}, {"naam": "dubbel"}))

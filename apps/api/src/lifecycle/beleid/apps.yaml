@@ -26,6 +26,9 @@ herkenning:
   uptime-kuma: {namen: [uptime-kuma, uptimekuma]}
   gotify: {namen: [gotify]}
   immich: {namen: [immich, immich-server]}
+  prowlarr: {namen: [prowlarr]}
+  sabnzbd: {namen: [sabnzbd]}
+  qbittorrent: {namen: [qbittorrent]}
 kritiek:
   - ai-server-manager
   - ai-server-manager-executor
@@ -35,6 +38,21 @@ kritiek:
   - tailscale
   - cloudflared
 beschermd:
+  - id: APP-PROWLARR
+    app: prowlarr
+    acties: '*'
+    code: appbeheer_bij_eigenaar
+    reden_nl: Prowlarr beheert de indexercatalogus en synchronisatie. De Hub heeft alleen leesrecht.
+  - id: APP-SABNZBD
+    app: sabnzbd
+    acties: '*'
+    code: appbeheer_bij_eigenaar
+    reden_nl: SABnzbd beheert de Usenet-wachtrij. Wijzigingen aan serverprioriteiten lopen via MSO. De Hub heeft alleen leesrecht.
+  - id: APP-QBITTORRENT
+    app: qbittorrent
+    acties: '*'
+    code: appbeheer_bij_eigenaar
+    reden_nl: qBittorrent beheert de torrentwachtrij. Wijzigingen aan snelheidslimieten lopen via MSO. De Hub heeft alleen leesrecht.
   - id: APP-EMBY
     app: emby
     acties: '*'
@@ -42,9 +60,9 @@ beschermd:
     reden_nl: Het platform stopt, updatet of verwijdert Emby nooit (contract §2.3 regel 3); de gebruiker verwijdert Emby zelf na de controlelijst "Emby verwijderen".
   - id: APP-PLATFORM
     app: ai-server-manager
-    acties: [app.stop, app.uninstall, app.rollback]
+    acties: [app.stop, app.update, app.rollback, app.uninstall]
     code: platform_niet_stoppen
-    reden_nl: De Hub stopt of verwijdert zichzelf niet via een actie (lock-out); gebruik de TrueNAS-web-UI.
+    reden_nl: De Hub kan zichzelf via appbeheer niet stoppen, bijwerken, terugzetten of verwijderen.
   - id: APP-EXECUTOR
     app: ai-server-manager-executor
     acties: [app.stop, app.uninstall, app.update, app.rollback]
@@ -52,19 +70,19 @@ beschermd:
     reden_nl: De executor wijzigt, stopt of verwijdert zichzelf niet; gebruik de TrueNAS-web-UI.
   - id: APP-MEDIAGUARD
     app: mediaguard
-    acties: [app.update, app.rollback, app.uninstall]
+    acties: [app.restart, app.stop, app.update, app.rollback, app.uninstall]
     code: mediaguard_upgradebewijs_ontbreekt
-    reden_nl: Geen MediaGuard-update, -terugzetting of -verwijdering via de Hub zonder upgradebewijs op een gevulde database van de vorige versie (contract §2.3 regel 7b; ADR in P3).
+    reden_nl: MediaGuard blijft draaien om de voortgang te bewaren. Een bijwerking vereist een geteste upgrade van de gevulde database van de vorige versie (contract §2.3 regel 7b).
   - id: APP-MEDIASERVER-JL
     app: jelly-leon
-    acties: [app.update, app.rollback, app.uninstall]
+    acties: [app.restart, app.stop, app.update, app.rollback, app.uninstall]
     code: mediaserver_migratie_vraagt_rapport
-    reden_nl: Een update of terugzetting van de mediaserver vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (HARDE EIS, contract §2.3 regel 7a); dat loopt in P4 via jelly-leon-platform.
+    reden_nl: De mediaserver blijft draaien zodat de kijkgeschiedenis beschikbaar blijft. Een update of terugzetting vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (contract §2.3 regel 7a). Deze controle hoort bij de overname in P4.
   - id: APP-MEDIASERVER-JF
     app: jellyfin
-    acties: [app.update, app.rollback, app.uninstall]
+    acties: [app.restart, app.stop, app.update, app.rollback, app.uninstall]
     code: mediaserver_migratie_vraagt_rapport
-    reden_nl: Een update of terugzetting van de mediaserver vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (HARDE EIS, contract §2.3 regel 7a).
+    reden_nl: De mediaserver blijft draaien zodat de kijkgeschiedenis beschikbaar blijft. Een update of terugzetting vraagt eerst een vóór/na-rapport per gebruiker en akkoord op elk verschil (HARDE EIS, contract §2.3 regel 7a).
 sandbox:
   # zfs.snapshot.clone_to_sandbox klont alleen naar <pool>/asm-sandbox/<naam>; de ouderdataset maakt de beheerder.
   dataset_naam: asm-sandbox

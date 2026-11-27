@@ -270,7 +270,8 @@ class ExecutorSim:
             self._job("app.rollback", naam, {"app_version": str(params["catalog_version"]),
                                              "rollback_snapshot": False})
         elif action_id == "app.uninstall":
-            self._job("app.delete", naam, {"remove_ix_volumes": False})
+            self._job("app.delete", naam, {"remove_ix_volumes": False, "force_remove_ix_volumes": False,
+                                          "remove_images": False})
         elif action_id == "zfs.snapshot.create":
             self._call(f"{self._snapshots()}.create", {"dataset": target["dataset"], "name": params["naam"],
                                                        "recursive": bool(params.get("recursief", False))})

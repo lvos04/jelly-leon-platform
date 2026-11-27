@@ -15,7 +15,8 @@ De Hub blijft de eigenaar en weigert zelf ook, ook met goedkeuring.
 
 from __future__ import annotations
 
-import functools
+import hashlib
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,15 +46,20 @@ class Beleid:
     beschermd: tuple[Regel, ...]
 
 
-def _lees(pad: Path) -> Beleid:
+def _lees(pad: Path, *, gepind: bool = False) -> Beleid:
     try:
-        doc = yaml.safe_load(pad.read_text(encoding="utf-8"))
+        inhoud = pad.read_bytes()
+        if gepind:
+            pin = json.loads(pad.with_name("KOPIE.json").read_text(encoding="utf-8"))
+            if hashlib.sha256(inhoud).hexdigest() != pin["sha256"]:
+                raise BeleidFout("apps.yaml wijkt af van het gepinde Hub-beleid")
+        doc = yaml.safe_load(inhoud)
         herkenning = {str(app): tuple(str(n).lower() for n in v["namen"]) for app, v in doc["herkenning"].items()}
         regels = []
         for r in doc["beschermd"]:
             acties = None if r["acties"] == "*" else frozenset(str(a) for a in r["acties"])
             regels.append(Regel(str(r["id"]), str(r["app"]), acties, str(r["code"]), str(r["reden_nl"])))
-    except (OSError, yaml.YAMLError, KeyError, TypeError, AttributeError) as exc:
+    except (OSError, ValueError, yaml.YAMLError, KeyError, TypeError, AttributeError) as exc:
         reden = type(exc).__name__
         raise BeleidFout(f"{pad.name} ontbreekt of heeft niet de vorm van het Hub-beleid ({reden})") from exc
     if not herkenning or not regels or any(not namen for namen in herkenning.values()):
@@ -61,10 +67,9 @@ def _lees(pad: Path) -> Beleid:
     return Beleid(herkenning, tuple(regels))
 
 
-@functools.cache
 def beleid() -> Beleid:
-    """Het Hub-beleid uit de gepinde kopie (één keer gelezen)."""
-    return _lees(BELEID)
+    """Het Hub-beleid uit de gepinde kopie (bij elke aanvraag gecontroleerd)."""
+    return _lees(BELEID, gepind=True)
 
 
 def _basisnamen(images: Iterable[str]) -> list[str]:

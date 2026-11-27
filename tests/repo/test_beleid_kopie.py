@@ -56,6 +56,19 @@ def test_kopie_is_intact_en_de_planner_leest_haar() -> None:
     assert beschermd.herken(beleid, "kijkdoos", ["docker.io/emby/embyserver:4.9@sha256:" + "0" * 64]) == ("emby",)
 
 
+def test_ontbrekende_beschermregel_wordt_ook_na_eerdere_lezing_geweigerd(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pad = tmp_path / "apps.yaml"
+    shutil.copy(bk.KOPIE, pad)
+    shutil.copy(bk.PIN, tmp_path)
+    monkeypatch.setattr(beschermd, "BELEID", pad)
+    for naam in ("prowlarr", "sabnzbd", "qbittorrent"):
+        assert beschermd.regels(beschermd.beleid(), "app.uninstall", naam)
+    pad.write_text(pad.read_text().replace("app: sabnzbd", "app: andere-app"))
+    with pytest.raises(beschermd.BeleidFout):
+        beschermd.beleid()
+
+
 @pytest.mark.parametrize("schade", ["inhoud", "ontbreekt", "pin-commit", "pin-pad", "pin-sha"])
 def test_schade_wordt_gezien(tmp_path: Path, schade: str) -> None:
     kopie = tmp_path / "apps.yaml"
