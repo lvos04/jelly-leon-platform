@@ -316,3 +316,45 @@ def test_vervanging_bewaart_te_ruim_origineel_in_privekopie(
     (kopie,) = tmp_path.glob("hub-link.json.onleesbaar-*")
     assert stat.S_IMODE(kopie.stat().st_mode) == 0o600
     assert kopie.read_bytes() == voor
+
+
+@pytest.mark.parametrize("gedeeld", [False, True])
+def test_herstel_eigen_bestand_zonder_leesrecht(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                gedeeld: bool) -> None:
+    store = HubLinkStore(tmp_path)
+    store.update(linked_doc)
+    voor = store.path.read_bytes()
+    store.path.chmod(0)
+    if gedeeld:
+        os.link(store.path, tmp_path / "tweede-naam")
+    # Ook een testrunner met extra leesrechten oefent het gedrag van de dienstgebruiker.
+    openen = os.open
+
+    def open_als_dienst(pad: Any, flags: int, *args: Any, **kwargs: Any) -> int:
+        if pad == store.path and not flags & os.O_PATH and not store.path.stat().st_mode & stat.S_IRUSR:
+            raise PermissionError
+        return openen(pad, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", open_als_dienst)
+    assert store.read().onleesbaar
+    if gedeeld:
+        with pytest.raises(HubLinkNotSaved):
+            store.update(lambda doc: None, replace_corrupt=True)
+        assert stat.S_IMODE(store.path.stat().st_mode) == 0
+        assert not list(tmp_path.glob("hub-link.json.onleesbaar-*"))
+        store.path.chmod(0o600)
+        assert store.path.read_bytes() == voor
+    else:
+        # Na onderbreking tussen archiveren en vervangen blijft de oude koppeling onbetrouwbaar.
+        def onderbreek(*args: object) -> None:
+            raise OSError("proefonderbreking")
+
+        with monkeypatch.context() as m:
+            m.setattr(os, "replace", onderbreek)
+            with pytest.raises(OSError, match="proefonderbreking"):
+                store.update(lambda doc: None, replace_corrupt=True)
+        assert HubLinkStore(tmp_path).read().onleesbaar
+        vervanging = store.update(lambda doc: None, replace_corrupt=True)
+        assert not vervanging.corrupt and vervanging.doc["unreadable_replaced_at"]
+        (kopie,) = tmp_path.glob("hub-link.json.onleesbaar-*")
+        assert stat.S_IMODE(kopie.stat().st_mode) == 0o600 and kopie.read_bytes() == voor

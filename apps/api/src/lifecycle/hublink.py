@@ -321,7 +321,23 @@ class HubLinkStore:
         self._cache: tuple[tuple[int, ...], Link] | None = None
 
     def read(self) -> Link:
-        return self._load(cache=True)
+        try:
+            with self._mapvergrendeling(fcntl.LOCK_SH):
+                return self._load(cache=True)
+        except FileNotFoundError:
+            return Link()
+        except OSError:
+            return Link(corrupt=True)
+
+    @contextlib.contextmanager
+    def _mapvergrendeling(self, stand: int) -> Iterator[None]:
+        # Lezers zien de koppelstatus vóór of na het archiveren en vervangen.
+        fd = os.open(self.dir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            fcntl.flock(fd, stand)
+            yield
+        finally:
+            os.close(fd)
 
     def _load(self, *, cache: bool = False) -> Link:
         try:
@@ -330,6 +346,8 @@ class HubLinkStore:
                 if not prive_rechten(fd, 0o600, aanscherpen=False):
                     return Link(corrupt=True)
                 st = os.fstat(fd)
+                if self._bestaand_archief(st) is not None:
+                    return Link(corrupt=True)
                 key = (st.st_dev, st.st_ino, st.st_ctime_ns, st.st_mtime_ns, st.st_size)
                 if cache:
                     with self._mutex:
@@ -364,7 +382,7 @@ class HubLinkStore:
         ``unreadable_replaced_at`` wordt gezet. Anders ``HubLinkCorrupt`` (nooit stil terug naar
         ``nooit_gekoppeld``). Zou het nieuwe bestand zelf onleesbaar zijn (rechten), dan ``HubLinkNotSaved`` en blijft
         alles zoals het was (ook een onleesbaar origineel: geen lus van kopieën bij elk nieuw token)."""
-        with self._locked():
+        with self._locked(), self._mapvergrendeling(fcntl.LOCK_EX):
             current = self._load()
             before_replace: Callable[[], None] | None = None
             if current.corrupt:
@@ -387,7 +405,21 @@ class HubLinkStore:
         stamp = now.strftime("%Y%m%dT%H%M%SZ")
         target = self.dir / f"{FILE_NAME}{UNREADABLE_SUFFIX}{stamp}"
         n = 1
-        with os.fdopen(os.open(self.path, LEESVLAGGEN), "rb") as origineel:
+        archief = self._bestaand_archief(self.path.lstat())
+        if archief is not None:
+            self._bewaar_zonder_leesrecht(archief, hervatten=True)
+            return
+        try:
+            bron_fd = os.open(self.path, LEESVLAGGEN)
+        except PermissionError:
+            while True:
+                try:
+                    self._bewaar_zonder_leesrecht(target, hervatten=False)
+                    return
+                except FileExistsError:
+                    target = self.dir / f"{FILE_NAME}{UNREADABLE_SUFFIX}{stamp}-{n}"
+                    n += 1
+        with os.fdopen(bron_fd, "rb") as origineel:
             st = os.fstat(origineel.fileno())
             if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid():
                 raise HubLinkNotSaved("het origineel kan niet veilig worden bewaard")
@@ -408,6 +440,40 @@ class HubLinkStore:
             except BaseException:
                 target.unlink()
                 raise
+
+    def _bestaand_archief(self, st: os.stat_result) -> Path | None:
+        if st.st_nlink > 1:
+            for pad in self.dir.glob(f"{FILE_NAME}{UNREADABLE_SUFFIX}*"):
+                if os.path.samestat(st, pad.lstat()):
+                    return pad
+        return None
+
+    def _bewaar_zonder_leesrecht(self, archief: Path, *, hervatten: bool) -> None:
+        # Leg eerst een tweede naam voor de originele inode duurzaam vast. Zelfs na een procesuitval
+        # blijft een leesbaar geworden origineel daarmee herkenbaar als archief en dus onbetrouwbaar.
+        pin = os.open(self.path, os.O_PATH | os.O_NOFOLLOW)
+        try:
+            st = os.fstat(pin)
+            if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid() or st.st_nlink != (2 if hervatten else 1)
+                    or stat.S_IMODE(st.st_mode) & ~(0o600 if hervatten else 0o200)):
+                raise HubLinkNotSaved("het origineel kan niet veilig worden bewaard")
+            if not hervatten:
+                os.link(self.path, archief, follow_symlinks=False)
+            if not os.path.samestat(st, archief.lstat()):
+                raise HubLinkNotSaved("de reservekopie verwijst niet naar het origineel")
+            map_fd = os.open(self.dir, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(map_fd)
+            finally:
+                os.close(map_fd)
+            os.chmod(f"/proc/self/fd/{pin}", 0o600)
+            with os.fdopen(os.open(archief, LEESVLAGGEN), "rb") as bestand:
+                fd = bestand.fileno()
+                if not os.path.samestat(st, os.fstat(fd)) or not prive_rechten(fd, 0o600, aanscherpen=False):
+                    raise HubLinkNotSaved("de rechten van de reservekopie zijn niet veilig")
+                os.fsync(fd)
+        finally:
+            os.close(pin)
 
     def _write(self, doc: dict[str, Any], before_replace: Callable[[], None] | None = None) -> None:
         """Het tijdelijke bestand moet de leescontrole halen vóór het ``hub-link.json`` vervangt (ACL-dataset)."""
