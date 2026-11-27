@@ -81,8 +81,9 @@ De drie proeven gebruiken de bouwprofielen `kern`, `derden` en `meldingen`. Star
 flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX22,EX45,EX46
 ```
 
-EX22 bewaakt de HTTP-gezondheid van lifecycle met de gepinde Uptime Kuma. De proef schakelt eerst de Hub uit en daarna
-lifecycle. De executor leest de monitor en de berichten van de Gotify-simulator tijdens de storing. Een tweede
+EX22 bewaakt de HTTP-gezondheid van lifecycle met de gepinde Uptime Kuma. De proef pauzeert lifecycle eerst met draaiende
+Hub en herhaalt die onderbreking met volledig gestopte Hub. Tijdens de pauze is de dienst onbereikbaar en houdt de
+container zijn netwerkadres. De executor leest de monitor en de berichten van de Gotify-simulator. Een tweede
 meldkanaal loopt door een tijdelijke doorstuurder in de Hub-container. N-P6-04 toetst de ontvangst op een echte telefoon.
 
 De negatieve proef stuurt ook het eerste opgeslagen meldkanaal via de Hub. Kuma ziet de dienst uitvallen. Beide

@@ -6,6 +6,8 @@ import json
 import os
 import re
 import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import httpx
@@ -13,6 +15,7 @@ import pytest
 
 from e2e.integral.bewijs import schrijf
 from e2e.integral.media import draait, uitval
+from e2e.integral.project import Project
 from e2e.integral.scenarios.conftest import Kern, wacht
 from e2e.integral.scenarios.hubveiligheid import schrijfacties
 from e2e.integral.scenarios.meldingen import FIXTURES, Gotify
@@ -23,6 +26,21 @@ SCENARIO = {
     "toelichting": "N-P6-04: de melding op een echte telefoon ontvangen terwijl de Hub op de NAS uitstaat.",
     "verwachting": "Bij een gestopte Hub meldt Kuma de uitval van een afzonderlijke dienst rechtstreeks aan Gotify.",
 }
+
+
+@contextmanager
+def onderbreek_lifecycle(project: Project) -> Iterator[None]:
+    # De dienst beantwoordt geen verzoeken. Zijn netwerknaam en adres blijven geldig tot na het herstel.
+    onderbreken = os.getenv("INTEGRAAL_ZONDER_STORING") != "1"
+    if onderbreken:
+        project.compose("pause", "lifecycle")
+    try:
+        assert project.compose("ps", "--status", "paused", "--services", "lifecycle").strip() == "lifecycle"
+        yield
+    finally:
+        if onderbreken:
+            project.compose("unpause", "lifecycle")
+            project.controleer_images(("lifecycle",))
 
 
 def test_melding_bij_gestopte_hub(kern: Kern) -> None:
@@ -61,7 +79,7 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
 
     wacht("Kuma meet gezonde proefdienst", lambda: monitorstatus() == 1)
     # Laat beide kanalen dezelfde echte monitorovergang melden vóór het wegnemen van de Hub.
-    with uitval(kern, "lifecycle"):
+    with onderbreek_lifecycle(project):
         wacht("uitval langs beide ingestelde kanalen", lambda: all(uitvalmeldingen(b) for b in ("hub", "uptime-kuma")))
         assert monitorstatus() == 0
     wacht("Kuma meet de dienst weer gezond", lambda: monitorstatus() == 1)
@@ -75,8 +93,7 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
         tijdens = kanalen()
         assert tijdens["direct"] and not tijdens["via_hub"] and tijdens["hub_onbereikbaar"]
 
-        with uitval(kern, "lifecycle"):
-            assert not draait(kern, "lifecycle")
+        with onderbreek_lifecycle(project):
             wacht("Kuma meet uitval", lambda: monitorstatus() == 0)
             try:
                 wacht("rechtstreekse uitvalmelding", lambda: bool(uitvalmeldingen("uptime-kuma") - direct_voor))
