@@ -17,14 +17,25 @@ def test_mislukte_upload_en_herstel(kern: Kern) -> None:
     rij = snapshot(kern)
     assert rij["status"] == "klaar" and rij["risk_class"] == "R1" and rij["blokkades"] == []
 
-    def incidenten() -> list[dict[str, Any]]:
+    def incidenten(status: str = "actief") -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = kern.hub.get("/api/v1/incidents", params={
-            "soort": "backup.extern", "status": "alle"}).raise_for_status().json()["items"]
+            "soort": "backup.extern", "status": status}).raise_for_status().json()["items"]
         return items
 
     assert incidenten() == []
+    schijf.post("/_sim/verouder", json={"uren": 30}).raise_for_status()
+    kopieer_taak(kern, schijf)
+    assert kern.hub.get("/api/v1/backups/extern").raise_for_status().json()["status"] == "verouderd"
+    assert gate(kern, "r2_r3_acties")["toegestaan"] is False
+    wacht("incident over de oude export", lambda: len(incidenten()) == 1)
+    vers = schijf.post("/_sim/backup", json={"bestanden": BESTANDEN}).raise_for_status().json()
+    assert vers["job"]["state"] == "SUCCESS"
+    kopieer_taak(kern, schijf)
+    wacht("verse export en gesloten incident", lambda: not incidenten() and gate(kern, "r2_r3_acties")["toegestaan"])
+
     kern.simulatorfout(schijf, "doel_vol")
-    nieuw = {**BESTANDEN, "export.sql": "tweede proefexport"}
+    nieuw = {**BESTANDEN, "export.sql": EXPORT.replace("VALUES (42)", "VALUES (87)")}
+    assert nieuw["export.sql"] != EXPORT
     mis = schijf.post("/_sim/backup", json={"bestanden": nieuw}).raise_for_status().json()
     assert mis["job"]["state"] == "FAILED"
     assert schijf.get("/herstel/export.sql").raise_for_status().json()["inhoud"] == EXPORT
@@ -43,13 +54,9 @@ def test_mislukte_upload_en_herstel(kern: Kern) -> None:
     goed = schijf.post("/_sim/backup", json={"bestanden": nieuw}).raise_for_status().json()
     assert goed["job"]["state"] == "SUCCESS"
     kopieer_taak(kern, schijf)
-    wacht("hetzelfde incident opgelost", lambda: [(i["id"], i["status"]) for i in incidenten()]
-          == [(inc["id"], "opgelost")])
+    wacht("hetzelfde incident opgelost", lambda: not incidenten()
+          and any(i["id"] == inc["id"] and i["status"] == "opgelost" for i in incidenten("alle")))
     assert schijf.get("/herstel/export.sql").raise_for_status().json()["inhoud"] == nieuw["export.sql"]
     assert gate(kern, "r2_r3_acties")["toegestaan"] and schrijfacties(kern) == []
-    schijf.post("/_sim/verouder", json={"uren": 30}).raise_for_status()
-    kopieer_taak(kern, schijf)
-    assert kern.hub.get("/api/v1/backups/extern").raise_for_status().json()["status"] == "verouderd"
-    assert gate(kern, "r2_r3_acties")["toegestaan"] is False
     meet(kern, kritiek_incident=1, geweigerd_http=weigering.status_code, vorige_export_behouden=True,
          na_herstel_gate_open=True, verouderd_na_uren=30, schrijfacties=0)
