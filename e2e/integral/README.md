@@ -87,7 +87,12 @@ Vergelijk een bewaarde run vanuit de repomap met de vijf ingecheckte bewijsrijen
 De integrale kijkvergelijking gebruikt `Played`, `PlaybackPositionTicks` en `IsFavorite`. De afzonderlijke
 MediaGuard-componentproef `test_jellyfin_av1_vervanging_met_kijkgegevens[zelfde-pad]` vergelijkt voor twee
 kijkers ook `Rating`, `AudioStreamIndex` en `SubtitleStreamIndex`. De werkerproef met twee importmeldingen
-controleert twee importtaken en twee bestandsidentiteiten. De fysieke bestandscontrole staat in de hashes van EX05.
+controleert twee importtaken en twee bestandsidentiteiten. Start deze proef met de Python-omgeving uit de
+lokale MediaGuard-kloon en een eigen tijdelijke map. De fysieke bestandscontrole staat in de hashes van EX05.
+
+```bash
+"$MGU_BRON/.venv/bin/python" e2e/integral/mediafixtures/importtaken.py
+```
 
 ### Node-RED en meldingen
 
