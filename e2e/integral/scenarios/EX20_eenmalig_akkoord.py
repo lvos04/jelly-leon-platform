@@ -31,6 +31,10 @@ def test_eenmalig_akkoord_en_twee_geldige_akkoorden(kern: Kern) -> None:
     # Het contract beantwoordt een exacte transportherhaling uit de idempotentiecache.
     assert bezorgingen(kern) == [[200, 200]]
     assert schrijfacties(kern) == ["app.redeploy"]
+    # Een nieuwe uitvoering van dit al uitgevoerde voorstel moet vóór de executor stoppen.
+    weigering = uitvoeren(kern, eerste, geweigerd=True)
+    assert weigering["code"] == "status_past_niet"
+    assert bezorgingen(kern) == [[200, 200]] and schrijfacties(kern) == ["app.redeploy"]
     tweede = akkoord(kern, stel_voor(kern, APP_B))
     assert tweede["goedkeuring"]["approval_id"] != eerste["goedkeuring"]["approval_id"]
     uitvoeren(kern, tweede)
@@ -38,4 +42,4 @@ def test_eenmalig_akkoord_en_twee_geldige_akkoorden(kern: Kern) -> None:
     mutaties = schrijfacties(kern)
     assert afleveringen == [[200, 200], [200]] and mutaties == ["app.redeploy", "app.redeploy"]
     meet(kern, afleveringen_eerste_akkoord=len(afleveringen[0]), mutaties_eerste_akkoord=1,
-         onafhankelijke_akkoorden=2, mutaties_totaal=len(mutaties))
+         nieuw_uitvoerverzoek_geweigerd_http=409, onafhankelijke_akkoorden=2, mutaties_totaal=len(mutaties))
