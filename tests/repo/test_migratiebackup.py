@@ -83,8 +83,8 @@ def test_gewijzigd_archief_stopt_voor_databasebewerkingen(tmp_path, fase):
     assert list(tmp_path.iterdir()) == [archief]
 
 
-@pytest.mark.parametrize(("objecten", "dumps"), [("t", 1), ("f", 0)])
-def test_alleen_bewezen_lege_database_mag_zonder_dump_starten(tmp_path, monkeypatch, objecten, dumps):
+@pytest.mark.parametrize(("net_aangemaakt", "dumps"), [(False, 1), (True, 0)])
+def test_alleen_een_nieuwe_database_mag_zonder_revisie_en_dump_starten(tmp_path, monkeypatch, net_aangemaakt, dumps):
     opdrachten = []
 
     def run(naam, cmd, capture=False):
@@ -93,11 +93,23 @@ def test_alleen_bewezen_lege_database_mag_zonder_dump_starten(tmp_path, monkeypa
             return CompletedProcess(cmd, 10, '{"current":null,"head":"0003"}', "")
         if cmd[0] == "pg_dump":
             Path(cmd[cmd.index("-f") + 1]).write_bytes(b"testarchief")
-        uitvoer = objecten if naam == "bestaande databaseobjecten" else "1024"
-        return CompletedProcess(cmd, 0, uitvoer, "")
+        return CompletedProcess(cmd, 0, "1024", "")
 
     monkeypatch.setattr(supervisor, "BACKUPS", tmp_path)
     monkeypatch.setattr(supervisor, "run_once", run)
-    supervisor.backup_before_migrations()
+    supervisor.backup_before_migrations(net_aangemaakt=net_aangemaakt)
     assert opdrachten.count("pg_dump") == opdrachten.count("pg_restore") == dumps
     assert len(list(tmp_path.glob("*.dump"))) == dumps
+
+
+@pytest.mark.parametrize(("bestond", "aangemaakt"), [(True, False), (False, True)])
+def test_bewaker_onderscheidt_eerste_start_van_bestaande_database(monkeypatch, bestond, aangemaakt):
+    aangeroepen = []
+
+    def run(naam, cmd, capture=False):
+        aangeroepen.append(naam)
+        return CompletedProcess(cmd, 0, "1" if naam == "controle database" and bestond else "", "")
+
+    monkeypatch.setattr(supervisor, "run_once", run)
+    assert supervisor.wait_for_db(Mock()) is aangemaakt
+    assert ("createdb" in aangeroepen) is aangemaakt

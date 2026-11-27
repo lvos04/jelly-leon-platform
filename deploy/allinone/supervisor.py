@@ -276,11 +276,12 @@ def postgres_child() -> Child:
     )
 
 
-def wait_for_db(pg: Child, timeout: float = 90) -> None:
+def wait_for_db(pg: Child, timeout: float = 90) -> bool:
+    """Wacht op PostgreSQL en meld of deze start de lege lifecycle-database zelf heeft aangemaakt."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if STOP.is_set():
-            return
+            return False
         if not pg.alive():
             fail("database stopte tijdens het opstarten (zie log hierboven)")
         if run_once("pg_isready", ["pg_isready", "-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "postgres", "-q"],
@@ -295,14 +296,19 @@ def wait_for_db(pg: Child, timeout: float = 90) -> None:
          "SELECT 1 FROM pg_database WHERE datname='lifecycle'"],
         capture=True,
     )
-    if exists.stdout.strip() != "1" and run_once(
+    if exists.returncode:
+        fail("bestaan van de lifecycle-database kon niet worden vastgesteld")
+    if exists.stdout.strip() == "1":
+        return False
+    if run_once(
         "createdb", ["psql", "-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "postgres", "-qc",
                      "CREATE DATABASE lifecycle"]
     ).returncode != 0:
         fail("database 'lifecycle' aanmaken mislukt")
+    return True
 
 
-def backup_before_migrations() -> None:
+def backup_before_migrations(*, net_aangemaakt: bool = False) -> None:
     """Geef de migratie van een bestaande database pas vrij na een volledig leesbare dump."""
     pending = run_once("openstaande migraties", [sys.executable, "-m", "lifecycle", "pending"], capture=True)
     if pending.returncode not in (0, 10):
@@ -316,20 +322,11 @@ def backup_before_migrations() -> None:
             (not isinstance(current, str) or not re.fullmatch(r"[a-zA-Z0-9_-]+", current)))
             or (current == head) != (pending.returncode == 0)):
         raise RuntimeError("ongeldige migratiestatus")
-    if current == head:
+    if current == head or (current is None and net_aangemaakt):
         return
 
+    # Ook een bestaande database zonder Alembic-revisie kan gegevens bevatten.
     verbinding = ["-h", str(SOCKET_DIR), "-U", "lifecycle", "-d", "lifecycle"]
-    if current is None:
-        # Een ontbrekende Alembic-revisie bewijst op zichzelf niet dat de database leeg is.
-        tabellen = run_once("bestaande databaseobjecten", ["psql", *verbinding, "-XAtc",
-            "SELECT EXISTS (SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
-            "WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema')"], capture=True)
-        if tabellen.returncode or tabellen.stdout.strip() not in {"t", "f"}:
-            raise RuntimeError("inhoud van de database kon niet worden vastgesteld")
-        if tabellen.stdout.strip() == "f":
-            return
-
     db_size = run_once("databasegrootte", ["psql", *verbinding, "-XAtc", "SELECT pg_database_size('lifecycle')"],
                        capture=True)
     if db_size.returncode or not db_size.stdout.strip().isdecimal():
@@ -373,13 +370,13 @@ def main() -> None:
     init_database()
     pg = postgres_child()
     pg.start()
-    wait_for_db(pg)
+    net_aangemaakt = wait_for_db(pg)
     if STOP.is_set():
         pg.stop(60)
         log("gestopt tijdens het opstarten")
         return
     try:
-        backup_before_migrations()
+        backup_before_migrations(net_aangemaakt=net_aangemaakt)
     except (OSError, RuntimeError) as exc:
         pg.stop(60)
         fail(f"upgrade gestopt vóór migratie: {exc}. Controleer de back-upmap en start de app opnieuw.")
