@@ -2,7 +2,7 @@
 const fs = require("node:fs");
 const { io } = require("socket.io-client");
 const invoer = JSON.parse(fs.readFileSync(0, "utf8"));
-const socket = io("http://localhost:3001", { reconnection: false, transports: ["websocket"] });
+const socket = io("http://localhost:3001", { autoConnect: false, reconnection: false, transports: ["websocket"] });
 
 function vraag(naam, ...args) {
     return socket.timeout(15000).emitWithAck(naam, ...args);
@@ -19,7 +19,8 @@ function kanaal(naam, url, token) {
 }
 
 async function proef() {
-    await new Promise((klaar, fout) => socket.once("connect", klaar).once("connect_error", fout));
+    // Kuma meldt de aanmeldplicht pas nadat alle API-aanroepen op de server zijn geregistreerd.
+    await new Promise((klaar, fout) => socket.once("loginRequired", klaar).once("connect_error", fout).connect());
     if (invoer.inrichten) await vereist("setup", "proefbeheer", invoer.wachtwoord);
     await vereist("login", { username: "proefbeheer", password: invoer.wachtwoord });
     const direct = kanaal("Rechtstreeks", "http://gotify-sim:30215", invoer.direct);
@@ -29,7 +30,8 @@ async function proef() {
     const uit = { direct: a.ok === true, via_hub: b.ok === true,
         hub_onbereikbaar: !b.ok && /ENOTFOUND|ECONNREFUSED|EAI_AGAIN|EHOSTUNREACH|ETIMEDOUT/.test(b.msg || "") };
     if (invoer.inrichten) {
-        const eerste = await vereist("addNotification", direct, null);
+        const opgeslagen = invoer.omweg ? { ...direct, gotifyserverurl: via.gotifyserverurl } : direct;
+        const eerste = await vereist("addNotification", opgeslagen, null);
         const tweede = await vereist("addNotification", via, null);
         const monitor = await vereist("add", {
             type: "http", name: "Proefdienst", url: "http://lifecycle:30440/healthz", method: "GET",

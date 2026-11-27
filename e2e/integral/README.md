@@ -70,6 +70,13 @@ EX22 bewaakt de HTTP-gezondheid van lifecycle met de gepinde Uptime Kuma. De pro
 lifecycle. De executor leest de monitor en de berichten van de Gotify-simulator tijdens de storing. Een tweede
 meldkanaal loopt door een tijdelijke doorstuurder in de Hub-container. N-P6-04 toetst de ontvangst op een echte telefoon.
 
+De negatieve proef stuurt ook het eerste opgeslagen meldkanaal via de Hub. Kuma ziet de dienst uitvallen. Beide
+Gotify-kanalen ontvangen dan nul nieuwe uitvalmeldingen. EX22 geeft exitcode 1 en bewaart de tellingen in `metingen.json`.
+
+```bash
+INTEGRAAL_KUMA_VIA_HUB=1 flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX22
+```
+
 In EX45 en EX46 verstuurt de officiële Node-RED-image een actieaanvraag via HTTP. Een testontvanger op loopback en een
 nagebootste outbox van home-control-hub bezorgen die aanvraag aan de Hub. Alleen de outbox krijgt een eigen
 diensttoken. EX45 controleert de weigering in het auditspoor. EX46 telt uitgevoerde acties en afzonderlijk ontvangen

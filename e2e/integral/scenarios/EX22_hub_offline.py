@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 from typing import Any
@@ -36,7 +37,7 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
     wachtwoord = secrets.token_urlsafe(24)
 
     def kanalen(inrichten: bool = False) -> dict[str, Any]:
-        invoer = {"inrichten": inrichten, "wachtwoord": wachtwoord,
+        invoer = {"inrichten": inrichten, "omweg": os.getenv("INTEGRAAL_KUMA_VIA_HUB") == "1", "wachtwoord": wachtwoord,
                   "direct": gotify.applicaties["uptime-kuma"], "via": gotify.applicaties["hub"]}
         raw = project.compose("exec", "-T", "uptime-kuma", "node", "-e", (FIXTURES / "kuma.cjs").read_text(),
                               invoer=json.dumps(invoer), tijd=65)
@@ -77,17 +78,22 @@ def test_melding_bij_gestopte_hub(kern: Kern) -> None:
         with uitval(kern, "lifecycle"):
             assert not draait(kern, "lifecycle")
             wacht("Kuma meet uitval", lambda: monitorstatus() == 0)
-            wacht("rechtstreekse uitvalmelding", lambda: bool(uitvalmeldingen("uptime-kuma") - direct_voor))
-            rechtstreeks = len(uitvalmeldingen("uptime-kuma") - direct_voor)
-            omweg = len(uitvalmeldingen("hub") - omweg_voor)
-            assert rechtstreeks == 1 and omweg == 0 and not draait(kern, "hub")
+            try:
+                wacht("rechtstreekse uitvalmelding", lambda: bool(uitvalmeldingen("uptime-kuma") - direct_voor))
+            finally:
+                rechtstreeks = len(uitvalmeldingen("uptime-kuma") - direct_voor)
+                omweg = len(uitvalmeldingen("hub") - omweg_voor)
+                storing = {"hub_gestopt_tijdens_uitval": not draait(kern, "hub"),
+                           "monitor_tijdens_uitval": monitorstatus(),
+                           "uitvalmeldingen_rechtstreeks": rechtstreeks, "uitvalmeldingen_via_hub": omweg}
+                schrijf(kern.net.dossier / "metingen.json", storing)
+            assert rechtstreeks == 1 and omweg == 0 and storing["hub_gestopt_tijdens_uitval"]
         wacht("Kuma meet herstelde proefdienst", lambda: monitorstatus() == 1)
     wacht("Hub na herstel", lambda: kern.hub.get("/readyz").json().get("status") == "ready")
     mutaties = schrijfacties(kern)
     assert mutaties == []
     schrijf(kern.net.dossier / "metingen.json", {
         "uitvalmeldingen_vooraf_rechtstreeks": len(direct_voor), "uitvalmeldingen_vooraf_via_hub": len(omweg_voor),
-        "hub_gestopt_tijdens_uitval": True, "monitor_voor_tijdens_na": [1, 0, 1],
-        "uitvalmeldingen_rechtstreeks": rechtstreeks, "uitvalmeldingen_via_hub": omweg,
+        **storing, "monitor_voor_tijdens_na": [1, 0, 1],
         "kanaaltest_via_hub_mislukt": tijdens["hub_onbereikbaar"], "schrijfacties": len(mutaties),
     })
