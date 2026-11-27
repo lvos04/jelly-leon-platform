@@ -16,13 +16,15 @@ def met_testbediening(
     sleutels: Callable[[], dict[str, str]],
     routes: Callable[[FastAPI], None] | None = None,
     beschrijf: Callable[[Request], Awaitable[dict[str, str]]] | None = None,
+    *, opties: dict[str, str] | None = None,
 ) -> FastAPI:
     factory = import_module(f"msomocks.{naam}").create_app
     app = FastAPI(title=f"Testbediening {naam}", docs_url=None, redoc_url=None, openapi_url=None)
 
     def reset() -> None:
         waarden = sleutels()
-        app.state.bron = factory(**{("api_key" if k == "apikey" else k): v for k, v in waarden.items()})
+        instellingen = {("api_key" if k == "apikey" else k): v for k, v in waarden.items()}
+        app.state.bron = factory(**instellingen, **(opties or {}))
         app.state.sleutels = waarden
 
     reset()

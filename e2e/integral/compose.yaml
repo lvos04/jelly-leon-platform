@@ -12,6 +12,16 @@ x-derden: &derden
     <<: *bouw
     context: ../..
     dockerfile: e2e/integral/Dockerfile.simulators
+x-mso-sim: &mso-sim
+  profiles: [mso]
+  image: jlp-integraal/mso-simulators:${INTEGRAAL_TAG:-lokaal}
+  build:
+    <<: *bouw
+    context: ${INTEGRAAL_MSO_MOCKS_BRON:-${INTEGRAAL_BRONMAP:-../../..}/media-source-optimizer/apps/mocks}
+  environment:
+    PYTHONPATH: /sim:/opt/mocks
+  volumes: [../simulators:/sim:ro]
+  entrypoint: [python, -m]
 # De inhoudsproeven gebruiken de productiekern en de herstelwerker met dezelfde testbibliotheek.
 x-mg-inhoud: &mg-inhoud
   profiles: [media-inhoud]
@@ -132,7 +142,7 @@ services:
     cpus: 2
     volumes: [inhoud-media:/media]
   mso:
-    profiles: [media]
+    profiles: [media, mso]
     image: jlp-integraal/mso:${INTEGRAAL_TAG:-lokaal}
     build:
       <<: *bouw
@@ -140,6 +150,21 @@ services:
       dockerfile: deploy/allinone/Dockerfile
     ports: ["127.0.0.1:${INTEGRAAL_MSO_POORT:-38081}:38081"]
     volumes: [mso:/appdata]
+  sabnzbd-sim:
+    <<: *mso-sim
+    command: [sabnzbd, --host, intern]
+  qbittorrent-sim:
+    <<: *mso-sim
+    command: [qbittorrent, --host, intern]
+  qbittorrent-publiek:
+    <<: *mso-sim
+    command: [qbittorrent, --host, intern, --leeg]
+  prowlarr-sim:
+    <<: *mso-sim
+    command: [arr, --prowlarr, --host, intern]
+  mg-categorie-sim:
+    <<: *mso-sim
+    command: [msomocks, mediaguard, --port, "8080"]
   my-house:
     profiles: [huis]
     image: jlp-integraal/my-house:${INTEGRAAL_TAG:-lokaal}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from typing import Literal
 from urllib.parse import parse_qsl
 
 from fastapi import FastAPI, HTTPException, Request
@@ -17,6 +18,7 @@ class Serveruitval(BaseModel):
     model_config = ConfigDict(extra="forbid")
     server: str
     uitgevallen: StrictBool
+    reden: Literal["aanmelding", "verlopen"] = "aanmelding"
 
 
 async def handeling(request: Request) -> dict[str, str]:
@@ -46,7 +48,8 @@ def serverbediening(app: FastAPI) -> None:
             if not any(s["name"] == body.server for s in sab.servers):
                 raise HTTPException(404, "Onbekende testserver")
             if body.uitgevallen:
-                sab.set_server_error(body.server, f"Server {body.server} reported: 502 Authentication Failed")
+                melding = "482 Account expired" if body.reden == "verlopen" else "502 Authentication Failed"
+                sab.set_server_error(body.server, f"Server {body.server} reported: {melding}")
                 sab.server_inactive.add(body.server)
             else:
                 sab.fix_account(body.server)

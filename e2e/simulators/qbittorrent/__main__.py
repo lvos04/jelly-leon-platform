@@ -8,8 +8,10 @@ from . import create_app
 
 
 def main() -> None:
-    args = basis_args("qBittorrent-simulator", 30218, alleen_testnet=True).parse_args()
-    serve(create_app(), args.host, args.port, args.ssl_certfile, args.ssl_keyfile)
+    parser = basis_args("qBittorrent-simulator", 30218, alleen_testnet=True)
+    parser.add_argument("--leeg", action="store_true", help="Begin zonder torrents voor de publieke controle")
+    args = parser.parse_args()
+    serve(create_app(leeg=args.leeg), args.host, args.port, args.ssl_certfile, args.ssl_keyfile)
 
 
 if __name__ == "__main__":

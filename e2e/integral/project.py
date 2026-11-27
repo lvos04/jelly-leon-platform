@@ -9,6 +9,7 @@ import os
 import re
 import socket
 import subprocess
+import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ MAP = Path(__file__).resolve().parent
 ROOT = MAP.parents[1]
 KERN = ("hub", "executor", "truenas", "lifecycle")
 BRONLABEL = "nl.jelly-leon.broncommit"
+MSO_SIMULATORS = {"sabnzbd-sim", "qbittorrent-sim", "qbittorrent-publiek", "prowlarr-sim", "mg-categorie-sim"}
 
 
 class Proeffout(RuntimeError):
@@ -158,11 +160,26 @@ class Project:
             if naam == "mediaguard":
                 env.update(self.mediaguard(context.parents[1]))
             try:
-                self.compose("build", naam, env=env, tijd=7200)
+                if naam in MSO_SIMULATORS:
+                    self.bouw_mso_simulator(naam, context)
+                else:
+                    self.compose("build", naam, env=env, tijd=7200)
             except Proeffout as fout:
                 raise Proeffout(f"Bouw van {naam} mislukt (exit {fout.code})", fout.code) from None
             gebouwd.add(dienst["image"])
             print(f"{naam} {self.images((naam,))[naam]['image_id']}", flush=True)
+
+    def bouw_mso_simulator(self, naam: str, context: Path) -> None:
+        pin = (MAP.parent / "simulators/mso-mocks.commit").read_text().strip()
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR", MAP)) as tmp:
+            archief = Path(tmp) / "bron.tar"
+            res = opdracht(["git", "-C", str(context), "archive", "-o", str(archief), f"{pin}:apps/mocks"])
+            gecontroleerd(res, "Gepinde testbron van MSO ontbreekt")
+            bron = Path(tmp) / "mocks"
+            with tarfile.open(archief) as tar:
+                tar.extractall(bron, filter="data")
+            self.compose("build", naam, tijd=7200, env={"INTEGRAAL_MSO_MOCKS_BRON": str(bron),
+                         "INTEGRAAL_BRONCOMMIT": pin, "INTEGRAAL_BRONSTATUS": "schoon"})
 
     def publieke_image(self, naam: str, dienst: dict[str, Any]) -> None:
         # Alleen de drie publieke, op digest gepinde meldimages zijn extern. Anonieme aanvraag.
