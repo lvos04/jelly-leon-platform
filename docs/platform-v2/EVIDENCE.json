@@ -1380,6 +1380,36 @@
   "opmerking": "Beide planpreviews gaven met een geldig beheerdersbewijs HTTP 501 capability_unavailable (P2). De twee simulatoren behielden hun gegevens. Bouw het verhuisplan voor Hub, my_house en aanmelding en toets daarna de koppelingen op de tweede simulator en op een echte tweede host (N-P6-14)."
  },
  {
+  "id": "EX11",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX11_pool_gedegradeerd.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX11)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De executor weigerde de eerder voorgestelde snapshot na zijn poolmeting. De Hub weigerde daarna de datasetmutatie en de mediapurge. Het simulatorlog bevatte geen schrijfacties."
+ },
+ {
+  "id": "EX12",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX12_backup_verouderd.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX12)",
+  "status": "Bezig",
+  "validatie": "Sim-mislukt",
+  "blokkade": "",
+  "opmerking": "De mislukte upload liet de vorige export leesbaar. De Hub opende een kritiek incident en weigerde de actie met HTTP 409. De herstelupload mislukte doordat de ingestelde quotastoring nog actief was. De aangepaste herstelproef wacht op een nieuwe ketenmeting."
+ },
+ {
+  "id": "EX14",
+  "repo": "jelly-leon-platform",
+  "bijgewerkt": "2026-11-27",
+  "bewijs": "e2e/integral/scenarios/EX14_snapshot_naar_zandbak.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX14)",
+  "status": "Bezig",
+  "validatie": "Sim-geslaagd",
+  "blokkade": "",
+  "opmerking": "De executor maakte één snapshot en één zandbakkloon van de appconfiguratie. De kloon bevatte de oude instelling, de brondataset de nieuwe. De bijgewerkte kijkpositie en MediaGuard-taak bleven leesbaar en de gesimuleerde Emby-app meldde RUNNING."
+ },
+ {
   "id": "EX16",
   "status": "Bezig",
   "validatie": "Sim-geslaagd; NIET GEVALIDEERD (echte NAS)",

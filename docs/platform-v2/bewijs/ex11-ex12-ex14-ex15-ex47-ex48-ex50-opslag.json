@@ -1,32 +1,38 @@
 {
-  "run": "20261127t065010z-e17020d32d",
+  "run": "20261127t095856z-ac204b7ac0",
   "eigenaar": "jelly-leon-platform",
   "datum": "2026-11-27",
-  "broncommit_proef": "4b6717ab6b65f5c069d5c962f800c9da3cbb6899",
+  "broncommit_proef": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
   "images": {
     "hub": {
-      "image_id": "sha256:bca6bed9b69fb1241bf18d0afa2190de2a026965147883c9f249470de32961d0",
+      "image_id": "sha256:3e9c4ef81e2de255d13550f11454851dd72c0d7e23ce3261b8babc0ece65b75e",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/hub@sha256:bca6bed9b69fb1241bf18d0afa2190de2a026965147883c9f249470de32961d0"
+      "digest": "jlp-integraal/hub@sha256:3e9c4ef81e2de255d13550f11454851dd72c0d7e23ce3261b8babc0ece65b75e"
     },
     "executor": {
-      "image_id": "sha256:65b81e5e1f1c04ff47cf205ebbda8f37e5387a1be70282298e270c08172ca8cd",
+      "image_id": "sha256:84f7460304de841b72d5fdc4f97c8cd1ab01e0f34bf3a0f09c1ed918e54ad0f5",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/executor@sha256:65b81e5e1f1c04ff47cf205ebbda8f37e5387a1be70282298e270c08172ca8cd"
+      "digest": "jlp-integraal/executor@sha256:84f7460304de841b72d5fdc4f97c8cd1ab01e0f34bf3a0f09c1ed918e54ad0f5"
     },
     "truenas": {
-      "image_id": "sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531",
-      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "image_id": "sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531"
+      "digest": "jlp-integraal/truenas@sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b"
     },
     "lifecycle": {
-      "image_id": "sha256:3e83d3fded71534a1f911cdeaecd10d65f8676bbf2284b345ba4548f3fff8cf9",
-      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "image_id": "sha256:ee4bd55edd6aa8fe8ab273c435e70cffe37958e25c94b4a55e80d7499ee49855",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/lifecycle@sha256:3e83d3fded71534a1f911cdeaecd10d65f8676bbf2284b345ba4548f3fff8cf9"
+      "digest": "jlp-integraal/lifecycle@sha256:ee4bd55edd6aa8fe8ab273c435e70cffe37958e25c94b4a55e80d7499ee49855"
+    },
+    "onedrive": {
+      "image_id": "sha256:b8451d541a181c691773e15320bccdfd4b7c6ca826dcc67bfe6832ebcdb72c24",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "bronstatus": "schoon",
+      "digest": "jlp-integraal/simulators@sha256:b8451d541a181c691773e15320bccdfd4b7c6ca826dcc67bfe6832ebcdb72c24"
     },
     "schema-release": {
       "image_id": "sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca",
@@ -34,10 +40,10 @@
       "digest": "ghcr.io/lvos04/jelly-leon-platform@sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca"
     },
     "schema-nieuw": {
-      "image_id": "sha256:577b4a908e5e3337fff8a15abf27614d672019c4ea8852e6d7cd41c088d8512f",
-      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "image_id": "sha256:fc3402570fb0589d4160d80e2c59243b5ec9d5769702b5b6bbd402e47745c475",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/schema-nieuw@sha256:577b4a908e5e3337fff8a15abf27614d672019c4ea8852e6d7cd41c088d8512f"
+      "digest": "jlp-integraal/schema-nieuw@sha256:fc3402570fb0589d4160d80e2c59243b5ec9d5769702b5b6bbd402e47745c475"
     },
     "appstore": {
       "image_id": "sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353",
@@ -46,19 +52,77 @@
       "digest": "jlp-integraal/appstore@sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353"
     },
     "upstream-git": {
-      "image_id": "sha256:98adc04e7786232a6a114adc41631d381577bd297bf72d59ea5ede2b53197a2b",
-      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "image_id": "sha256:d6752f2528be7c7873eec2af12c93ab405463972edff947a265831621fbb7985",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/upstream-git@sha256:98adc04e7786232a6a114adc41631d381577bd297bf72d59ea5ede2b53197a2b"
+      "digest": "jlp-integraal/upstream-git@sha256:d6752f2528be7c7873eec2af12c93ab405463972edff947a265831621fbb7985"
     },
     "truenas-twee": {
-      "image_id": "sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531",
-      "broncommit": "144fa8f5b585ae25f8f8b3e60cd2e8094ccdd879",
+      "image_id": "sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b",
+      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:bffcf9c77fb0fc076f1e039706737fadbd3428b481c0e0bc2c24801d6fd6e531"
+      "digest": "jlp-integraal/truenas@sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b"
     }
   },
   "scenario's": [
+    {
+      "id": "EX11",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "onedrive"
+      ],
+      "metingen": {
+        "executor_http": 409,
+        "hub_http": 409,
+        "mediapurge_http": 403,
+        "schrijfacties": 0
+      }
+    },
+    {
+      "id": "EX12",
+      "uitkomst": "Sim-mislukt",
+      "pytest_exitcode": 1,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "onedrive"
+      ],
+      "metingen": {
+        "geweigerd_http": 409,
+        "herstelupload_bevestigd": false
+      }
+    },
+    {
+      "id": "EX14",
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
+      "overslagreden": null,
+      "diensten": [
+        "hub",
+        "executor",
+        "truenas",
+        "lifecycle",
+        "onedrive"
+      ],
+      "metingen": {
+        "kloon_op_bron_geweigerd_http": 422,
+        "oude_config_in_kloon": true,
+        "brondata_behouden": true,
+        "kijkpositie": 87,
+        "mediaguard_taak": 12,
+        "emby_sim_draait": true,
+        "schrijfacties": 2
+      }
+    },
     {
       "id": "EX15",
       "uitkomst": "Sim-geslaagd",
