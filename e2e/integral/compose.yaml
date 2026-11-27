@@ -210,6 +210,41 @@ services:
       dockerfile: deploy/allinone/Dockerfile
     ports: ["127.0.0.1:${INTEGRAAL_APPSTORE_POORT:-30430}:30430"]
     volumes: [appstore:/appdata]
+    environment:
+      HUB_URL: http://hub:30400
+      HUB_ENROLLMENT_TOKEN: ${INTEGRAAL_APPSTORE_ENROLLMENT:-}
+      HUB_KEY_FINGERPRINT: ${INTEGRAAL_APPSTORE_AFDRUK:-}
+  schema-release:
+    profiles: [schema]
+    image: ghcr.io/lvos04/jelly-leon-platform:0.1.0@sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca
+    volumes: [schemaproef:/appdata]
+  schema-nieuw:
+    profiles: [schema]
+    image: jlp-integraal/schema-nieuw:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ../..
+      dockerfile: e2e/integral/Dockerfile.schema
+      additional_contexts:
+        lifecycle_basis: docker-image://jlp-integraal/lifecycle:${INTEGRAAL_TAG:-lokaal}
+    volumes: [schemaproef:/appdata]
+  upstream-git:
+    profiles: [upstream-git]
+    image: jlp-integraal/upstream-git:${INTEGRAAL_TAG:-lokaal}
+    build:
+      <<: *bouw
+      context: ../..
+      dockerfile: e2e/integral/Dockerfile.upstream
+    read_only: true
+    environment:
+      GIT_ALLOW_PROTOCOL: file
+      GIT_CONFIG_NOSYSTEM: "1"
+      GIT_CONFIG_GLOBAL: /dev/null
+      PYTHONDONTWRITEBYTECODE: "1"
+      TMPDIR: /proef
+    volumes:
+      - upstream-proef:/proef
+      - ${INTEGRAAL_BRONMAP:-../../..}/jelly-leon/tools/jelly-leon:/synchulp:ro
   zoeken:
     profiles: [zoeken]
     image: jlp-integraal/zoeken:${INTEGRAAL_TAG:-lokaal}
@@ -285,6 +320,8 @@ volumes:
   huis: {}
   integraties: {}
   appstore: {}
+  schemaproef: {}
+  upstream-proef: {}
   zoeken: {}
   mediaserver: {}
   flows: {}

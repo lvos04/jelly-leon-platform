@@ -26,23 +26,7 @@ pytestmark = pytest.mark.skipif(not docker_ok(), reason="Docker niet beschikbaar
 HEAD = "0003"  # kop van de migraties in de image (fase P2: lifecycle_plans); alleen hier bijwerken
 NEXT = "0004"
 
-MIGRATION_OK = f'''"""test: kolom erbij"""
-import sqlalchemy as sa
-from alembic import op
-
-revision = "{NEXT}"
-down_revision = "{HEAD}"
-branch_labels = None
-depends_on = None
-
-
-def upgrade():
-    op.add_column("lifecycle_runs", sa.Column("e2e_extra", sa.Text(), nullable=True))
-
-
-def downgrade():
-    op.drop_column("lifecycle_runs", "e2e_extra")
-'''
+MIGRATION_OK = (ROOT / "e2e/integral/schemafixtures/0004_proef.py").read_text()
 
 MIGRATION_FAIL = f'''"""test: faalt halverwege"""
 from alembic import op

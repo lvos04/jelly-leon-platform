@@ -63,7 +63,8 @@ class Project:
         self.env.setdefault("INTEGRAAL_BRONMAP", str(ROOT.parent))
         self.env.setdefault("INTEGRAAL_TAG", hashlib.sha256(str(ROOT).encode()).hexdigest()[:12])
         # Een nieuwe proef begint altijd met een ongekoppelde lifecycle-dienst.
-        for k in ("INTEGRAAL_ENROLLMENT", "INTEGRAAL_VINGERAFDRUK"):
+        for k in ("INTEGRAAL_ENROLLMENT", "INTEGRAAL_VINGERAFDRUK",
+                  "INTEGRAAL_APPSTORE_ENROLLMENT", "INTEGRAAL_APPSTORE_AFDRUK"):
             self.env.pop(k, None)
         self.cmd = ["docker", "compose", "-f", str(MAP / "compose.yaml"), "-p", naam]
         self.diensten = json.loads(self.compose("--profile", "*", "config", "--format", "json"))["services"]
@@ -183,11 +184,15 @@ class Project:
                          "INTEGRAAL_BRONCOMMIT": pin, "INTEGRAAL_BRONSTATUS": "schoon"})
 
     def publieke_image(self, naam: str, dienst: dict[str, Any]) -> None:
-        # Alleen de drie publieke, op digest gepinde meldimages zijn extern. Anonieme aanvraag.
-        manifest = yaml.safe_load((ROOT / f"install/manifests/{naam}.manifest.yaml").read_text())["image"]
-        ref = f"{manifest['repository']}:{manifest['tag']}@{manifest['digest']}"
-        if dienst["image"] != ref:
-            raise Proeffout(f"Digest van {naam} wijkt af van het installatiemanifest")
+        # Haal alleen een publieke, op digest gepinde image op, met een lege clientconfiguratie.
+        ref = dienst["image"]
+        if naam == "schema-release":
+            if not re.fullmatch(r"ghcr\.io/lvos04/jelly-leon-platform:0\.1\.0@sha256:[0-9a-f]{64}", ref):
+                raise Proeffout("Gepinde platformrelease 0.1.0 ontbreekt")
+        else:
+            manifest = yaml.safe_load((ROOT / f"install/manifests/{naam}.manifest.yaml").read_text())["image"]
+            if ref != f"{manifest['repository']}:{manifest['tag']}@{manifest['digest']}":
+                raise Proeffout(f"Digest van {naam} wijkt af van het installatiemanifest")
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR", MAP)) as config:
             res = opdracht(["docker", "--config", config, "pull", ref], tijd=600)
         gecontroleerd(res, f"Anoniem ophalen van {naam} mislukt")

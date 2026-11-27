@@ -32,6 +32,7 @@ class Scenario:
     soort: str = "Sim"
     blokkade: str = ""
     toelichting: str = ""
+    later_starten: tuple[str, ...] = ()
 
 
 def catalogus(map_: Path) -> list[Scenario]:
@@ -46,6 +47,8 @@ def catalogus(map_: Path) -> list[Scenario]:
         if rid != "rook" and not 1 <= int(rid[2:]) <= 50:
             raise ValueError(f"Onbekend testmatrix-ID {rid}")
         scenario = Scenario(id=rid, pad=pad, **ast.literal_eval(toekenning.value))
+        if set(scenario.later_starten) - set(scenario.diensten):
+            raise ValueError(f"Uitgestelde dienst ontbreekt in de selectie van {rid}")
         if any(s.id == rid for s in kandidaten):
             raise ValueError(f"Dubbel scenario {rid}")
         if scenario.soort not in {"Sim", "Sim+", "Echt"}:
@@ -96,7 +99,7 @@ def draai(project: Project, scenario: Scenario, map_: Path, commit: str,
             else:
                 gestart = True  # Ook een gedeeltelijk mislukte up kan een netwerk of volumes achterlaten.
                 project.env["INTEGRAAL_IMAGE_IDS"] = json.dumps({d: i["image_id"] for d, i in images.items()})
-                project.start(tuple(d for d in diensten if d != "lifecycle"))
+                project.start(tuple(d for d in diensten if d not in ("lifecycle", *scenario.later_starten)))
                 env = {**project.env, "INTEGRAAL_PROJECT": project.naam, "INTEGRAAL_DOSSIER": str(map_),
                        "INTEGRAAL_OVERSLAGREDENEN": json.dumps(scenario.overslagredenen)}
                 res = opdracht([sys.executable, "-m", "pytest", "-q", "--tb=no", "-p", "no:cacheprovider",

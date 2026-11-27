@@ -93,6 +93,23 @@ flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run
 
 De huisproeven controleren het netwerk van de draaiende containers voordat een simulator start. Ze gebruiken de gepinde Gree-fixture uit de lokale my_house-bron en koppelen de binnenunits op naam met unicast. Bij EX27 controleert Chromium de apparaatkaart en verwerkt de schrijfconnector een ondertekend voorstel van een nagebootste assistent. De controle met een gewoon stopcontact gebruikt hetzelfde apparaat vóór het toewijzen van de boilerrol. EX28 volgt de kwartierstanden van de P1-simulator via de uur-export van my_house tot het dagrapport van B14, met een vaste UTC-ontvangsttijd. EX29 gebruikt een lokale MQTT-broker en wacht de ingestelde vijf minuten af. Het dossier bevat de meetwaarden in `huis.json`. De fysieke handelingen voor EX26 en EX30 staan in N-P6-06.
 
+### Back-up, levenscyclus en appstore
+
+Bouw eerst de kern en daarna de profielen voor deze zeven proeven. De herstelproef gebruikt dezelfde TrueNAS-image als de kern voor de tweede simulator.
+
+```bash
+for profiel in kern onedrive schema appstore upstream-git; do
+  flock "$WERKMAP/.lokaal/docker-build.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --bouw --profiel "$profiel" || exit 1
+done
+flock "$WERKMAP/.lokaal/stack.lock" nice -n 10 .venv/bin/python e2e/integral/run.py --scenario EX11,EX12,EX14,EX15,EX47,EX48,EX50
+```
+
+EX11, EX12 en EX14 gebruiken de gekoppelde Hub en executor met een geverifieerde proefexport. De OneDrive-simulator levert de taakstand die de Hub via de TrueNAS-inventaris inleest. EX14 herstelt de configuratie naar een eigen zandbakdataset en leest de actuele gegevens van de bron opnieuw uit.
+
+EX15 start release 0.1.0 op de gepubliceerde digest en de lokale testimage om beurten op één projectvolume. Beide bronversies hebben schema 0003. Alleen de testimage bevat de extra migratie 0004. Het herstel gebruikt de dump die de procesbewaker vóór de migratie maakt. EX47 gebruikt de manifestfixtures van de appstore. EX48 voert de merge-, bundel- en overdrachtsstap uit de Forgejo-workflow van de fork uit tegen de lokale Git-simulator. De forkbron is alleen-lezen aangekoppeld.
+
+EX50 registreert de HTTP-antwoorden van de verhuis- en verwijderpreview. Bij de verwachte 501 blijft de verhuizing geblokkeerd op B08-006. De meetwaarden staan per scenario in `metingen.json`.
+
 ## Bewijs en opruimen
 
 In `e2e/integral/evidence/<run-id>/` staat per proef het resultaat met verwachting, eigenaar, datum, runnercommit, beschikbare image-ID's en broncommit of digest. Het verzoekoverzicht bevat methode, bekende route, HTTP-status en geselecteerde protocolvelden. Cookies, vrije logtekst en ruwe procesuitvoer blijven buiten het bewijs.

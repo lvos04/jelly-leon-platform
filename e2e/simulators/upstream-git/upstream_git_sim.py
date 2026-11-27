@@ -49,7 +49,7 @@ def _schrijf(repo: Path, bestanden: dict[str, str]) -> None:
 
 def _release(repo: Path, tag: str, bestanden: dict[str, str]) -> str:
     _schrijf(repo, bestanden)
-    _git(repo, "add", "-A")
+    _git(repo, "add", "--", *bestanden)
     _git(repo, "commit", "-q", "-m", f"upstream {tag} (sim)")
     _git(repo, "tag", "-a", tag, "-m", tag)
     return _git(repo, "rev-parse", "HEAD")
@@ -88,7 +88,8 @@ def bouw(doel: Path) -> dict[str, str]:
                     "docs/platform-v2/PATCHES.md": PATCHES, "README.jelly-leon.md": "# fork (sim)\n",
                     GEPATCHT: "name: bot\njobs:\n  a:\n    if: github.repository == 'up/stream'\n"
                               "    runs-on: ubuntu-latest\n"})
-    _git(fork, "add", "-A")
+    _git(fork, "add", "--", "tools/jelly-leon", "plugins/Directory.Build.props", "docs/platform-v2/PATCHES.md",
+         "README.jelly-leon.md", GEPATCHT)
     _git(fork, "commit", "-q", "-m", "fork-opzet (sim)")
 
     commits[COMPATIBEL] = _release(werk, COMPATIBEL, {"SharedVersion.cs": _versie(COMPATIBEL),

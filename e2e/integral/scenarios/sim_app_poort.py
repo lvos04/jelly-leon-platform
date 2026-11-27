@@ -1,4 +1,4 @@
-"""De gepubliceerde app-poort van de test-NAS. Alleen de twee wegwerpapps mogen een herstart ontvangen."""
+"""De gepubliceerde app-poort van de test-NAS, begrensd tot de doelen van de geselecteerde proef."""
 
 from __future__ import annotations
 
@@ -26,9 +26,18 @@ class AppPoort(BaseHTTPRequestHandler):
         body = self.rfile.read(omvang)
         verzoek = json.loads(body)
         voorstel = verzoek["proposal"]
-        app = voorstel["target"].get("app_id")
-        if (voorstel["action_id"] != "app.restart" or app not in {"proef-app-a", "proef-app-b"}
-                or voorstel["parameters"] or not verzoek.get("approval")):
+        actie, doel, params = voorstel["action_id"], voorstel["target"], voorstel["parameters"]
+        app = doel.get("app_id")
+        toegestaan = actie == "app.restart" and app in {"proef-app-a", "proef-app-b"} and not params
+        if sys.argv[1] == "opslag":
+            bron = "simpool/apps/proef-config"
+            toegestaan = (
+                (actie == "zfs.snapshot.create" and doel.get("dataset") == bron
+                 and params.get("naam") == "voor-proef" and not params.get("recursief"))
+                or (actie == "zfs.snapshot.clone_to_sandbox" and doel.get("snapshot") == bron + "@voor-proef"
+                    and params == {"doel_dataset": "simpool/asm-sandbox/proef-config"})
+            )
+        if not toegestaan or not verzoek.get("approval"):
             self.send_error(403)
             return
         headers = {k: self.headers[k] for k in ("Content-Type", "Authorization", "Idempotency-Key")}

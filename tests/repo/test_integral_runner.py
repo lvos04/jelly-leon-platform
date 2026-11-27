@@ -94,6 +94,20 @@ def test_mso_bouw_gebruikt_alleen_de_gepinde_mocksubmap(tmp_path: Path, monkeypa
     proef.compose.assert_called_once()
 
 
+def test_schema_images_delen_alleen_het_eigen_volume_en_starten_na_elkaar(tmp_path: Path) -> None:
+    scenario, = run.selectie(run.catalogus(MAP / "scenarios"), "EX15", None)
+    p = proefproject()
+    p.diensten.update(dict.fromkeys(scenario.diensten))
+    p.start.side_effect = Proeffout("Einde startmeting")
+    code, _ = run.draai(p, scenario, tmp_path / "EX15", "c" * 40, False)
+    assert code == 1
+    p.images.assert_called_once_with((*KERN, "schema-release", "schema-nieuw"))
+    p.start.assert_called_once_with(("hub", "executor", "truenas"))
+    diensten = yaml.safe_load((MAP / "compose.yaml").read_text())["services"]
+    assert diensten["schema-release"]["volumes"] == diensten["schema-nieuw"]["volumes"] == ["schemaproef:/appdata"]
+    assert diensten["lifecycle"]["volumes"] == ["lifecycle:/appdata"]
+
+
 @pytest.mark.parametrize("status", ["Geslaagd", "Gereed", "Niet gestart", "Mislukt", "Geblokkeerd"])
 def test_weigert_eindstatus(status: str) -> None:
     rij = bewijs.voorstel(replace(ROOK, id="EX01"), "Sim-geslaagd", "2026-01-01", "proef.json")

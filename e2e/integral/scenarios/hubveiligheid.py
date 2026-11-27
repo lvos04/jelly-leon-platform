@@ -71,11 +71,12 @@ def uitvoeren(kern: Kern, voorstel: dict[str, Any], *, geweigerd: bool = False) 
     return resultaat
 
 
-def richt_schrijfpad_in(kern: Kern, *, herlever: bool = False) -> None:
+def richt_schrijfpad_in(kern: Kern, *, herlever: bool = False, opslag: bool = False) -> None:
     # Een NAS publiceert de executor op zijn eigen adres. Alleen de nagebootste app-poort is hier een tussenstap.
     project = kern.net.project
     bron = (PROEVEN / "sim_app_poort.py").read_text()
-    project.compose("exec", "-T", "-d", "truenas", "python", "-c", bron, "dubbel" if herlever else "enkel")
+    modus = "opslag" if opslag else "dubbel" if herlever else "enkel"
+    project.compose("exec", "-T", "-d", "truenas", "python", "-c", bron, modus)
     dienst = appfixture(EXECUTOR)
     dienst["values"]["image"]["repository"] = f"ghcr.io/lvos04/{EXECUTOR}"
     dienst["values"]["ports"] = [{"port_number": 30410, "container_port": 30410}]
