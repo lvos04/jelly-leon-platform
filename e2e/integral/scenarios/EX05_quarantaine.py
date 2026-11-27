@@ -7,15 +7,17 @@ from e2e.integral.scenarios.conftest import Kern, wacht
 
 SCENARIO = {
     "groepen": ("media", "media-inhoud"),
-    "diensten": ("mg-inhoud", "kijkserver-inhoud", "arr-inhoud", "mg-inhoud-herstel"),
+    "diensten": ("mg-inhoud", "inhoud-fixture", "kijkserver-inhoud", "arr-inhoud", "mg-inhoud-herstel"),
+    "later_starten": ("mg-inhoud", "mg-inhoud-herstel"),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "Een juist stagingbestand blijft staan. Een bewezen verwisseling is bytegelijk herstelbaar.",
 }
 
 
-def beoordeel(proef: Inhoud, fid: int, sha: str) -> dict[str, Any]:
+def beoordeel(proef: Inhoud, fid: int, aflevering: int, sha: str) -> dict[str, Any]:
     res = proef.mg.post(f"/api/v1/identity/sonarr-series/episode_file/{fid}/verify",
-                        json={"expected": [{"season": 1, "episode": 1}], "path": STAGING + "S01E01.mkv",
+                        json={"expected": [{"season": 1, "episode": aflevering}],
+                              "path": STAGING + f"S01E{aflevering:02}.mkv",
                               "hashes": {"sha256": sha}}).raise_for_status()
     resultaat: dict[str, Any] = res.json()
     return resultaat
@@ -31,14 +33,19 @@ def test_juiste_en_verwisselde_aflevering_en_herstel(kern: Kern) -> None:
         vrij = proef.mg.post("/api/v1/recovery/library-write", json={"enabled": True, "confirm": True})
         assert vrij.raise_for_status().json()["library_write_enabled"] is True
         rij = proef.aanvraag(anime=False)
-        proef.fixture("referenties")
         eps = proef.sonarr("sonarr-series", "episode", seriesId=rij["provider_id"])
-        fid, = [e["episodeFileId"] for e in eps if e["episodeNumber"] == 1 and e["hasFile"]]
+        bestanden = {e["episodeNumber"]: e["episodeFileId"] for e in eps if e["hasFile"]}
+        assert set(bestanden) == {1, 2} and len(set(bestanden.values())) == 2
+        for nummer, bestands_id in bestanden.items():
+            naam = f"S01E{nummer:02}.mkv"
+            sha = proef.verwacht[STAGING + naam]
+            assert sha == proef.verwacht["/media/referentie/" + naam]
+            assert beoordeel(proef, bestands_id, nummer, sha)["status"] == "verified"
+        fid = bestanden[1]
         pad = STAGING + "S01E01.mkv"
         goed = proef.verwacht[pad]
         fout = proef.verwacht["/media/referentie/S01E02.mkv"]
         assert goed != fout
-        assert beoordeel(proef, fid, goed)["status"] == "verified"
         lever(proef)
         assert proef.mg.get("/api/v1/quarantine").raise_for_status().json() == []
         assert not any(v["methode"] == "DELETE" for v in kern.verzoeklog(proef.arr))
@@ -47,7 +54,7 @@ def test_juiste_en_verwisselde_aflevering_en_herstel(kern: Kern) -> None:
         proef.fixture("verwissel")
         proef.verwacht[pad] = fout
         assert proef.meet("na_injectie") == proef.verwacht
-        oordeel = beoordeel(proef, fid, fout)
+        oordeel = beoordeel(proef, fid, 1, fout)
         assert oordeel["status"] == "mismatch" and oordeel["actionable"] and oordeel["actual"][0]["episode"] == 2
         lever(proef)
         item, = proef.mg.get("/api/v1/quarantine").raise_for_status().json()

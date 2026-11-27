@@ -6,7 +6,9 @@ from e2e.integral.media_inhoud import Inhoud, inhoud
 from e2e.integral.scenarios.conftest import Kern
 
 SCENARIO = {
-    "groepen": ("media", "media-inhoud"), "diensten": ("mg-inhoud", "kijkserver-inhoud", "arr-inhoud"),
+    "groepen": ("media", "media-inhoud"),
+    "diensten": ("mg-inhoud", "inhoud-fixture", "kijkserver-inhoud", "arr-inhoud"),
+    "later_starten": ("mg-inhoud",),
     "eigenaar": "media-guard-ultimate",
     "verwachting": "De anime-server ontvangt de aanvraag met zijn bestaande gewogen Dual Audio-profiel.",
 }

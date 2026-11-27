@@ -4,14 +4,18 @@ import ast
 import json
 import re
 import secrets
+import sqlite3
+from contextlib import closing
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import httpx
 import pytest
+import yaml
 
 from e2e.integral.media_inhoud import FIXTURES, Inhoud
+from e2e.integral.run import catalogus
 
 PADEN = ("/media/kwaliteitsproef/controle.mkv", "/media/bestaand/bewaard.mkv")
 KIJKERS = ("proefkijker-a", "proefkijker-b")
@@ -27,7 +31,8 @@ def diensten(tmp_path):
     registraties = {p: {"user_name": u, "title": p.split("/")[-1], "last_seen": "2026-01-01"}
                    for p, u in zip(PADEN, KIJKERS, strict=True)}
 
-    stand = {"voortgang": 0.625, "sessies": [{"user": u, "title": p.split("/")[-1], "paused": True}
+    stand = {"status": "retry_scheduled", "attempts": 1, "started_at": "2026-01-01T12:00:00+00:00",
+             "voortgang": 0.625, "sessies": [{"user": u, "title": p.split("/")[-1], "paused": True}
                                              for p, u in zip(PADEN, KIJKERS, strict=True)], "log": True}
 
     def antwoord(req):
@@ -40,7 +45,8 @@ def diensten(tmp_path):
         elif pad == "/api/v1/jobs":
             data = [{"id": 1, "progress": 0.625}]
         elif pad == "/api/v1/jobs/1":
-            data = {"id": 1, "progress": stand["voortgang"], "logs_truncated": False,
+            data = {"id": 1, **{k: stand[k] for k in ("status", "attempts", "started_at")},
+                    "progress": stand["voortgang"], "logs_truncated": False,
                     "logs": [{k: r[k] for k in ("ts", "level", "message")} for r in werklog.values()] if stand["log"]
                     else []}
         elif pad == "/api/v1/mediaserver/status":
@@ -60,14 +66,16 @@ def diensten(tmp_path):
         return httpx.Response(200, json=data)
 
     with httpx.Client(base_url="http://proef", transport=httpx.MockTransport(antwoord)) as client:
-        kern = SimpleNamespace(client=lambda *_: client, net=SimpleNamespace(dossier=tmp_path, project=Mock()))
+        project = Mock()
+        project.compose.return_value = "1"
+        kern = SimpleNamespace(client=lambda *_: client, net=SimpleNamespace(dossier=tmp_path, project=project))
         proef = Inhoud(kern)
 
         def fixture(actie, *_):
             if actie == "inventaris":
                 # De oude inventaris leverde alleen deze twee afdrukken. Ze veranderen in de verliesproeven niet.
                 return json.dumps({"sha256": dict.fromkeys(PADEN, "a" * 64), "registraties": registraties,
-                                   "logregels": werklog,
+                                   "logregels": werklog, "schrijfopening": "EROFS",
                                    "historie": {"kijkregistratie": "a" * 64, "taaklog": "b" * 64}})
             return ""
 
@@ -97,7 +105,64 @@ def test_begin_bevestigt_de_waarden_via_beide_diensten(diensten):
     proef = diensten[0]
     proef.begin("kwaliteit")
     assert proef.metingen["dienstcontrole"] == {"taak": 1, "voortgang": 0.625, "logregels": 2,
-                                                "sessies": 2, "kijkstanden": 4}
+                                                "sessies": 2, "kijkstanden": 4, "status": "retry_scheduled",
+                                                "pogingen": 1, "gestart": "2026-01-01T12:00:00+00:00"}
+
+
+@pytest.mark.parametrize(("veld", "waarde"), [("status", "queued"), ("attempts", 0), ("started_at", None)])
+def test_begin_weigert_voortgang_zonder_uitgevoerde_poging(diensten, veld, waarde):
+    proef, _, _, _, stand = diensten
+    stand[veld] = waarde
+    with pytest.raises(AssertionError, match="Beginstand taakuitvoering"):
+        proef.begin("kwaliteit")
+
+
+def test_begin_met_alleen_leestoegang_tot_de_dienstdatabase(diensten):
+    proef = diensten[0]
+    inventaris = proef.fixture
+    del proef.fixture  # Voer de echte fixtureaanroep uit tegen de volumerechten van Compose.
+    project = proef.kern.net.project
+    services = yaml.safe_load((FIXTURES.parent / "compose.yaml").read_text())["services"]
+    volgorde = []
+
+    def compose(*args, **kwargs):
+        if args[0] == "run":
+            assert "mg-inhoud" in args and args[-1] == "laad"
+            volgorde.append("laden")
+            return ""
+        dienst = next(a for a in args if a in services)
+        assert "inhoud-config:/config:ro" in services[dienst]["volumes"], "Fixture heeft schrijftoegang"
+        if args[-1] == "inventaris":
+            return inventaris("inventaris")
+        if "momentopname.py" in args[-2]:
+            volgorde.append("voorbereiden")
+            return "1"
+        return ""
+
+    project.compose.side_effect = compose
+    project.start.side_effect = lambda _: volgorde.append("starten")
+    proef.begin("kwaliteit")
+    assert volgorde == ["voorbereiden", "laden", "starten"]
+    for scenario in catalogus(FIXTURES.parent / "scenarios"):
+        if "media-inhoud" in scenario.groepen:
+            schrijvers = {"mg-inhoud", "mg-inhoud-herstel"}.intersection(scenario.diensten)
+            assert schrijvers <= set(scenario.later_starten)
+
+
+def test_momentopname_neemt_wal_mee_en_weigert_bestaande_database(tmp_path):
+    from e2e.integral.mediafixtures.momentopname import kopieer
+
+    bron, doel = (tmp_path / n for n in ("bron.db", "dienst.db"))
+    with closing(sqlite3.connect(bron, isolation_level=None)) as schrijver:
+        schrijver.execute("PRAGMA journal_mode=WAL")
+        schrijver.execute("CREATE TABLE voortgang (waarde REAL)")
+        schrijver.execute("INSERT INTO voortgang VALUES (0.625)")
+        kopieer(bron, doel)
+        schrijver.execute("UPDATE voortgang SET waarde=0")
+        with pytest.raises(FileExistsError):
+            kopieer(bron, doel)
+    with closing(sqlite3.connect(doel.as_uri() + "?mode=ro", uri=True)) as lezer:
+        assert lezer.execute("SELECT waarde FROM voortgang").fetchall() == [(0.625,)]
 
 
 @pytest.mark.parametrize("pad", PADEN)

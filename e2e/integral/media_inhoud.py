@@ -39,28 +39,31 @@ class Inhoud:
         self.historie: dict[str, dict[str, Any]] | None = None
 
     def fixture(self, *args: str) -> str:
-        return self.kern.net.project.compose("exec", "-T", "mg-inhoud", "python", "-", *args,
+        return self.kern.net.project.compose("exec", "-T", "inhoud-fixture", "python", "-", *args,
                                              invoer=(FIXTURES / "bibliotheek.py").read_text())
 
     def begin(self, soort: str) -> None:
-        wacht("MediaGuard", lambda: self.mg.get("/api/v1/health").status_code == 200)
-        auth = self.mg.post("/api/v1/auth/setup", json={"username": "inhoudproef",
-                            "password": secrets.token_urlsafe(32)}).raise_for_status().json()
-        self.mg.headers["X-CSRF-Token"] = auth["csrf_token"]
+        project = self.kern.net.project
         # Alleen de wortel van het nieuwe projectvolume aan de gewone testgebruiker toekennen.
-        self.kern.net.project.compose("exec", "-T", "--user", "root", "mg-inhoud", "chown", "568:568", "/media")
+        project.compose("exec", "-T", "--user", "root", "inhoud-fixture", "chown", "568:568", "/media")
         self.fixture("maak", soort)
         kijkstand = {pad: {u: {"Played": i == j, "PlaybackPositionTicks": 0 if i == j else (i + 1) * 1_200_000,
                                "IsFavorite": j == 1} for j, u in enumerate(KIJKERS)}
                      for i, pad in enumerate((DOEL[soort], BEWAARD))}
         start = self.kijkserver.post("/_sim/bibliotheek", json=kijkstand).raise_for_status().json()
         self.kijkserver.headers["Authorization"] = f'MediaBrowser Token="{start["api_key"]}"'
+        job_id = int(project.compose("exec", "-T", "inhoud-fixture", "python", "/proef/momentopname.py", soort,
+                                     invoer=start["api_key"]))
+        project.compose("run", "--rm", "--no-deps", "-T", "mg-inhoud", "python", "-", "laad",
+                        invoer=(FIXTURES / "momentopname.py").read_text())
+        project.start(("mg-inhoud", "mg-inhoud-herstel") if soort == "quarantaine" else ("mg-inhoud",))
+        wacht("MediaGuard", lambda: self.mg.get("/api/v1/health").status_code == 200)
+        auth = self.mg.post("/api/v1/auth/setup", json={"username": "inhoudproef",
+                            "password": secrets.token_urlsafe(32)}).raise_for_status().json()
+        self.mg.headers["X-CSRF-Token"] = auth["csrf_token"]
         config = {"kind": "jellyfin", "url": str(self.kijkserver.base_url).rstrip("/"), "api_key": start["api_key"]}
         verbinding = self.mg.post("/api/v1/mediaserver/config", json=config).raise_for_status().json()
         assert verbinding["test"]["ok"] and ["/media", "/media"] in verbinding["test"]["path_map"]
-        job = self.mg.post("/api/v1/library/sync", params={"instance_id": "sonarr-series"}).raise_for_status().json()
-        job_id = job["queued"]["sonarr-series"]
-        self.fixture("voortgang", str(job_id))
         self.verwacht = self.meet("voor").copy()
         self.controleer_begin(job_id, kijkstand)
         if soort != "kwaliteit":
@@ -102,6 +105,8 @@ class Inhoud:
         for u, pad in bekeken:
             assert (rijen[pad]["user_name"], rijen[pad]["title"]) == (u, Path(pad).name) and rijen[pad]["last_seen"]
         detail = self.mg.get(f"/api/v1/jobs/{job}").raise_for_status().json()
+        assert (detail["status"] == "retry_scheduled" and detail["attempts"] == 1 and detail["started_at"]), (
+            "Beginstand taakuitvoering")
         assert detail["progress"] == self.voortgang[str(job)] == 0.625, "Beginstand taakvoortgang"
         assert not detail["logs_truncated"], "Beginstand taaklog onvolledig"
         kernlog = [r for r in self.historie["taaklog"].values() if r["job_id"] == job]
@@ -109,11 +114,14 @@ class Inhoud:
         meldingen = [r["message"] for r in detail["logs"] if r["level"] == "info"]
         assert {"Bestaande proefreeks ingepland", "Bestaande voortgang vastgelegd"} <= set(meldingen)
         self.noteer("dienstcontrole", {"taak": job, "voortgang": detail["progress"], "logregels": len(detail["logs"]),
+                                       "status": detail["status"], "pogingen": detail["attempts"],
+                                       "gestart": detail["started_at"],
                                        "sessies": len(sessies), "kijkstanden": sum(
                                            len(kijkers) for kijkers in self.historie["kijkgegevens"].values())})
 
     def meet(self, naam: str) -> dict[str, str]:
         inventaris = json.loads(self.fixture("inventaris"))
+        assert inventaris["schrijfopening"] == "EROFS", "De fixture moet alleen leestoegang hebben"
         hashes: dict[str, str] = inventaris["sha256"]
         jobs = self.mg.get("/api/v1/jobs", params={"limit": 1000}).raise_for_status().json()
         assert 0 < len(jobs) < 1000 and hashes
@@ -123,7 +131,8 @@ class Inhoud:
         # Het dossier bevat per log-ID de afdruk van de hele rij, ook als een werker vrije tekst logt.
         loghashes = {k: hashlib.sha256(json.dumps(r, sort_keys=True).encode()).hexdigest()
                      for k, r in historie["taaklog"].items()}
-        self.noteer(naam, {"sha256": hashes, "historie": {**historie, "taaklog": loghashes}, "taakvoortgang": stand})
+        self.noteer(naam, {"sha256": hashes, "historie": {**historie, "taaklog": loghashes},
+                           "taakvoortgang": stand, "schrijfopening": inventaris["schrijfopening"]})
         if self.historie is None:
             self.historie = historie
         else:

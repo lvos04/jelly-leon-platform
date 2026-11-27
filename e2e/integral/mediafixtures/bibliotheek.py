@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
+import errno
 import hashlib
 import json
 import os
@@ -61,6 +61,12 @@ def maak(soort: str) -> None:
 
 
 def inventaris() -> dict[str, Any]:
+    try:
+        with Path("/config/mediaguard.db").open("r+b"):
+            raise AssertionError("De fixture kan de actieve database voor schrijven openen")
+    except OSError as fout:
+        if fout.errno != errno.EROFS:
+            raise
     bestanden = {}
     for root in (MEDIA, Path("/work/quarantine")):
         for pad in sorted(root.rglob("*")):
@@ -71,42 +77,7 @@ def inventaris() -> dict[str, Any]:
         db.row_factory = sqlite3.Row
         registraties = {r["path"]: dict(r) for r in db.execute("SELECT * FROM mediaserver_watch ORDER BY path")}
         regels = {str(r["id"]): dict(r) for r in db.execute("SELECT * FROM job_logs ORDER BY id")}
-    return {"sha256": bestanden, "registraties": registraties, "logregels": regels}
-
-
-def kerncontext() -> Any:
-    from mediaguard.app import create_app  # type: ignore[import-not-found]
-
-    return create_app().state.ctx
-
-
-async def vul_voortgang(job: int) -> None:
-    from mediaguard.jobs import JobContext  # type: ignore[import-not-found]
-    from mediaguard.mediaserver import servers  # type: ignore[import-not-found]
-    from mediaguard.mediaserver.service import poll_sessions  # type: ignore[import-not-found]
-
-    ctx = kerncontext()
-    taak = JobContext(job, "library.sync", {}, "sonarr-series", None, ctx)
-    taak.log("Bestaande proefreeks ingepland")
-    taak.progress(0.625)
-    taak.log("Bestaande voortgang vastgelegd")
-    server = servers.legacy(ctx)
-    assert server and server.kind == "jellyfin" and server.url == "http://kijkserver-inhoud:8096"
-    resultaat = await poll_sessions(ctx, servers.client(ctx, server), server)
-    assert resultaat == {"sessions": 2, "watching": 0}
-
-
-def onthoud_referenties() -> None:
-    from mediaguard.automation import background_identity  # type: ignore[import-not-found]
-    from mediaguard.identity.adapters import remember_hash  # type: ignore[import-not-found]
-    from mediaguard.identity.engine import EpisodeRef  # type: ignore[import-not-found]
-
-    ctx = kerncontext()
-    # Dezelfde eerste bestandscontrole als in de achtergrondwerker na het synchroniseren.
-    assert background_identity(ctx) == 2
-    for n in (1, 2):
-        digest = hashlib.sha256((REFERENTIE / f"S01E{n:02}.mkv").read_bytes()).hexdigest()
-        remember_hash(ctx.db, "sha256", digest, EpisodeRef(1, n), source="testreferentie", instance_id="sonarr-series")
+    return {"sha256": bestanden, "registraties": registraties, "logregels": regels, "schrijfopening": "EROFS"}
 
 
 if __name__ == "__main__":
@@ -119,10 +90,6 @@ if __name__ == "__main__":
         # Een reeds afgeronde testdownload is ouder dan de stabiliteitsgrens van de encoder.
         ouder = pad.stat().st_mtime - 120
         os.utime(pad, (ouder, ouder))
-    elif actie == "voortgang":
-        asyncio.run(vul_voortgang(int(args[0])))
-    elif actie == "referenties":
-        onthoud_referenties()
     elif actie == "verwissel":
         shutil.copyfile(REFERENTIE / "S01E02.mkv", STAGING / "S01E01.mkv")
     elif actie == "ondertitel":
