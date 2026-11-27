@@ -3,6 +3,11 @@
   "datum": "2026-11-26",
   "eigenaar": "jelly-leon-platform",
   "broncommit_proef": "7902af49c3f450883964b719b7778263a14f4ef3",
+  "bereikbare_bouwcommit": "f5451747527558f6a2750c8deec23ccde89e59a5",
+  "onafhankelijke_herhaling": {
+    "broncommit": "afee6427cad9b6627c3a5428812cb307a88f15f3",
+    "run": "20261127t054104z-1f26bb0e7a"
+  },
   "images": {
     "hub": {
       "image_id": "sha256:b1b90580a4a28270910f7c260024f3c0a495c5643829a7ce85f94153b32453e9",
