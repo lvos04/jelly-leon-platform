@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import secrets
 from pathlib import Path
 from typing import Literal
@@ -16,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, StrictInt
 from simkit import ALGEMENE_FOUTEN, Fouten, Verzoeklog, install
 
 from .instances import CATALOGUS, INSTANTIES, Instantie, Json, heeft_toegang, instantie_routes
+from .proefbestanden import voor_verwijderen
 
 
 class Aanvraag(BaseModel):
@@ -66,13 +66,7 @@ def create_app(*, sab_url: str | None = None, sab_key: str | None = None,
                 if not ep["hasFile"] or request.url.path != f"/sonarr-series/api/v3/episodefile/{ep['episodeFileId']}":
                     continue
                 pad = staging / f"S01E{ep['episodeNumber']:02d}.mkv"
-                if pad.is_symlink():
-                    return {}
-                kopieen = list((testbibliotheek / ".mediaguard-quarantine").glob(f"txn-*/{pad.name}"))
-                details = {"bron_sha256": hashlib.sha256(pad.read_bytes()).hexdigest()}
-                if len(kopieen) == 1 and not kopieen[0].is_symlink():
-                    details["quarantaine_sha256"] = hashlib.sha256(kopieen[0].read_bytes()).hexdigest()
-                return details
+                return voor_verwijderen(pad, testbibliotheek / ".mediaguard-quarantine")
         return {}
 
     reset()

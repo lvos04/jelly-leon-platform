@@ -11,6 +11,8 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from .proefbestanden import grootte, verwijder
+
 Json = dict[str, Any]
 
 # De TMDB- en TVDB-nummers horen uitsluitend bij deze testcatalogus.
@@ -59,7 +61,7 @@ class Instantie:
             eid = sid * 100 + n
             aanwezig = anime or any(rij["episodeId"] == eid for rij in self.imports.values())
             if self.staging is not None and serie["tmdbId"] == 101:
-                aanwezig = (self.staging / f"S01E{n:02}.mkv").is_file()
+                aanwezig = grootte(self.staging / f"S01E{n:02}.mkv") is not None
             rows.append({"id": eid, "seriesId": sid, "seasonNumber": 1, "episodeNumber": n,
                          "airDateUtc": f"2020-01-0{n}T20:00:00Z",
                          "absoluteEpisodeNumber": 12 + n if anime else None,
@@ -201,12 +203,17 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
             map_ = inst.staging if inst.staging and inst.titels.get(seriesId, {}).get("tmdbId") == 101 else None
             # De bestandslijst heeft een eigen volgorde, onafhankelijk van de afleveringen na RefreshSeries.
             episodes_op_id = sorted(inst.afleveringen(seriesId), key=lambda e: e["episodeFileId"])
-            return [{"id": e["episodeFileId"], "seriesId": seriesId,
-                     "path": str(map_ or inst.titels[seriesId]["path"]) + f"/S01E{e['episodeNumber']:02d}.mkv",
-                     "relativePath": f"S01E{e['episodeNumber']:02d}.mkv",
-                     "size": (map_ / f"S01E{e['episodeNumber']:02d}.mkv").stat().st_size if map_ else 2048,
-                     "languages": [{"id": 1, "name": "English"}, {"id": 8, "name": "Japanese"}]}
-                    for e in episodes_op_id if e["hasFile"]]
+            resultaat = []
+            for ep in episodes_op_id:
+                if ep["hasFile"]:
+                    bestandsnaam = f"S01E{ep['episodeNumber']:02d}.mkv"
+                    omvang = grootte(map_ / bestandsnaam) if map_ else 2048
+                    if omvang is not None:
+                        resultaat.append({"id": ep["episodeFileId"], "seriesId": seriesId,
+                                          "path": f"{map_ or inst.titels[seriesId]['path']}/{bestandsnaam}",
+                                          "relativePath": bestandsnaam, "size": omvang,
+                                          "languages": [{"id": 1, "name": "English"}, {"id": 8, "name": "Japanese"}]})
+            return resultaat
 
         @r.get("/episodefile/{nummer}")
         async def bestand(nummer: int) -> Json:
@@ -222,10 +229,7 @@ def instantie_routes(naam: str, instanties: dict[str, Instantie], sab_url: str |
             # Alleen de twee vaste namen van de optionele stagingfixture hebben een schijfhandeling.
             if inst.staging is None or inst.titels[f["seriesId"]]["tmdbId"] != 101:
                 raise HTTPException(409, "Dit bestand valt buiten de stagingproef")
-            pad = inst.staging / f["relativePath"]
-            if pad.is_symlink():
-                raise HTTPException(409, "De proef vereist een gewoon bestand")
-            pad.unlink()
+            verwijder(inst.staging / f["relativePath"])
             return {}
 
     @r.get("/release")

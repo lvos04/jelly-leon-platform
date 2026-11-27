@@ -35,7 +35,7 @@ from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 ALGEMENE_FOUTEN: dict[str, str] = {
@@ -165,7 +165,10 @@ def install(
             return await call_next(request)
         item = log.add(request)
         if beschrijf is not None:
-            item.details = await beschrijf(request)
+            try:
+                item.details = await beschrijf(request)
+            except HTTPException as fout:
+                return JSONResponse(fout_body(fout.status_code, str(fout.detail)), status_code=fout.status_code)
 
         def raak(naam: str) -> Fout | None:
             fout = fouten.raak(naam, pad)

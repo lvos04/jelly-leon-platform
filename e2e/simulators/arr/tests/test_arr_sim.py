@@ -236,3 +236,47 @@ def test_staging_herkent_alleen_het_eigen_episodebestand(tmp_path):
         assert ander.read_bytes() == b"bewaren"
         wis = [v for v in sim.get("/_sim/verzoeken").json() if v["methode"] == "DELETE" and v["aanmelding"]]
         assert set(wis[-1]["details"]) == {"bron_sha256"}  # de waarnemer verzint geen voorafgaande kopie
+
+
+@pytest.mark.parametrize("deel", ["bibliotheek", "instantie", "serie", "staging", "bestand",
+                                  "quarantaine", "transactie", "kopie"])
+@pytest.mark.parametrize("met_doel", [False, True], ids=["ontbrekend", "bestaand"])
+def test_weigert_koppeling_en_behoudt_buur(tmp_path, deel, met_doel):
+    import hashlib
+
+    bibliotheek = tmp_path / "media"
+    staging = bibliotheek / "sonarr-series/De vuurtoren/staging"
+    staging.mkdir(parents=True)
+    bron = staging / "S01E01.mkv"
+    bron.write_bytes(b"proefvideo")
+    transactie = bibliotheek / ".mediaguard-quarantine/txn-1"
+    transactie.mkdir(parents=True)
+    kopie = transactie / bron.name
+    kopie.write_bytes(bron.read_bytes())
+    buurmap = tmp_path / "naastgelegen"
+    buurmap.mkdir()
+    buur = buurmap / "bewaren.mkv"
+    buur.write_bytes(b"ongewijzigde proefvideo")
+    vooraf = hashlib.sha256(buur.read_bytes()).digest()
+    onderdelen = {"bibliotheek": bibliotheek, "instantie": staging.parents[1], "serie": staging.parent,
+                  "staging": staging, "bestand": bron, "quarantaine": transactie.parent,
+                  "transactie": transactie, "kopie": kopie}
+    with TestClient(create_app(testbibliotheek=bibliotheek)) as sim:
+        r = sim.post("/api/v1/request", headers=key(sim), json={"mediaType": "tv", "mediaId": 101, "seasons": [1]})
+        sid = r.raise_for_status().json()["media"]["externalServiceId"]
+        headers = key(sim, "sonarr-series")
+        route = "/sonarr-series/api/v3/episodefile"
+        item, = sim.get(route, params={"seriesId": sid}, headers=headers).raise_for_status().json()
+        onderdeel = onderdelen[deel]
+        mapdeel = onderdeel.is_dir()
+        onderdeel.rename(onderdeel.with_name(onderdeel.name + ".origineel"))
+        doel = buurmap if mapdeel else buur
+        onderdeel.symlink_to(doel if met_doel else "ontbrekende-proefnaam", target_is_directory=mapdeel)
+        antwoord = sim.delete(f"{route}/{item['id']}", headers=headers)
+        assert hashlib.sha256(buur.read_bytes()).digest() == vooraf
+        assert antwoord.status_code == 409
+        assert sim.get("/_sim/verzoeken").json()[-1]["details"] == {}
+        if deel in {"quarantaine", "transactie", "kopie"}:
+            assert bron.read_bytes() == b"proefvideo"
+        else:
+            assert sim.get(route, params={"seriesId": sid}, headers=headers).status_code == 409
