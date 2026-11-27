@@ -1,0 +1,7 @@
+# Alleen de reguliere runner van de tijdelijke EX21-Hub opent de eigen gebeurtenisteller.
+services:
+  hub:
+    volumes:
+      - ../fixtures/hubrunner/sitecustomize.py:/usr/local/lib/python3.12/site-packages/sitecustomize.py:ro
+    tmpfs:
+      - /ex21-meting:uid=569,gid=569,mode=0700

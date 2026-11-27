@@ -171,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         for nummer, scenario in enumerate(gekozen, 1):
             # Kort genoeg voor de vrije-tekstredactie; een eigen naam per proef, ook bij --bewaar.
             project = Project("jlp-it-" + secrets.token_hex(10))
+            if scenario.id == "EX21":
+                project.cmd.extend(["-f", str(MAP / "compose.ex21.yaml")])
             status, rij = draai(project, scenario, runmap / scenario.id, commit, args.bewaar and nummer == len(gekozen))
             if rij:
                 voorstellen.append(rij)
