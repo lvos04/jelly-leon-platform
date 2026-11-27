@@ -13,7 +13,11 @@ class Meldroute(BaseHTTPRequestHandler):
         if urlsplit(self.path).path != "/message":
             self.send_error(404)
             return
-        omvang = int(self.headers.get("Content-Length", "0"))
+        try:
+            omvang = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.send_error(400)
+            return
         if not 0 < omvang <= 16384:
             self.send_error(413)
             return
