@@ -1395,9 +1395,9 @@
   "bijgewerkt": "2026-11-27",
   "bewijs": "e2e/integral/scenarios/EX12_backup_verouderd.py, docs/platform-v2/bewijs/ex11-ex12-ex14-ex15-ex47-ex48-ex50-opslag.json (EX12)",
   "status": "Bezig",
-  "validatie": "Sim-mislukt",
+  "validatie": "Sim-geslaagd",
   "blokkade": "",
-  "opmerking": "De mislukte upload liet de vorige export leesbaar. De Hub opende een kritiek incident en weigerde de actie met HTTP 409. De herstelupload mislukte doordat de ingestelde quotastoring nog actief was. De aangepaste herstelproef wacht op een nieuwe ketenmeting."
+  "opmerking": "De mislukte OneDrive-simulatietaak liet de vorige export leesbaar. De Hub opende een kritiek incident en sloot R2/R3. Een verse upload sloot hetzelfde incident en opende de gate. Een afzonderlijke meting met een 30 uur oude export gaf verouderd en een gesloten gate."
  },
  {
   "id": "EX14",

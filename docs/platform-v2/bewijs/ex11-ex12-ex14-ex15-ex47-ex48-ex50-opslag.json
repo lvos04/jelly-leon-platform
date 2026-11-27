@@ -1,38 +1,38 @@
 {
-  "run": "20261127t095856z-ac204b7ac0",
+  "run": "20261127t114814z-63c437648b",
   "eigenaar": "jelly-leon-platform",
   "datum": "2026-11-27",
-  "broncommit_proef": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+  "broncommit_proef": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
   "images": {
     "hub": {
-      "image_id": "sha256:3e9c4ef81e2de255d13550f11454851dd72c0d7e23ce3261b8babc0ece65b75e",
+      "image_id": "sha256:51cd58b22f932449b60fdc53857a61c4ba4b142d3258d8d9a3151a20e9178c5d",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/hub@sha256:3e9c4ef81e2de255d13550f11454851dd72c0d7e23ce3261b8babc0ece65b75e"
+      "digest": "jlp-integraal/hub@sha256:51cd58b22f932449b60fdc53857a61c4ba4b142d3258d8d9a3151a20e9178c5d"
     },
     "executor": {
-      "image_id": "sha256:84f7460304de841b72d5fdc4f97c8cd1ab01e0f34bf3a0f09c1ed918e54ad0f5",
+      "image_id": "sha256:af18b2c30daecbb9e5bc9a31cb89fabc6b842ab3be09513797023adc14a86311",
       "broncommit": "f5c8f2c4f44951bf2e9910a1e046b23377a2dd22",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/executor@sha256:84f7460304de841b72d5fdc4f97c8cd1ab01e0f34bf3a0f09c1ed918e54ad0f5"
+      "digest": "jlp-integraal/executor@sha256:af18b2c30daecbb9e5bc9a31cb89fabc6b842ab3be09513797023adc14a86311"
     },
     "truenas": {
-      "image_id": "sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b"
+      "digest": "jlp-integraal/truenas@sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94"
     },
     "lifecycle": {
-      "image_id": "sha256:ee4bd55edd6aa8fe8ab273c435e70cffe37958e25c94b4a55e80d7499ee49855",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:94d22a0f1deea50814972bdde3217ab5ad5f9decfa8d5d91d1304418ded70791",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/lifecycle@sha256:ee4bd55edd6aa8fe8ab273c435e70cffe37958e25c94b4a55e80d7499ee49855"
+      "digest": "jlp-integraal/lifecycle@sha256:94d22a0f1deea50814972bdde3217ab5ad5f9decfa8d5d91d1304418ded70791"
     },
     "onedrive": {
-      "image_id": "sha256:b8451d541a181c691773e15320bccdfd4b7c6ca826dcc67bfe6832ebcdb72c24",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:72d78535ef43a3b16ae2364403c322cf361a7551bd85c22a3370734549171f6d",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/simulators@sha256:b8451d541a181c691773e15320bccdfd4b7c6ca826dcc67bfe6832ebcdb72c24"
+      "digest": "jlp-integraal/simulators@sha256:72d78535ef43a3b16ae2364403c322cf361a7551bd85c22a3370734549171f6d"
     },
     "schema-release": {
       "image_id": "sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca",
@@ -40,10 +40,10 @@
       "digest": "ghcr.io/lvos04/jelly-leon-platform@sha256:210a3d1a2059e0ff92979f5612e0f0b82ef512afdceeb84b6871e98d1db045ca"
     },
     "schema-nieuw": {
-      "image_id": "sha256:fc3402570fb0589d4160d80e2c59243b5ec9d5769702b5b6bbd402e47745c475",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:5fec3b55e8680d21fcda1ad6afae321bc0ef5230eb7768ac68e11ad65123e486",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/schema-nieuw@sha256:fc3402570fb0589d4160d80e2c59243b5ec9d5769702b5b6bbd402e47745c475"
+      "digest": "jlp-integraal/schema-nieuw@sha256:5fec3b55e8680d21fcda1ad6afae321bc0ef5230eb7768ac68e11ad65123e486"
     },
     "appstore": {
       "image_id": "sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353",
@@ -52,16 +52,16 @@
       "digest": "jlp-integraal/appstore@sha256:49908ab23afe34787743e76dbe2247667ec8960347c7c364197d65055a5f5353"
     },
     "upstream-git": {
-      "image_id": "sha256:d6752f2528be7c7873eec2af12c93ab405463972edff947a265831621fbb7985",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:44a8a315e855abd7fcffb8592f3b72e7a185fb54b00065d0f27d132e2b4671b5",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/upstream-git@sha256:d6752f2528be7c7873eec2af12c93ab405463972edff947a265831621fbb7985"
+      "digest": "jlp-integraal/upstream-git@sha256:44a8a315e855abd7fcffb8592f3b72e7a185fb54b00065d0f27d132e2b4671b5"
     },
     "truenas-twee": {
-      "image_id": "sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b",
-      "broncommit": "52d5baf8571bbfefd7a5bff64b4d2f3b1aa904d7",
+      "image_id": "sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94",
+      "broncommit": "3ebc4a72dbc095b6d04d27427a433f72d18eee5f",
       "bronstatus": "schoon",
-      "digest": "jlp-integraal/truenas@sha256:ecc4157ad9d6912297c9860d18fd2a8990ee7840e9b68ced2beecdc116807d3b"
+      "digest": "jlp-integraal/truenas@sha256:ca35b38d74d4dbb87989b50cbd5dd8e6e4f8eb6157b140564d3b7a731286ab94"
     }
   },
   "scenario's": [
@@ -86,8 +86,8 @@
     },
     {
       "id": "EX12",
-      "uitkomst": "Sim-mislukt",
-      "pytest_exitcode": 1,
+      "uitkomst": "Sim-geslaagd",
+      "pytest_exitcode": 0,
       "overslagreden": null,
       "diensten": [
         "hub",
@@ -97,8 +97,12 @@
         "onedrive"
       ],
       "metingen": {
+        "kritiek_incident": 1,
         "geweigerd_http": 409,
-        "herstelupload_bevestigd": false
+        "vorige_export_behouden": true,
+        "na_herstel_gate_open": true,
+        "verouderd_na_uren": 30,
+        "schrijfacties": 0
       }
     },
     {
