@@ -22,12 +22,12 @@
  {
   "id": "B08-006",
   "status": "Bezig",
-  "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "commit 3adbfeb; docs/platform-v2/TRUENAS_APP_API.md §4 (app.delete remove_ix_volumes=false); e2e/simulators/truenas/tests/test_apps.py::test_delete_keeps_data_unless_remove_ix_volumes; contract 1.2: TrueNAS-simulator ongewijzigd voor app.delete (remove_ix_volumes=false); commit cc4cd73 catalogus met één versie per trein; P2: geen wijziging (viel buiten deze ronde)",
-  "blokkade": "De plannen voor verwijderen en verplaatsen ontbreken nog. Behoud van de appgegevens op de echte NAS is niet aangetoond (N-P6-03).",
-  "opmerking": "P0: onderzoek + simulator (verwijderen houdt data; remove_ix_volumes=true wordt als overtreding geregistreerd). Uninstall/move-plannen geven 501 capability_unavailable tot P2. Review P0: validatie van 'Unit-getest' naar 'Sim-getest' (het bewijs is een simulatortest van TrueNAS-gedrag, geen eigen uninstall). Acceptatie 'Uninstall wist geen Immich media of MediaGuard DB' NIET aangetoond. Geen functionele wijziging in deze ronde. P2 (2026-11-11): niet in deze ronde gebouwd; de uninstall/move-plannen geven nog steeds 501 capability_unavailable.",
+  "validatie": "Unit-getest; Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "S-P5-80, commits 51fff36 en c6a2bba. apps/api/tests/unit/test_plan_verwijderen.py en apps/api/tests/integration/test_plan_verwijderen.py: 35 tests. test_verwijderen_en_herinstalleren_met_behoud_van_gegevens meet alle drie verwijderopties in de TrueNAS-simulator, de datasets, het hostpad in de tweede pool en het ix-volume. Na herinstallatie met het gearchiveerde manifest en de oorspronkelijke formulierwaarden zijn foto's, kijkstanden van twee gebruikers en MediaGuard-voortgang gelijk aan de voormeting. De beschermde MediaGuard-proefapp en Emby krijgen geen plan. Een tegenproef met remove_ix_volumes=true liet de test falen. apps/api/tests/integration/test_migrations.py::test_verwijdermigratie_bewaart_alle_plannen_bij_upgrade_en_downgrade controleert gevulde PostgreSQL. Zie ADR-0022.",
+  "blokkade": "Verhuisplan en herstel bij verhuizen horen bij S-P5-81. De afgifte van herstelbewijs door de productie-Hub en de controle op de echte NAS vallen buiten deze simulatie.",
+  "opmerking": "Verwijderplan getest tegen de TrueNAS-simulator. NIET GEVALIDEERD: echt verwijderen van een app op de NAS en de controle dat de datasets er daarna nog staan (N-P6-03). Het plan blokkeert bij ontbrekend of verlopen herstelbewijs, onvolledige metingen en opslag waarvan behoud bij app.delete onzeker is.",
   "repo": "jelly-leon-platform",
-  "bijgewerkt": "2026-11-25"
+  "bijgewerkt": "2026-11-27"
  },
  {
   "id": "EX01",
