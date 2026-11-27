@@ -61,6 +61,7 @@ def test_every_mutation_without_key_gets_400_after_authentication(client: Any, a
     plan = {"manifest_yaml": "app_id: voorbeeld"}
     bodies = {"/lifecycle/v1/runs": {"app_id": "gotify", "kind": "install"},
               "/lifecycle/v1/plans/install/preview": plan, "/lifecycle/v1/plans/update/preview": plan,
+              "/lifecycle/v1/plans/uninstall/preview": {"app_name": "gotify"},
               "/lifecycle/v1/plans/rollback/preview": {"update_plan_id": str(uuid.uuid4())}}
     for method, path in _mutating_paths(client):
         body = bodies.get(path, {"to_state": "aborted", "reason": "test"} if path.endswith("/transitions") else {})
