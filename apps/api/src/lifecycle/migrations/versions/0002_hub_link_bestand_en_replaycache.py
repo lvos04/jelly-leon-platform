@@ -8,9 +8,10 @@ Eenmalige overzetting: een bestaande rij in ``hub_link`` (P0) gaat naar ``hub-li
 - ``gekoppeld`` met een te ontsleutelen service-token, minstens één Hub-sleutel en de policy-sleutel → ``gekoppeld``
   met die sleutels gepind (zoals ze bij de toen geslaagde enrollment zijn ontvangen; ``confirmed_at`` leeg, zodat de
   worker de koppeling met ``GET /api/v1/services/self`` bevestigt);
-- ``gekoppeld`` maar onvolledig (sleutels ontbreken, token niet te ontsleutelen) → ``ontkoppeld`` met
+- ``gekoppeld`` maar onvolledig (Hub-pins ontbreken of het opgeslagen token is ongeldig) → ``ontkoppeld`` met
   ``last_error: overzetten_onvolledig`` (fail-closed; opnieuw koppelen via de Hub);
 - anders → ``nooit_gekoppeld``; de hash van een afgehandeld env-token blijft bewaard.
+Kan de sleutelkluis niet veilig worden geladen, dan stopt de migratie met de bronrij intact voor een volgende poging.
 Een al bestaand ``hub-link.json`` wordt nooit overschreven. Het bestand valt buiten de databasetransactie: mislukt een
 latere migratie, dan herhaalt deze stap bij de volgende start en ziet het bestand al staan.
 Terugzetten (downgrade) maakt een lege tabel ``hub_link``; de koppeling blijft in het bestand (zie ADR-0011).
@@ -26,6 +27,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
+from cryptography.exceptions import InvalidTag
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0002"
@@ -40,8 +42,11 @@ HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 def _old_jwt_pins(jwks: Any) -> list[Any]:
     from lifecycle.keys import KeyFormatError, Pin, thumbprint_of_x
 
+    keys = jwks.get("keys") if isinstance(jwks, dict) else None
+    if not isinstance(keys, list):
+        return []
     pins: list[Pin] = []
-    for jwk in (jwks or {}).get("keys", []) if isinstance(jwks, dict) else []:
+    for jwk in keys:
         if not isinstance(jwk, dict) or jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519" or "d" in jwk:
             continue
         kid = jwk.get("kid")
@@ -65,8 +70,8 @@ def _transfer(bind: sa.Connection) -> None:
     if row is None:
         return
     from lifecycle.hublink import HubLinkStore, empty_doc, now_iso, set_error
-    from lifecycle.keys import Pin, keyset_fingerprint_of_thumbprints, thumbprint_of_x
-    from lifecycle.secrets_store import Vault
+    from lifecycle.keys import KeyFormatError, Pin, keyset_fingerprint_of_thumbprints, thumbprint_of_x
+    from lifecycle.secrets_store import SecretsError, Vault
 
     secrets_dir = Path(os.environ.get("LIFECYCLE_DATA_DIR", "/appdata")) / "secrets"
     store = HubLinkStore(secrets_dir)
@@ -85,13 +90,14 @@ def _transfer(bind: sa.Connection) -> None:
         token: str | None = None
         jwt_pins: list[Pin] = []
         policy: Pin | None = None
+        vault = Vault.load(secrets_dir)
         try:
-            token = Vault.load(secrets_dir).decrypt(bytes(row["service_token_enc"]), "hub_link.service_token")
+            token = vault.decrypt(bytes(row["service_token_enc"]), "hub_link.service_token")
             jwt_pins = _old_jwt_pins(row["jwks"])
             if isinstance(row["policy_public_key"], str):
                 tp = thumbprint_of_x(row["policy_public_key"])
                 policy = Pin(kid=tp, x=row["policy_public_key"], thumbprint=tp)
-        except Exception:  # elk probleem (sleutel, formaat, ontsleutelen) = onvolledig, nooit half vertrouwen
+        except (SecretsError, InvalidTag, UnicodeDecodeError, KeyFormatError):  # ongeldige gegevens in de oude rij
             token = None
         if token and SVC_RE.fullmatch(token) and jwt_pins and policy and row["hub_url"] and row["service_id"]:
             at = now_iso()

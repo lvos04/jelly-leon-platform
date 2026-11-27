@@ -3,6 +3,8 @@ database exact op de vorige revisie met data intact (B08-004, eigen app)."""
 
 from __future__ import annotations
 
+import errno
+import os
 import shutil
 import uuid
 from collections.abc import Iterator
@@ -297,14 +299,76 @@ def test_p0_link_is_transferred_to_hub_link_json_once(fresh_db: str, data_dir: P
     assert HubLinkStore(data_dir / "secrets").read().service_token == token
 
 
-def test_incomplete_p0_link_becomes_unlinked_fail_closed(fresh_db: str, data_dir: Path,
-                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("sleutel", ["identity.ed25519", "vault.key"])
+def test_p0_koppeling_blijft_herstelbaar_bij_onleesbare_acl(
+    fresh_db: str, data_dir: Path, monkeypatch: pytest.MonkeyPatch, sleutel: str,
+) -> None:
+    from hub_sim import HubState
+
+    from lifecycle.hublink import HubLinkStore
+    from lifecycle.keys import thumbprint_of_x
+    from lifecycle.secrets_store import SecretsError
+
+    sim = HubState()
+    dienst, token = sim.register_service("jelly-leon-platform")
+    jwks = sim.jwks()
+    policy = sim.policy_jwk()["x"]
+    store = HubLinkStore(data_dir / "secrets")
+    monkeypatch.setenv("LIFECYCLE_DATA_DIR", str(data_dir))
+    upgrade(fresh_db, "0001")
+    _p0_row(fresh_db, store.dir, service_id=dienst, service_token_enc=token, jwks=jwks, policy_public_key=policy)
+    voor = _inhoud(fresh_db)
+    assert voor["hub_link"][0] == 1
+
+    bestand = (store.dir / sleutel).stat()
+    getxattr = os.getxattr
+
+    def lees_acl(doel: int | Path, naam: str, **opties: Any) -> bytes:
+        if isinstance(doel, int) and naam == "system.nfs4_acl_xdr" and os.path.samestat(os.fstat(doel), bestand):
+            raise PermissionError(errno.EACCES, "tijdelijk onleesbare proef-ACL")
+        return getxattr(doel, naam, **opties)
+
+    with monkeypatch.context() as storing:
+        storing.setattr(os, "getxattr", lees_acl)
+        with pytest.raises(SecretsError, match="privérechten"):
+            upgrade(fresh_db)
+    assert _rev(fresh_db) == "0001"
+    assert _inhoud(fresh_db) == voor
+    assert not store.path.exists()
+
+    upgrade(fresh_db)
+    assert _rev(fresh_db) == head_revision()
+    assert "hub_link" not in _inhoud(fresh_db)
+    link = store.read()
+    zelfde_token = link.service_token == token
+    assert link.linked and link.service_id == dienst and zelfde_token
+    assert {kid: pin.x for kid, pin in link.pin_map("jwt").items()} == {jwk["kid"]: jwk["x"] for jwk in jwks["keys"]}
+    assert {kid: pin.x for kid, pin in link.pin_map("policy").items()} == {thumbprint_of_x(policy): policy}
+    assert link.keyset_fingerprint == sim.keyset_fingerprint()
+    assert link.used_tokens == ["c" * 64]
+
+
+@pytest.mark.parametrize("bronvelden", [
+    pytest.param({"jwks": None, "policy_public_key": None}, id="zonder-pins"),
+    pytest.param({"jwks": {"keys": None}}, id="ongeldige-sleutellijst"),
+    pytest.param({"service_token_enc": b"beschadigd"}, id="onbekend-formaat"),
+    pytest.param({"service_token_enc": b"v1" + bytes(28)}, id="ongeldig-authenticatielabel"),
+])
+def test_incomplete_p0_link_becomes_unlinked_fail_closed(
+    fresh_db: str, data_dir: Path, monkeypatch: pytest.MonkeyPatch, bronvelden: dict[str, Any],
+) -> None:
+    from hub_sim import HubState
+
     from lifecycle.hublink import HubLinkStore
 
+    sim = HubState()
+    _, token = sim.register_service("jelly-leon-platform")
+    volledig = {"service_token_enc": token, "jwks": sim.jwks(), "policy_public_key": sim.policy_jwk()["x"]}
     upgrade(fresh_db, "0001")
-    _p0_row(fresh_db, data_dir / "secrets", service_token_enc="svc_" + "Z" * 43)  # P0 kreeg geen JWKS mee
+    _p0_row(fresh_db, data_dir / "secrets", **(volledig | bronvelden))
     monkeypatch.setenv("LIFECYCLE_DATA_DIR", str(data_dir))
     upgrade(fresh_db)
     link = HubLinkStore(data_dir / "secrets").read()
     assert link.state == "ontkoppeld" and link.service_token is None and link.ever_linked
+    assert link.doc["pins"] is None
     assert link.doc["last_error"]["code"] == "overzetten_onvolledig"
