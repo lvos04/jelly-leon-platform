@@ -105,6 +105,9 @@ Op 2026-11-28 wees de stabiele tag `v26.10.28` naar broncommit `6f3cb9bd4385`.
 De gemeten OCI-index van `ghcr.io/netalertx/netalertx:26.10.28` is
 `sha256:ebce55cdbccc0f71544e6997541fe81db803b8c8bec3079435b8cd0a40d49b7e`. [Upstream-release](https://github.com/netalertx/NetAlertX/releases/tag/v26.10.28)
 
+De meegeleverde eerste configuratie plant al ARP-scans (`ARPSCAN_RUN='schedule'`).
+Een passief profiel moet die planning vóór de eerste dienststart uitschakelen. [Standaardconfiguratie van de release](https://github.com/netalertx/NetAlertX/blob/v26.10.28/back/app.conf#L29-L37)
+
 Voor directe passieve LAN-waarneming heeft deze image toegang tot het hostnetwerk nodig.
 De Python-interpreter van de dienst vereist daarnaast `NET_RAW` en `NET_ADMIN` in de bounding set,
 ook voor een passieve bestandsimport. [Netwerkmodus](https://github.com/netalertx/NetAlertX/blob/v26.10.28/docs/docker-troubleshooting/network-mode.md) · [Opbouw van de image](https://github.com/netalertx/NetAlertX/blob/v26.10.28/Dockerfile#L178-L183)
