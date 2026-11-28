@@ -478,7 +478,8 @@ def test_a_list_for_a_document_with_an_installable_manifest_fails(tmp_path: Path
 
 
 KOPIE_PER_DOC = {"I03": "mediaguard.manifest.yaml", "I04": "media-source-optimizer.manifest.yaml",
-                 "I05": "my_house.manifest.yaml", "I15": "zoeken-en-persoonlijke-ai.manifest.yaml"}
+                 "I05": "my_house.manifest.yaml", "I14": "zoeken-en-persoonlijke-ai.manifest.yaml",
+                 "I15": "zoeken-en-persoonlijke-ai.manifest.yaml", "I25": "zoeken-en-persoonlijke-ai.manifest.yaml"}
 
 
 @pytest.mark.parametrize("idoc", sorted(KOPIE_PER_DOC))
@@ -486,7 +487,7 @@ def test_a_list_next_to_a_manifest_copy_must_refer_to_it(tmp_path: Path, idoc: s
     """S-P3-450 bouwpunt 6: een manifestkopie van een andere repo mag naast de lijst van haar document staan; de lijst
     verwijst er dan naar (veld ``verwijzing``). Zonder die verwijzing faalt de lijst; met een verwijzing naar iets
     anders ook."""
-    doc = next(d for d in BESTAANDE_APPS if d.startswith(idoc))
+    doc = next(Path(d).stem for d in cl.excel_taken() if Path(d).stem.startswith(idoc + "_"))
     kopie = KOPIE_PER_DOC[idoc]
     assert kopie in cl.documenten_met_manifest()[idoc] and kopie in cl.KOPIEEN
 
@@ -509,6 +510,26 @@ def test_a_list_next_to_a_manifest_copy_must_refer_to_it(tmp_path: Path, idoc: s
     _neplijst(tmp_path, f"03_INSTALLATIE/{doc}.md")
     assert any(f"manifestkopie {kopie}" in f for f in cl.controleer_alle(tmp_path)[naam])
     assert cl.main(tmp_path) == 1
+
+
+def test_zoeklijsten_dekken_de_nasproeven() -> None:
+    bewijs = {r["id"]: r for r in json.loads((cl.DOCS / "EVIDENCE.json").read_text(encoding="utf-8"))}
+    for document in ("I14_PGVECTOR", "I25_SEARCH"):
+        lijst = _load(f"{document}.checklist.yaml")
+        taken = cl.excel_taken()[lijst["document"]]
+        assert [s["id"] for s in lijst["stappen"]] == [t["ID"] for t in taken]
+        for stap in lijst["stappen"]:
+            assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+            rij = bewijs[stap["id"]]
+            assert rij["status"] == "Geblokkeerd" and "N-P6-08" in rij["blokkade"]
+
+    zoekstappen = _load("I25_SEARCH.checklist.yaml")["stappen"]
+    opt_in = zoekstappen[0]["uitvoeren_nl"]
+    for bron in ("bestanden", "Immich", "Jellyfin", "logbestanden"):
+        assert bron in opt_in
+    assert "elk uit staan" in opt_in and "T-22" in opt_in
+    assert "NIET GEVALIDEERD (account)" in zoekstappen[0]["validatie_nu"]
+    assert "BG-06" in zoekstappen[3]["uitvoeren_nl"] and "embeddings uit" in zoekstappen[3]["uitvoeren_nl"]
 
 
 def test_an_own_manifest_next_to_a_list_still_fails_even_with_a_reference(tmp_path: Path) -> None:

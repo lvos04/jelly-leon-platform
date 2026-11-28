@@ -29,7 +29,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 > C-11: zonder beheerder helemaal dicht, ook lezen); beheerder, flows en service-token zijn **Geblokkeerd**
 > (`../node-red/README.md`, ADR-0023).
 
-## Wat er nu is (P1 en P2)
+## Beschikbare manifesten en controlelijsten
 
 | I-doc | Bestand | Methode | Versie · image of catalogus | Bijzonderheden |
 |---|---|---|---|---|
@@ -58,7 +58,8 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
 | I04 | `media-source-optimizer.manifest.yaml` | Custom App | kopie · bron `lvos04/media-source-optimizer` `deploy/manifest/media-source-optimizer.manifest.yaml` @ `335e26e` | doel: formulier van de standaard Custom App voor I04; de controlelijst verwijst ernaar (I04-04-01); digest volgt bij de release |
 | I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) verwijst ernaar; digest volgt bij de release |
-| I25 | [Zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) | Custom App | 0.1.1 · broncommit `6ccef1f` | Eén image met PostgreSQL en pgvector. Alleen de API-poort wordt gepubliceerd. |
+| I14 | [Controlelijst pgvector](../checklists/I14_PGVECTOR.checklist.yaml) | controlelijst | onderdeel van I25 | Vijf controles op de database in de zoekimage, van toegangsrechten tot herstel en afspeelbelasting. |
+| I25 | [Zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) en [controlelijst zoeken](../checklists/I25_SEARCH.checklist.yaml) | Custom App en controlelijst | 0.1.1 · broncommit `6ccef1f` | Eén image met PostgreSQL en pgvector. De zes controles beginnen met alle bronnen uit. De gebruiker geeft per bron toestemming en voert zelf de benodigde API-sleutels in (T-22). |
 
 Manifestkopieën (I23, I03, I04, I05, I25) komen alleen met `python tools/manifest_kopie.py bijwerken --repo <repo> --bron
 ../<repo> --ref <commit>` uit de gecommitte bron; de herkomstkop (2 regels: bron `<repo>@<commit>:<pad>` en sha256)
@@ -146,7 +147,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I11 | NetAlertX | nieuw | Custom App geblokkeerd op netwerkrechten | upstream 26.10.28 | [P5-controlelijst](../checklists/I11_NETALERTX.checklist.yaml) |
 | I12 | AdGuard Home | proef op één apparaat | catalogusapp | community · 1.3.24 · v1.0.0 | [P5-manifest](adguard-home.manifest.yaml) |
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |
-| I14 | PostgreSQL + pgvector | alleen bij AI-search | ingebouwd in `zoeken-en-persoonlijke-ai` (alles-in-één) | (community `postgres` bestaat, niet nodig) | n.v.t. |
+| I14 | PostgreSQL + pgvector | alleen bij de zoekdienst | ingebouwd in de alles-in-één-image van I25 | — | **P5** · [Controlelijst pgvector](../checklists/I14_PGVECTOR.checklist.yaml) |
 | I15 | Immich | behouden en beschermen | bestaand behouden (import) | community · 1.14.62 · v3.3.6 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I16 | Prowlarr | behouden | bestaand (import) | community · 1.5.34 · 3.0.0.5737 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
 | I17 | SABnzbd | behouden | bestaand (import) | community · 1.3.22 · 5.1.3 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
@@ -157,7 +158,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I22 | Navidrome (optioneel) | niet automatisch | catalogusapp alleen na besluit D18 | community · 1.3.23 · 0.64.2 | P4 (optioneel) |
 | I23 | Home Control Hub (`ai-server-manager` + executor) | bouwen, daarna installeren | eerste installatie handmatig: `install/truenas/INSTALLATIE.md` | — | **P1: kopie + rooktest** |
 | I24 | Jelly Leon (fork) | release apart beproeven | eigen image als Custom App naast Emby | — | **P4-controlelijst**. Praktijkproeven volgen in P6. |
-| I25 | Zoeken en persoonlijke AI | bouwen, opt-in | eigen alles-in-één image als Custom App | — | **P5** · [Gepind zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) |
+| I25 | Zoeken en persoonlijke AI | toestemming per bron | eigen alles-in-één-image als Custom App | — | **P5** · [Gepind zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) en [controlelijst zoeken](../checklists/I25_SEARCH.checklist.yaml) |
 | I26 | Overige (Snapotter, Teeltboek, Uren, Plex, Emby, JellyPlex Watched, FlareSolverr, Readarr) | inventariseren, niet verwijderen | bestaand (import); nooit automatisch verwijderen | o.a. stable `plex`, stable `emby`, community `readarr`, `flaresolverr`, `snapotter` | P5 (import) |
 
 Versies in de kolom "Catalogus" zijn alleen voor de apps van P1 opnieuw gecontroleerd in `f7a38eb`; de andere zijn de

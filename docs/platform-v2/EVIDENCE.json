@@ -410,6 +410,66 @@
   "bijgewerkt": "2026-11-27"
  },
  {
+  "id": "I25-25-01",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-01). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Installatie van zoeken en bereik van de bronselectie. NIET GEVALIDEERD (account). Echte bronnen en door de gebruiker in te voeren Immich- en Jellyfin-sleutels (T-22). Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst begint met vier uitgeschakelde bronnen en afzonderlijke toestemming.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I25-25-02",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-02). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Vernieuwen en opschonen van de index met een werkende bronadapter. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst controleert herhaalde, gewijzigde en uit de selectie genomen documenten.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I25-25-03",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-03). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Volledige-tekstzoekfunctie met een toegestane bron in de geïnstalleerde dienst. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst vergelijkt een exacte teksttreffer en de bronverwijzing met een proefdocument.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I25-25-04",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-04). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Klassieke terugval op de NAS. Een semantische prestatiemeting blijft open onder BG-06. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. BG-06 houdt embeddings uit. De lijst controleert de klassieke zoekfunctie in die stand.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I25-25-05",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-05). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Privacyproef op de zoekinstallatie met een afgeschermd document. NIET GEVALIDEERD (account). Controle van treffers en bronverwijzingen met verschillende gebruikersrechten. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst controleert de toegang vóór en na intrekking en vergelijkt het actielog bij documentinstructies.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I25-25-06",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I25_SEARCH.checklist.yaml (I25-25-06). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Geïsoleerd herstel, herindexeren per bron en vergelijking van de originelen. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst beschrijft een voor- en nameting voor toegestaan en ingetrokken bronmateriaal.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
   "id": "I07-07-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware); NIET GEVALIDEERD (account)",
@@ -1109,6 +1169,56 @@
     "repo": "jelly-leon-platform",
     "bijgewerkt": "2026-11-24"
   },
+ {
+  "id": "I14-14-01",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I14_PGVECTOR.checklist.yaml (I14-14-01). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Afscherming van documenten tussen twee gebruikers. NIET GEVALIDEERD (account). Leesrechten met twee testprofielen. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst koppelt bewaartermijn en lezers aan één proefbron.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I14-14-02",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I14_PGVECTOR.checklist.yaml (I14-14-02). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Installatie van de zoekapp, interne database en alleen-lezen bronkoppeling. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst controleert de extensieversie en vraagt een vectorproef voor dezelfde release.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I14-14-03",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I14_PGVECTOR.checklist.yaml (I14-14-03). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Toegangscontrole op de zoekindex van de geïnstalleerde dienst. NIET GEVALIDEERD (account). Zoekresultaten onder twee verschillende leesrechten. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst vergelijkt de zichtbaarheid vóór rangschikking voor twee lezers.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I14-14-04",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I14_PGVECTOR.checklist.yaml (I14-14-04). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Herstel uit de database-export en herindexering met actuele toestemming. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst vergelijkt voor en na geïsoleerd herstel de rechten, zoekresultaten en controlesommen.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I14-14-05",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I14_PGVECTOR.checklist.yaml (I14-14-05). Zoekmanifest uit commit 173a94f, broncommit 6ccef1f. make manifesten en tests/repo/test_checklists.py::test_zoeklijsten_dekken_de_nasproeven.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Prestatie op de NAS tijdens afspelen. NIET GEVALIDEERD (hardware). CPU-belasting en afspeelonderbrekingen op het doelapparaat. Uitvoering in N-P6-08.",
+  "opmerking": "Controlelijsten en manifest gevalideerd. De lijst vergelijkt afspelen zonder indexering met afspelen tijdens een kleine indexeerronde.",
+  "bijgewerkt": "2026-11-28"
+ },
  {
   "id": "I15-15-01",
   "status": "Bezig",

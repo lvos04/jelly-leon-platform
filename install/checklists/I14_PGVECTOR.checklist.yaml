@@ -1,0 +1,105 @@
+checklist_version: "1"
+kind: checklist
+install: {method: none}
+id: I14
+titel_nl: Ingebouwde PostgreSQL en pgvector van de zoekdienst controleren
+document: 03_INSTALLATIE/I14_PGVECTOR.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D02, D16]
+toelichting_nl: >-
+  PostgreSQL en pgvector zitten samen met de zoekdienst in de alles-in-één-image van I25.
+  Er is één Custom App en de database luistert alleen op een interne socket. Gebruik voor de proeven
+  een geïsoleerde zoekinstallatie, leesbare testkopieën en twee testprofielen. Houd echte bronnen uit.
+  Leg per stap de uitkomst vast voor N-P6-08. Ontbreekt de beschreven functie of het bewijs voor deze
+  release, laat de proef open.
+stappen:
+  - id: I14-14-01
+    titel_nl: Data model en retentie
+    uitvoeren_nl: >-
+      Leg voor één proefbron de eigenaar, de toegestane gebruikers, de selectie en de bewaartermijn vast.
+      Geef alleen het eerste testprofiel leesrecht. Zoek in beide profielen naar hetzelfde unieke woord
+      uit een proefdocument. Alleen de eigenaar mag het resultaat en het tekstfragment zien. Leg ook vast
+      dat er volgens BG-06 geen embeddings worden aangemaakt.
+    acceptatie_nl: Geen private documents via search voor andere user.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Trek de toestemming voor de proefbron in. Hervat pas als de toegangslijst klopt en het tweede profiel geen treffer of fragment meer ziet.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I14-14-02
+    titel_nl: Image/installatie
+    uitvoeren_nl: >-
+      Vergelijk de versie en digest van de zoekapp met het I25-manifest. Open vanaf de app-portal
+      de route /readyz in de browser. De controles database, migraties en pgvector moeten ok zijn
+      en pgvector moet een extensieversie tonen. Controleer bij dezelfde release het proefbewijs
+      dat een vector in de testdatabase kan worden opgeslagen en teruggelezen. Controleer in het
+      Custom App-formulier dat alleen de API-poort is gepubliceerd en dat gekoppelde proefbronmappen
+      alleen-lezen zijn. De eigen appdataset bevat de database.
+    acceptatie_nl: Extension CREATE VECTOR werkt in test DB.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Apps → Installed Applications → Zoeken en persoonlijke AI
+    verwijzing: [install/manifests/zoeken-en-persoonlijke-ai.manifest.yaml, "zoeken-en-persoonlijke-ai: deploy/truenas/CUSTOM_APP.md", "zoeken-en-persoonlijke-ai: apps/api/tests/integration/test_schema_constraints.py::test_vector_roundtrip_and_dimension_check"]
+    besluiten: [D02]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Houd de bronnen uit en vergelijk de image en de opslag met het manifest. Laat de proef open bij een ontbrekende extensie of ontbrekend releasebewijs.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I14-14-03
+    titel_nl: Indexen en ACLs
+    uitvoeren_nl: >-
+      Gebruik een gedeeld en een afgeschermd proefdocument met hetzelfde zoekwoord. Zoek als eigenaar
+      en als lezer met beperkte rechten. De toegangscontrole hoort vóór rangschikking en begrenzing te
+      werken. Vraag als lezer één resultaat op. Het gedeelde document moet zichtbaar blijven, ook als
+      het afgeschermde document het woord vaker bevat. Totaal, fragmenten en bronverwijzingen mogen
+      geen afgeschermd document verraden. Herhaal na het intrekken van het leesrecht.
+    acceptatie_nl: Queries filteren vóór results getoond worden.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Zet de proefbron uit en bewaar de gemaskeerde uitkomst per rol. Laat de zoekfunctie voor die bron uit tot de rechtenproef klopt.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I14-14-04
+    titel_nl: Rebuild en backup
+    uitvoeren_nl: >-
+      Noteer de toegestane treffers en de controlesommen van de proeforiginelen. Herstel de versleuteld
+      bewaarde database-export in een afzonderlijke zoekapp met een lege eigen dataset. De afgeleide
+      index hoort na herstel van de export leeg te zijn. Controleer opnieuw de actuele toestemming
+      en verwijder ingetrokken toestemmingen uit de herstelde configuratie voordat indexering of
+      zoektoegang wordt vrijgegeven. Herindexeer alleen de toegestane proefbron vanaf de alleen-lezen
+      koppeling. Vergelijk treffers, bronverwijzingen en controlesommen met de voormeting.
+    acceptatie_nl: Indexed search na restore werkt.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: ["zoeken-en-persoonlijke-ai: deploy/truenas/CUSTOM_APP.md", install/checklists/I25_SEARCH.checklist.yaml]
+    besluiten: [D02, D16]
+    bewijs: [image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Houd de herstelkopie geïsoleerd en pauzeer haar indexering. Bewaar de export en de proeforiginelen. Laat de oorspronkelijke installatie doordraaien.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I14-14-05
+    titel_nl: CPU/GPU budget
+    uitvoeren_nl: >-
+      Noteer CPU- en geheugengebruik en eventuele afspeelonderbrekingen tijdens een vaste proefstream.
+      Start een kleine indexeerronde op lage prioriteit met dezelfde stream. Controleer dat de werker
+      bij afspelen pauzeert of afremt en dat de stream zonder extra onderbrekingen doorloopt.
+      Vergelijk de twee metingen. De zoekapp werkt zonder GPU en embeddings blijven uit.
+    acceptatie_nl: Geen streamstotter door zoekindexeren.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Pauzeer de indexering. Verklein de batch of plan die buiten de afspeeltijd en herhaal de meting met dezelfde proefstream.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]

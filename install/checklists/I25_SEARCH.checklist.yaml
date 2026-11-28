@@ -1,0 +1,124 @@
+checklist_version: "1"
+kind: checklist
+install: {method: none}
+id: I25
+titel_nl: Persoonlijke zoekdienst en toestemming per bron controleren
+document: 03_INSTALLATIE/I25_SEARCH.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: inrichten_en_testen
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D01, D02, D16]
+toelichting_nl: >-
+  Gebruik het formulier van de standaard Custom App en de waarden uit het zoekmanifest. De ene
+  image bevat ook PostgreSQL en pgvector. Controleer de dataset en het herstelpunt vooraf.
+  Deze lijst beschrijft de proeven voor N-P6-08. Gebruik daarvoor een afgeschermde testbron
+  en testprofielen. Houd bij welke functies de geïnstalleerde release aanbiedt. Ontbreekt een
+  benodigde adapter of Hub-bediening, laat die proef open. Bewaar alleen gemaskeerd bewijs.
+stappen:
+  - id: I25-25-01
+    titel_nl: Bronnen en toestemming
+    uitvoeren_nl: >-
+      Controleer na een verse installatie dat bestanden, Immich-metadata, de Jellyfin-bibliotheek en
+      logbestanden elk uit staan. Zonder toestemming blijft de index leeg. De eigenaar kiest per bron
+      het bereik en de lezers en geeft afzonderlijk toestemming. Voor Immich en Jellyfin voert de
+      gebruiker zelf de bijbehorende API-sleutel in via de beveiligde broninstelling in de Hub
+      (T-22). Geef alleen de benodigde leesrechten. Bestanden en logs gebruiken alleen-lezen
+      bronmappen. Geef één proefbron vrij en zoek naar een uniek woord binnen én buiten de selectie.
+      Alleen de toegestane treffer mag verschijnen. Controleer dat de drie andere bronnen uit blijven.
+    acceptatie_nl: Niet toegestane paden buiten index.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/manifests/zoeken-en-persoonlijke-ai.manifest.yaml, "zoeken-en-persoonlijke-ai: deploy/truenas/CUSTOM_APP.md"]
+    besluiten: [D01, D02]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: Trek de toestemming in en controleer dat de zoekresultaten voor de bron verdwijnen. Houd de overige bronnen uit. Leg nooit een sleutel vast in het formulier, een log of een schermafdruk.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I25-25-02
+    titel_nl: Datamodel en index
+    uitvoeren_nl: >-
+      Indexeer hetzelfde proefdocument twee keer. Het moet één logische treffer met dezelfde
+      bronverwijzing opleveren. Bied daarna een tweede versie van het proefdocument aan met een ander
+      herkenningswoord. Controleer de bronvingerafdruk, de bijgewerkte tekstfragmenten en het aantal
+      treffers. Het oude woord mag geen verouderd fragment teruggeven. Neem het proefdocument uit de
+      selectie en controleer na de vastgelegde opruimtermijn dat er geen treffer meer is.
+    acceptatie_nl: No duplicate/stale results.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Pauzeer de proefbron en bewaar de tellingen voor beide versies. Bouw alleen de afgeleide proefindex opnieuw op zodra de bronselectie klopt.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I25-25-03
+    titel_nl: Kern FTS
+    uitvoeren_nl: >-
+      Zoek via de gewone tekstzoekfunctie (FTS) van de Hub naar één uniek woord in een
+      toegestaan proefdocument. Vergelijk het getoonde fragment en de bronverwijzing met dat document.
+      Zoek ook naar een afwezig woord en controleer dat de lijst leeg is. Laat beide uitkomsten zien
+      met de optionele zoekfuncties uitgeschakeld.
+    acceptatie_nl: Exact zoekresultaat met provenance.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Controleer de selectie, indexstatus en herkomst van de treffer. Houd de zoekfunctie voor deze bron buiten gebruik tot dezelfde proef klopt.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I25-25-04
+    titel_nl: Embeddings optioneel
+    uitvoeren_nl: >-
+      Volgens BG-06 blijven embeddings uit. Controleer dat de bron geen embeddingtaak start en dat
+      de klassieke zoekopdracht uit stap 3 blijft werken. Als de Hub semantisch zoeken aanbiedt,
+      moet zichtbaar zijn dat het niet beschikbaar is. Leg de uitstand vast. Het semantische
+      acceptatiecriterium blijft open zolang BG-06 geldt.
+    acceptatie_nl: Semantisch resultaat binnen resource budget.
+    risico: Middel
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/checklists/I14_PGVECTOR.checklist.yaml]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Pauzeer een onverwachte embeddingtaak en herstel de uitstand. Herhaal de klassieke zoekproef voordat je verdergaat.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
+
+  - id: I25-25-05
+    titel_nl: Privacy negative tests
+    uitvoeren_nl: >-
+      Zoek als eigenaar en als tweede testgebruiker zonder leesrecht naar een privédocument met
+      een uniek woord. Alleen de eigenaar mag een treffer, fragment of bronverwijzing zien.
+      Gebruik ook een toegestaan proefdocument met tekst die om het wijzigen van een instelling
+      vraagt. Controleer dat deze tekst uitsluitend als documentinhoud verschijnt en dat de
+      instelling en het actielog dezelfde stand houden. Trek de toestemming in en herhaal de
+      zoekopdracht als eigenaar. Ook die krijgt nu geen treffer.
+    acceptatie_nl: Geen private result leak of unauthorized actions.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: Houd de bron uit en bewaar de gemaskeerde voor- en nameting. Geef de bron pas opnieuw vrij als de geweigerde zoekopdracht leeg blijft en er geen actie is uitgevoerd.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I25-25-06
+    titel_nl: Re-index/rollback
+    uitvoeren_nl: >-
+      Leg vóór het herstel de inhoudscontrolesommen van de proeforiginelen, de toegestane treffers en
+      de ingetrokken proefbron vast. Pauzeer de indexering tijdens afspelen. Herstel de export in
+      een geïsoleerde zoekapp op een eigen dataset. Vergelijk de herstelde rechten met de actuele
+      toestemming voordat de indexering of zoektoegang wordt geopend. Herbouw de lege index voor
+      alleen de toegestane bron. Vergelijk de treffers en controlesommen met de voormeting en zoek
+      opnieuw naar het unieke woord uit de ingetrokken bron. Dat moet afwezig blijven.
+    acceptatie_nl: Restore of reindex zonder originals verlies.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/checklists/I14_PGVECTOR.checklist.yaml, "zoeken-en-persoonlijke-ai: deploy/truenas/CUSTOM_APP.md"]
+    besluiten: [D02, D16]
+    bewijs: [image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: Houd de herstelkopie geïsoleerd. Gebruik bij een schemawijziging de vorige gepinde image met haar passende export of snapshot. Bewaar de originelen en controleer de toestemmingen opnieuw.
+    blokkeert_volgende: true
+    validatie_nu: [Unit-getest, NIET GEVALIDEERD (echte NAS)]
