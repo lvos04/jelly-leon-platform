@@ -124,6 +124,15 @@ def eigen_controles(data: dict[str, Any]) -> list[str]:
         fout.append("host_network is niet false")
     if data.get("privileges", {}).get("privileged") is not False:
         fout.append("privileged is niet false")
+    if data.get("app_id") == "adguard-home":
+        # De officiële catalogustemplate geeft de DHCP-server zelf NET_RAW en hostnetwerk.
+        waarden = data.get("values")
+        netwerk = waarden.get("network") if isinstance(waarden, dict) else None
+        if not isinstance(netwerk, dict) or any(netwerk.get(k) is not False for k in ("dhcp_enabled", "host_network")):
+            fout.append("I12 vereist dhcp_enabled: false en host_network: false in de cataloguswaarden")
+        rechten = data.get("privileges", {}).get("cap_add") or []
+        if any(str(recht).upper().removeprefix("CAP_") in {"NET_RAW", "NET_ADMIN"} for recht in rechten):
+            fout.append("I12 staat NET_RAW en NET_ADMIN niet toe")
     return fout
 
 

@@ -1,0 +1,168 @@
+# I12 AdGuard Home — contract 1.3 §9. Catalogus en OCI-index gemeten op 2026-11-28.
+# truenas/apps@459b8f6f295a87ac5978ff3386866ccae30c3a47, trains/community/adguard-home/1.3.24/ix_values.yaml:
+# adguard/adguardhome:v1.0.0@sha256:f00a586f0d1caa74f149340bfb225014960310488ffa838406b89256900a96c2
+manifest_version: "1"
+app_id: adguard-home
+name: AdGuard Home
+owner_repo: lvos04/jelly-leon-platform
+category: network
+description_nl: >-
+  DNS-filter voor een proef op één apparaat. Controleer vooraf de eigenaar van poort 53 voor TCP en UDP,
+  ook op alle interfaces. Publiceer DNS op de vrije proefpoort 30553 van een eigen LAN-adres.
+  Beperk toegang vooraf tot de proefclient en het beheer via LAN/VPN. Laat router-DNS en DHCP bij de bestaande dienst.
+version: "v1.0.0"
+install:
+  method: catalog_app
+  reason: >-
+    De officiële catalogusapp pint de DNS-image en vertaalt de gekozen luisteradressen,
+    TCP- en UDP-poorten en beide datasets naar haar eigen formulier.
+catalog:
+  train: community
+  app: adguard-home
+  version: "1.3.24"
+values:
+  TZ: {param: timezone}
+  adguard:
+    use_https_probe: false
+    additional_envs: []
+  network:
+    dhcp_enabled: false
+    host_network: false
+    web_port:
+      bind_mode: published
+      port_number: {param: web_port}
+      host_ips: [{param: pilot_adres}]
+    dns_port:
+      bind_mode: published
+      port_number: 30553
+      host_ips: [{param: pilot_adres}]
+    networks: []
+    additional_ports: []
+  storage:
+    config:
+      type: host_path
+      host_path_config: {acl_enable: false, path: {param: config_path}}
+    work:
+      type: host_path
+      host_path_config: {acl_enable: false, path: {param: work_path}}
+    additional_storage: []
+parameters:
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone voor logboek en metingen.
+  - name: pilot_adres
+    type: string
+    source: wizard
+    decision: D03
+    required: true
+    description_nl: >-
+      Kies in het catalogusformulier uit de lokale bindadressen het afzonderlijke LAN-adres voor de proef.
+      Stop als het adres ontbreekt, al in gebruik is of alle interfaces omvat.
+  - name: web_port
+    type: port
+    source: default
+    default: 30004
+    required: true
+    description_nl: Vrije beheerpoort op het proefadres. Controleer de bereikbaarheid vanuit het beheernetwerk.
+  - name: config_path
+    type: path
+    source: dataset_picker
+    dataset_role: adguard_config
+    decision: D02
+    required: true
+    description_nl: Eigen dataset voor configuratie en beheerderstoegang.
+  - name: work_path
+    type: path
+    source: dataset_picker
+    dataset_role: adguard_work
+    decision: D02
+    required: true
+    description_nl: Afzonderlijke dataset voor filters, statistieken en het querylog.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal aanvaardbaar gegevensverlies.
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: true
+    description_nl: Maximaal aanvaardbare hersteltijd.
+storage:
+  - {name: config, mount: /opt/adguardhome/conf, kind: config, required_dataset_role: adguard_config}
+  - {name: work, mount: /opt/adguardhome/work, kind: data, required_dataset_role: adguard_work}
+network:
+  ports:
+    - {name: web, container_port: same_as_host, host_port: {param: web_port}, protocol: tcp, purpose_nl: Beheer via LAN/VPN}
+    - {name: dns_tcp, container_port: 53, host_port: 30553, protocol: tcp, purpose_nl: DNS op het proefadres}
+    - {name: dns_udp, container_port: 53, host_port: 30553, protocol: udp, purpose_nl: DNS op het proefadres}
+  host_network: false
+privileges:
+  privileged: false
+  cap_add: [NET_BIND_SERVICE, CHOWN, FOWNER, DAC_OVERRIDE]
+  devices: []
+  gpu: none
+privilege_reason: >-
+  De vastgepinde catalogustemplate draait als root in de container. Ze kent deze vier rechten zelf toe
+  voor de lage DNS-poort en bestandstoegang op de twee eigen datasets. DHCP en hostnetwerk staan uit.
+  De installatie vraagt geen extra rechten via de formulierwaarden.
+healthcheck:
+  type: http
+  path: /
+  port: web
+  interval_s: 30
+  timeout_s: 5
+  retries: 3
+  start_period_s: 30
+  monitor: {pad: /login.html, verwachte_status: 200, timeout_s: 5, interval_s: 60}
+accounts:
+  - id: beheerder
+    rol: beheerder
+    aanmaak: eerste_gebruik
+    controle: eerste_beheerder
+    beschrijving_nl: De gebruiker maakt de beheerder aan in de afgeschermde eerste-installatiewizard.
+post_install_checks:
+  - id: eerste_beheerder
+    soort: handmatig
+    beschrijving_nl: >-
+      Maak de beheerder aan vóór toelating van proefclients. Bewaar de gegevens privé.
+      Controleer dat beheer om aanmelding vraagt en alleen via LAN/VPN bereikbaar is.
+  - id: dns_proef
+    soort: handmatig
+    beschrijving_nl: >-
+      Controleer de teruggelezen image-digest, een toegestane en een geblokkeerde DNS-vraag op één
+      apparaat en herstel naar de oude DNS-instelling. Volg I12-12-03 vóór een routerwijziging.
+backup:
+  db_export:
+    method: stopped_snapshot
+    description_nl: >-
+      Schakel cliënten eerst terug naar de onafhankelijke resolver. Stop alleen AdGuard Home, neem een
+      consistente snapshot van config en work en bewaar de back-up versleuteld. Beproef het herstel op een kopie.
+  snapshot_datasets: [config, work]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies: []
+sso: native
+risk: {install: R2, update: R2, uninstall: R2}
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Controleer de terugval vóór een update. Herstel bij een fout de vorige gepinde catalogusversie met
+    beide bijpassende datasets. Stop als de vastgepinde versie ontbreekt en toets een nieuwe pin afzonderlijk.
+decisions_required: [D01, D02, D03, D11, D16]
+docs: [I12_ADGUARD_HOME]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: null
+provenance:
+  source_repo: https://github.com/truenas/apps
+  source_commit: "459b8f6f295a87ac5978ff3386866ccae30c3a47"
+  upstream_repo: https://github.com/AdguardTeam/AdGuardHome
+  license: GPL-3.0

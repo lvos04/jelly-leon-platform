@@ -50,6 +50,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
+| I12 | [Manifest AdGuard Home](adguard-home.manifest.yaml) | catalogusapp | `community/adguard-home` 1.3.24 (app v1.0.0) | DNS op het eigen proefadres, hostpoort 30553 voor TCP en UDP. De bestaande DNS-dienst op poort 53 blijft beschikbaar. |
 | I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
 | I11 | [Controlelijst NetAlertX](../checklists/I11_NETALERTX.checklist.yaml) | controlelijst | 26.10.28 · bron en digest hieronder | Zes handmatige controles. De installatie is geblokkeerd op de netwerkrechten. |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
@@ -143,7 +144,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I09 | Authentik | nieuw | catalogusapp (meerdere containers) | community · 1.3.64 · 2026.8.5 | **P1** |
 | I10 | Node-RED | nieuw | Custom App (ADR-0023) | (community · 1.4.35 · 5.0.9-24 bestaat) | **P2** |
 | I11 | NetAlertX | nieuw | Custom App geblokkeerd op netwerkrechten | upstream 26.10.28 | [P5-controlelijst](../checklists/I11_NETALERTX.checklist.yaml) |
-| I12 | AdGuard Home | nieuw met fail-safe | catalogusapp | community · 1.3.21 · v0.107.80 | P5 |
+| I12 | AdGuard Home | proef op één apparaat | catalogusapp | community · 1.3.24 · v1.0.0 | [P5-manifest](adguard-home.manifest.yaml) |
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |
 | I14 | PostgreSQL + pgvector | alleen bij AI-search | ingebouwd in `zoeken-en-persoonlijke-ai` (alles-in-één) | (community `postgres` bestaat, niet nodig) | n.v.t. |
 | I15 | Immich | behouden en beschermen | bestaand behouden (import) | community · 1.14.62 · v3.3.6 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |

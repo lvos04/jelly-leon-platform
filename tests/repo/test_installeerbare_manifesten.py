@@ -21,6 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
+from ipaddress import IPv6Address
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ VERWACHT = {
     "beszel-agent": ("custom_app", "I07_BESZEL"),
     "uptime-kuma": ("custom_app", "I08_UPTIME_KUMA"),
     "authentik": ("catalog_app", "I09_AUTHENTIK"),
+    "adguard-home": ("catalog_app", "I12_ADGUARD_HOME"),
     "gotify": ("custom_app", "I13_GOTIFY"),
     "ai-server-manager": ("custom_app", "I23_HOME_CONTROL_HUB"),
     "ai-server-manager-executor": ("custom_app", "I23_HOME_CONTROL_HUB"),
@@ -272,6 +274,66 @@ def _translate(validator: Path, bestand: str, params: dict[str, Any], tmp_path: 
     )
     out: dict[str, Any] = json.loads(res.stdout)
     return out
+
+
+def test_i12_catalogusformulier_is_begrensd_tot_het_proefadres(tmp_path: Path) -> None:
+    bestand = "adguard-home.manifest.yaml"
+    m = _load(bestand)
+    adres = str(IPv6Address(1))  # Loopback, uitsluitend voor de lokale formuliervertaling.
+    paden = {naam: f"/mnt/simpool/adguard/{naam}" for naam in ("config", "work")}
+    out = _translate(_validator(), bestand, {
+        "pilot_adres": adres, "config_path": paden["config"], "work_path": paden["work"],
+        "timezone": "UTC", "rpo": "P1D", "rto": "PT4H",
+    }, tmp_path)
+    assert out["ready_for_install"] is True, out
+    formulier = out["payload"]
+    assert (formulier["catalog_app"], formulier["train"], formulier["version"]) == (
+        "adguard-home", "community", "1.3.24",
+    )
+    netwerk = formulier["values"]["network"]
+    assert netwerk["host_network"] is netwerk["dhcp_enabled"] is False
+    assert netwerk["additional_ports"] == netwerk["networks"] == []
+    assert netwerk["dns_port"] == {"bind_mode": "published", "port_number": 30553, "host_ips": [adres]}
+    assert netwerk["web_port"] == {"bind_mode": "published", "port_number": 30004, "host_ips": [adres]}
+    dns = [p for p in m["network"]["ports"] if p["name"] != "web"]
+    assert {(p["container_port"], p["host_port"], p["protocol"]) for p in dns} == {
+        (53, 30553, "tcp"), (53, 30553, "udp"),
+    }
+    assert set(m["privileges"]["cap_add"]) == {"NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE"}
+    assert m["backup"]["db_export"]["method"] == "stopped_snapshot"
+    assert set(m["backup"]["snapshot_datasets"]) == set(paden)
+    for naam, pad in paden.items():
+        assert formulier["values"]["storage"][naam]["host_path_config"] == {"acl_enable": False, "path": pad}
+
+
+@pytest.mark.parametrize(("versie", "foutcode"), [
+    (None, "required_field_missing"), ("latest", "mutable_version_forbidden"),
+])
+def test_i12_validator_verplicht_een_vaste_versie(versie: str | None, foutcode: str, tmp_path: Path) -> None:
+    m = _load("adguard-home.manifest.yaml")
+    if versie is None:
+        del m["catalog"]["version"]
+    else:
+        m["catalog"]["version"] = versie
+    pad = tmp_path / "adguard-home.manifest.yaml"
+    pad.write_text(yaml.safe_dump(m), encoding="utf-8")
+    res = subprocess.run([str(_validator()), "validate", "--strict", "--format", "json", str(pad)],
+                         capture_output=True, text=True, check=False)
+    assert res.returncode == 1, res.stdout
+    assert [(f["path"], f["code"]) for f in json.loads(res.stdout)["findings"] if f["severity"] == "error"] == [
+        ("catalog.version", foutcode),
+    ]
+
+
+@pytest.mark.parametrize("veld", ["dhcp_enabled", "host_network", "NET_RAW", "NET_ADMIN"])
+def test_i12_manifestcontrole_weigert_extra_netwerkrechten(veld: str) -> None:
+    m = _load("adguard-home.manifest.yaml")
+    assert mf.eigen_controles(m) == []
+    if veld in m["values"]["network"]:
+        m["values"]["network"][veld] = True
+    else:
+        m["privileges"]["cap_add"].append(veld)
+    assert any(veld in fout for fout in mf.eigen_controles(m))
 
 
 @pytest.mark.parametrize("bestand", ["gotify.manifest.yaml", "uptime-kuma.manifest.yaml", "beszel-hub.manifest.yaml",
