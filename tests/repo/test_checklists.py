@@ -138,6 +138,33 @@ def test_i06_koppelt_de_jellyfin_proeven_aan_d07_en_het_herstelbewijs() -> None:
     assert "voortgang in MediaGuard" in herstel["uitvoeren_nl"]
 
 
+def test_i11_bewaakt_de_passieve_basis_en_het_herstel() -> None:
+    data = _load("I11_NETALERTX.checklist.yaml")
+    stappen = data["stappen"]
+    assert [s["id"] for s in stappen] == [f"I11-11-{nr:02d}" for nr in range(1, 7)]
+    for stap in stappen:
+        assert stap["blokkeert_volgende"] is True
+        assert "NIET GEVALIDEERD (echte NAS)" in stap["validatie_nu"]
+    scope, installatie, _, _, connector, backup = stappen
+    assert {"D03", "D11"} <= set(scope["besluiten"])
+    assert "Actief scannen staat standaard uit" in scope["uitvoeren_nl"]
+    assert "Stop hier zolang een toegelaten manifest ontbreekt" in installatie["uitvoeren_nl"]
+    assert "alleen-lezen-koppeling" in connector["uitvoeren_nl"]
+    assert "install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml" in backup["verwijzing"]
+    assert "versleutelde back-up" in backup["uitvoeren_nl"]
+    assert "bijpassende snapshot op de proefkopie" in backup["bij_fout_nl"]
+
+
+def test_i11_zonder_terugdraaistap_wordt_geweigerd(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def verwijder_terugweg(data: dict[str, Any]) -> None:
+        del data["stappen"][-1]["bij_fout_nl"]
+
+    _kopie(tmp_path, "I11_NETALERTX.checklist.yaml", wijzig=verwijder_terugweg)
+    assert cl.main(tmp_path) == 1
+    melding = capsys.readouterr().out
+    assert "stappen/5" in melding and "'bij_fout_nl' is a required property" in melding
+
+
 def test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval() -> None:
     data = _load("I24_UNIVERSELE_MEDIASERVER.checklist.yaml")
     stappen = data["stappen"]

@@ -329,6 +329,40 @@ def test_node_red_variants_with_extra_rights_are_refused_by_the_validator(varian
     assert goed.returncode == 0, goed.stdout  # alleen de wijziging maakt het verschil
 
 
+@pytest.mark.parametrize(("tag", "met_digest", "hostnetwerk", "fout"), [
+    ("26.10.28", True, False, None),
+    ("latest", True, False, "mutable_tag_forbidden"),
+    ("26.10.28", False, False, "required_field_missing"),
+    ("26.10.28", True, True, "capability_forbidden"),
+], ids=["controle", "latest", "zonder-digest", "hostnetwerk"])
+def test_i11_imagepin_en_netwerkrechten(
+    tmp_path: Path, tag: str, met_digest: bool, hostnetwerk: bool, fout: str | None,
+) -> None:
+    """Isoleer de I11-image en het rechtenprofiel in een tijdelijke kopie van een geldig manifest."""
+    proef = _load("gotify.manifest.yaml")
+    proef.update(app_id="netalertx", name="NetAlertX", version="26.10.28")
+    proef["image"] = {"repository": "ghcr.io/netalertx/netalertx", "tag": tag}
+    if met_digest:
+        proef["image"]["digest"] = "sha256:ebce55cdbccc0f71544e6997541fe81db803b8c8bec3079435b8cd0a40d49b7e"
+    proef["privileges"]["cap_add"] = ["NET_ADMIN", "NET_RAW"]
+    proef["privilege_reason"] = (
+        "De Python-interpreter vereist NET_ADMIN en NET_RAW in de bounding set. "
+        "Zonder no-new-privileges kan een setuid-programma binnen de container root worden."
+    )
+    proef["network"]["host_network"] = hostnetwerk
+    if hostnetwerk:
+        proef["network"]["host_network_reason"] = "Directe passieve waarneming op de LAN-interface."
+    pad = tmp_path / "netalertx.manifest.yaml"
+    pad.write_text(yaml.safe_dump(proef, allow_unicode=True), encoding="utf-8")
+    res = subprocess.run([str(_validator()), "validate", "--strict", "--format", "json", str(pad)],
+                         capture_output=True, text=True, check=False)
+    uitslag = json.loads(res.stdout)
+    assert res.returncode == (0 if fout is None else 1), uitslag
+    assert uitslag["strict_valid"] is (fout is None)
+    fouten = {f["code"] for f in uitslag["findings"] if f["severity"] == "error"}
+    assert fouten == ({fout} if fout else set())
+
+
 def test_authentik_translation_is_blocked_until_the_executor_fills_secrets(tmp_path: Path) -> None:
     """Eerlijk: de vertaling van appstore-en-fork geeft geheimen nooit via app.create-waarden door. Sinds de vaste
     validatorcommit (``ASF_COMMIT``, C1.3-ASF-14, ADR-0015 van appstore-en-fork) zet de vertaling op de plek van een

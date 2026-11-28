@@ -50,6 +50,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
 | I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
+| I11 | [Controlelijst NetAlertX](../checklists/I11_NETALERTX.checklist.yaml) | controlelijst | 26.10.28 · bron en digest hieronder | Zes handmatige controles. De installatie is geblokkeerd op de netwerkrechten. |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
 | I23 | `ai-server-manager.manifest.yaml`, `ai-server-manager-executor.manifest.yaml` | Custom App (handmatig) | kopie van ai-server-manager `f5c8f2c` | Hub `0.1.0`, executor `0.1.1`. [Formuliertags en digests in stap 1](../truenas/INSTALLATIE.md). |
 | I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
@@ -98,6 +99,23 @@ make nodered-rooktest   # Node-RED op digest als 568:568 tegen de Hub-simulator:
 
 Tokens en sleutels die de gebruiker zo maakt, gaan alleen in de vault van de Hub (nooit in een manifest of formulier).
 
+### NetAlertX (I11)
+
+Op 2026-11-28 wees de stabiele tag `v26.10.28` naar broncommit `6f3cb9bd4385`.
+De gemeten OCI-index van `ghcr.io/netalertx/netalertx:26.10.28` is
+`sha256:ebce55cdbccc0f71544e6997541fe81db803b8c8bec3079435b8cd0a40d49b7e`. [Upstream-release](https://github.com/netalertx/NetAlertX/releases/tag/v26.10.28)
+
+Voor directe passieve LAN-waarneming heeft deze image toegang tot het hostnetwerk nodig.
+De Python-interpreter van de dienst vereist daarnaast `NET_RAW` en `NET_ADMIN` in de bounding set,
+ook voor een passieve bestandsimport. [Netwerkmodus](https://github.com/netalertx/NetAlertX/blob/v26.10.28/docs/docker-troubleshooting/network-mode.md) · [Opbouw van de image](https://github.com/netalertx/NetAlertX/blob/v26.10.28/Dockerfile#L178-L183)
+
+Bij de lokale manifestproef weigerde de strikte validator hostnetwerk met `NET_ADMIN`
+(`capability_forbidden`). Met een eigen netwerknamespace accepteerde de validator de proef.
+Het installatiebeleid van de Hub weigerde de extra rechten in de vertaalde formulierwaarden
+(`capabilities_verboden` in `asm_policy.params.validate_install`). Stap I11-11-02 blijft
+geblokkeerd tot een gepinde image en toegelaten rechtenprofiel samen werken. De controlelijst
+legt de passieve scope, de alleen-lezen-koppeling en het herstel van de eigen dataset vast.
+
 ## Overzicht alle I-documenten (plan)
 
 Catalogusgegevens: `truenas/apps` commit `f7a38eb` (2026-11-09). De catalogus houdt per app alleen de nieuwste
@@ -115,7 +133,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I08 | Uptime Kuma | nieuw | Custom App | (community · 1.2.25 · 2.5.9 bestaat) | **P1** |
 | I09 | Authentik | nieuw | catalogusapp (meerdere containers) | community · 1.3.64 · 2026.8.5 | **P1** |
 | I10 | Node-RED | nieuw | Custom App (ADR-0023) | (community · 1.4.35 · 5.0.9-24 bestaat) | **P2** |
-| I11 | NetAlertX | nieuw | Custom App met één gepinde upstream-image (geen catalogusapp gevonden) | — | P5 |
+| I11 | NetAlertX | nieuw | Custom App geblokkeerd op netwerkrechten | upstream 26.10.28 | [P5-controlelijst](../checklists/I11_NETALERTX.checklist.yaml) |
 | I12 | AdGuard Home | nieuw met fail-safe | catalogusapp | community · 1.3.21 · v0.107.80 | P5 |
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |
 | I14 | PostgreSQL + pgvector | alleen bij AI-search | ingebouwd in `zoeken-en-persoonlijke-ai` (alles-in-één) | (community `postgres` bestaat, niet nodig) | n.v.t. |

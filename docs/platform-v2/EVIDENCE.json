@@ -590,6 +590,66 @@
   "bijgewerkt": "2026-11-09"
  },
  {
+  "id": "I11-11-01",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-01). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). De toegestane scope, zichtbaarheid en bewaartermijn voor MAC- en IP-historie zijn privé nog in te vullen. D03 en D11 staan open. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I11-11-02",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-02). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Installatie, leesbare bron, rechten en bereikbaarheid op de NAS zijn open. De uitvoeringscontrole van de Hub weigert de vereiste extra netwerkrechten. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I11-11-03",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-03). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). De identiteit en adreshistorie van een bekend apparaat bij een DHCP-wissel zijn nog te toetsen. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I11-11-04",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-04). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). De melding, de zekerheid van de herkenning en de tekst bij een nieuw proefapparaat zijn nog te toetsen. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I11-11-05",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-05). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). De koppeling van status en gebeurtenissen aan dezelfde identiteit op de NAS is nog te toetsen. NIET GEVALIDEERD (account). De begrenzing van de toegang tot lezen is nog te toetsen. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I11-11-06",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-06). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel. install/manifests/README.md, NetAlertX (I11), upstream 6f3cb9bd4385.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). Versleutelde back-up van de eigen dataset, geïsoleerd herstel en het verwijderen van verlopen historie zijn nog te toetsen. Uitvoering in N-P6-07.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
   "id": "I13-13-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
