@@ -142,6 +142,9 @@ stappen:
   risico: Middel
   wijze:
   - handmatig_bewijs
+  - verwijzing
+  verwijzing:
+  - install/manifests/zoeken-en-persoonlijke-ai.manifest.yaml
   besluiten: []
   bewijs:
   - nas_versie

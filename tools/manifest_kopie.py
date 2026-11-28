@@ -1,5 +1,5 @@
 """Versie-gepinde kopieën van manifesten van andere repos: de I23-manifesten van de Hub en de executor
-(``lvos04/ai-server-manager``) en de manifesten van MediaGuard (I03), Media Source Optimizer (I04) en my_house (I05).
+(``lvos04/ai-server-manager``), MediaGuard (I03), Media Source Optimizer (I04), my_house (I05) en de zoekdienst (I25).
 
 De manifesten zijn van hun eigen repo (``deploy/manifest/``); deze repo houdt in ``install/manifests/`` een kopie met
 een **herkomstkop van 2 commentaarregels** (I-document, bronbestand met commit en sha256 van het bronbestand), zodat
@@ -57,6 +57,8 @@ BRONNEN = (
     Bron("lvos04/media-source-optimizer", "I04", ("media-source-optimizer.manifest.yaml",),
          _regel2("I04", "I04_MEDIA_SOURCE_OPTIMIZER")),
     Bron("lvos04/my_house", "I05", ("my_house.manifest.yaml",), _regel2("I05", "I05_MY_HOUSE")),
+    Bron("lvos04/zoeken-en-persoonlijke-ai", "I25", ("zoeken-en-persoonlijke-ai.manifest.yaml",),
+         _regel2("I25", "I25_SEARCH")),
 )
 PER_BESTAND = {naam: b for b in BRONNEN for naam in b.bestanden}
 BESTANDEN = tuple(PER_BESTAND)

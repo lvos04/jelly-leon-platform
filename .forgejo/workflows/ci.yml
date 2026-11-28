@@ -85,6 +85,7 @@ jobs:
           MGU_BRON: ${{ runner.temp }}/mgu-bron
           MSO_BRON: ${{ runner.temp }}/mso-bron
           MY_HOUSE_BRON: ${{ runner.temp }}/my-house-bron
+          ZOEKEN_BRON: ${{ runner.temp }}/zoeken-bron
         run: python -m pytest -q -rs tests/repo
       - name: OpenAPI-drift
         run: |

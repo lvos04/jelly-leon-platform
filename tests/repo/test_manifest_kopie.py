@@ -1,9 +1,9 @@
-"""Manifestkopieën van andere repos (I23 Hub en executor, I03 MediaGuard, I04 MSO, I05 my_house): de versie-gepinde
+"""Manifestkopieën van andere repos (I23 Hub en executor, I03 MediaGuard, I04 MSO, I05 my_house en I25 zoeken): de
 kopieën in ``install/manifests/`` zijn intact en wijken niet af van de bron (``deploy/manifest/``, gelezen met
 ``git show``).
 
-Bron per repo (git-checkout of kale clone): ``ASM_BRON`` (of ``PEIL_BRON``), ``MGU_BRON``, ``MSO_BRON`` en
-``MY_HOUSE_BRON``; standaard ``../<repo>``. ``<VAR>_REF`` (standaard ``HEAD``) is de stand voor de waarschuwing over een
+Bron per repo (git-checkout of kale clone): ``ASM_BRON`` (of ``PEIL_BRON``), ``MGU_BRON``, ``MSO_BRON``,
+``MY_HOUSE_BRON`` en ``ZOEKEN_BRON``; standaard ``../<repo>``. ``<VAR>_REF`` (standaard ``HEAD``) is de stand voor een
 nieuwere bron. Met ``PEIL_BRON_VERPLICHT=1`` (CI) faalt de pintest als een bron of de gepinde commit ontbreekt.
 
 Pinregel (ADR-0019, naar Peil 1.1.1 E08): de kopie moet exact de bron op de **gepinde commit** zijn (anders rood). Een
@@ -30,9 +30,9 @@ import manifest_kopie as mk  # noqa: E402
 
 VERPLICHT = os.environ.get("PEIL_BRON_VERPLICHT") == "1"
 VAR = {"ai-server-manager": "ASM_BRON", "media-guard-ultimate": "MGU_BRON", "media-source-optimizer": "MSO_BRON",
-       "my_house": "MY_HOUSE_BRON"}
+       "my_house": "MY_HOUSE_BRON", "zoeken-en-persoonlijke-ai": "ZOEKEN_BRON"}
 KOPIEN = {"ai-server-manager.manifest.yaml", "ai-server-manager-executor.manifest.yaml", "mediaguard.manifest.yaml",
-          "media-source-optimizer.manifest.yaml", "my_house.manifest.yaml"}
+          "media-source-optimizer.manifest.yaml", "my_house.manifest.yaml", "zoeken-en-persoonlijke-ai.manifest.yaml"}
 
 
 def bron_pad(b: mk.Bron) -> Path:

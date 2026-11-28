@@ -46,6 +46,7 @@ VERWACHT = {
     "mediaguard": ("custom_app", "I03_MEDIAGUARD"),
     "media-source-optimizer": ("custom_app", "I04_MEDIA_SOURCE_OPTIMIZER"),
     "smart-home": ("custom_app", "I05_MY_HOUSE"),
+    "zoeken-en-persoonlijke-ai": ("custom_app", "I25_SEARCH"),
 }
 # Gecontroleerd op 2026-11-09 met `docker buildx imagetools inspect` (index-digest, multi-arch).
 DIGESTS = {
@@ -102,7 +103,7 @@ def test_all_manifests_pass_the_appstore_validator_in_strict_mode() -> None:
     fouten = {u.bestand: u.afwijkingen for u in uitkomsten if not u.in_orde}
     assert fouten == {}
     schoon = {u.app_id for u in uitkomsten if not u.waarschuwingen}
-    assert {"beszel-hub", "gotify", "uptime-kuma", "authentik"} <= schoon  # zonder enige open melding in --strict
+    assert {"beszel-hub", "gotify", "uptime-kuma", "authentik", "zoeken-en-persoonlijke-ai"} <= schoon
 
 
 @pytest.mark.parametrize("bestand", ["gotify.manifest.yaml", "uptime-kuma.manifest.yaml", "beszel-hub.manifest.yaml",
@@ -298,6 +299,21 @@ def test_custom_app_translation_is_the_standard_form_with_digest_tag(bestand: st
     vaste_env = {e["name"]: e["value"] for e in m["custom_app"]["env"] if "value" in e}
     assert vaste_env.items() <= {e["name"]: e["value"] for e in values["envs"]}.items()
     assert values["entrypoint"] == [] and values["command"] == []
+
+
+def test_zoekmanifest_vertaalt_naar_een_gepinde_custom_app_zonder_extra_rechten(tmp_path: Path) -> None:
+    bestand = "zoeken-en-persoonlijke-ai.manifest.yaml"
+    manifest = _load(bestand)
+    params = {"timezone": SIM_PARAMS["timezone"], "appdata_path": "/mnt/simpool/apps/zoeken"}
+    uitkomst = _translate(_validator(), bestand, params, tmp_path)
+    assert uitkomst["ready_for_install"], uitkomst["findings"]
+    formulier = uitkomst["payload"]["values"]
+    assert uitkomst["payload"]["catalog_app"] == "ix-app"
+    assert mf.DIGEST_RE.fullmatch(manifest["image"]["digest"])
+    assert formulier["image"]["tag"] == f"{manifest['image']['tag']}@{manifest['image']['digest']}"
+    assert formulier["host_network"] is False and formulier["privileged"] is False
+    assert formulier["capabilities"]["add"] == []
+    assert manifest["privileges"]["gpu"] == "none" and manifest["privileges"]["devices"] == []
 
 
 @pytest.mark.parametrize("variant", ["privileged", "cap_add", "docker_socket"])

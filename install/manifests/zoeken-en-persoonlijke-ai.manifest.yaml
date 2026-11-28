@@ -1,0 +1,145 @@
+# HERKOMST — I25-manifest · bron: lvos04/zoeken-en-persoonlijke-ai@6ccef1f73d9a670e9b57028db7afcbbd7b9fb78d:deploy/manifest/zoeken-en-persoonlijke-ai.manifest.yaml · sha256 van het bronbestand (zonder deze kop): 2eddcb05299fe7088e29f6be6c6ef03091a94003a3c6f630a10dac907b29e57e
+# Versie-gepinde kopie (I25, installatie via het formulier van de standaard Custom App; docs/platform-v2/03_INSTALLATIE/I25_SEARCH.md). Niet met de hand wijzigen: tools/manifest_kopie.py bijwerken; CI faalt bij drift.
+# Manifest (manifeststandaard v1 van appstore-en-fork, platformcontract 1.3 §9) van zoeken-en-persoonlijke-ai.
+# Installatie uitsluitend als standaard TrueNAS Custom App (één image + formulierwaarden); nooit compose/YAML.
+# De digest van release v0.1.1 is de SHA-256 van de onbewerkte OCI-image-index die GHCR anoniem levert voor tag 0.1.1.
+# Zonder digest blokkeert de vertaling met digest_not_pinned.
+# De vertaling naar het formulier zet de tag als '<tag>@<digest>' (§2.2; of het formulier '@' accepteert is NIET
+# GEVALIDEERD op een echte NAS). Geen HUB_* in parameters of env: HUB_URL, HUB_ENROLLMENT_TOKEN en HUB_KEY_FINGERPRINT
+# voegt de vertaling zelf toe als de Hub koppelt (contract 1.3 §3.2); dit manifest bevat geen omgevingsvariabelen en geen
+# geheimen. Poorten staan alleen in network.ports; geen gedeeld Docker-netwerk. Monitorplan in healthcheck.monitor
+# (contract 1.3 §9): de beheerder neemt het over in Uptime Kuma en bevestigt het per monitor.
+# Gevalideerd met de validator van appstore-en-fork (contract 1.3, C1.3-ASF-08) in --strict; CI installeert die op een
+# vaste commit (.github/workflows/ci.yml) en zie docs/TESTRAPPORT.md.
+# Shares die doorzoekbaar worden, voegt de Hub later toe als extra Host Path met read_only=true onder /bronnen/<naam>
+# (app.update via de executor, R2, alleen na bronwizard + toestemming; zie docs/adr/ADR-0004). Base-images van de
+# alles-in-één image (op digest): python:3.12.16-slim-bookworm en pgvector/pgvector:0.8.7-pg16-bookworm.
+manifest_version: "1"
+app_id: zoeken-en-persoonlijke-ai
+name: Zoeken en persoonlijke AI
+owner_repo: lvos04/zoeken-en-persoonlijke-ai
+category: ai
+description_nl: >-
+  Persoonlijke zoekmachine (B07) over eigen bestanden, Immich-metadata, Jellyfin-bibliotheek en logs: opt-in per bron
+  met toestemming van de eigenaar, gebruikers-ACL vóór ranking en opschonen bij intrekking. Ingebouwde PostgreSQL 16
+  met pgvector. Spraak/persoonlijke AI (B15) volgt; STT/TTS/LLM worden aparte optionele apps (standaard uit).
+  API-dienst met alleen een kleine Nederlandse statuspagina; alle schermen staan in de Hub-UI.
+version: "0.1.1"
+install:
+  method: custom_app
+image:
+  repository: ghcr.io/lvos04/zoeken-en-persoonlijke-ai
+  tag: "0.1.1"
+  digest: "sha256:3c385eed778a0d09bdfab1f42ff4b9bca0bd0a4edf885f98f9789ea33f347892"
+custom_app:
+  storage:
+    - name: appdata
+      type: host_path
+      host_path: {param: appdata_path}
+  env: []
+  resources:
+    cpus: 1
+    memory_mib: 768
+  gpu: none
+  run_as:
+    mode: image_default
+  timezone: {param: timezone}
+  restart_policy: unless-stopped
+  portal:
+    port: api
+    scheme: http
+    path: /
+    name: Statuspagina
+parameters:
+  - name: host_port
+    type: port
+    source: default
+    default: 30450
+    required: true
+    description_nl: Hostpoort; voorstel uit het platformcontract, de Hub controleert vóór installatie op conflicten.
+  - name: appdata_path
+    type: path
+    source: dataset_picker
+    dataset_role: search_appdata
+    decision: D02
+    required: true
+    description_nl: Dataset voor /appdata (ingebouwde PostgreSQL + pgvector, geheimen, back-ups en afgeleide index).
+  - name: timezone
+    type: timezone
+    source: wizard
+    required: true
+    description_nl: Tijdzone van de NAS, gemeten of bevestigd in de onboarding-wizard.
+  - name: rpo
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestaan dataverlies (RPO), vastgelegd in de wizard (D16).
+  - name: rto
+    type: duration
+    source: wizard
+    decision: D16
+    required: false
+    description_nl: Maximaal toegestane hersteltijd (RTO), vastgelegd in de wizard (D16).
+storage:
+  - name: appdata
+    mount: /appdata
+    kind: data
+    required_dataset_role: search_appdata
+    description_nl: Database (PostgreSQL 16 + pgvector), /appdata/secrets en /appdata/backups. Index is herbouwbaar.
+network:
+  ports:
+    - name: api
+      container_port: 30450
+      host_port: {param: host_port}
+      protocol: tcp
+      purpose_nl: Zoek-API, connectorcontract en statuspagina
+  host_network: false
+  host_network_reason: null
+privileges:
+  privileged: false
+  cap_add: []
+  devices: []
+  gpu: none
+privilege_reason: null
+healthcheck:
+  type: builtin
+  # monitorplan (contract 1.3 §9): /readyz zonder auth; de koppeling met de Hub telt daar niet mee (§5)
+  monitor: {pad: /readyz, verwachte_status: 200, timeout_s: 10, interval_s: 60}
+backup:
+  db_export:
+    method: pg_dump
+    description_nl: Automatische pg_dump vóór elke databasemigratie in /appdata/backups (nieuwste 3 blijven).
+  snapshot_datasets: [appdata]
+  rpo: {param: rpo}
+  rto: {param: rto}
+dependencies:
+  - app_id: ai-server-manager
+    kind: optional
+    reason_nl: >-
+      Koppelen (enrollment) en gebruikerscontext (Hub-JWT) via de Hub; zonder Hub draait de dienst en toont eerlijk
+      'niet gekoppeld', maar kan niemand zoeken.
+sso: none
+risk:
+  install: R2
+  update: R2
+  uninstall: R2
+upgrade:
+  migrations: true
+  tag_only_rollback_safe: false
+  notes_nl: >-
+    Alembic-migraties bij de start, met een pg_dump vooraf. Terug naar een oudere tag kan pas nadat het schema
+    is teruggezet of de back-up/snapshot van vóór de update is hersteld. De index zelf is altijd herbouwbaar.
+decisions_required: [D01, D02, D16]
+docs: [B07_PERSOONLIJKE_ZOEKMACHINE, B15_SPRAAK_PERSOONLIJKE_AI, I14_PGVECTOR, I25_SEARCH, I15_IMMICH]
+validation_status: unvalidated
+compatibility:
+  truenas_min_version: "24.10.2.2"
+  truenas_max_version: null
+  ix_app_min_version: "1.2.0"
+provenance:
+  source_repo: https://github.com/lvos04/zoeken-en-persoonlijke-ai
+  source_commit: null
+  upstream_repo: null
+  license: GPL-3.0
+accepted_findings: []

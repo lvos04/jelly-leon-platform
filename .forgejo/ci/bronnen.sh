@@ -44,8 +44,9 @@ if [[ $1 == test ]]; then
   haal "$RUNNER_TEMP/mso-bron" media-source-optimizer "$(cat e2e/simulators/mso-mocks.commit)"
   # Gree-fake en adapters van my_house voor de simulators van huis en energie (alleen gelezen).
   haal "$RUNNER_TEMP/my-house-bron" my_house "$(cat e2e/simulators/my-house.commit)"
-  # Manifestkopieën I03, I04 en I05 (S-P3-450): de bron op de gepinde commit voor tests/repo/test_manifest_kopie.py.
+  # Bron op de gepinde commit voor tests/repo/test_manifest_kopie.py.
   haal "$RUNNER_TEMP/mgu-bron" media-guard-ultimate "$(kopiepin mediaguard.manifest.yaml)"
   haal "$RUNNER_TEMP/mso-bron" media-source-optimizer "$(kopiepin media-source-optimizer.manifest.yaml)"
   haal "$RUNNER_TEMP/my-house-bron" my_house "$(kopiepin my_house.manifest.yaml)"
+  haal "$RUNNER_TEMP/zoeken-bron" zoeken-en-persoonlijke-ai "$(kopiepin zoeken-en-persoonlijke-ai.manifest.yaml)"
 fi

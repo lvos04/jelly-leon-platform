@@ -478,7 +478,7 @@ def test_a_list_for_a_document_with_an_installable_manifest_fails(tmp_path: Path
 
 
 KOPIE_PER_DOC = {"I03": "mediaguard.manifest.yaml", "I04": "media-source-optimizer.manifest.yaml",
-                 "I05": "my_house.manifest.yaml"}
+                 "I05": "my_house.manifest.yaml", "I15": "zoeken-en-persoonlijke-ai.manifest.yaml"}
 
 
 @pytest.mark.parametrize("idoc", sorted(KOPIE_PER_DOC))

@@ -8,8 +8,9 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 
 > **Status (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
 > appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in `accepted_findings`, alleen het
-> monitorplan van de Beszel-agent in `overgang-1.3.yaml`), vertaald naar
-> `app.create`-waarden en tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Op een echte TrueNAS is niets
+> monitorplan van de Beszel-agent in `overgang-1.3.yaml`). Voor de P1-manifesten is de vertaling naar
+> `app.create`-waarden tegen de TrueNAS-simulator gecontroleerd (**Sim-getest**). Voor I25 zijn de manifestkopie,
+> de image-digest en de vertaling naar het Custom App-formulier gecontroleerd (**Unit-getest**). Op een echte TrueNAS is niets
 > geïnstalleerd: **NIET GEVALIDEERD (echte NAS)** — installeren gebeurt via de Hub en de executor (P2).
 >
 > De vier upstream-images (Beszel hub en agent, Gotify, Uptime Kuma) zijn bovendien echt gestart, maar in Docker en
@@ -56,8 +57,9 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I03 | `mediaguard.manifest.yaml` | Custom App | kopie · bron `lvos04/media-guard-ultimate` `deploy/manifest/mediaguard.manifest.yaml` @ `9824153` | doel: formulier van de standaard Custom App voor I03; de controlelijst verwijst ernaar (I03-03-04); digest volgt bij de release (`accepted_findings` in de bron) |
 | I04 | `media-source-optimizer.manifest.yaml` | Custom App | kopie · bron `lvos04/media-source-optimizer` `deploy/manifest/media-source-optimizer.manifest.yaml` @ `335e26e` | doel: formulier van de standaard Custom App voor I04; de controlelijst verwijst ernaar (I04-04-01); digest volgt bij de release |
 | I05 | `my_house.manifest.yaml` (app_id `smart-home`) | Custom App | kopie · bron `lvos04/my_house` `deploy/manifest/my_house.manifest.yaml` @ `cdc739e` | doel: formulier van de standaard Custom App voor I05; de controlelijst I05 (S-P3-440) verwijst ernaar; digest volgt bij de release |
+| I25 | [Zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) | Custom App | 0.1.1 · broncommit `6ccef1f` | Eén image met PostgreSQL en pgvector. Alleen de API-poort wordt gepubliceerd. |
 
-Manifestkopieën (I23, I03, I04, I05) komen alleen met `python tools/manifest_kopie.py bijwerken --repo <repo> --bron
+Manifestkopieën (I23, I03, I04, I05, I25) komen alleen met `python tools/manifest_kopie.py bijwerken --repo <repo> --bron
 ../<repo> --ref <commit>` uit de gecommitte bron; de herkomstkop (2 regels: bron `<repo>@<commit>:<pad>` en sha256)
 bewaakt de rest byte voor byte (`python tools/manifest_kopie.py controleer`, `make manifesten`). Een kopie houdt de
 bestandsnaam van de bron, ook als die niet gelijk is aan de `app_id` (my_house).
@@ -154,7 +156,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I22 | Navidrome (optioneel) | niet automatisch | catalogusapp alleen na besluit D18 | community · 1.3.23 · 0.64.2 | P4 (optioneel) |
 | I23 | Home Control Hub (`ai-server-manager` + executor) | bouwen, daarna installeren | eerste installatie handmatig: `install/truenas/INSTALLATIE.md` | — | **P1: kopie + rooktest** |
 | I24 | Jelly Leon (fork) | release apart beproeven | eigen image als Custom App naast Emby | — | **P4-controlelijst**. Praktijkproeven volgen in P6. |
-| I25 | Zoeken en persoonlijke AI | bouwen, opt-in | eigen alles-in-één image als Custom App | — | P5 |
+| I25 | Zoeken en persoonlijke AI | bouwen, opt-in | eigen alles-in-één image als Custom App | — | **P5** · [Gepind zoekmanifest](zoeken-en-persoonlijke-ai.manifest.yaml) |
 | I26 | Overige (Snapotter, Teeltboek, Uren, Plex, Emby, JellyPlex Watched, FlareSolverr, Readarr) | inventariseren, niet verwijderen | bestaand (import); nooit automatisch verwijderen | o.a. stable `plex`, stable `emby`, community `readarr`, `flaresolverr`, `snapotter` | P5 (import) |
 
 Versies in de kolom "Catalogus" zijn alleen voor de apps van P1 opnieuw gecontroleerd in `f7a38eb`; de andere zijn de
