@@ -105,3 +105,27 @@ def test_onvolledige_meting_blokkeert(record: dict[str, Any], bewijs: dict[str, 
                                      wijziging: dict[str, Any], code: str) -> None:
     doc = plan({**record, **wijziging}, bewijs)
     assert code in h.codes(doc) and doc["stappen"] == []
+
+
+def _leeg_bewijs(record: dict[str, Any], bewijs: dict[str, Any]) -> dict[str, Any]:
+    return {**bewijs, "inventaris_id": record["id"], "versie_etag": record["versie_etag"],
+            "datasets": [], "opslagbronnen": []}
+
+
+@pytest.mark.parametrize("staat", ["STOPPED", "CRASHED", "DEPLOYING", None])
+def test_niet_draaiende_app_zonder_gemeten_opslag_blokkeert(bewijs: dict[str, Any], staat: str | None) -> None:
+    """R-HARDE-EIS-1: een gestopte app toont geen koppelingen; lege opslag mag geen verwijderstap vrijgeven."""
+    leeg = h.app_record("albums", repository="voorbeeld/immich-server", staat=staat or "", opslag=[])
+    doc = plan(leeg, _leeg_bewijs(leeg, bewijs))
+    assert "opslag_onbekend" in h.codes(doc) and doc["stappen"] == [] and doc["diff"]["blijft_staan"] is None
+
+
+def test_ongelezen_opslag_blokkeert(record: dict[str, Any], bewijs: dict[str, Any]) -> None:
+    doc = plan({**record, "opslag_gelezen": False}, bewijs)
+    assert "opslag_onbekend" in h.codes(doc) and doc["stappen"] == []
+
+
+def test_herstelpunt_zonder_bronnen_volstaat_nooit(bewijs: dict[str, Any]) -> None:
+    leeg = h.app_record("albums", repository="voorbeeld/immich-server", opslag=[])
+    doc = plan(leeg, _leeg_bewijs(leeg, bewijs))
+    assert "herstelpunt_onvolledig" in h.codes(doc) and doc["stappen"] == []

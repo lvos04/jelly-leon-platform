@@ -68,7 +68,8 @@ class GemetenOpslag(BaseModel):
     def gedekt(self, punt: Herstelpunt) -> bool:
         datasets = set(punt.datasets)
         bronnen = set(punt.opslagbronnen)
-        return (set(self.datasets) <= datasets
+        # Een herstelpunt zonder bronnen bewijst niets, ook niet bij een app zonder gemeten opslag.
+        return (bool(bronnen) and set(self.datasets) <= datasets
                 and {k.bron for k in self.opslag} == bronnen
                 and all(k.dataset in datasets for k in self.opslag if k.dataset))
 

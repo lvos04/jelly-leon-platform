@@ -748,7 +748,12 @@ def plan_verwijderen(*, plan_id: uuid.UUID, app_name: str, inventaris: Inventari
             b.blokkeer("images_onbekend", "Niet alle images zijn gemeten. De appbescherming kan niet worden getoetst.")
         try:
             gemeten = verwijderen.GemetenOpslag.model_validate(record)
-            if gemeten.behoudbaar():
+            # Een gestopte app toont geen werklastkoppelingen: lege opslag is dan onbekend, niet leeg (R-HARDE-EIS-1).
+            draait = record.get("runtime_staat") == "RUNNING"
+            if record.get("opslag_gelezen") is False or (not gemeten.opslag and not draait):
+                b.blokkeer("opslag_onbekend", "De opslag van deze app is niet gemeten. Een gestopte app toont geen "
+                           "koppelingen, dus wat blijft staan is onbekend.")
+            elif gemeten.behoudbaar():
                 opslag = gemeten
             else:
                 b.blokkeer("opslagbehoud_onzeker", "TrueNAS kan een Docker-volume bij het verwijderen opruimen. "
