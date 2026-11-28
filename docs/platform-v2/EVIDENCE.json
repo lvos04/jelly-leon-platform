@@ -354,7 +354,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-01), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-01), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). De actuele routekaart en de privé-invulling van D03 ontbreken voor het importmanifest (BLOK-15). Praktijkcontrole in N-P6-07. NIET GEVALIDEERD (account). De echte toegang voor T-22 is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -364,7 +364,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-02), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-02), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Bereikbaarheid van het beheer via LAN of VPN en weigering van alle drie de beheerdoelen van buitenaf. Praktijkcontrole in N-P6-07. NIET GEVALIDEERD (account). De echte toegang voor T-22 is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -374,7 +374,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-03), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-03), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Toegang per app, HTTPS voor de kijklinks en afwijzing bij ontbrekende rechten. Praktijkcontrole in N-P6-07. NIET GEVALIDEERD (account). De echte toegang voor T-22 is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -384,7 +384,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-04), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-04), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Tweestapsaanmelding, geheimvrije logs en de intrekproef met een afzonderlijke testsleutel. Praktijkcontrole in N-P6-07. NIET GEVALIDEERD (account). De echte toegang voor T-22 is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -394,7 +394,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-05), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-05), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Meldingen over DNS, certificaatverloop en tunneluitval en de bijbehorende herstelmelding. Praktijkcontrole in N-P6-07. NIET GEVALIDEERD (account). De echte toegang voor T-22 is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -404,7 +404,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-06), make manifesten en tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-06), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). De lokale beheerroute zonder externe DNS, Tailscale of Cloudflare. Praktijkcontrole in N-P6-07.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -534,7 +534,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-01), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-01), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). De inventaris van bestaande apps, hun eigenaar, gebruik, opslag en afnemers (BLOK-15). Praktijkcontrole in N-P6-05.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -544,7 +544,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-02), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-02), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Vergelijking van spelers, bibliotheken, kijkgeschiedenis per gebruiker en MediaGuard-voortgang. Emby blijft de terugval (Z-14). Praktijkcontrole in N-P6-13. NIET GEVALIDEERD (account). Het gedrag met de betrokken gebruikers is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -554,7 +554,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-03), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-03), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). De behoefte aan synchronisatie met JellyPlex Watched en behoud van de gezien-status per gebruiker. Praktijkcontrole in N-P6-05. NIET GEVALIDEERD (account). Het gedrag met de betrokken gebruikers is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -564,7 +564,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-04), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-04), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Zeven volledige dagen gebruikshistorie en de afhankelijkheden van Readarr en FlareSolverr. Praktijkcontrole in N-P6-05.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -574,7 +574,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-05), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-05), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Afzonderlijke toegang en gegevensopslag voor Snapotter, Teeltboek en Uren. Praktijkcontrole in N-P6-05. NIET GEVALIDEERD (account). Het gedrag met de betrokken gebruikers is nog te toetsen.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -584,7 +584,7 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
-  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-06), make manifesten en tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker.",
+  "bewijs": "install/checklists/I26_BESTAANDE_APPS.checklist.yaml (I26-26-06), tests/repo/test_checklists.py::test_i26_appacties_alleen_door_gebruiker en test_i26_weigert_appactie_zonder_uitvoerende_gebruiker. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). De validator accepteert de controlelijst en weigert installatie.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Het bewijs per app, proefherstel, elke uitschakeling en het afzonderlijke besluit van de gebruiker (Z-12, Z-14). Praktijkcontrole in N-P6-13.",
   "opmerking": "Controlelijst lokaal gevalideerd tegen het schema en de Excel-taken.",
   "bijgewerkt": "2026-11-28"
@@ -2054,7 +2054,7 @@
   "repo": "jelly-leon-platform",
   "status": "Bezig",
   "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
-  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-04 en I21-21-06), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg.",
+  "bewijs": "install/checklists/I21_TAILSCALE_CLOUDFLARED.checklist.yaml (I21-21-04 en I21-21-06), tests/repo/test_checklists.py::test_i21_bewaakt_intrekproef_en_lokale_terugweg. Bouwcommit 99ab1b22bb7e, make manifesten en make test-repo (1638 tests). Alleen de tekst van de intrekproef is hier getoetst.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). De externe weigering en de lokale terugweg horen bij N-P6-07. NIET GEVALIDEERD (account). De echte intrekproef vereist afzonderlijke testtoegang van T-22.",
   "opmerking": "De intrekstap en de verwachte uitkomst zijn in de controlelijst getoetst. Het simulatiebewijs hoort bij S-P5-34 in home-control-hub.",
   "bijgewerkt": "2026-11-28"
