@@ -830,6 +830,66 @@
   "bijgewerkt": "2026-11-28"
  },
  {
+  "id": "I12-12-01",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-01). Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. D11, de eigenaar van poort 53 en bereikbaarheid van de onafhankelijke resolver vastleggen.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I12-12-02",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-02). Manifestcommit 2a4726b2a5f8. tests/repo/test_installeerbare_manifesten.py::test_i12_catalogusformulier_is_begrensd_tot_het_proefadres. docs/platform-v2/bewijs/i12-adguard-catalogus.json.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (account). N-P6-07. De catalogus bevat op de Hub-CI-pin nog geen toelatingsregel. Versie en digest teruglezen en de beheerstoegang testen.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I12-12-03",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-03). Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. Eén proefapparaat toetsen met filter, gewone DNS-route en gemeten herstel binnen het afgesproken venster.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I12-12-04",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-04). Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. Filteruitzonderingen, bewaartermijn en bereikbaarheid van de betrokken diensten toetsen.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I12-12-05",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-05). Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. De gebruiker kan de router pas omschakelen na de proef uit I12-12-03 en een geteste terugweg naar de oude DNS-instelling.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "I12-12-06",
+  "repo": "jelly-leon-platform",
+  "status": "Geblokkeerd",
+  "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml (I12-12-06). Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (account). N-P6-07. Hub-melding, DNS-terugval, beheerstoegang en geïsoleerd herstel van beide datasets toetsen.",
+  "opmerking": "Manifest en controlelijst lokaal gevalideerd met de gepinde validator.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
   "id": "I13-13-01",
   "status": "Geblokkeerd",
   "validatie": "Sim-getest; NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (account)",
@@ -2048,6 +2108,26 @@
   "opmerking": "De koppeling mislukte met beide protocolversies. De integratie werd uitgeschakeld, bediening geweigerd en er volgde geen UDP-commando. Echte afwijkende firmware nog toetsen in N-P6-06.",
   "repo": "jelly-leon-platform",
   "bijgewerkt": "2026-11-26"
+ },
+ {
+  "id": "EX31",
+  "repo": "jelly-leon-platform",
+  "status": "Bezig",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml. Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_weigert_routeromschakeling_voor_de_proef.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. Bereikbaarheid van de resolver en werkelijk terugzetten op één apparaat.",
+  "opmerking": "Proef op één apparaat en terugzetten van de oude DNS-instelling staan in I12-12-03 en I12-12-05. Het simulatordeel hoort bij S-P5-32 in home-control-hub.",
+  "bijgewerkt": "2026-11-28"
+ },
+ {
+  "id": "EX32",
+  "repo": "jelly-leon-platform",
+  "status": "Bezig",
+  "validatie": "NIET GEVALIDEERD (echte NAS); NIET GEVALIDEERD (hardware)",
+  "bewijs": "install/checklists/I12_ADGUARD_HOME.checklist.yaml. Manifestcommit 2a4726b2a5f8. tests/repo/test_checklists.py::test_i12_weigert_routeromschakeling_voor_de_proef.",
+  "blokkade": "NIET GEVALIDEERD (echte NAS). NIET GEVALIDEERD (hardware). N-P6-07. Uitval van AdGuard Home of de NAS en herstel van de naamresolutie binnen het D11-venster.",
+  "opmerking": "Uitval, onafhankelijke tweede resolver en handmatig routerherstel staan in I12-12-03, I12-12-05 en I12-12-06. Het simulatordeel hoort bij S-P5-32 in home-control-hub.",
+  "bijgewerkt": "2026-11-28"
  },
  {
   "id": "EX34",

@@ -1,0 +1,139 @@
+checklist_version: "1"
+kind: checklist
+install: {method: none}
+id: I12
+titel_nl: AdGuard Home op één apparaat beproeven en de oude DNS herstellen
+document: 03_INSTALLATIE/I12_ADGUARD_HOME.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: inrichten_en_testen
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D01, D02, D03, D11, D16]
+toelichting_nl: >-
+  De gebruiker voert deze lijst uit in N-P6-07. Stop bij een rode controle. Bewaar de oude instellingen
+  privé en noteer in gedeeld bewijs alleen de gemaskeerde uitkomst, datum en gemeten hersteltijd.
+stappen:
+  - id: I12-12-01
+    titel_nl: DNS baseline vastleggen
+    uitvoeren_nl: >-
+      Leg voor D11 privé de oude DNS-instelling van router en proefapparaat vast, inclusief automatische
+      of handmatige toewijzing en de instellingen voor IPv4 en IPv6 die het netwerk gebruikt. Controleer
+      wie poort 53 voor TCP en UDP gebruikt, ook op alle interfaces, en of het proefadres en de proefpoorten
+      beschikbaar zijn. Beproef de huidige naamresolutie, de toegang tot het routerbeheer zonder DNS en een
+      onafhankelijke resolver die bij uitval van de NAS bereikbaar blijft. Spreek de maximale terugvaltijd af.
+      Leg vast welke DNS-status en filtertellingen de Hub mag lezen.
+    acceptatie_nl: Een testclient kan voor wijziging resolven.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: [D01, D03, D11]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: >-
+      Laat de bestaande resolver in gebruik. Hervat pas als de oude instellingen terug te vinden zijn,
+      de onafhankelijke resolver antwoordt en je buiten DNS om in het routerbeheer komt.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I12-12-02
+    titel_nl: Install isolated
+    uitvoeren_nl: >-
+      Controleer de vaste catalogusversie en de toelating in de installatiepreview. Kies het afzonderlijke
+      LAN-adres en twee eigen, lege datasets voor configuratie en werkgegevens. Stop bij een bestaande
+      installatie totdat eigenaar, versie en een herstelbare back-up zijn vastgesteld. Beperk vóór de eerste start
+      de toegang tot het beheer via LAN/VPN en DNS tot het proefapparaat. De catalogus publiceert TCP en UDP
+      op hostpoort 30553. De container luistert intern op 53. Laat DHCP en hostnetwerk uit en de router
+      op de oude DNS-instelling. Controleer de teruggelezen image-digest. Maak het beheeraccount zelf in de
+      afgeschermde app, bewaar de gegevens privé en controleer de aanmeldplicht.
+    acceptatie_nl: Admin UI alleen LAN/VPN.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, verwijzing, handmatig_bewijs]
+    handmatig_ui_pad_nl: Apps → Discover Apps → Community → AdGuard Home
+    verwijzing: [install/manifests/adguard-home.manifest.yaml]
+    besluiten: [D01, D02, D03]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Breek de installatie af bij een ontbrekende toelating, een poortconflict of een afwijkende digest.
+      Sluit bij een bereikbare onbeveiligde beheerpagina de toegang en stop alleen de nieuwe proefapp.
+      Bewaar de datasets.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I12-12-03
+    titel_nl: Test op één apparaat
+    uitvoeren_nl: >-
+      EX31. Stel alleen het proefapparaat in op het proefadres en poort 30553 met een DNS-client die een
+      poort kan kiezen. Controleer een toegestane en een gefilterde naam en DNS-antwoorden over TCP en UDP.
+      Beproef op ditzelfde apparaat de route die DHCP straks zal aanbieden. Gewone DHCP-clients verwachten
+      een resolver op poort 53. Gebruik daarvoor een vooraf ingerichte DNS-doorstuurder met een afgeschermd
+      proefprofiel. Controleer in het querylog dat een nieuwe testvraag via dit profiel de proefpoort bereikt.
+      EX32. Onderbreek alleen in het proefprofiel de route naar AdGuard en doe een ongecachete opvraag.
+      Meet hoe snel de onafhankelijke resolver antwoordt. Herstel ook handmatig de
+      oude DNS-instelling van het proefapparaat en controleer naamresolutie en toegang tot het routerbeheer.
+    acceptatie_nl: Normale sites en apps werken; filters bruikbaar.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D03, D11]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: >-
+      Zet het proefapparaat terug op de oude DNS-instelling en controleer een nieuwe naamopvraag.
+      Laat de router op de oude instellingen als de route op poort 53 ontbreekt of de terugval langer
+      duurt dan afgesproken.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I12-12-04
+    titel_nl: Filters en uitzonderingen
+    uitvoeren_nl: >-
+      Beproef conservatieve filters op het proefapparaat. Controleer de normale diensten en de voor
+      Hue, Gree en Tailscale benodigde namen. Beoordeel uitzonderingen afzonderlijk en test de getroffen
+      naam opnieuw. Beperk het querylog tot de afgesproken bewaartermijn en deel alleen tellingen.
+    acceptatie_nl: Hue/Gree firmware en Tailscale blijven bereikbaar.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D11]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Verwijder de laatste wijziging aan de filters en herstel de werkende filterset. Gebruik bij
+      aanhoudende storing de oude DNS-instelling op het proefapparaat.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I12-12-05
+    titel_nl: Router omschakeling
+    uitvoeren_nl: >-
+      Alleen de gebruiker wijzigt de router, na akkoord op D11 en de gemeten terugval binnen het afgesproken
+      venster in I12-12-03. Neem uitsluitend het daar geteste DNS-adres op poort 53 over in de DNS-uitgifte
+      van de router. Laat de onafhankelijke tweede DNS-server bereikbaar en laat geforceerde DNS-omleiding uit.
+      Vernieuw de toewijzing eerst op het proefapparaat en controleer het ontvangen adres, een nieuwe opvraag
+      en de toegang tot het routerbeheer. Bewaar de oude DNS-instelling uit stap 1 binnen handbereik.
+    acceptatie_nl: Bij stop AdGuard werkt fallback binnen overeengekomen window.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D11]
+    bewijs: [datum, gemaskeerde_output, status, bewijsrecord_besluit]
+    bij_fout_nl: >-
+      Zet in het routerbeheer de oude DNS-instelling uit I12-12-01 terug voor de gebruikte adresfamilies
+      en sla op. Vernieuw de DHCP-toewijzing op het proefapparaat of verbind het opnieuw. Controleer een
+      ongecachete naam en het routerbeheer. Laat de overige apparaten de herstelde instelling ontvangen.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (hardware)]
+
+  - id: I12-12-06
+    titel_nl: Hub monitoring en herstel
+    uitvoeren_nl: >-
+      Controleer de DNS-respons en de uitvalmelding met de afgesproken leestoegang van de Hub. Bij
+      onbereikbaarheid moet de meting als onbekend zichtbaar zijn. Laat bij onderhoud of NAS-uitval de
+      onafhankelijke resolver antwoorden. Stop voor de back-up alleen de nieuwe app. Bewaar configuratie
+      en werkgegevens samen in een versleutelde back-up. Herstel beide datasets met de bijpassende
+      catalogusversie op een geïsoleerde kopie. Controleer aanmelding, filters, DNS en hersteltijd.
+    acceptatie_nl: Alert bij uitval en DNS kan snel terug naar oude resolver.
+    risico: Middel
+    wijze: [verwijzing, handmatig_bewijs]
+    verwijzing: [install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml]
+    besluiten: [D02, D11, D16]
+    bewijs: [image_digest, datum, gemaskeerde_output, hub_meting, status]
+    bij_fout_nl: >-
+      Houd de onafhankelijke resolver beschikbaar. Zet bij onvoldoende terugval de oude DNS-instelling op
+      de router terug volgens stap 5. Bewaar het oorspronkelijke herstelpunt en controleer op de kopie
+      opnieuw de filterwerking voordat de gebruiker de DNS-route weer inzet.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]

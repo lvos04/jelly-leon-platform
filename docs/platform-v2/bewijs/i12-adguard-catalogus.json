@@ -1,0 +1,55 @@
+{
+  "stap": "S-P5-83",
+  "cataloguscommit": "459b8f6f295a87ac5978ff3386866ccae30c3a47",
+  "catalogusversie": "1.3.24",
+  "appversie": "v1.0.0",
+  "image": "adguard/adguardhome:v1.0.0@sha256:f00a586f0d1caa74f149340bfb225014960310488ffa838406b89256900a96c2",
+  "bron": "https://github.com/truenas/apps/tree/459b8f6f295a87ac5978ff3386866ccae30c3a47/trains/community/adguard-home/1.3.24",
+  "proef": "De officiële catalogustemplate is lokaal gerenderd met het vertaalde proefformulier en testclients.",
+  "cap_drop": [
+    "ALL"
+  ],
+  "cap_add": [
+    "CHOWN",
+    "DAC_OVERRIDE",
+    "FOWNER",
+    "NET_BIND_SERVICE"
+  ],
+  "hostnetwerk": false,
+  "poorten_host_container_protocol": [
+    [
+      30004,
+      30004,
+      "tcp"
+    ],
+    [
+      30553,
+      53,
+      "tcp"
+    ],
+    [
+      30553,
+      53,
+      "udp"
+    ]
+  ],
+  "alle_poorten_gebonden_aan_proefadres": true,
+  "catalogus_run_as": [
+    {
+      "uid": 0,
+      "gid": 0
+    }
+  ],
+  "hubbeleid": {
+    "ci_pin": "f9f0a448666cd209f535bb20b0a82a8ae6185af0",
+    "formulierfouten": [],
+    "proef_met_hostnetwerk": [
+      "host_network_zonder_reden"
+    ],
+    "toegelaten_installaties": 0,
+    "catalogustoelating": [
+      "catalogusversie_niet_toegelaten"
+    ]
+  },
+  "niet_gecontroleerd": "Installatie, draaiende dienst, beheeraccount, DNS en terugval op het echte netwerk."
+}

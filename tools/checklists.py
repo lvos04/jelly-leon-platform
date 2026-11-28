@@ -1,8 +1,7 @@
 """Controlelijsten (eigen formaat ``checklist v1``) voor I-documenten zonder installatie (ADR-0015, ADR-0027).
 
 I01 (TrueNAS-basis) en I02 (back-up en herstel) zijn de eerste; de documenten van de bestaande apps (I03, I04, I05 en
-I15 tot en met I20) krijgen een lijst in hetzelfde formaat. Niets hier geldt alleen voor bepaalde namen of aantallen:
-elke lijst in ``install/checklists/`` wordt op dezelfde regels gecontroleerd.
+I15 tot en met I20) krijgen een lijst in hetzelfde formaat. I12 beschrijft daarnaast de handmatige DNS-proef.
 
 De manifeststandaard (contract 1.2 §9) kent alleen ``custom_app`` en ``catalog_app``. Een controlelijst installeert
 niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
@@ -17,10 +16,8 @@ niets (contract 1.3 §9: ``kind: checklist``, ``install.method: none``) en:
 - per stap een eerlijke validatie heeft (accounts → NIET GEVALIDEERD (account); hardware → … (hardware));
 - hoort bij precies één bestaand document onder ``03_INSTALLATIE/``: de bestandsnaam is de documentnaam met
   ``.checklist.yaml`` in plaats van ``.md``, en geen document heeft twee lijsten;
-- niet hoort bij een document dat al een installeerbaar manifest van deze repo heeft in ``install/manifests/``
-  (``docs``-veld van een manifest met ``install.method`` ``custom_app`` of ``catalog_app``). Een manifestkopie van
-  een andere repo (``tools/manifest_kopie.py``, S-P3-450) mag naast de lijst staan; de lijst verwijst er dan naar in
-  het veld ``verwijzing`` (``install/manifests/<kopie>``), zonder de inhoud te herhalen.
+- verwijst bij I12 vanuit de installatiestap naar het eigen catalogusmanifest. Bij andere documenten
+  mag alleen een manifestkopie uit een andere repo naast de lijst staan, met een verwijzing naar de kopie.
 
 Elk ander bestand in ``install/checklists/`` (bijvoorbeeld ``.yml`` of zonder ``.checklist``) is een fout.
 
@@ -46,6 +43,9 @@ INSTALLEERBAAR = frozenset({"custom_app", "catalog_app"})
 SCHEMA = ROOT / "schemas" / "checklist-v1.schema.json"
 DOCS = ROOT / "docs" / "platform-v2"
 EXCEL = DOCS / "EXCEL_TAKEN.json"
+MANIFEST_BIJ_INSTALLATIESTAP = {
+    "03_INSTALLATIE/I12_ADGUARD_HOME.md": ("I12-12-02", "adguard-home.manifest.yaml"),
+}
 
 #: Alleen-lezen-methoden: het laatste segment moet hierin staan (en nooit in SCHRIJVEND).
 LEZEND = frozenset({
@@ -188,7 +188,7 @@ def bestandsnaam(document: str) -> str:
 
 def controleer_alle(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR) -> dict[str, list[str]]:
     """Elke lijst afzonderlijk (``controleer_lijst``) én de verzameling: één lijst per document, naam = document,
-    geen lijst naast een installeerbaar manifest, en geen ander bestand in de map."""
+    verplichte verwijzingen naar de bijbehorende manifesten en geen ander bestand in de map."""
     taken = excel_taken()
     met_manifest = documenten_met_manifest(manifesten)
     uitkomst: dict[str, list[str]] = {}
@@ -206,6 +206,15 @@ def controleer_alle(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR)
             if p.name != bestandsnaam(document):
                 fout.append(f"bestandsnaam past niet bij het document: verwacht {bestandsnaam(document)}")
             namen = met_manifest.get(Path(document).name[:3], [])
+            if document in MANIFEST_BIJ_INSTALLATIESTAP:
+                stap_id, manifest = MANIFEST_BIJ_INSTALLATIESTAP[document]
+                stap = next((s for s in data.get("stappen") or [] if s.get("id") == stap_id), {})
+                if (manifest not in namen or "verwijzing" not in (stap.get("wijze") or [])
+                        or f"install/manifests/{manifest}" not in (stap.get("verwijzing") or [])):
+                    fout.append(
+                        f"{stap_id}: het bijbehorende manifest {manifest} en de verwijzing ernaar zijn verplicht"
+                    )
+                namen = [n for n in namen if n != manifest]
             if eigen := [n for n in namen if n not in KOPIEEN]:
                 fout.append(f"document {document} heeft een installeerbaar manifest ({', '.join(eigen)}): een "
                             "controlelijst is alleen voor documenten zonder installatie")

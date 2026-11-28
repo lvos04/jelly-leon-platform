@@ -5,9 +5,9 @@ Alle tests gelden voor elke lijst in ``install/checklists/`` (``cl.lijsten()``),
 - Vorm (JSON Schema), dekking van precies de Excel-taken met titel/acceptatie/risico uit de Excel, alleen-lezen
   TrueNAS-methoden, geen terminal, geen voorbeeldwaarden, eerlijke validatie per stap (``tools/checklists.py``).
 - Verzameling: elke lijst hoort bij precies één document onder ``03_INSTALLATIE/`` (bestandsnaam = documentnaam),
-  geen document heeft twee lijsten, een document met een installeerbaar manifest van deze repo in
-  ``install/manifests/`` heeft geen lijst (een manifestkopie van een andere repo mag ernaast; de lijst verwijst
-  ernaar), en elk ander bestand in ``install/checklists/`` is een fout (ook ``python tools/checklists.py`` faalt dan).
+  geen document heeft twee lijsten. I12 verwijst vanuit stap 2 naar het eigen manifest.
+  Andere lijsten kunnen naast een manifestkopie staan met een verwijzing ernaar.
+  Elk ander bestand in ``install/checklists/`` is een fout (ook ``python tools/checklists.py`` faalt dan).
   De test leest de map zelf, los van ``cl.lijsten()``.
 - Tekstregels: de letterlijke Excel-titels en -acceptaties van alle documenten gaan door de terminal- en
   voorbeeldregel; een YAML-, compose- of scriptweg wordt geweigerd in ``uitvoeren_nl``, ``bij_fout_nl`` en
@@ -163,6 +163,55 @@ def test_i11_zonder_terugdraaistap_wordt_geweigerd(tmp_path: Path, capsys: pytes
     assert cl.main(tmp_path) == 1
     melding = capsys.readouterr().out
     assert "stappen/5" in melding and "'bij_fout_nl' is a required property" in melding
+
+
+def test_i12_proef_en_terugweg_gaan_voor_de_routerwijziging() -> None:
+    data = _load("I12_ADGUARD_HOME.checklist.yaml")
+    assert cl.controleer_lijst(data, cl.excel_taken()) == []
+    basis, installatie, proef, _, router, herstel = data["stappen"]
+    assert all(s["blokkeert_volgende"] for s in data["stappen"])
+    assert "D11" in basis["besluiten"] and "poort 53 voor TCP en UDP" in basis["uitvoeren_nl"]
+    assert "install/manifests/adguard-home.manifest.yaml" in installatie["verwijzing"]
+    assert "EX31" in proef["uitvoeren_nl"] and "EX32" in proef["uitvoeren_nl"]
+    assert "onafhankelijke resolver" in proef["uitvoeren_nl"] and "poort 53" in proef["uitvoeren_nl"]
+    assert "Alleen de gebruiker" in router["uitvoeren_nl"] and proef["id"] in router["uitvoeren_nl"]
+    assert "oude DNS-instelling" in router["bij_fout_nl"] and basis["id"] in router["bij_fout_nl"]
+    assert "onafhankelijke resolver" in herstel["bij_fout_nl"]
+
+
+def test_i12_weigert_routeromschakeling_voor_de_proef(tmp_path: Path) -> None:
+    naam = "I12_ADGUARD_HOME.checklist.yaml"
+
+    def verwissel(data: dict[str, Any]) -> None:
+        stappen = data["stappen"]
+        stappen[2], stappen[4] = stappen[4], stappen[2]
+
+    _kopie(tmp_path, naam, wijzig=verwissel)
+    fouten = cl.controleer_alle(tmp_path)[naam]
+    assert any("dekken de Excel-taken niet exact" in fout for fout in fouten), fouten
+    assert cl.main(tmp_path) == 1
+
+
+def test_i12_installatiestap_verplicht_het_eigen_manifest(tmp_path: Path) -> None:
+    naam = "I12_ADGUARD_HOME.checklist.yaml"
+    manifest = "adguard-home.manifest.yaml"
+    lijsten, manifesten = tmp_path / "lijsten", tmp_path / "manifesten"
+    lijsten.mkdir()
+    manifesten.mkdir()
+    _kopie(lijsten, naam)
+    melding = f"I12-12-02: het bijbehorende manifest {manifest} en de verwijzing ernaar zijn verplicht"
+    assert melding in cl.controleer_alle(lijsten, manifesten)[naam]
+    shutil.copy(cl.MANIFEST_DIR / manifest, manifesten / manifest)
+    assert cl.controleer_alle(lijsten, manifesten)[naam] == []
+
+    def verplaats(data: dict[str, Any]) -> None:
+        installatie, proef = data["stappen"][1:3]
+        proef["verwijzing"] = installatie.pop("verwijzing")
+        proef["wijze"].append("verwijzing")
+        installatie["wijze"].remove("verwijzing")
+
+    _kopie(lijsten, naam, wijzig=verplaats)
+    assert melding in cl.controleer_alle(lijsten, manifesten)[naam]
 
 
 def test_i21_bewaakt_intrekproef_en_lokale_terugweg() -> None:

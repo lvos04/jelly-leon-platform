@@ -1,10 +1,9 @@
 # Installeerbare manifests per 03_INSTALLATIE-document (I01–I26)
 
 Deze repo levert per I-document een manifest volgens contract 1.3 §9 (eigenaar van de standaard: `appstore-en-fork`),
-of — voor I-documenten die niets installeren — een controlelijst (`install/checklists/`, documentsoort
-`kind: checklist` met `install.method: none`, ADR-0015/0019).
-Installatieregel (contract §1/§2): standaard Custom App (`ix-app`) met één gepinde image, of de **officiële
-TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit YAML/compose.
+of een controlelijst voor handmatige stappen (`kind: checklist` met `install.method: none`, ADR-0015/0019).
+Voor I12 horen beide bij elkaar. Installatie verloopt via de standaard Custom App (`ix-app`) met één gepinde
+image of via een officiële TrueNAS-catalogusapp met vaste versie en een reden in het manifest (contract §1/§2/§9).
 
 > **Status (eerlijk):** alle manifesten hieronder zijn gevalideerd met `jl-manifest validate --strict` van
 > appstore-en-fork volgens contract 1.3 (geaccepteerde waarschuwingen in `accepted_findings`, alleen het
@@ -52,7 +51,7 @@ TrueNAS-catalogusapp** met vaste versie voor apps met meerdere containers. Nooit
 | I07 | `beszel-agent.manifest.yaml` | Custom App | 0.21.1 · `ghcr.io/henrygd/beszel/beszel-agent@sha256:cb686801…bf052e41c` | geen catalogusapp; SSH-modus met alleen de publieke hubsleutel; geen host network, Docker-socket of GPU |
 | I08 | `uptime-kuma.manifest.yaml` | Custom App | 2.5.9 · `ghcr.io/louislam/uptime-kuma@sha256:e88415a9…725591bd` | 568:568 (de catalogusapp draait als root); SQLite |
 | I09 | `authentik.manifest.yaml` | catalogusapp | `community/authentik` 1.3.64 (app 2026.8.5) | vier datasets uit de datasetkiezer; geheimen door de Hub gegenereerd; geen Docker-socket |
-| I12 | [Manifest AdGuard Home](adguard-home.manifest.yaml) | catalogusapp | `community/adguard-home` 1.3.24 (app v1.0.0) | DNS op het eigen proefadres, hostpoort 30553 voor TCP en UDP. De bestaande DNS-dienst op poort 53 blijft beschikbaar. |
+| I12 | [Manifest AdGuard Home](adguard-home.manifest.yaml) · [Controlelijst](../checklists/I12_ADGUARD_HOME.checklist.yaml) | catalogusapp | `community/adguard-home` 1.3.24 (app v1.0.0) | DNS op het proefadres, hostpoort 30553 voor TCP en UDP. Controleer vooraf welke dienst poort 53 gebruikt. |
 | I10 | `node-red.manifest.yaml` | Custom App | 5.0.9-24 · `nodered/node-red@sha256:2ccd38b4…64d6896f` | 568:568 (de catalogusapp draait als 1000, zonder login en met alle nodes); beveiligd via `FLOWS`; geen anonieme toegang (besluit C-11); monitor: 401 op `/diagnostics`; flowbundels in `../node-red/` |
 | I11 | [Controlelijst NetAlertX](../checklists/I11_NETALERTX.checklist.yaml) | controlelijst | 26.10.28 · bron en digest hieronder | Zes handmatige controles. De installatie is geblokkeerd op de netwerkrechten. |
 | I13 | `gotify.manifest.yaml` | Custom App | 3.1.1 · `ghcr.io/gotify/server@sha256:44fc5bbd…eb203b86` | 568:568; poort 8080 in de container; registratie uit |
@@ -68,10 +67,10 @@ Manifestkopieën (I23, I03, I04, I05, I25) komen alleen met `python tools/manife
 bewaakt de rest byte voor byte (`python tools/manifest_kopie.py controleer`, `make manifesten`). Een kopie houdt de
 bestandsnaam van de bron, ook als die niet gelijk is aan de `app_id` (my_house).
 
-Controlelijsten (`install/checklists/`): hooguit één lijst per I-document zonder installatie, met de bestandsnaam van
-het document (`I0x_NAAM.md` → `../checklists/I0x_NAAM.checklist.yaml`); geen document heeft twee lijsten, een document
-met een installeerbaar manifest van deze repo hierboven heeft geen lijst (een manifestkopie van een andere repo mag
-ernaast staan; de lijst verwijst er dan naar in `verwijzing`), en elk ander bestand in `install/checklists/` is een fout.
+In `install/checklists/` hoort hooguit één lijst per I-document, met dezelfde bestandsnaam
+(`I0x_NAAM.md` → `../checklists/I0x_NAAM.checklist.yaml`). Een lijst naast een manifestkopie verwijst naar die
+kopie. I12-12-02 verwijst naar het eigen catalogusmanifest voor AdGuard Home. De overige stappen van I12
+beschrijven de handmatige DNS-proef en het herstel. Bij andere documenten sluit een eigen manifest een lijst uit.
 Naast I01 en I02 krijgen de documenten van de bestaande apps (I03, I04, I05 en I15 tot en met I20) zo'n lijst
 (`docs/adr/ADR-0027-controlelijsten-bestaande-apps.md`). Een lijst installeert niets en vervangt geen manifest of
 import; ze beschrijft alleen de weg via de TrueNAS-webinterface of het formulier van de standaard Custom App, nooit een
@@ -129,6 +128,22 @@ Stap I11-11-02 blijft
 geblokkeerd tot een gepinde image en toegelaten rechtenprofiel samen werken. De controlelijst
 legt de passieve scope, de alleen-lezen-koppeling en het herstel van de eigen dataset vast.
 
+### AdGuard Home (I12)
+
+De pin van 28 november 2026 is `community/adguard-home` 1.3.24 met appversie v1.0.0.
+In het DNS-profiel staan DHCP en hostnetwerk uit. De catalogus draait de app als root binnen de container
+met de vier in het manifest opgegeven rechten. De DHCP-optie zou ook `NET_RAW` en hostnetwerk inschakelen.
+De manifestcontrole weigert die optie. [Catalogustemplate op de pin](https://github.com/truenas/apps/blob/459b8f6f295a87ac5978ff3386866ccae30c3a47/trains/community/adguard-home/1.3.24/templates/docker-compose.yaml#L11-L15) · [Gepinde image](https://github.com/truenas/apps/blob/459b8f6f295a87ac5978ff3386866ccae30c3a47/trains/community/adguard-home/1.3.24/ix_values.yaml)
+
+De lokale proef met de officiële template bevestigt de poorten en rechten van dit formulier. De Hub-CI-pin
+`f9f0a448666c` accepteert de formulierwaarden en weigert de installatie zolang een toelatingsregel voor
+de catalogusversie ontbreekt (`catalogusversie_niet_toegelaten`). [Meetgegevens](../../docs/platform-v2/bewijs/i12-adguard-catalogus.json)
+
+Gewone DHCP-clients verwachten DNS op poort 53. Test op één apparaat zowel het filter op proefpoort 30553 als de
+route via de beoogde DNS-doorstuurder op poort 53. Leg de oude DNS-instelling privé vast en meet of bij uitval een
+resolver buiten de NAS op tijd antwoordt. Zonder die meting blijft de routerstap geblokkeerd in N-P6-07.
+De beheerder stelt de aanmeldgegevens privé in. [Controlelijst I12](../checklists/I12_ADGUARD_HOME.checklist.yaml)
+
 ## Overzicht alle I-documenten (plan)
 
 Catalogusgegevens: `truenas/apps` commit `f7a38eb` (2026-11-09). De catalogus houdt per app alleen de nieuwste
@@ -147,7 +162,7 @@ versie bij (`docs/platform-v2/TRUENAS_APP_API.md` §5): dit is een momentopname,
 | I09 | Authentik | nieuw | catalogusapp (meerdere containers) | community · 1.3.64 · 2026.8.5 | **P1** |
 | I10 | Node-RED | nieuw | Custom App (ADR-0023) | (community · 1.4.35 · 5.0.9-24 bestaat) | **P2** |
 | I11 | NetAlertX | nieuw | Custom App geblokkeerd op netwerkrechten | upstream 26.10.28 | [P5-controlelijst](../checklists/I11_NETALERTX.checklist.yaml) |
-| I12 | AdGuard Home | proef op één apparaat | catalogusapp | community · 1.3.24 · v1.0.0 | [P5-manifest](adguard-home.manifest.yaml) |
+| I12 | AdGuard Home | proef op één apparaat | catalogusapp | community · 1.3.24 · v1.0.0 | [P5-manifest](adguard-home.manifest.yaml) · [Controlelijst en terugval](../checklists/I12_ADGUARD_HOME.checklist.yaml) |
 | I13 | Gotify | nieuw | Custom App | (community · 1.1.17 · 3.1.1 bestaat) | **P1** |
 | I14 | PostgreSQL + pgvector | alleen bij de zoekdienst | ingebouwd in de alles-in-één-image van I25 | — | **P5** · [Controlelijst pgvector](../checklists/I14_PGVECTOR.checklist.yaml) |
 | I15 | Immich | behouden en beschermen | bestaand behouden (import) | community · 1.14.62 · v3.3.6 | **P3: controlelijst**; import blijft afzonderlijk werk, zonder installeerbaar manifest naast deze lijst |
