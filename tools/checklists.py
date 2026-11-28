@@ -208,7 +208,7 @@ def controleer_alle(map_: Path = CHECKLIST_DIR, manifesten: Path = MANIFEST_DIR)
             namen = met_manifest.get(Path(document).name[:3], [])
             if document in MANIFEST_BIJ_INSTALLATIESTAP:
                 stap_id, manifest = MANIFEST_BIJ_INSTALLATIESTAP[document]
-                stap = next((s for s in data.get("stappen") or [] if s.get("id") == stap_id), {})
+                stap: dict[str, Any] = next((s for s in data.get("stappen") or [] if s.get("id") == stap_id), {})
                 if (manifest not in namen or "verwijzing" not in (stap.get("wijze") or [])
                         or f"install/manifests/{manifest}" not in (stap.get("verwijzing") or [])):
                     fout.append(
