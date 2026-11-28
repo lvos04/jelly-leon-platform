@@ -115,7 +115,11 @@ ook voor een passieve bestandsimport. [Netwerkmodus](https://github.com/netalert
 Bij de lokale manifestproef weigerde de strikte validator hostnetwerk met `NET_ADMIN`
 (`capability_forbidden`). Met een eigen netwerknamespace accepteerde de validator de proef.
 Het installatiebeleid van de Hub weigerde de extra rechten in de vertaalde formulierwaarden
-(`capabilities_verboden` in `asm_policy.params.validate_install`). Stap I11-11-02 blijft
+(`capabilities_verboden` in `asm_policy.params.validate_install`). Zonder extra rechten gaf de
+gepinde interpreter bij een lokale start als 568:568 de melding `operation not permitted`
+(exitcode 255). [Startproef en formulierproef](../../docs/platform-v2/bewijs/i11-netalertx-rechten.json)
+
+Stap I11-11-02 blijft
 geblokkeerd tot een gepinde image en toegelaten rechtenprofiel samen werken. De controlelijst
 legt de passieve scope, de alleen-lezen-koppeling en het herstel van de eigen dataset vast.
 

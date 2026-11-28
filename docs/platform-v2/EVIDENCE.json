@@ -604,9 +604,9 @@
   "repo": "jelly-leon-platform",
   "status": "Geblokkeerd",
   "validatie": "Unit-getest; NIET GEVALIDEERD (echte NAS)",
-  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-02). Bouwcommit d0451be28932. make manifesten en make test-repo (1527 tests). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel en tests/repo/test_installeerbare_manifesten.py::test_i11_imagepin_en_netwerkrechten.",
+  "bewijs": "install/checklists/I11_NETALERTX.checklist.yaml (I11-11-02). Bouwcommit d0451be28932. make manifesten en make test-repo (1527 tests). tests/repo/test_checklists.py::test_i11_bewaakt_de_passieve_basis_en_het_herstel en tests/repo/test_installeerbare_manifesten.py::test_i11_imagepin_en_netwerkrechten. Lokale startproef en formulierproef in docs/platform-v2/bewijs/i11-netalertx-rechten.json.",
   "blokkade": "NIET GEVALIDEERD (echte NAS). Installatie, leesbare bron, rechten en bereikbaarheid op de NAS zijn open. De uitvoeringscontrole van de Hub weigert de vereiste extra netwerkrechten. Uitvoering in N-P6-07.",
-  "opmerking": "De controlelijst is lokaal gevalideerd. Een installeerbaar manifest is geblokkeerd op de netwerkrechten van de upstream-image.",
+  "opmerking": "De controlelijst is lokaal gevalideerd. De gepinde interpreter startte op Docker als 568:568 zonder extra rechten niet (exitcode 255). De installatie is geblokkeerd.",
   "bijgewerkt": "2026-11-28"
  },
  {
