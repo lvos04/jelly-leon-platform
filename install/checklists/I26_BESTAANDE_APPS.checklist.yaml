@@ -1,0 +1,138 @@
+checklist_version: "1"
+kind: checklist
+install: {method: none}
+id: I26
+titel_nl: Bestaande apps inventariseren en per app het besluit vastleggen
+document: 03_INSTALLATIE/I26_BESTAANDE_APPS.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D02, D04, D05, D07]
+toelichting_nl: >-
+  De lijst leest de huidige situatie. Geen agent stopt of verwijdert een bestaande app.
+  Volgens Z-12 blijven de apps draaien zolang bewijs ontbreekt. Z-14 houdt Emby in gebruik
+  als mediaserver en terugval. Kijkgeschiedenis en MediaGuard-voortgang blijven beschikbaar.
+  Bewaar details over gebruikers, opslag en bereikbaarheid privé. Deel per app alleen de
+  gemaskeerde uitkomst met een verwijzing naar het bewijs.
+stappen:
+  - id: I26-26-01
+    titel_nl: Apps opsommen
+    uitvoeren_nl: >-
+      Vergelijk het overzicht van geïnstalleerde apps met het beslisregister. Leg per instantie
+      de gemeten versie en image-digest, status, laatst bekende gebruik, eigenaar,
+      afhankelijkheden, datapad en netwerktoegang privé vast. Controleer ook de apps met een
+      gelijkende naam. Markeer ontbrekende gegevens als onbekend en laat de eigenaar de koppeling
+      bevestigen. Het importmanifest wacht op de gemeten configuratie van de echte NAS (BLOK-15).
+    acceptatie_nl: Volledige appkaart met status.
+    risico: Hoog
+    wijze: [handmatig_in_truenas_ui, handmatig_bewijs, verwijzing]
+    handmatig_ui_pad_nl: Apps → Installed Applications
+    verwijzing: ["appstore-en-fork: docs/BESTAANDE_APPS.md"]
+    besluiten: [D02, D07]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Houd de laatst bevestigde appkaart beschikbaar en markeer de onzekere instantie voor
+      hercontrole. Laat bestaande apps en koppelingen in gebruik.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I26-26-02
+    titel_nl: Dubbele mediaservers
+    uitvoeren_nl: >-
+      Plex, Emby en de bij D07 aangetroffen Jellyfin blijven naast elkaar draaien. Vergelijk per
+      gebruiker de spelers, bibliotheken, rechten, gezien-status, hervatpunten, favorieten,
+      beoordelingen en spoorkeuzes. Vergelijk ook de MediaGuard-voortgang. Bewaar het vóór/na-rapport
+      met akkoord op elk verschil vóór een eventuele overstap. Emby blijft werken als terugval.
+      Een eventuele latere proefstop of verwijdering van Emby gebeurt uitsluitend door de gebruiker
+      na JLT-74 en een afzonderlijk besluit bij Z-14.
+    acceptatie_nl: Gebruikers/kijkstatus behouden.
+    risico: Hoog
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/checklists/I24_UNIVERSELE_MEDIASERVER.checklist.yaml]
+    besluiten: [D07]
+    bewijs: [datum, gemaskeerde_output, bewijsrecord_besluit, status]
+    bij_fout_nl: >-
+      Breek de vergelijking af bij een ontbrekende gebruiker, afwijkende kijkstatus of ontbrekende
+      MediaGuard-voortgang. Gebruik Emby met de oorspronkelijke gegevens en bewaar beide gegevenssets.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I26-26-03
+    titel_nl: JellyPlex Watched
+    uitvoeren_nl: >-
+      Lees in JellyPlex Watched welke servers en gebruikers nog synchroniseren en wanneer de laatste
+      synchronisatie plaatsvond. Vergelijk bestaande gezien-status en hervatpunten aan beide kanten.
+      Leg vast welke gebruikers hun kijkgeschiedenis via deze koppeling ontvangen en of die afhankelijkheid
+      bij een eventuele latere overstap vervalt.
+    acceptatie_nl: Geen verlies van gezien status.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D07]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Laat de bestaande synchronisatie en beide mediaservers draaien. Neem bij verschil de
+      oorspronkelijke kijkstatus op in het rapport en stel de overstap uit.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De beoordeling gebeurt terwijl de servers naast elkaar draaien.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I26-26-04
+    titel_nl: Readarr en FlareSolverr
+    uitvoeren_nl: >-
+      Bekijk per app de gekoppelde clients en indexers, het gebruik, de licentie en de
+      beveiligingsbevindingen. Controleer of de bestaande loghistorie zeven aaneengesloten dagen
+      dekt. Alleen zeven volledige dagen met nul verzoeken tellen als bewijs voor de afweging
+      door de gebruiker bij Z-12. Een ontbrekende meetdag telt als onbekend.
+    acceptatie_nl: Disable alleen na 7 dagen geen request.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: []
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Laat beide apps en hun afnemers draaien. Leg de ontbrekende meetperiode of de laatste
+      aanvraag vast en houd het besluit per app open.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]
+
+  - id: I26-26-05
+    titel_nl: Eigen losse apps
+    uitvoeren_nl: >-
+      Vergelijk de catalogusvermeldingen van Snapotter, Teeltboek en Uren met hun bestaande
+      instanties. Controleer voor elke app de bereikbaarheid, de eigen aanmelding en de eigen
+      gegevensopslag. De drie apps houden hun eigen gegevens en rechten.
+    acceptatie_nl: Apps starten en behouden eigen auth.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D02, D07]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Ga terug naar de oorspronkelijke app en aanmelding. Houd een ontbrekende vermelding of
+      onjuiste koppeling open in de inventaris. Laat de gegevens bij hun eigenaar.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Een ontbrekende catalogusvermelding wordt hier alleen vastgelegd.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I26-26-06
+    titel_nl: Decommission
+    uitvoeren_nl: >-
+      Bekijk per app het bewijs, de afzonderlijke export, de snapshot en het bewijs van proefherstel.
+      Onder Z-12 en Z-14 blijft de keuze op behouden staan. Na de overstapgate kan alleen door de
+      gebruiker per app met dat bewijs een nieuw besluit worden genomen. Een eventuele proefstop
+      van 72 uur gebeurt door de gebruiker met een geteste terugweg en behoud van alle data.
+      Verwijdering van een app gebeurt uitsluitend door de gebruiker na beoordeling van de proef.
+      Voor verwijdering van gegevens is daarna afzonderlijke toestemming en uitvoering door de gebruiker
+      nodig. Voor Emby horen JLT-74, de eigen controlelijst en het blijvende exportarchief bij het bewijs.
+    acceptatie_nl: Rollback vóór definitieve delete.
+    risico: Middel
+    wijze: [handmatig_bewijs, verwijzing]
+    verwijzing: [install/checklists/I02_BACKUP_EN_RESTORE.checklist.yaml, "appstore-en-fork: docs/BESTAANDE_APPS.md"]
+    besluiten: [D04, D05, D07]
+    bewijs: [datum, gemaskeerde_output, bewijsrecord_besluit, status]
+    bij_fout_nl: >-
+      Houd de oorspronkelijke app, export en snapshot beschikbaar. De terugweg van een latere proef
+      is de oorspronkelijke instantie met haar eigen gegevens. Controleer dan opnieuw de afnemers,
+      de kijkgeschiedenis per gebruiker en de MediaGuard-voortgang vóór een vervolgbesluit.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: Hier wordt alleen het besluit met het bewijs gelezen. Een latere uitvoering hoort bij N-P6-13.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]

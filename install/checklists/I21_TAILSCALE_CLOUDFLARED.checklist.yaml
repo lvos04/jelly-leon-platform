@@ -1,0 +1,126 @@
+checklist_version: "1"
+kind: checklist
+install: {method: none}
+id: I21
+titel_nl: Bestaande toegang via Tailscale en Cloudflared controleren
+document: 03_INSTALLATIE/I21_TAILSCALE_CLOUDFLARED.md
+eigenaar_repo: lvos04/jelly-leon-platform
+aanpak: behouden_en_valideren
+installatie: geen
+mutaties_door_platform: false
+besluiten: [D03]
+toelichting_nl: >-
+  Bekijk de bestaande inrichting. Deze lijst wijzigt geen apps, routes, router of DNS.
+  D03 is een privé-invulveld voor het adres en de domeinen. Het importmanifest wacht op de gemeten
+  NAS-configuratie (BLOK-15). Gebruik voor de praktijkcontrole N-P6-07 en de accounts van T-22.
+  Bewaar de routekaart privé en deel alleen gemaskeerde uitkomsten. Voeg geen mini-pc toe als
+  VPN-uitgang of als bewakingshost.
+stappen:
+  - id: I21-21-01
+    titel_nl: Huidige routekaart
+    uitvoeren_nl: >-
+      Lees de versies, tunnels, hostnamen, tailnetroutes en toegangsregels (ACL) in de bestaande
+      overzichten. Noteer privé per app wie toegang heeft via LAN, VPN of een externe tunnel.
+      Leg bij D03 vast welke routes daadwerkelijk bereikbaar zijn en wanneer dit is gecontroleerd.
+    acceptatie_nl: Welke app buiten huis bereikbaar is bekend.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [nas_versie, image_digest, datum, gemaskeerde_output, bewijsrecord_besluit, status]
+    bij_fout_nl: >-
+      Markeer de ontbrekende route als onbekend. Gebruik het bekende lokale beheerpad en laat het
+      importmanifest open tot de kaart met de aangetroffen inrichting overeenkomt.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I21-21-02
+    titel_nl: Niet-publiek admin
+    uitvoeren_nl: >-
+      Houd de lokale beheersessie open. Vergelijk de TrueNAS-console, het Authentik-beheer en het
+      Hub-beheer met de routekaart. Controleer in P6 vanuit de eigen externe sessie zonder VPN
+      dat geen van de drie beheerschermen bereikbaar is, ook niet via een algemene Cloudflare-tunnel.
+      Controleer daarna dat het bedoelde beheer via LAN of Tailscale wel bereikbaar is.
+    acceptatie_nl: Externe URL van NAS console werkt zonder VPN niet.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Sluit de externe proef en ga terug naar de lokale sessie. Leg de onverwacht bereikbare
+      beheerfunctie privé vast en laat de volgende stap open tot de eigenaar de route heeft beoordeeld.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I21-21-03
+    titel_nl: App tunnels valideren
+    uitvoeren_nl: >-
+      Bekijk per bestaande app-tunnel het doel en de Access-regel. Open de bedoelde kijklinks voor
+      MediaGuard en my_house met het kijkprofiel. Controleer dat HTTPS ook geldt voor de QR-link
+      en alle geladen onderdelen, dat alleen het kijkvenster opent en dat een sessie zonder toegang
+      wordt geweigerd. Controleer dat de link en de zichtbare logregels geen toegangssleutel tonen.
+    acceptatie_nl: Geen mixed content of tokenleak.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Sluit de onveilige link en gebruik de bestaande lokale kijkroute. Noteer alleen de getroffen
+      app en het soort fout. Houd de link en eventuele sleutel buiten het bewijs.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I21-21-04
+    titel_nl: Secret en MFA
+    uitvoeren_nl: >-
+      Controleer de tweestapsaanmelding van het beheeraccount en de versleutelde sleutelinventaris
+      op eigenaar, gebruik en vervaldatum. Lees bij EX34 het bewijs van de intrekproef. De gebruiker
+      trekt in N-P6-07 uitsluitend een afzonderlijke testsleutel in, met een werkende lokale sessie
+      als terugweg. Bij een nieuwe verbinding met die sleutel wordt de toegang geweigerd. De Hub
+      meldt de intrekking als uitval of onbekende status en lokaal beheer werkt door. Leg alleen
+      tijdstip, afwijzing en melding vast. Controleer dat de logregels geen sleutelwaarden tonen.
+    acceptatie_nl: Geen token in logs.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Keer terug naar het lokale beheer. Ontbreekt het bewijs, werkt de testsleutel nog of staat er
+      een geheim in een log, laat EX34 open. Laat de actieve toegang en productiesleutels ongemoeid.
+    blokkeert_volgende: true
+    afwijking_van_document_nl: De controlelijst leest het bewijs van intrekking. De afzonderlijke gebruikersproef hoort bij P6.
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I21-21-05
+    titel_nl: DNS/Cert alert
+    uitvoeren_nl: >-
+      Vergelijk in Uptime Kuma of de Hub de laatste DNS-controle, de vervaldatum van het certificaat
+      en de tunnelstatus met de melding en haar tijdstip. Bekijk een bestaande storingsmelding en
+      de melding van herstel. Noteer een ontbrekende of verouderde meting als onbekend.
+    acceptatie_nl: Storing meldt zich.
+    risico: Middel
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, gemaskeerde_output, status]
+    bij_fout_nl: >-
+      Gebruik de lokale statusweergave. Leg vast welke meting of melding ontbreekt en houd de
+      waarschuwing open. Laat DNS, certificaten en de actieve tunnel in gebruik.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS), NIET GEVALIDEERD (account)]
+
+  - id: I21-21-06
+    titel_nl: Rollback
+    uitvoeren_nl: >-
+      Leg privé het lokale beheerpad bij uitval van DNS, Cloudflare of Tailscale vast.
+      Open vanaf het eigen LAN een tweede beheersessie via het lokale adres uit D03 terwijl de
+      eerste sessie openblijft. Controleer dat de console zonder externe naamdienst, VPN of tunnel
+      beschikbaar is. Bewaar de instructie ook offline.
+    acceptatie_nl: Beheerder kan alsnog NAS bereiken.
+    risico: Hoog
+    wijze: [handmatig_bewijs]
+    besluiten: [D03]
+    bewijs: [datum, gemaskeerde_output, bewijsrecord_besluit, status]
+    bij_fout_nl: >-
+      Gebruik de nog open beheersessie. Houd de bestaande routes actief en laat de terugweg open
+      tot de beheerder de lokale toegang in een tweede sessie heeft bevestigd.
+    blokkeert_volgende: true
+    validatie_nu: [NIET GEVALIDEERD (echte NAS)]

@@ -165,6 +165,65 @@ def test_i11_zonder_terugdraaistap_wordt_geweigerd(tmp_path: Path, capsys: pytes
     assert "stappen/5" in melding and "'bij_fout_nl' is a required property" in melding
 
 
+def test_i21_bewaakt_intrekproef_en_lokale_terugweg() -> None:
+    data = _load("I21_TAILSCALE_CLOUDFLARED.checklist.yaml")
+    stappen = data["stappen"]
+    assert data["aanpak"] == "behouden_en_valideren" and "BLOK-15" in data["toelichting_nl"]
+    assert all(s["blokkeert_volgende"] and s["wijze"] == ["handmatig_bewijs"] for s in stappen)
+    beheer = stappen[1]["uitvoeren_nl"]
+    assert all(tekst in beheer for tekst in ("TrueNAS", "Authentik", "Hub-beheer", "zonder VPN"))
+    intrekproef = stappen[3]["uitvoeren_nl"]
+    assert all(tekst in intrekproef for tekst in ("EX34", "testsleutel", "toegang geweigerd", "lokaal beheer werkt"))
+    assert "NIET GEVALIDEERD (account)" in stappen[3]["validatie_nu"]
+    assert "tweede beheersessie" in stappen[-1]["uitvoeren_nl"]
+
+
+I26 = "I26_BESTAANDE_APPS.checklist.yaml"
+I26_APPACTIE = re.compile(
+    r"\b(?:stop(?!\s+(?:hier|bij|als|met)\b)|stopt|stoppen|gestopt|proefstop|stopzetten|stopgezet|"
+    r"verwijder(?:t|d|en|ing)?|uitschakel(?:en|ing|t)?|uitgeschakeld|schakel(?:t|en)?\b.*?\buit)\b",
+    re.IGNORECASE,
+)
+
+
+def _i26_appacties_alleen_door_gebruiker(data: dict[str, Any]) -> None:
+    # Titel en acceptatie komen letterlijk uit Excel. Toets elke vrij geschreven aanwijzing, ook de terugweg.
+    for stap in data["stappen"]:
+        for veld in (*cl.WEG_VELDEN, "afwijking_van_document_nl"):
+            for zinsdeel in re.split(r"[.!?;,]", stap.get(veld, "").casefold()):
+                if I26_APPACTIE.search(zinsdeel):
+                    # Goedkeuring aanwijzen is iets anders dan aanwijzen wie de handeling uitvoert.
+                    uitvoerder = re.sub(r"\b(?:goedkeuring|toestemming|bevestiging) door de gebruiker\b", "", zinsdeel)
+                    assert re.search(r"\bdoor de gebruiker\b", uitvoerder), f"{stap['id']} {veld}: {zinsdeel.strip()}"
+
+
+def test_i26_appacties_alleen_door_gebruiker() -> None:
+    data = _load(I26)
+    assert data["aanpak"] == "behouden_en_valideren" and "BLOK-15" in data["stappen"][0]["uitvoeren_nl"]
+    assert "Geen agent stopt of verwijdert een bestaande app" in data["toelichting_nl"]
+    assert all(s["blokkeert_volgende"] and not s.get("truenas_methoden") for s in data["stappen"])
+    media = data["stappen"][1]["uitvoeren_nl"]
+    assert all(tekst in media for tekst in ("naast elkaar draaien", "MediaGuard-voortgang", "vóór/na-rapport", "Z-14"))
+    assert "Emby blijft werken als terugval" in media
+    besluit = data["stappen"][-1]["uitvoeren_nl"]
+    assert all(tekst in besluit for tekst in ("per app", "Z-12", "Z-14", "proefherstel", "72 uur"))
+    _i26_appacties_alleen_door_gebruiker(data)
+
+
+@pytest.mark.parametrize(("index", "veld", "instructie"), [
+    (1, "uitvoeren_nl", "Stop Emby."),
+    (3, "bij_fout_nl", "Schakel de app uit."),
+    (5, "uitvoeren_nl", "De app wordt verwijderd."),
+    (5, "bij_fout_nl", "Na goedkeuring door de gebruiker stopt de agent Plex."),
+])
+def test_i26_weigert_appactie_zonder_uitvoerende_gebruiker(index: int, veld: str, instructie: str) -> None:
+    data = _load(I26)
+    stap = data["stappen"][index]
+    stap[veld] += " " + instructie
+    with pytest.raises(AssertionError, match=f"{stap['id']} {veld}"):
+        _i26_appacties_alleen_door_gebruiker(data)
+
+
 def test_i24_verwijst_naar_de_custom_app_en_beschermt_de_terugval() -> None:
     data = _load("I24_UNIVERSELE_MEDIASERVER.checklist.yaml")
     stappen = data["stappen"]

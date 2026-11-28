@@ -28,7 +28,7 @@ B08-006), de installeerbare manifests per `03_INSTALLATIE`-document en de integr
 | Deze dienst als standaard Custom App (formuliervelden) | [`deploy/truenas/CUSTOM_APP.md`](deploy/truenas/CUSTOM_APP.md) |
 | Overzicht installatiemethode per I-document (I01–I26) en de manifesten (Beszel, Uptime Kuma, Gotify, Authentik, Node-RED, Hub/executor) | [`install/manifests/README.md`](install/manifests/README.md) |
 | Node-RED: beveiliging, flowbundels (hartslag, MediaGuard offline → melding, testflow) en wat nog niet kan | [`install/node-red/README.md`](install/node-red/README.md) |
-| Controlelijsten I01 (TrueNAS-basis) en I02 (back-up en herstel) | [`install/checklists/`](install/checklists/) |
+| Controlelijsten, waaronder TrueNAS-basis (I01), back-up en herstel (I02), externe toegang (I21) en bestaande apps (I26) | [`install/checklists/`](install/checklists/) |
 
 De dienst heeft alleen een kleine Nederlandse statuspagina op `http://<NAS-adres>:30440/` in de ontwerptaal **Peil**
 (framework-vrij sjabloon uit `ai-server-manager`, geen JavaScript); alle schermen staan in de Hub (`ai-server-manager`).
@@ -51,7 +51,7 @@ docs/platform-v2/         contract 1.3 + conformiteitslijst (gepind, CONTRACT_KO
 e2e/                      integrale E2E-opzet (README), simulators (truenas, hub incl. stand-ins voor beleid,
                           goedkeuring en uitvoerder, beszel, uptime_kuma, gotify, authentik + simkit),
                           conformance/echte_hub.py
-install/manifests/        manifesten per I-document (+ validatie-uitzonderingen)   install/checklists/  I01/I02
+install/manifests/        manifesten per I-document (+ validatie-uitzonderingen)   install/checklists/  controlelijsten
 install/node-red/         instellingen (bron van FLOWS in het manifest), flowbundels, lock     apps/api/src/appstore/
                           gepinde kopie van de manifeststandaard (ADR-0021; tools/validator_kopie.py)
 schemas/                  checklist-v1.schema.json         tools/               manifesten, controlelijsten, rooktest
